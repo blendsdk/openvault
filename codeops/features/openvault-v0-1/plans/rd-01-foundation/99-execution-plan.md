@@ -2,8 +2,8 @@
 
 > **Document**: 99-execution-plan.md
 > **Parent**: [Index](00-index.md)
-> **Last Updated**: 2026-10-29 16:47
-> **Progress**: 8/34 tasks (24%)
+> **Last Updated**: 2026-10-29 16:48
+> **Progress**: 9/34 tasks (26%)
 > **CodeOps Artifact Schema**: 1
 
 ## Overview
@@ -57,7 +57,7 @@ implement, run green, add impl tests, verify.
 - [x] 1.1.6 [executor] Implement `packages/api-contract/src/ids.ts` and `packages/test-support/src/sentinels.ts` ✅ (completed: 2026-10-29 16:43)
 - [x] 1.1.7 [spec-author] Write `tests/react-single.spec.test.mjs` for ST-44 ✅ (completed: 2026-10-29 16:45)
 - [x] 1.1.8 [executor] Implement `scripts/check-single-react.mjs`; run the specs green; add impl tests for boundaries, Unicode, and sentinel exports ✅ (completed: 2026-10-29 16:47)
-- [ ] 1.1.9 [executor] Add G-3 root test (`packages/core` has no production dependencies) and the verify-order test
+- [x] 1.1.9 [executor] Add G-3 root test (`packages/core` has no production dependencies) and the verify-order test ✅ (completed: 2026-10-29 16:48)
 - [ ] 1.1.10 [executor] Run the phase gate
 
 **Deliverables**: core guards, api-contract schemas, test-support sentinels, root test runner, React/Griffel check.
