@@ -1,0 +1,91 @@
+name: openvault
+
+services:
+  proxy:
+    image: caddy:2.10-alpine
+    ports:
+      - "80:80"
+      - "443:443"
+    environment:
+      ACME_EMAIL: ${ACME_EMAIL:-admin@example.com}
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - openvault_tls:/etc/openvault/tls:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    networks:
+      - edge_net
+      - vault_net
+    depends_on:
+      openvaultd:
+        condition: service_started
+
+  openvault-init:
+    # Runs once to create the keyring, CA, server certificate, and bootstrap admin.
+    image: ghcr.io/blendsdk/openvault:0.1.0
+    command: ["ov", "init", "--prepare"]
+    environment:
+      OPENVAULT_DB_URL: postgres://openvault:${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD}@postgres:5432/openvault
+      OPENVAULT_KEYRING: /var/lib/openvault/keyring.json
+      OPENVAULT_TLS_CERT: /etc/openvault/tls/server.crt
+      OPENVAULT_TLS_KEY: /etc/openvault/tls/server.key
+    volumes:
+      - openvault_data:/var/lib/openvault
+      - openvault_tls:/etc/openvault/tls
+    networks:
+      - db_net
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  openvaultd:
+    # v0.1 target image. Until the release exists, build or pull the local image.
+    image: ghcr.io/blendsdk/openvault:0.1.0
+    environment:
+      OPENVAULT_BASE_URL: ${OPENVAULT_BASE_URL:-https://localhost}
+      OPENVAULT_DB_URL: postgres://openvault:${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD}@postgres:5432/openvault
+      OPENVAULT_KEYRING: /var/lib/openvault/keyring.json
+      OPENVAULT_TLS_CERT: /etc/openvault/tls/server.crt
+      OPENVAULT_TLS_KEY: /etc/openvault/tls/server.key
+      PORT: "8443"
+    volumes:
+      - openvault_data:/var/lib/openvault
+      - openvault_tls:/etc/openvault/tls
+    networks:
+      - vault_net
+      - db_net
+    depends_on:
+      openvault-init:
+        condition: service_completed_successfully
+      postgres:
+        condition: service_healthy
+
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_DB: openvault
+      POSTGRES_USER: openvault
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD}
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    networks:
+      - db_net
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U openvault -d openvault"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+networks:
+  edge_net:
+  vault_net:
+    internal: true
+  db_net:
+    internal: true
+
+volumes:
+  pgdata:
+  caddy_data:
+  caddy_config:
+  openvault_data:
+  openvault_tls:

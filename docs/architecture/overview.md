@@ -1,0 +1,77 @@
+# Architecture overview
+
+OpenVault is a single-node, self-hosted service built on BlendSDK v5.
+
+## Context
+
+```text
+browser / CLI ── HTTPS ──▶ reverse proxy ──▶ WebAFX server ──▶ PostgreSQL
+                                                   │
+                                                   └── keyring (KEK, outside the database)
+
+app container ◀── tmpfs files ── agent ── mTLS ──▶ WebAFX server
+```
+
+The server owns the API, the browser session, the static React build, and the agent mTLS
+endpoint. There is no separate UI server and no Redis in v0.1.
+
+## Components
+
+| Component | Responsibility |
+|---|---|
+| `apps/server` | WebAFX controllers, authentication, policy, crypto, audit |
+| `apps/web` | React 19 + Fluent UI v9 UI |
+| `apps/agent` | Per-service sidecar and wrapper modes |
+| `apps/cli` | `ov` command |
+| `packages/core` | Domain types, envelope encryption, policy primitives |
+| `packages/api-contract` | Shared schemas, OpenAPI contract, generated client |
+| PostgreSQL | Metadata, ciphertext, policy, audit chain |
+| Keyring file | KEK, wrapped keys, outside the database |
+| Reverse proxy | TLS termination, HSTS, request limits |
+
+## Request path
+
+1. The proxy terminates TLS.
+2. WebAFX resolves the caller: browser session, CLI JWT, or agent certificate.
+3. The policy service evaluates the action and resource scope.
+4. The audit writer records the decision.
+5. The handler reads or writes ciphertext.
+6. The response is returned in the WebAFX envelope.
+
+## Delivery path
+
+1. An operator runs `ov docker scaffold`.
+2. The agent joins with a single-use token and receives a client certificate.
+3. The agent fetches its manifest's secrets over mTLS.
+4. The agent writes files atomically to `/dev/shm/openvault/<project>/<service>/`.
+5. The application reads the files from a read-only mount.
+6. The agent registers consumer metadata and refreshes on an interval.
+
+## Storage
+
+PostgreSQL holds:
+
+- projects, principals, assignments
+- secret and certificate metadata and ciphertext
+- wrapped data keys
+- audit events, checkpoints, and wrapped audit keys
+- CLI refresh sessions and consumer registrations
+
+The keyring holds the KEK and older keys. It is never stored in PostgreSQL.
+
+## Networks
+
+| Network | Members |
+|---|---|
+| `edge_net` | proxy |
+| `vault_net` | proxy, server, agents |
+| `db_net` | server, PostgreSQL |
+| app networks | application, its agent |
+
+The application has no route to the server or database.
+
+## Next
+
+- [Cryptography](/architecture/crypto)
+- [Identity](/architecture/identity)
+- [Agent delivery](/architecture/agent-delivery)

@@ -1,0 +1,15 @@
+{
+  email {$ACME_EMAIL}
+}
+
+https://localhost {
+  tls internal
+
+  reverse_proxy openvaultd:8443 {
+    transport http {
+      tls
+      tls_trusted_ca_certs /etc/openvault/tls/ca.pem
+      tls_server_name openvaultd
+    }
+  }
+}

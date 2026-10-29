@@ -1,0 +1,51 @@
+name: Bug report
+description: Report a reproducible problem with OpenVault.
+labels: [bug]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Do not include real secrets, private keys, tokens, or production hostnames.
+        Security issues must follow SECURITY.md, not this form.
+  - type: input
+    id: version
+    attributes:
+      label: Version or commit
+      placeholder: v0.1.0 or a commit SHA
+    validations:
+      required: true
+  - type: textarea
+    id: description
+    attributes:
+      label: What happened?
+      description: A clear description of the problem.
+    validations:
+      required: true
+  - type: textarea
+    id: repro
+    attributes:
+      label: Reproduction steps
+      description: Commands, configuration, and the smallest example that shows the problem.
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected behavior
+    validations:
+      required: true
+  - type: textarea
+    id: logs
+    attributes:
+      label: Relevant logs
+      description: Redact secrets, tokens, and hostnames.
+      render: shell
+  - type: checkboxes
+    id: checks
+    attributes:
+      label: Checklist
+      options:
+        - label: I removed secrets, tokens, and private keys from this report.
+          required: true
+        - label: I searched existing issues.
+          required: true
