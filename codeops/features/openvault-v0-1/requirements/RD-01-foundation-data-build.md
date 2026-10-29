@@ -18,8 +18,7 @@ reviewable.
 
 ### Must Have
 
-- [ ] pnpm workspace with `apps/server`, `apps/web`, `apps/agent`, `apps/cli`, `packages/core`,
-  `packages/api-contract`, and `packages/test-support`.
+- [ ] pnpm workspace with `apps/server`, `apps/web`, `packages/core`, `packages/api-contract`, and `packages/test-support`. `apps/agent` and `apps/cli` are created by RD-10 and RD-11.
 - [ ] Node.js 22.23+, TypeScript 7.0.2, Biome 2.6.4, Vitest 5.0.5, Vite 8.3.5, and VitePress
   1.6.4 pinned in the root manifest or lockfile.
 - [ ] All production dependencies pinned to exact versions; lockfile committed and CI uses
@@ -76,7 +75,7 @@ reviewable.
 | `secret_versions` | Immutable envelope, creator, expiry |
 | `certificates` | Project, name, current version, purge protection, deletion |
 | `certificate_versions` | Chain, encrypted private key, metadata, validity |
-| `audit_events` | Append-only event, chain hash, HMAC, audit key id |
+| `audit_events` | Append-only event, project id, chain hash, HMAC, audit key id |
 | `audit_checkpoints` | Last event id/hash and HMAC |
 | `audit_keys` | Wrapped HMAC key |
 | `idempotency_keys` | Principal, key, method, path, resource id, created |
@@ -96,8 +95,8 @@ Invariants:
 ### Migration runner
 
 - Migrations are ordered SQL files with a recorded checksum.
-- Each migration runs in a transaction and takes an advisory lock so two instances cannot
-  race.
+- The migration run is transactional; a failure rolls back the whole run.
+- The run takes an advisory lock so two instances cannot race.
 - Re-running a migration set is a no-op.
 - A checksum mismatch aborts startup.
 - Failed migrations roll back and stop startup.
@@ -158,6 +157,6 @@ Invariants:
 7. [ ] No `.env`, keyring, private key, or production hostname is present in the repository
    or build artifacts.
 8. [ ] A schema test asserts every table in the data model exists with the required unique
-   constraints and foreign keys.
+   constraints, foreign keys, and CHECK constraints.
 9. [ ] Security requirements verified: no secrets in source, pinned dependencies, least-
    privilege CI.
