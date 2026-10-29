@@ -15,7 +15,7 @@
 
 | ID | Title | RD | Plan | Stage | Status | Last Updated | Depends-on / Blocker |
 |----|-------|----|------|-------|--------|--------------|----------------------|
-| RD-01 | Foundation, data model, build security | [RD-01](requirements/RD-01-foundation-data-build.md) | [rd-01-foundation](plans/rd-01-foundation/00-index.md) | Plan Preflighted | 🔬 | 2026-10-29 | — |
+| RD-01 | Foundation, data model, build security | [RD-01](requirements/RD-01-foundation-data-build.md) | [rd-01-foundation](plans/rd-01-foundation/00-index.md) | Executing | 🔄 | 2026-10-29 | — |
 | RD-02 | Transport, configuration, readiness | [RD-02](requirements/RD-02-transport-config-readiness.md) | — | RD Drafted | ✏️ | 2026-10-29 | depends on RD-01 |
 | RD-03 | Human authentication and sessions | [RD-03](requirements/RD-03-human-auth-sessions.md) | — | RD Drafted | ✏️ | 2026-10-29 | depends on RD-02 |
 | RD-04 | CLI authentication | [RD-04](requirements/RD-04-cli-auth.md) | — | RD Drafted | ✏️ | 2026-10-29 | depends on RD-03 |

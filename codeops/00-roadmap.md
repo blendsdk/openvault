@@ -13,7 +13,7 @@
 
 | Feature | Roadmap | Stage Summary | Progress | Status | Last Updated |
 |---------|---------|---------------|----------|--------|--------------|
-| openvault-v0-1 | [→](features/openvault-v0-1/00-roadmap.md) | 14 RDs · 1 plan preflighted | 0/14 RDs | ⬜ | 2026-10-29 |
+| openvault-v0-1 | [→](features/openvault-v0-1/00-roadmap.md) | 14 RDs · 1 executing | 0/14 RDs | ⬜ | 2026-10-29 |
 
 ## Archived
 
