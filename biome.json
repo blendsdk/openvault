@@ -12,7 +12,8 @@
       "!**/node_modules",
       "!**/coverage",
       "!**/.vitepress/cache",
-      "!**/.vitepress/dist"
+      "!**/.vitepress/dist",
+      "!**/.opencode/**"
     ]
   },
   "formatter": {
