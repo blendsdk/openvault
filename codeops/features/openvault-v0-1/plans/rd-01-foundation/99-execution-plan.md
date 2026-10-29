@@ -2,8 +2,8 @@
 
 > **Document**: 99-execution-plan.md
 > **Parent**: [Index](00-index.md)
-> **Last Updated**: 2026-10-29 16:41
-> **Progress**: 4/34 tasks (12%)
+> **Last Updated**: 2026-10-29 16:42
+> **Progress**: 5/34 tasks (15%)
 > **CodeOps Artifact Schema**: 1
 
 ## Overview
@@ -53,7 +53,7 @@ implement, run green, add impl tests, verify.
 - [x] 1.1.3 [spec-author] Write `packages/core/tests/ids.spec.test.ts` and `packages/api-contract/tests/names.spec.test.ts` for ST-1–ST-6 ✅ (completed: 2026-10-29 16:40)
 - [x] 1.1.4 [executor] Run the specs and record the red-phase failures ✅ (completed: 2026-10-29 16:41)
 - [ ] 1.1.4 [executor] Run the specs and record the red-phase failures
-- [ ] 1.1.5 [executor] Implement `packages/core/src/ids.ts` and `names.ts`, and re-export them from `packages/core/src/index.ts`
+- [x] 1.1.5 [executor] Implement `packages/core/src/ids.ts` and `names.ts`, and re-export them from `packages/core/src/index.ts` ✅ (completed: 2026-10-29 16:42)
 - [ ] 1.1.6 [executor] Implement `packages/api-contract/src/ids.ts` and `packages/test-support/src/sentinels.ts`
 - [ ] 1.1.7 [spec-author] Write `tests/react-single.spec.test.mjs` for ST-44
 - [ ] 1.1.8 [executor] Implement `scripts/check-single-react.mjs`; run the specs green; add impl tests for boundaries, Unicode, and sentinel exports
