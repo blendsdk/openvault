@@ -2,8 +2,8 @@
 
 > **Document**: 99-execution-plan.md
 > **Parent**: [Index](00-index.md)
-> **Last Updated**: 2026-10-29 16:53
-> **Progress**: 10/34 tasks (29%)
+> **Last Updated**: 2026-10-29 16:59
+> **Progress**: 14/34 tasks (41%)
 > **CodeOps Artifact Schema**: 1
 
 ## Overview
@@ -75,10 +75,10 @@ implement, run green, add impl tests, verify.
 
 **Reference**: [03-02](03-02-database-schema-migrations.md) · [07](07-testing-strategy.md) · P-01, P-02, P-04, P-05, P-07, P-15
 
-- [ ] 2.1.1 [spec-author] Write `apps/server/tests/integration/migrations.spec.test.ts` for ST-7–ST-19 and ST-36–ST-38
-- [ ] 2.1.2 [spec-author] Write `apps/server/tests/integration/schema.spec.test.ts` for ST-20–ST-35
-- [ ] 2.1.3 [executor] Create `deploy/compose/compose.test.yaml`, `vitest.integration.config.ts`, the server `test:integration` script, the unit-config exclusion, and the integration helper with the strict guard
-- [ ] 2.1.4 [executor] Run the integration suites against empty PostgreSQL 16 and record red-phase failures
+- [x] 2.1.1 [spec-author] Write `apps/server/tests/integration/migrations.spec.test.ts` for ST-7–ST-19 and ST-36–ST-38 ✅ (completed: 2026-10-29 16:59)
+- [x] 2.1.2 [spec-author] Write `apps/server/tests/integration/schema.spec.test.ts` for ST-20–ST-35 ✅ (completed: 2026-10-29 16:59)
+- [x] 2.1.3 [executor] Create `deploy/compose/compose.test.yaml`, `vitest.integration.config.ts`, the server `test:integration` script, the unit-config exclusion, and the integration helper with the strict guard ✅ (completed: 2026-10-29 16:59)
+- [x] 2.1.4 [executor] Run the integration suites against empty PostgreSQL 16 and record red-phase failures ✅ (completed: 2026-10-29 16:59)
 - [ ] 2.1.5 [executor] Write the eight SQL migrations, triggers, seed, and all constraints
 - [ ] 2.1.6 [executor] Implement `migrate.ts`, `cli.ts` (`db:migrate`, `--dry-run`), startup hook, lock timeout, applied-set checks, and transaction-control rejection
 - [ ] 2.1.7 [executor] Run the integration suites green on PostgreSQL 16
