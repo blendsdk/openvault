@@ -42,6 +42,7 @@ Kubernetes, and multi-tenant schema.
 | 03-01 | [Workspace and Toolchain](03-01-workspace-toolchain.md) | pnpm workspace, TS 7, Biome, package layout |
 | 03-02 | [Database Schema and Migrations](03-02-database-schema-migrations.md) | Tables, constraints, indexes, runner |
 | 03-03 | [Build and CI Security](03-03-build-ci-security.md) | CI, action pinning, audit, secret scan |
+| 05 | [Findings Ledger](05-findings.md) | Phase review findings and rulings |
 | 07 | [Testing Strategy](07-testing-strategy.md) | Specification test cases ST-1…ST-44 and gates G-1…G-5 |
 | 99 | [Execution Plan](99-execution-plan.md) | Phases, sessions, task checklist |
 

@@ -46,17 +46,18 @@ packages/test-support (dev-only; source-only)
 | `test:unit` | `pnpm -r test` |
 | `test:root` | `vitest run --config vitest.root.config.ts` |
 | `test` | `pnpm test:unit && pnpm test:root` |
-| `test:integration` | `pnpm --filter @openvault/server test:integration` |
-| `check:artifacts` | `node scripts/check-artifacts.mjs` |
+| `test:integration` | `pnpm --filter @openvault/server test:integration` (added in Phase 2) |
+| `check:artifacts` | `node scripts/check-artifacts.mjs` (added in Phase 3) |
 | `check:react` | `node scripts/check-single-react.mjs` |
-| `verify` | `pnpm build && pnpm typecheck && pnpm lint && pnpm test && pnpm check:artifacts && pnpm check:react && pnpm docs:build` |
+| `verify` | `pnpm build && pnpm typecheck && pnpm lint && pnpm test && pnpm check:react && pnpm docs:build` (Phase 3 inserts `pnpm check:artifacts`) |
 | `audit:prod` | `pnpm audit --prod --audit-level=high` |
 | `audit:full` | `pnpm audit --audit-level=high` |
 | `db:migrate` | `pnpm --filter @openvault/server db:migrate` |
 
 The `test:integration` and `check:artifacts` scripts are added by Phase 2 and Phase 3; the
-artifact step joins `verify` when that scanner lands. `verify` builds first so workspace
-packages resolve through their `dist` exports. pnpm's
+artifact step joins `verify` when that scanner lands. Until then, the phase-1 `verify` is
+`pnpm build && pnpm typecheck && pnpm lint && pnpm test && pnpm check:react && pnpm docs:build`.
+`verify` builds first so workspace packages resolve through their `dist` exports. pnpm's
 topological ordering builds `core`, then `api-contract`, then `server`. `typecheck` after the
 build still validates test sources. `verify` never runs database integration tests; those run
 only through `test:integration` with a real PostgreSQL service.
@@ -207,9 +208,8 @@ export const SENTINEL_KEY = "SENTINEL_KEY_DO_NOT_LEAK_7f3a";
     "test:root": "vitest run --config vitest.root.config.ts",
     "test": "pnpm test:unit && pnpm test:root",
     "test:integration": "pnpm --filter @openvault/server test:integration",
-    "check:artifacts": "node scripts/check-artifacts.mjs",
     "check:react": "node scripts/check-single-react.mjs",
-    "verify": "pnpm build && pnpm typecheck && pnpm lint && pnpm test && pnpm check:artifacts && pnpm check:react && pnpm docs:build"
+    "verify": "pnpm build && pnpm typecheck && pnpm lint && pnpm test && pnpm check:react && pnpm docs:build"
   }
 }
 ```
@@ -226,6 +226,6 @@ export const SENTINEL_KEY = "SENTINEL_KEY_DO_NOT_LEAK_7f3a";
 - Unit test `isUlid`, project/secret name regexes, and invalid inputs.
 - Unit test the single-React check against a nested fixture with two React versions.
 - Root test that `packages/core/package.json` has no `dependencies`.
-- Root test that `verify` contains the artifact and React checks in the documented order.
+- Root test that the current `verify` sequence is exact; it gains the artifact step in Phase 3.
 - Test that the server unit config excludes `tests/integration/**`.
 - Test that `test:root` is included in `verify`.

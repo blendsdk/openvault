@@ -126,6 +126,8 @@ describe("check-single-react", () => {
       join(root, "node_modules/feature/node_modules/react"),
       "dir",
     );
+    // A self-referential link must be skipped by the scanner's canonical-path guard.
+    symlinkSync(join(root, "node_modules"), join(root, "node_modules/loop"), "dir");
 
     const result = runCheck(root);
     const output = `${result.stdout}\n${result.stderr}`;

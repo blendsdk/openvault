@@ -17,3 +17,9 @@
 | RV-010 | 1 | MINOR | contract-tests | fixed |
 | RV-011 | 1 | MINOR | scope-record | fixed |
 | SA-004 | 1 | MINOR | dependency-policy | deferred |
+| RR-001 | 1 | MINOR | plan-docs | fixed |
+| RR-002 | 1 | MINOR | react-scanner-test | fixed |
+| RR-003 | 1 | MINOR | findings-ledger | fixed |
+
+Deferral targets: RV-002 → Phase 3 task 3.1.8 (CONTRIBUTING clean-checkout commands);
+SA-004 → Phase 3 task 3.1.6 (exact dependency pins and peer policy).
