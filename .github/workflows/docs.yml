@@ -43,11 +43,8 @@ jobs:
       - name: Build site
         run: pnpm docs:build
 
-      - name: Check links
-        uses: lycheeverse/lychee-action@v2
-        with:
-          args: --offline --no-progress docs
-          fail: true
+      # VitePress fails the build on dead internal links. External link checking is a
+      # separate scheduled job so a third-party outage does not block a docs deploy.
 
       - name: Configure Pages
         uses: actions/configure-pages@v5
