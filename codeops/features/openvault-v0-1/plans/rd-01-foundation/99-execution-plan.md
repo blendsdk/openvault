@@ -2,8 +2,8 @@
 
 > **Document**: 99-execution-plan.md
 > **Parent**: [Index](00-index.md)
-> **Last Updated**: 2026-10-29 16:43
-> **Progress**: 6/34 tasks (18%)
+> **Last Updated**: 2026-10-29 16:45
+> **Progress**: 7/34 tasks (21%)
 > **CodeOps Artifact Schema**: 1
 
 ## Overview
@@ -55,7 +55,7 @@ implement, run green, add impl tests, verify.
 - [ ] 1.1.4 [executor] Run the specs and record the red-phase failures
 - [x] 1.1.5 [executor] Implement `packages/core/src/ids.ts` and `names.ts`, and re-export them from `packages/core/src/index.ts` ✅ (completed: 2026-10-29 16:42)
 - [x] 1.1.6 [executor] Implement `packages/api-contract/src/ids.ts` and `packages/test-support/src/sentinels.ts` ✅ (completed: 2026-10-29 16:43)
-- [ ] 1.1.7 [spec-author] Write `tests/react-single.spec.test.mjs` for ST-44
+- [x] 1.1.7 [spec-author] Write `tests/react-single.spec.test.mjs` for ST-44 ✅ (completed: 2026-10-29 16:45)
 - [ ] 1.1.8 [executor] Implement `scripts/check-single-react.mjs`; run the specs green; add impl tests for boundaries, Unicode, and sentinel exports
 - [ ] 1.1.9 [executor] Add G-3 root test (`packages/core` has no production dependencies) and the verify-order test
 - [ ] 1.1.10 [executor] Run the phase gate
