@@ -1,8 +1,8 @@
 # Portfolio Roadmap: OpenVault
 
 > **Status**: Active
-> **Last Updated**: 2026-10-29
-> **Features**: 0 / 0 done
+> **Last Updated**: 2026-10-29 15:20
+> **Features**: 0 / 1 done
 > **CodeOps Artifact Schema**: 1
 
 ## Legend
@@ -13,6 +13,7 @@
 
 | Feature | Roadmap | Stage Summary | Progress | Status | Last Updated |
 |---------|---------|---------------|----------|--------|--------------|
+| openvault-v0-1 | [→](features/openvault-v0-1/00-roadmap.md) | 14 RDs · drafted | 0/14 RDs | ⬜ | 2026-10-29 |
 
 ## Archived
 
