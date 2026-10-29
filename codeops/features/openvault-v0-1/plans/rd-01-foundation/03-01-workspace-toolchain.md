@@ -116,7 +116,7 @@ and `environment: "node"`.
 - Dev dependencies are exact-pinned except `@types/node`, which is lockfile-resolved.
 - `pnpm install --frozen-lockfile` is the only install used in CI.
 - `@openvault/*` dependencies use `workspace:*`.
-- `pnpm.overrides` pins `react` and `react-dom` to the single installed version.
+- `pnpm-workspace.yaml` `overrides` pins `react` and `react-dom` to the single installed version.
 - `scripts/check-single-react.mjs` checks `pnpm -r list react` and
   `pnpm -r list @griffel/react` and fails on duplicate versions.
 - `pnpm-workspace.yaml` carries `dedupePeerDependents: true` and

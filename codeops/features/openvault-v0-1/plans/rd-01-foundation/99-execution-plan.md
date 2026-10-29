@@ -2,8 +2,8 @@
 
 > **Document**: 99-execution-plan.md
 > **Parent**: [Index](00-index.md)
-> **Last Updated**: 2026-10-29 16:37
-> **Progress**: 1/34 tasks (3%)
+> **Last Updated**: 2026-10-29 16:39
+> **Progress**: 2/34 tasks (6%)
 > **CodeOps Artifact Schema**: 1
 
 ## Overview
@@ -49,7 +49,7 @@ implement, run green, add impl tests, verify.
 **Reference**: [03-01](03-01-workspace-toolchain.md) · [07](07-testing-strategy.md) · P-03, P-06, P-13, P-14
 
 - [x] 1.1.1 [executor] Create `packages/api-contract` and `packages/test-support` skeletons (manifest, tsconfig, vitest config, `src/index.ts`) and add workspace deps to server ✅ (completed: 2026-10-29 16:37)
-- [ ] 1.1.2 [executor] Add root `vitest.root.config.ts` (`.spec` and `.impl` root tests), `test:root`, strict peer settings, React overrides, clean build scripts, and WebAFX/BlendSDK peer declarations
+- [x] 1.1.2 [executor] Add root `vitest.root.config.ts` (`.spec` and `.impl` root tests), `test:root`, strict peer settings, React overrides, clean build scripts, and WebAFX/BlendSDK peer declarations ✅ (completed: 2026-10-29 16:39)
 - [ ] 1.1.3 [spec-author] Write `packages/core/tests/ids.spec.test.ts` and `packages/api-contract/tests/names.spec.test.ts` for ST-1–ST-6
 - [ ] 1.1.4 [executor] Run the specs and record the red-phase failures
 - [ ] 1.1.5 [executor] Implement `packages/core/src/ids.ts` and `names.ts`, and re-export them from `packages/core/src/index.ts`
