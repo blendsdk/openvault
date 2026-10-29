@@ -19,7 +19,7 @@ capabilities.
 ### Must Have
 
 - [ ] Organization administrators can create, rename, and soft-delete projects; names match
-  `^[a-z0-9][a-z0-9-]{2,39}$` and are unique.
+  `^[a-z0-9][a-z0-9-]{1,38}[a-z0-9]$` and are unique.
 - [ ] Soft-deleting a project hides its secrets, certificates, identities, and assignments
   immediately; audit history remains.
 - [ ] Secret names match `^[A-Za-z0-9][A-Za-z0-9-]{0,126}$`.
