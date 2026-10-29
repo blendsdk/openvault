@@ -52,7 +52,12 @@ describe("check-single-react", () => {
     const root = makeFixture();
     writePackage(root, "node_modules/react", "react", "19.3.1");
     writePackage(root, "node_modules/@griffel/react", "@griffel/react", "1.7.8");
-    writePackage(root, "node_modules/feature/node_modules/@griffel/react", "@griffel/react", "1.8.0");
+    writePackage(
+      root,
+      "node_modules/feature/node_modules/@griffel/react",
+      "@griffel/react",
+      "1.8.0",
+    );
 
     const result = runCheck(root);
     const output = `${result.stdout}\n${result.stderr}`;
@@ -61,7 +66,9 @@ describe("check-single-react", () => {
     expect(output).toContain("1.7.8");
     expect(output).toContain("1.8.0");
     expect(output).toContain(join(root, "node_modules/@griffel/react/package.json"));
-    expect(output).toContain(join(root, "node_modules/feature/node_modules/@griffel/react/package.json"));
+    expect(output).toContain(
+      join(root, "node_modules/feature/node_modules/@griffel/react/package.json"),
+    );
   });
 
   it("should pass when React and Griffel each have exactly one version", () => {
