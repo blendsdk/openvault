@@ -18,6 +18,7 @@
     "test:root": "vitest run --config vitest.root.config.ts",
     "test": "pnpm test:unit && pnpm test:root",
     "test:integration": "pnpm --filter @openvault/server test:integration",
+    "db:migrate": "pnpm --filter @openvault/server db:migrate",
     "check:react": "node scripts/check-single-react.mjs",
     "verify": "pnpm build && pnpm typecheck && pnpm lint && pnpm test && pnpm check:react && pnpm docs:build",
     "docs:dev": "vitepress dev docs",

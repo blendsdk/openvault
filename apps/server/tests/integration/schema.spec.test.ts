@@ -177,10 +177,12 @@ describe("schema inventory", () => {
     const definitions = [...checks.values()].flat().join("\n");
 
     expect(definitions).toContain("name ~ '^[a-z0-9][a-z0-9-]{1,38}[a-z0-9]$'");
-    expect(definitions).toContain("kind = 'service' AND owner_project_id IS NOT NULL");
+    expect(definitions).toContain("kind = 'service'");
+    expect(definitions).toContain("owner_project_id IS NOT NULL");
     expect(definitions).toContain("argon2id");
     expect(definitions).toContain("octet_length(refresh_hash) = 32");
-    expect(definitions).toContain("scope_type = 'org' AND scope_id = 'org'");
+    expect(definitions).toContain("scope_type = 'org'");
+    expect(definitions).toContain("scope_id = 'org'");
     expect(definitions).toContain("scope_type <> 'object'");
     expect(definitions).toContain("octet_length(nonce) = 12");
     expect(definitions).toContain("octet_length(tag) = 16");

@@ -10,7 +10,8 @@
     "typecheck": "tsc -p tsconfig.test.json",
     "start": "node dist/main.js",
     "test": "vitest run",
-    "test:integration": "vitest run --config vitest.integration.config.ts"
+    "test:integration": "vitest run --config vitest.integration.config.ts",
+    "db:migrate": "node dist/db/cli.js"
   },
   "dependencies": {
     "@openvault/api-contract": "workspace:*",
