@@ -36,13 +36,14 @@ implement, run green, add impl tests, verify.
 ## Phase 1: Domain contracts and workspace
 
 > **Reasoning**: medium — bounded package and schema work with clear acceptance criteria.
-> **Phase gate**: `pnpm build && pnpm typecheck && pnpm lint && pnpm test:unit`
+> **Phase gate**: `pnpm verify`
 > **Phase baseline tree**: 6c538e7a170ff3b7c94d24c7064f98381fc9f93a
 > **Scope mode**: strict
 > **Expected modification set**: root `package.json`, `pnpm-workspace.yaml`, `.npmrc`,
-> `tsconfig.base.json`, `vitest.root.config.ts`, `packages/core/**` (ids/names plus tests),
-> `packages/api-contract/**`, `packages/test-support/**`, `apps/server/package.json`,
-> `apps/web/package.json`, `scripts/check-single-react.mjs`, `tests/**`, `pnpm-lock.yaml`
+> `biome.json`, `tsconfig.base.json`, `vitest.root.config.ts`, `packages/core/**` (ids/names
+> plus tests), `packages/api-contract/**`, `packages/test-support/**`,
+> `apps/server/package.json`, `apps/web/package.json`, `scripts/check-single-react.mjs`,
+> `tests/**`, `pnpm-lock.yaml`
 
 ### Step 1.1: Shared IDs, names, and package boundaries
 
@@ -52,7 +53,6 @@ implement, run green, add impl tests, verify.
 - [x] 1.1.2 [executor] Add root `vitest.root.config.ts` (`.spec` and `.impl` root tests), `test:root`, strict peer settings, React overrides, clean build scripts, and WebAFX/BlendSDK peer declarations ✅ (completed: 2026-10-29 16:39)
 - [x] 1.1.3 [spec-author] Write `packages/core/tests/ids.spec.test.ts` and `packages/api-contract/tests/names.spec.test.ts` for ST-1–ST-6 ✅ (completed: 2026-10-29 16:40)
 - [x] 1.1.4 [executor] Run the specs and record the red-phase failures ✅ (completed: 2026-10-29 16:41)
-- [ ] 1.1.4 [executor] Run the specs and record the red-phase failures
 - [x] 1.1.5 [executor] Implement `packages/core/src/ids.ts` and `names.ts`, and re-export them from `packages/core/src/index.ts` ✅ (completed: 2026-10-29 16:42)
 - [x] 1.1.6 [executor] Implement `packages/api-contract/src/ids.ts` and `packages/test-support/src/sentinels.ts` ✅ (completed: 2026-10-29 16:43)
 - [x] 1.1.7 [spec-author] Write `tests/react-single.spec.test.mjs` for ST-44 ✅ (completed: 2026-10-29 16:45)
@@ -62,7 +62,7 @@ implement, run green, add impl tests, verify.
 
 **Deliverables**: core guards, api-contract schemas, test-support sentinels, root test runner, React/Griffel check.
 
-**Verify**: `pnpm test:unit` (phase subset).
+**Verify**: `pnpm verify` (no database).
 
 ---
 

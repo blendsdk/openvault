@@ -11,7 +11,9 @@ export type Ulid = string;
  * The canonical ULID shape.
  *
  * The pattern is intentionally strict: callers should reject upper/lowercase variants that
- * are not part of Crockford's alphabet rather than normalizing them silently.
+ * are not part of Crockford's alphabet rather than normalizing them silently. It validates
+ * the 26-character alphabet and length, not the 128-bit timestamp range; a canonical ULID
+ * normally starts with `0`-`7`.
  *
  * @example
  * ```ts

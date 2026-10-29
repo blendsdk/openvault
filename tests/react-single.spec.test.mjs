@@ -1,5 +1,5 @@
 import { spawnSync } from "node:child_process";
-import { existsSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { mkdirSync, mkdtempSync, rmSync, symlinkSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
@@ -92,6 +92,46 @@ describe("check-single-react", () => {
 
     expect(result.status).toBe(1);
     expect(output).toContain("@griffel/react");
-    expect(existsSync(join(root, "node_modules/@griffel/react"))).toBe(false);
+  });
+
+  it("should find packages in pnpm's virtual store", () => {
+    const root = makeFixture();
+    writePackage(root, "node_modules/.pnpm/react@19.2.0/node_modules/react", "react", "19.2.0");
+    writePackage(root, "node_modules/.pnpm/react@19.3.1/node_modules/react", "react", "19.3.1");
+    writePackage(
+      root,
+      "node_modules/.pnpm/@griffel+react@1.7.8/node_modules/@griffel/react",
+      "@griffel/react",
+      "1.7.8",
+    );
+
+    const result = runCheck(root);
+    const output = `${result.stdout}\n${result.stderr}`;
+
+    expect(result.status).toBe(1);
+    expect(output).toContain("19.2.0");
+    expect(output).toContain("19.3.1");
+  });
+
+  it("should follow package symlinks without looping", () => {
+    const root = makeFixture();
+    writePackage(root, "vendor/react-a", "react", "19.2.0");
+    writePackage(root, "vendor/react-b", "react", "19.3.1");
+    writePackage(root, "node_modules/@griffel/react", "@griffel/react", "1.7.8");
+
+    mkdirSync(join(root, "node_modules/feature/node_modules"), { recursive: true });
+    symlinkSync(join(root, "vendor/react-a"), join(root, "node_modules/react"), "dir");
+    symlinkSync(
+      join(root, "vendor/react-b"),
+      join(root, "node_modules/feature/node_modules/react"),
+      "dir",
+    );
+
+    const result = runCheck(root);
+    const output = `${result.stdout}\n${result.stderr}`;
+
+    expect(result.status).toBe(1);
+    expect(output).toContain("19.2.0");
+    expect(output).toContain("19.3.1");
   });
 });

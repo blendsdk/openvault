@@ -1,9 +1,23 @@
 #!/usr/bin/env node
 
-import { existsSync, readdirSync, readFileSync } from "node:fs";
+import { existsSync, readdirSync, readFileSync, realpathSync, statSync } from "node:fs";
 import { join, resolve } from "node:path";
 
 const TARGETS = ["react", "@griffel/react"];
+
+/**
+ * Resolves a path to its canonical location.
+ *
+ * @param {string} path - Path to resolve.
+ * @returns {string | null} Canonical path, or `null` for a broken link or unreadable path.
+ */
+function safeRealpath(path) {
+  try {
+    return realpathSync(path);
+  } catch {
+    return null;
+  }
+}
 
 /**
  * Reads and parses a package manifest.
@@ -29,18 +43,33 @@ function readPackageIdentity(packageJsonPath) {
  * any nested `node_modules` directory. Nested installs are where duplicate versions usually
  * hide.
  *
- * @param {string} packageDirectory - Candidate package directory.
+ * @param {string} packageDirectory - Candidate package directory or symlink to one.
  * @param {Map<string, Array<{ version: string, path: string }>>} found - Accumulator.
- * @param {Set<string>} seen - Deduplication set keyed by package name and manifest path.
+ * @param {Set<string>} seenPackages - Deduplication set keyed by canonical manifest path.
+ * @param {Set<string>} visitedDirectories - Canonical directories already scanned.
  */
-function inspectPackage(packageDirectory, found, seen) {
-  const packageJsonPath = join(packageDirectory, "package.json");
+function inspectPackage(packageDirectory, found, seenPackages, visitedDirectories) {
+  const canonicalDirectory = safeRealpath(packageDirectory);
+  if (!canonicalDirectory) {
+    return;
+  }
+
+  let stats;
+  try {
+    stats = statSync(canonicalDirectory);
+  } catch {
+    return;
+  }
+  if (!stats.isDirectory()) {
+    return;
+  }
+
+  const packageJsonPath = join(canonicalDirectory, "package.json");
   if (existsSync(packageJsonPath)) {
     const identity = readPackageIdentity(packageJsonPath);
     if (identity && TARGETS.includes(identity.name)) {
-      const key = `${identity.name}\0${packageJsonPath}`;
-      if (!seen.has(key)) {
-        seen.add(key);
+      if (!seenPackages.has(packageJsonPath)) {
+        seenPackages.add(packageJsonPath);
         const entries = found.get(identity.name) ?? [];
         entries.push({ version: identity.version, path: packageJsonPath });
         found.set(identity.name, entries);
@@ -48,55 +77,105 @@ function inspectPackage(packageDirectory, found, seen) {
     }
   }
 
-  const nestedNodeModules = join(packageDirectory, "node_modules");
-  if (existsSync(nestedNodeModules)) {
-    scanNodeModules(nestedNodeModules, found, seen);
-  }
+  scanNodeModules(
+    join(canonicalDirectory, "node_modules"),
+    found,
+    seenPackages,
+    visitedDirectories,
+  );
 }
 
 /**
- * Walks a `node_modules` directory without following symlinks.
+ * Walks a `node_modules` directory.
  *
- * pnpm stores real package directories under `.pnpm/<id>/node_modules`; direct entries in
- * the workspace `node_modules` are symlinks. The scanner therefore visits each virtual-store
- * package directory explicitly and skips symlinked entries to avoid cycles.
+ * pnpm stores real package directories under `.pnpm/<id>/node_modules`; workspace entries
+ * are often symlinks. Following a symlink once and caching its canonical directory keeps the
+ * walk cycle-safe while still catching linked duplicates.
  *
  * @param {string} nodeModulesDirectory - Directory to scan.
  * @param {Map<string, Array<{ version: string, path: string }>>} found - Accumulator.
- * @param {Set<string>} seen - Deduplication set.
+ * @param {Set<string>} seenPackages - Deduplication set.
+ * @param {Set<string>} visitedDirectories - Canonical directories already scanned.
  */
-function scanNodeModules(nodeModulesDirectory, found, seen) {
-  if (!existsSync(nodeModulesDirectory)) {
+function scanNodeModules(nodeModulesDirectory, found, seenPackages, visitedDirectories) {
+  const canonicalDirectory = safeRealpath(nodeModulesDirectory);
+  if (!canonicalDirectory || visitedDirectories.has(canonicalDirectory)) {
     return;
   }
 
-  for (const entry of readdirSync(nodeModulesDirectory, { withFileTypes: true })) {
-    if (!entry.isDirectory() || entry.isSymbolicLink()) {
+  let stats;
+  try {
+    stats = statSync(canonicalDirectory);
+  } catch {
+    return;
+  }
+  if (!stats.isDirectory()) {
+    return;
+  }
+  visitedDirectories.add(canonicalDirectory);
+
+  let entries;
+  try {
+    entries = readdirSync(canonicalDirectory, { withFileTypes: true });
+  } catch {
+    return;
+  }
+
+  for (const entry of entries) {
+    const entryPath = join(canonicalDirectory, entry.name);
+    const canonicalEntry = safeRealpath(entryPath);
+    if (!canonicalEntry) {
+      continue;
+    }
+
+    let entryStats;
+    try {
+      entryStats = statSync(canonicalEntry);
+    } catch {
+      continue;
+    }
+    if (!entryStats.isDirectory()) {
       continue;
     }
 
     if (entry.name === ".pnpm") {
-      const virtualStore = join(nodeModulesDirectory, entry.name);
-      for (const stored of readdirSync(virtualStore, { withFileTypes: true })) {
-        if (!stored.isDirectory() || stored.isSymbolicLink()) {
+      let storedPackages;
+      try {
+        storedPackages = readdirSync(canonicalEntry, { withFileTypes: true });
+      } catch {
+        continue;
+      }
+      for (const stored of storedPackages) {
+        if (!stored.isDirectory() && !stored.isSymbolicLink()) {
           continue;
         }
-        scanNodeModules(join(virtualStore, stored.name, "node_modules"), found, seen);
+        scanNodeModules(
+          join(canonicalEntry, stored.name, "node_modules"),
+          found,
+          seenPackages,
+          visitedDirectories,
+        );
       }
       continue;
     }
 
     if (entry.name.startsWith("@")) {
-      const scopeDirectory = join(nodeModulesDirectory, entry.name);
-      for (const scoped of readdirSync(scopeDirectory, { withFileTypes: true })) {
-        if (scoped.isDirectory() && !scoped.isSymbolicLink()) {
-          inspectPackage(join(scopeDirectory, scoped.name), found, seen);
+      let scopedPackages;
+      try {
+        scopedPackages = readdirSync(canonicalEntry, { withFileTypes: true });
+      } catch {
+        continue;
+      }
+      for (const scoped of scopedPackages) {
+        if (!scoped.isDirectory() && !scoped.isSymbolicLink()) {
+          continue;
         }
+        inspectPackage(join(canonicalEntry, scoped.name), found, seenPackages, visitedDirectories);
       }
       continue;
     }
 
-    inspectPackage(join(nodeModulesDirectory, entry.name), found, seen);
+    inspectPackage(canonicalEntry, found, seenPackages, visitedDirectories);
   }
 }
 
@@ -174,7 +253,7 @@ function main() {
   }
 
   const found = new Map();
-  scanNodeModules(nodeModulesDirectory, found, new Set());
+  scanNodeModules(nodeModulesDirectory, found, new Set(), new Set());
 
   let failed = false;
   for (const target of TARGETS) {

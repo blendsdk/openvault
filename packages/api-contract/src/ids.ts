@@ -28,7 +28,8 @@ export const projectNameSchema = z.string().regex(PROJECT_NAME_PATTERN, "Invalid
  * Validates a secret name.
  *
  * Secret names are 1-127 characters long, start with an alphanumeric character, and may
- * contain internal hyphens. Path separators and control characters are rejected.
+ * contain hyphens, including a trailing hyphen. Path separators and control characters are
+ * rejected.
  *
  * @example
  * ```ts

@@ -17,10 +17,10 @@ export const PROJECT_NAME_PATTERN = /^[a-z0-9][a-z0-9-]{1,38}[a-z0-9]$/;
 /**
  * The allowed shape of a secret name.
  *
- * Secret names are case-sensitive, may contain digits and internal hyphens, and are between
- * 1 and 127 characters long. The first character must be alphanumeric. Path separators,
- * traversal text, and control characters are rejected so a name can never escape the
- * per-secret delivery path.
+ * Secret names are case-sensitive, may contain digits and hyphens (including a trailing
+ * hyphen), and are between 1 and 127 characters long. The first character must be
+ * alphanumeric. Path separators, traversal text, and control characters are rejected so a
+ * name can never escape the per-secret delivery path.
  *
  * @example
  * ```ts

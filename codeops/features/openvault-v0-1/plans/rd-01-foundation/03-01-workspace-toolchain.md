@@ -54,7 +54,9 @@ packages/test-support (dev-only; source-only)
 | `audit:full` | `pnpm audit --audit-level=high` |
 | `db:migrate` | `pnpm --filter @openvault/server db:migrate` |
 
-`verify` builds first so workspace packages resolve through their `dist` exports. pnpm's
+The `test:integration` and `check:artifacts` scripts are added by Phase 2 and Phase 3; the
+artifact step joins `verify` when that scanner lands. `verify` builds first so workspace
+packages resolve through their `dist` exports. pnpm's
 topological ordering builds `core`, then `api-contract`, then `server`. `typecheck` after the
 build still validates test sources. `verify` never runs database integration tests; those run
 only through `test:integration` with a real PostgreSQL service.
@@ -117,8 +119,9 @@ and `environment: "node"`.
 - `pnpm install --frozen-lockfile` is the only install used in CI.
 - `@openvault/*` dependencies use `workspace:*`.
 - `pnpm-workspace.yaml` `overrides` pins `react` and `react-dom` to the single installed version.
-- `scripts/check-single-react.mjs` checks `pnpm -r list react` and
-  `pnpm -r list @griffel/react` and fails on duplicate versions.
+- `scripts/check-single-react.mjs` walks `node_modules`, including pnpm's virtual store,
+  follows package symlinks with a cycle guard, and fails on duplicate or missing React and
+  Griffel versions.
 - `pnpm-workspace.yaml` carries `dedupePeerDependents: true` and
   `strictPeerDependencies: true`; `.npmrc` carries only registry/auth settings.
 
