@@ -2,8 +2,8 @@
 
 > **Document**: 99-execution-plan.md
 > **Parent**: [Index](00-index.md)
-> **Last Updated**: 2026-10-29 16:40
-> **Progress**: 3/34 tasks (9%)
+> **Last Updated**: 2026-10-29 16:41
+> **Progress**: 4/34 tasks (12%)
 > **CodeOps Artifact Schema**: 1
 
 ## Overview
@@ -51,7 +51,7 @@ implement, run green, add impl tests, verify.
 - [x] 1.1.1 [executor] Create `packages/api-contract` and `packages/test-support` skeletons (manifest, tsconfig, vitest config, `src/index.ts`) and add workspace deps to server ✅ (completed: 2026-10-29 16:37)
 - [x] 1.1.2 [executor] Add root `vitest.root.config.ts` (`.spec` and `.impl` root tests), `test:root`, strict peer settings, React overrides, clean build scripts, and WebAFX/BlendSDK peer declarations ✅ (completed: 2026-10-29 16:39)
 - [x] 1.1.3 [spec-author] Write `packages/core/tests/ids.spec.test.ts` and `packages/api-contract/tests/names.spec.test.ts` for ST-1–ST-6 ✅ (completed: 2026-10-29 16:40)
-- [~] 1.1.4 [executor] Run the specs and record the red-phase failures ⏳ (implemented: 2026-10-29 16:40)
+- [x] 1.1.4 [executor] Run the specs and record the red-phase failures ✅ (completed: 2026-10-29 16:41)
 - [ ] 1.1.4 [executor] Run the specs and record the red-phase failures
 - [ ] 1.1.5 [executor] Implement `packages/core/src/ids.ts` and `names.ts`, and re-export them from `packages/core/src/index.ts`
 - [ ] 1.1.6 [executor] Implement `packages/api-contract/src/ids.ts` and `packages/test-support/src/sentinels.ts`
