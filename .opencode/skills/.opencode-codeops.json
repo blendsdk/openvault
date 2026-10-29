@@ -1,0 +1,29 @@
+{
+  "schema": 1,
+  "source": "opencode-codeops",
+  "version": "2.2.1",
+  "installedAt": "2026-10-29T13:04:16.080Z",
+  "skills": [
+    "analyze-agents",
+    "analyze-project",
+    "clean-comments",
+    "exec-plan",
+    "git-commit",
+    "github-issues",
+    "grill-me",
+    "make-plan",
+    "make-requirements",
+    "outcome-review",
+    "preflight",
+    "retro-requirements",
+    "roadmap",
+    "setup-codeops",
+    "setup-routing",
+    "techdocs",
+    "upgrade-plan"
+  ],
+  "shared": [
+    "_shared",
+    "references"
+  ]
+}
