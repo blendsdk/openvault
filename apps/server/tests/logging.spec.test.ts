@@ -3,7 +3,11 @@ import { PostgreSQLDatabase } from "blendsdk/postgresql";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { z } from "zod";
 import { createTestApplication } from "../src/app.js";
-import { createLoggerProvider } from "../src/observability/logger.js";
+import {
+  createLoggerProvider,
+  sanitizeLogArgs,
+  sanitizeLogMessage,
+} from "../src/observability/logger.js";
 import { KeyringProvider } from "../src/security/keyring.js";
 import { TlsMaterial } from "../src/transport/tls.js";
 import { testRequest } from "./integration/helpers/https.js";
@@ -174,4 +178,51 @@ describe("request correlation", () => {
       }
     },
   );
+});
+
+describe("log sanitization", () => {
+  it("should strip the query string from a request-log message and keep the path", () => {
+    const message = sanitizeLogMessage("GET /v1/auth/callback?code=abc&state=xyz 200 4ms");
+
+    expect(message).not.toContain("abc");
+    expect(message).not.toContain("xyz");
+    expect(message).toBe("GET /v1/auth/callback 200 4ms");
+  });
+
+  it("should leave messages without the request-log shape unchanged", () => {
+    for (const message of [
+      "authentication failed",
+      "GET /ready 200 6ms",
+      "/v1/auth/callback?code=abc",
+    ]) {
+      expect(sanitizeLogMessage(message)).toBe(message);
+    }
+  });
+
+  it("should strip the query string from an object argument with a string url", () => {
+    const args = [{ url: "/v1/auth/callback?code=abc&state=xyz" }];
+    const sanitized = sanitizeLogArgs(args);
+
+    expect(sanitized).toEqual([{ url: "/v1/auth/callback" }]);
+    expect(args).toEqual([{ url: "/v1/auth/callback?code=abc&state=xyz" }]);
+  });
+
+  it("should sanitize string arguments and keep non-string arguments", () => {
+    const sanitized = sanitizeLogArgs([
+      "GET /v1/auth/callback?code=abc&state=xyz 200 4ms",
+      42,
+      null,
+      true,
+    ]);
+
+    expect(sanitized[0]).toBe("GET /v1/auth/callback 200 4ms");
+    expect(sanitized.slice(1)).toEqual([42, null, true]);
+  });
+
+  it("should not recurse into nested objects", () => {
+    const args = [{ inner: { url: "/v1/auth/callback?code=abc" } }];
+    const sanitized = sanitizeLogArgs(args);
+
+    expect(sanitized).toEqual([{ inner: { url: "/v1/auth/callback?code=abc" } }]);
+  });
 });

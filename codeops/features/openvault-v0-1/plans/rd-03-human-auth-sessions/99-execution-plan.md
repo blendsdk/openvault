@@ -2,8 +2,8 @@
 
 > **Document**: 99-execution-plan.md
 > **Parent**: [Index](00-index.md)
-> **Last Updated**: 2026-10-30 21:55
-> **Progress**: 0/58 tasks (0%)
+> **Last Updated**: 2026-10-30 22:18
+> **Progress**: 2/58 tasks (3%)
 > **CodeOps Artifact Schema**: 1
 
 ## Overview
@@ -48,8 +48,8 @@ tests, then full verification.
 **Reference**: [03-04](03-04-contracts-logging-runtime.md) · [07](07-testing-strategy.md) ST-1–ST-6 · AR-5, AR-12, AR-13, AR-18
 **Objective**: Define contracts, ULID, and log sanitization before implementation.
 
-- [ ] 1.1.1 [spec-author] Write specification tests from ST-1–ST-6 — `packages/api-contract/tests/auth.spec.test.ts`, `packages/core/tests/ids.spec.test.ts`, `apps/server/tests/logging.spec.test.ts`
-- [ ] 1.1.2 Run the spec tests and record the red-phase result
+- [x] 1.1.1 [spec-author] Write specification tests from ST-1–ST-6 — `packages/api-contract/tests/auth.spec.test.ts`, `packages/core/tests/ids.spec.test.ts`, `apps/server/tests/logging.spec.test.ts` ✅ (completed: 2026-10-30 22:18)
+- [x] 1.1.2 Run the spec tests and record the red-phase result ✅ (completed: 2026-10-30 22:18)
 
 ### Step 1.2: Implementation
 

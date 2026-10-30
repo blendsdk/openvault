@@ -28,7 +28,7 @@
 
 | # | Input / Scenario | Expected Output / Behavior | Source |
 |---|---|---|---|
-| ST-1 | Parse a valid login request `{identifier:" Alice@Example.com ",password:"x"}` | Schema accepts; identifier is trimmed by the controller, not silently normalized by the schema | RD-03 local login; AR-12 |
+| ST-1 | Parse a valid login request `{identifier:" Alice@Example.com ",password:"x"}` | Schema accepts; surrounding whitespace is trimmed by the schema; letter case is preserved for the controller to lowercase | RD-03 local login; AR-12 |
 | ST-2 | Parse a login request with an unknown field | Strict schema rejects | RD-03 line 73; AR-12 |
 | ST-3 | Parse an auth user with a 321-character email | Schema rejects; 320 is accepted | AR-12 |
 | ST-4 | `newUlid()` twice | 26 Crockford characters, same timestamp prefix, different values | AR-5 |
