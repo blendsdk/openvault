@@ -2,8 +2,8 @@
 
 > **Document**: 99-execution-plan.md
 > **Parent**: [Index](00-index.md)
-> **Last Updated**: 2026-10-30 14:25
-> **Progress**: 17/33 tasks (52%)
+> **Last Updated**: 2026-10-30 14:27
+> **Progress**: 18/33 tasks (55%)
 > **CodeOps Artifact Schema**: 1
 > **Implements**: openvault-v0-1/RD-02
 > **Reasoning**: high — TLS/mTLS, key custody, proxy trust, and startup ordering are security-sensitive.
@@ -76,7 +76,7 @@
 ### Session 3 — Impl tests and hardening
 
 - [x] 2.3.1 [executor] Add impl tests for one-parse parser order (`onFinished.isFinished`), malformed percent encoding, duplicate slash/absolute-form paths, second-listener bind failure, and double stop ✅ (completed: 2026-10-30 14:25)
-- [ ] 2.3.2 [executor] Run the Phase 2 gate: transport suite, `pnpm verify`, and both PostgreSQL integration suites where the app needs the database
+- [x] 2.3.2 [executor] Run the Phase 2 gate: transport suite, `pnpm verify`, and both PostgreSQL integration suites where the app needs the database ✅ (completed: 2026-10-30 14:27)
 - [ ] 2.3.3 [executor] Record the Phase 2 security/correctness review findings in `05-findings.md` and fix every critical/major finding
 
 **Deliverables:** secure listener adapter, TLS material, scope/source/limit middleware, startup wiring.
