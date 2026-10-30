@@ -3,6 +3,7 @@ import { createLoggerPlugin } from "blendsdk/webafx-pino";
 import type { OpenVaultConfig } from "./config/index.js";
 import { ReadyController } from "./controllers/ready.js";
 import { createLoggerProvider } from "./observability/logger.js";
+import { createProductionProbes, ReadinessService } from "./readiness/service.js";
 import { KeyringProvider } from "./security/keyring.js";
 import { installPreStack, type PreStackOptions } from "./transport/pre-stack.js";
 import {
@@ -56,6 +57,12 @@ export function createApplication(
         keyring.destroy();
       }
     },
+  });
+  app.registerService({
+    name: "readiness",
+    type: "singleton",
+    factory: () =>
+      new ReadinessService(dependencies.readinessProbes ?? createProductionProbes(dependencies)),
   });
   app.registerController("", ReadyController);
   app.use(createLoggerPlugin(provider));

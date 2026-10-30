@@ -1,20 +1,31 @@
 import type { RouteDefinition } from "blendsdk/webafx";
-import { BaseController } from "blendsdk/webafx";
+import { ApiError, BaseController } from "blendsdk/webafx";
 import type { Request, Response } from "express";
+import { ReadinessError, type ReadinessService } from "../readiness/service.js";
 
 /**
- * Exposes the root readiness contract.
+ * Reports dependency readiness at the root `/ready` path.
  *
- * The dependency probes are added by the readiness service once their
- * PostgreSQL, keyring, TLS, and audit checks are available. The route stays at
- * `/ready`; `/v1/ready` is not part of the contract.
+ * Liveness stays at WebAFX's `/health`; this controller checks PostgreSQL,
+ * the keyring, TLS material, and the audit table. A failed probe is logged with
+ * its fixed name and reported as a generic 503 so no dependency detail leaks.
  */
 export class ReadyController extends BaseController {
   public routes(): RouteDefinition[] {
     return [
       this.route()
         .get("/ready")
-        .handle(async (_req: Request, res: Response) => {
+        .handle(async (req: Request, res: Response) => {
+          const readiness = await this.services.get<ReadinessService>("readiness");
+          try {
+            await readiness.check();
+          } catch (error) {
+            if (error instanceof ReadinessError) {
+              await req.log?.warn("readiness probe failed", { probe: error.probe });
+              throw new ApiError(503, "not_ready", "Not ready");
+            }
+            throw error;
+          }
           this.ok(res, { status: "ready" });
         }),
     ];

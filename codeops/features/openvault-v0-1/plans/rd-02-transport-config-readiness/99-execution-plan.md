@@ -2,8 +2,8 @@
 
 > **Document**: 99-execution-plan.md
 > **Parent**: [Index](00-index.md)
-> **Last Updated**: 2026-10-30 14:37
-> **Progress**: 19/33 tasks (58%)
+> **Last Updated**: 2026-10-30 14:41
+> **Progress**: 24/33 tasks (73%)
 > **CodeOps Artifact Schema**: 1
 > **Implements**: openvault-v0-1/RD-02
 > **Reasoning**: high — TLS/mTLS, key custody, proxy trust, and startup ordering are security-sensitive.
@@ -86,18 +86,19 @@
 ## Phase 3: Readiness, Logging, and Errors
 
 > **Reasoning**: high — truthful dependency state and no secret leakage.
+> **Phase baseline tree**: ddd527031f0b4e66f3be167ab013f1ec2cf31ae4
 > **Phase gate**: readiness success/failure matrix, captured pino redaction, error envelope tests.
 
 ### Session 1 — Specification tests
 
-- [ ] 3.1.1 [spec-author] Write readiness, logging, and clock-skew tests for ST-27–ST-32 and ST-38; run them red
-- [ ] 3.1.2 [executor] Confirm readiness failures are distinguishable from liveness and that no test logs a real secret
+- [x] 3.1.1 [spec-author] Write readiness, logging, and clock-skew tests for ST-27–ST-32 and ST-38; run them red ✅ (completed: 2026-10-30 14:40)
+- [x] 3.1.2 [executor] Confirm readiness failures are distinguishable from liveness and that no test logs a real secret ✅ (completed: 2026-10-30 14:40)
 
 ### Session 2 — Implementation
 
-- [ ] 3.2.1 [executor] Implement `apps/server/src/readiness/service.ts`, the disposable PostgreSQL pool, root `ReadyController`, and the `not_ready` error (ST-27–ST-30, AR-17–AR-19)
-- [ ] 3.2.2 [executor] Finish the logger wiring with the documented redaction paths, the `Express.Request.log` augmentation, request IDs, parser error mapping, generic production errors, and the 30 s clock-skew helper (ST-31, ST-32, ST-38, AR-20, AR-22, AR-26)
-- [ ] 3.2.3 [executor] Add the readiness database failure path with a bounded timeout and ensure pool/keyring disposal on shutdown (ST-29, ST-30)
+- [x] 3.2.1 [executor] Implement `apps/server/src/readiness/service.ts`, the disposable PostgreSQL pool, root `ReadyController`, and the `not_ready` error (ST-27–ST-30, AR-17–AR-19) ✅ (completed: 2026-10-30 14:40)
+- [x] 3.2.2 [executor] Finish the logger wiring with the documented redaction paths, the `Express.Request.log` augmentation, request IDs, parser error mapping, generic production errors, and the 30 s clock-skew helper (ST-31, ST-32, ST-38, AR-20, AR-22, AR-26) ✅ (completed: 2026-10-30 14:40)
+- [x] 3.2.3 [executor] Add the readiness database failure path with a bounded timeout and ensure pool/keyring disposal on shutdown (ST-29, ST-30) ✅ (completed: 2026-10-30 14:40)
 
 ### Session 3 — Impl tests and hardening
 

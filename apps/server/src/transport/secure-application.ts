@@ -3,6 +3,7 @@ import type { Writable } from "node:stream";
 import type { PostgreSQLDatabase } from "blendsdk/postgresql";
 import { WebApplication } from "blendsdk/webafx";
 import { createWebApplicationConfig, type OpenVaultConfig } from "../config/index.js";
+import type { ReadinessProbe } from "../readiness/service.js";
 import type { KeyringProvider } from "../security/keyring.js";
 import { CidrMatcher, createTrustProxy } from "./proxy.js";
 import { type ListenerKind, markListener } from "./scope.js";
@@ -35,6 +36,8 @@ export interface SecureApplicationDependencies {
   readonly database: PostgreSQLDatabase;
   readonly tls: TlsMaterial;
   readonly keyring: KeyringProvider;
+  /** Test override; production builds probes from the runtime dependencies. */
+  readonly readinessProbes?: readonly ReadinessProbe[];
   /** Test-only pino destination for captured structured logs. */
   readonly loggerDestination?: Writable;
 }
@@ -129,6 +132,10 @@ export class SecureWebApplication extends WebApplication {
     }
     await this.initialize();
     this.#prepared = true;
+
+    // Resolve the long-lived services once so WebAFX's disposeAll() owns them.
+    await this.services.get("database");
+    await this.services.get("keyring");
 
     if (this.#config.trustProxy) {
       const matcher = new CidrMatcher(this.#config.proxyCidrs);
