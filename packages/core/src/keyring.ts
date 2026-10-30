@@ -46,9 +46,9 @@ function assertKeyBuffer(key: unknown, id: string): asserts key is Buffer {
  * runtime or a caller already made.
  */
 export class Keyring {
-  private readonly keys: Map<string, Buffer>;
-  private readonly currentIdValue: string;
-  private destroyed = false;
+  readonly #keys: Map<string, Buffer>;
+  readonly #currentId: string;
+  #destroyed = false;
 
   public constructor(keys: Readonly<Record<string, Buffer>>, currentId: string) {
     assertKeyId(currentId);
@@ -68,18 +68,23 @@ export class Keyring {
       throw new KeyringError(`Current key ${currentId} is not present in the keyring`);
     }
 
-    this.keys = copy;
-    this.currentIdValue = currentId;
+    this.#keys = copy;
+    this.#currentId = currentId;
   }
 
   /** Identifier of the key new data must be encrypted with. */
   public get currentId(): string {
-    return this.currentIdValue;
+    return this.#currentId;
+  }
+
+  /** Reports whether {@link destroy} has run. No key material is exposed. */
+  public get destroyed(): boolean {
+    return this.#destroyed;
   }
 
   /** Reports whether a key identifier is available and the keyring is alive. */
   public has(id: string): boolean {
-    return !this.destroyed && this.keys.has(id);
+    return !this.#destroyed && this.#keys.has(id);
   }
 
   /**
@@ -89,7 +94,7 @@ export class Keyring {
    * {@link destroy} or when the current key is unavailable.
    */
   public withCurrentKey<T>(action: (key: Readonly<Buffer>) => T): T {
-    return this.withKey(this.currentIdValue, action);
+    return this.withKey(this.#currentId, action);
   }
 
   /**
@@ -98,11 +103,11 @@ export class Keyring {
    * The callback must not retain or mutate the buffer.
    */
   public withKey<T>(id: string, action: (key: Readonly<Buffer>) => T): T {
-    if (this.destroyed) {
+    if (this.#destroyed) {
       throw new KeyringError("Keyring has been destroyed");
     }
     assertKeyId(id);
-    const key = this.keys.get(id);
+    const key = this.#keys.get(id);
     if (!key) {
       throw new KeyringError(`Key ${id} is not present in the keyring`);
     }
@@ -116,28 +121,28 @@ export class Keyring {
    * cannot guarantee that no runtime copy exists.
    */
   public destroy(): void {
-    if (this.destroyed) {
+    if (this.#destroyed) {
       return;
     }
-    for (const key of this.keys.values()) {
+    for (const key of this.#keys.values()) {
       key.fill(0);
     }
-    this.keys.clear();
-    this.destroyed = true;
+    this.#keys.clear();
+    this.#destroyed = true;
   }
 
   /** Returns status only; key bytes are never serialized. */
   public toJSON(): KeyringStatus {
     return {
       version: 1,
-      current: this.currentIdValue,
-      keyIds: [...this.keys.keys()],
+      current: this.#currentId,
+      keyIds: [...this.#keys.keys()],
     };
   }
 
   /** Prints status only; key bytes and the internal map are never inspected. */
   public [inspect.custom](): string {
-    return `Keyring(current=${this.currentIdValue}, keys=${this.keys.size}, redacted)`;
+    return `Keyring(current=${this.#currentId}, keys=${this.#keys.size}, redacted)`;
   }
 
   /**
@@ -168,22 +173,30 @@ export class Keyring {
       throw new KeyringError("Keyring must contain at least one key");
     }
 
-    for (const [id, encoded] of entries) {
-      assertKeyId(id);
-      if (typeof encoded !== "string" || !BASE64_PATTERN.test(encoded) || encoded.length === 0) {
-        throw new KeyringError(`Key ${id} must be a canonical base64 string`);
+    try {
+      for (const [id, encoded] of entries) {
+        assertKeyId(id);
+        if (typeof encoded !== "string" || !BASE64_PATTERN.test(encoded) || encoded.length === 0) {
+          throw new KeyringError(`Key ${id} must be a canonical base64 string`);
+        }
+        const key = Buffer.from(encoded, "base64");
+        if (key.length !== KEY_BYTES) {
+          key.fill(0);
+          throw new KeyringError(`Key ${id} must decode to 32 bytes`);
+        }
+        if (key.toString("base64") !== encoded) {
+          key.fill(0);
+          throw new KeyringError(`Key ${id} must be a canonical base64 string`);
+        }
+        decoded[id] = key;
       }
-      const key = Buffer.from(encoded, "base64");
-      if (key.length !== KEY_BYTES) {
-        throw new KeyringError(`Key ${id} must decode to 32 bytes`);
-      }
-      if (key.toString("base64") !== encoded) {
-        throw new KeyringError(`Key ${id} must be a canonical base64 string`);
-      }
-      decoded[id] = key;
-    }
 
-    return new Keyring(decoded, record.current);
+      return new Keyring(decoded, record.current);
+    } finally {
+      for (const key of Object.values(decoded)) {
+        key.fill(0);
+      }
+    }
   }
 
   /** Creates a fresh keyring with one 32-byte key. */

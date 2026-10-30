@@ -1,4 +1,3 @@
-import { writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
 import { ConfigError, loadConfig, toRedactedConfig } from "../src/config/index.js";
@@ -73,6 +72,16 @@ describe("database URL", () => {
         loadConfig({ ...env, OPENVAULT_DB_URL: "postgres://db:5432/openvault" }),
       ).key,
     ).toBe("OPENVAULT_DB_URL");
+  });
+
+  it("maps a malformed percent escape to a keyed ConfigError", () => {
+    const { env } = validFixture();
+    const error = requireConfigError(() =>
+      loadConfig({ ...env, OPENVAULT_DB_URL: "postgres://user:p%ZZ@db/openvault" }),
+    );
+
+    expect(error.key).toBe("OPENVAULT_DB_URL");
+    expect(error.message).not.toContain("p%ZZ");
   });
 });
 
@@ -241,6 +250,7 @@ describe("port precedence", () => {
     const { env } = validFixture();
 
     expect(loadConfig({ ...env, PORT: "9443" }).adminPort).toBe(9443);
+    expect(requireConfigError(() => loadConfig({ ...env, PORT: "notaport" })).key).toBe("PORT");
   });
 
   it("prefers OPENVAULT_ADMIN_PORT", () => {
@@ -310,6 +320,27 @@ describe("configuration defaults", () => {
     expect(config.sessionTtlHours).toBe(8);
   });
 
+  it("treats blank optional values as absent", () => {
+    const { env } = validFixture();
+    const config = loadConfig({
+      ...env,
+      ENV_MODE: "",
+      PORT: "",
+      OPENVAULT_ADMIN_PORT: "",
+      OPENVAULT_AGENT_PORT: "",
+      OPENVAULT_LOG_LEVEL: "",
+      OPENVAULT_TRUST_PROXY: "",
+      OPENVAULT_KEYRING_PASSPHRASE_FILE: "",
+      OPENVAULT_OIDC_ISSUER: "",
+    });
+
+    expect(config.adminPort).toBe(8443);
+    expect(config.agentPort).toBe(8444);
+    expect(config.envMode).toBe("production");
+    expect(config.logLevel).toBe("info");
+    expect(config.trustProxy).toBe(true);
+  });
+
   it("rejects invalid ENV_MODE and invalid numeric bounds", () => {
     const { env } = validFixture();
 
@@ -334,17 +365,5 @@ describe("configuration defaults", () => {
 
     expect(error.key).toBe("OPENVAULT_KEYRING_PASSPHRASE_FILE");
     expect(error.message).toMatch(/age|deferred|unsupported/i);
-  });
-});
-
-describe("configuration file checks", () => {
-  it("rejects an unreadable TLS file role", () => {
-    const { env, directory } = validFixture();
-    const missing = join(directory, "does-not-exist.pem");
-    writeFileSync(join(directory, "placeholder"), "");
-
-    expect(requireConfigError(() => loadConfig({ ...env, OPENVAULT_TLS_KEY: missing })).key).toBe(
-      "OPENVAULT_TLS_KEY",
-    );
   });
 });

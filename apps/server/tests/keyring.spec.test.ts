@@ -1,4 +1,4 @@
-import { mkdtempSync, rmSync } from "node:fs";
+import { mkdtempSync, rmSync, symlinkSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { inspect } from "node:util";
@@ -58,6 +58,18 @@ describe("keyring provider loading", () => {
     await expect(KeyringProvider.load("keyring.json")).rejects.toThrow(/absolute/i);
   });
 
+  it("follows a symlink to a 0600 file and checks the opened target", async () => {
+    const directoryPath = fixtureDirectory();
+    const target = writeFixtureFile(directoryPath, "keyring.json", keyringJson());
+    const link = join(directoryPath, "keyring-link.json");
+    symlinkSync(target, link);
+
+    const provider = await KeyringProvider.load(link);
+
+    expect(provider.status().loaded).toBe(true);
+    provider.destroy();
+  });
+
   it("rejects malformed contents without exposing key bytes", async () => {
     const directoryPath = fixtureDirectory();
     const path = writeFixtureFile(directoryPath, "keyring.json", "{not json");
@@ -80,6 +92,12 @@ describe("provider serialization and inspection", () => {
     expect(serialized).not.toContain("k2");
     expect(printed).toBe("KeyringProvider(loaded=true, current=k1, keys=2)");
     expect(printed).not.toContain(Buffer.alloc(32, 1).toString("base64"));
+    expect(inspect(provider, { customInspect: false })).not.toContain(
+      Buffer.alloc(32, 1).toString("base64"),
+    );
+    expect(JSON.stringify(structuredClone(provider))).not.toContain(
+      Buffer.alloc(32, 1).toString("base64"),
+    );
 
     provider.destroy();
   });

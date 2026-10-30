@@ -2,15 +2,6 @@ import { accessSync, constants, statSync } from "node:fs";
 import { isAbsolute } from "node:path";
 import { ConfigError } from "./errors.js";
 
-/** Reads a required non-empty environment value. */
-export function requiredValue(environment: NodeJS.ProcessEnv, key: string): string {
-  const value = environment[key];
-  if (value === undefined || value.trim().length === 0) {
-    throw new ConfigError(key, "is required");
-  }
-  return value;
-}
-
 /** Reads an optional environment value, treating an empty string as absent. */
 export function optionalValue(environment: NodeJS.ProcessEnv, key: string): string | undefined {
   const value = environment[key];
@@ -42,25 +33,6 @@ export function integerValue(
     throw new ConfigError(key, `must be between ${minimum} and ${maximum}`);
   }
   return value;
-}
-
-/** Parses an exact `true` or `false` value. */
-export function booleanValue(
-  environment: NodeJS.ProcessEnv,
-  key: string,
-  defaultValue: boolean,
-): boolean {
-  const raw = optionalValue(environment, key);
-  if (raw === undefined) {
-    return defaultValue;
-  }
-  if (raw === "true") {
-    return true;
-  }
-  if (raw === "false") {
-    return false;
-  }
-  throw new ConfigError(key, "must be exactly true or false");
 }
 
 /**

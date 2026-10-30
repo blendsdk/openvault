@@ -1,5 +1,5 @@
 import { createCipheriv, createDecipheriv, randomBytes } from "node:crypto";
-import type { Keyring } from "./keyring.js";
+import { type Keyring, KeyringError } from "./keyring.js";
 
 const ALGORITHM = "aes-256-gcm";
 const NONCE_BYTES = 12;
@@ -118,8 +118,10 @@ export function encryptValue(
  * Decrypts an envelope produced by {@link encryptValue}.
  *
  * Throws {@link CryptoInputError} for malformed fields and
- * {@link CryptoIntegrityError} when either authentication tag fails. The KEK is
- * only read inside the keyring's callback scope.
+ * {@link CryptoIntegrityError} when either authentication tag fails or the
+ * envelope names an unknown key. A destroyed keyring keeps its own
+ * {@link KeyringError} so an operational shutdown is not reported as data
+ * corruption. The KEK is only read inside the keyring's callback scope.
  */
 export function decryptValue(envelope: EncryptedValue, keyring: Keyring, aad: EnvelopeAad): Buffer {
   const nonce = decodeField("nonce", envelope.nonce, NONCE_BYTES);
@@ -129,23 +131,33 @@ export function decryptValue(envelope: EncryptedValue, keyring: Keyring, aad: En
   const wrappedDek = decodeField("wrappedDek", envelope.wrappedDek, DEK_BYTES);
   const wrapTag = decodeField("wrapTag", envelope.wrapTag, TAG_BYTES);
 
-  return keyring.withKey(envelope.kekId, (kek) => {
-    let dek: Buffer | undefined;
+  try {
+    return keyring.withKey(envelope.kekId, (kek) => {
+      let dek: Buffer | undefined;
 
-    try {
-      const unwrapCipher = createDecipheriv(ALGORITHM, kek, wrapNonce);
-      unwrapCipher.setAAD(wrapAad(envelope.kekId, aad));
-      unwrapCipher.setAuthTag(wrapTag);
-      dek = Buffer.concat([unwrapCipher.update(wrappedDek), unwrapCipher.final()]);
+      try {
+        const unwrapCipher = createDecipheriv(ALGORITHM, kek, wrapNonce);
+        unwrapCipher.setAAD(wrapAad(envelope.kekId, aad));
+        unwrapCipher.setAuthTag(wrapTag);
+        dek = Buffer.concat([unwrapCipher.update(wrappedDek), unwrapCipher.final()]);
 
-      const valueCipher = createDecipheriv(ALGORITHM, dek, nonce);
-      valueCipher.setAAD(valueAad(aad));
-      valueCipher.setAuthTag(tag);
-      return Buffer.concat([valueCipher.update(ciphertext), valueCipher.final()]);
-    } catch {
+        const valueCipher = createDecipheriv(ALGORITHM, dek, nonce);
+        valueCipher.setAAD(valueAad(aad));
+        valueCipher.setAuthTag(tag);
+        return Buffer.concat([valueCipher.update(ciphertext), valueCipher.final()]);
+      } catch {
+        throw new CryptoIntegrityError();
+      } finally {
+        dek?.fill(0);
+      }
+    });
+  } catch (error) {
+    if (error instanceof KeyringError) {
+      if (keyring.destroyed) {
+        throw error;
+      }
       throw new CryptoIntegrityError();
-    } finally {
-      dek?.fill(0);
     }
-  });
+    throw error;
+  }
 }

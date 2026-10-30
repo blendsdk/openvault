@@ -149,10 +149,6 @@ function sameBytes(left: readonly number[], right: readonly number[]): boolean {
  */
 export function parseCidrList(raw: string): readonly Cidr[] {
   const entries = raw.split(",");
-  if (entries.length === 0) {
-    throw new ConfigError(KEY, "must contain at least one CIDR");
-  }
-
   const result: Cidr[] = [];
   for (const entry of entries) {
     const value = entry.trim();

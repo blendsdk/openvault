@@ -41,4 +41,12 @@ describe("keyring internals", () => {
     expect(() => ring.withCurrentKey(() => undefined)).toThrow(/destroyed/i);
     expect(ring.has("k1")).toBe(false);
   });
+
+  it("does not expose key bytes through generic inspection or cloning", () => {
+    const ring = keyring();
+    const encoded = Buffer.alloc(32, 3).toString("base64");
+
+    expect(inspect(ring, { customInspect: false })).not.toContain(encoded);
+    expect(JSON.stringify(structuredClone(ring))).not.toContain(encoded);
+  });
 });

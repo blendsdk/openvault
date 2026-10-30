@@ -103,4 +103,21 @@ describe("envelope encryption", () => {
       CryptoInputError,
     );
   });
+
+  it("maps an unknown key identifier to an integrity error", () => {
+    const keyring = Keyring.generate("k1");
+    const envelope = encryptValue(Buffer.from("value"), keyring, aad);
+
+    expect(() => decryptValue({ ...envelope, kekId: "k9" }, keyring, aad)).toThrow(
+      CryptoIntegrityError,
+    );
+  });
+
+  it("keeps a destroyed-keyring error distinct from integrity failure", () => {
+    const keyring = Keyring.generate("k1");
+    const envelope = encryptValue(Buffer.from("value"), keyring, aad);
+    keyring.destroy();
+
+    expect(() => decryptValue(envelope, keyring, aad)).toThrow(KeyringError);
+  });
 });

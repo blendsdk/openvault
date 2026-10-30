@@ -1,5 +1,4 @@
-import { statSync } from "node:fs";
-import { readFile } from "node:fs/promises";
+import { closeSync, constants, fstatSync, openSync, readFileSync } from "node:fs";
 import { isAbsolute } from "node:path";
 import { inspect } from "node:util";
 import { Keyring, KeyringError } from "@openvault/core";
@@ -22,14 +21,14 @@ export interface KeyringProviderStatus {
  * serialization nor `util.inspect` traverses them.
  */
 export class KeyringProvider {
-  private keyring: Keyring | undefined;
-  private currentId: string | undefined;
-  private keyCount = 0;
+  #keyring: Keyring | undefined;
+  #currentId: string | undefined;
+  #keyCount = 0;
 
   private constructor(keyring: Keyring, currentId: string, keyCount: number) {
-    this.keyring = keyring;
-    this.currentId = currentId;
-    this.keyCount = keyCount;
+    this.#keyring = keyring;
+    this.#currentId = currentId;
+    this.#keyCount = keyCount;
   }
 
   /**
@@ -44,31 +43,34 @@ export class KeyringProvider {
       throw new KeyringError("Keyring path must be an absolute path");
     }
 
-    let stats: ReturnType<typeof statSync>;
+    let descriptor: number;
     try {
-      stats = statSync(path);
+      descriptor = openSync(path, constants.O_RDONLY);
     } catch {
-      throw new KeyringError("Keyring file must be readable");
-    }
-    if (!stats.isFile()) {
-      throw new KeyringError("Keyring path must reference a regular file");
-    }
-    if ((stats.mode & 0o777) !== 0o600) {
-      throw new KeyringError("Keyring file must have mode 0600");
+      throw new KeyringError("Keyring file must be a readable regular file");
     }
 
-    let contents: string;
+    let contents: Buffer;
     try {
-      contents = await readFile(path, "utf8");
-    } catch {
-      throw new KeyringError("Keyring file must be readable");
+      const stats = fstatSync(descriptor);
+      if (!stats.isFile()) {
+        throw new KeyringError("Keyring path must reference a regular file");
+      }
+      if ((stats.mode & 0o777) !== 0o600) {
+        throw new KeyringError("Keyring file must have mode 0600");
+      }
+      contents = readFileSync(descriptor);
+    } finally {
+      closeSync(descriptor);
     }
 
     let parsed: unknown;
     try {
-      parsed = JSON.parse(contents);
+      parsed = JSON.parse(contents.toString("utf8"));
     } catch {
       throw new KeyringError("Keyring file must contain valid JSON");
+    } finally {
+      contents.fill(0);
     }
 
     const keyring = Keyring.fromJSON(parsed);
@@ -83,10 +85,10 @@ export class KeyringProvider {
 
   /** Returns the redacted status of the loaded keyring. */
   public status(): KeyringProviderStatus {
-    if (this.keyring === undefined || this.currentId === undefined) {
+    if (this.#keyring === undefined || this.#currentId === undefined) {
       return { loaded: false, keyCount: 0 };
     }
-    return { loaded: true, currentId: this.currentId, keyCount: this.keyCount };
+    return { loaded: true, currentId: this.#currentId, keyCount: this.#keyCount };
   }
 
   /** Serializes status only, so `JSON.stringify(provider)` cannot reach key bytes. */
@@ -102,9 +104,9 @@ export class KeyringProvider {
 
   /** Zeroes and clears the keyring. The operation is idempotent. */
   public destroy(): void {
-    this.keyring?.destroy();
-    this.keyring = undefined;
-    this.currentId = undefined;
-    this.keyCount = 0;
+    this.#keyring?.destroy();
+    this.#keyring = undefined;
+    this.#currentId = undefined;
+    this.#keyCount = 0;
   }
 }
