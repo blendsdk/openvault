@@ -16,7 +16,7 @@ The application never talks to the vault. The agent is the only bridge.
 
 ## Developer preview
 
-Requirements: Node.js 22.23+ and pnpm 12.11.2.
+Requirements: Node.js 24.7+ and pnpm 12.11.2.
 
 ```bash
 git clone https://github.com/blendsdk/openvault.git

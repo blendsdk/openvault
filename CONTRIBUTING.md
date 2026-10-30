@@ -5,7 +5,7 @@ matter more than speed.
 
 ## Prerequisites
 
-- Node.js 22.23 or newer
+- Node.js 24.7 or newer
 - pnpm 12.11.2 (`corepack enable` is the simplest way to match it)
 - OpenSSL 1.1.1 or newer, for the ephemeral TLS/mTLS transport fixtures
 - Docker, for integration tests and the reference stack

@@ -9,7 +9,7 @@ today.
 
 | Component | Version |
 |---|---|
-| Node.js | 22.23 or newer |
+| Node.js | 24.7 or newer |
 | pnpm | 12.11.2 |
 | Docker | Current stable |
 | Docker Compose | v2 |

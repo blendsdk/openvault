@@ -1,3 +1,5 @@
+import { randomBytes } from "node:crypto";
+
 /**
  * A ULID string.
  *
@@ -41,4 +43,51 @@ export const ULID_PATTERN = /^[0-9A-HJKMNP-TV-Z]{26}$/;
  */
 export function isUlid(value: unknown): value is Ulid {
   return typeof value === "string" && ULID_PATTERN.test(value);
+}
+
+const CROCKFORD_ALPHABET = "0123456789ABCDEFGHJKMNPQRSTVWXYZ";
+const ULID_LENGTH = 26;
+const RANDOM_BYTES = 10;
+const MAX_TIMESTAMP = (1n << 48n) - 1n;
+const RANDOM_MASK = (1n << 80n) - 1n;
+
+/**
+ * Generates a canonical ULID from the current time and 80 random bits.
+ *
+ * The first 10 characters encode the 48-bit millisecond timestamp, so ULIDs
+ * generated at different times sort lexicographically in time order. The
+ * remaining 16 characters are random. This generator is not monotonic within a
+ * single millisecond: two calls can produce values whose random suffixes sort
+ * in either order.
+ *
+ * @param now - Millisecond timestamp to encode. Defaults to `Date.now()`.
+ * @returns A 26-character Crockford Base32 identifier.
+ * @throws {RangeError} When `now` is not a finite, non-negative 48-bit integer.
+ *
+ * @example
+ * ```ts
+ * const id = newUlid();
+ * isUlid(id); // true
+ * ```
+ */
+export function newUlid(now: number = Date.now()): Ulid {
+  if (!Number.isFinite(now) || now < 0) {
+    throw new RangeError("ULID timestamp must be a finite, non-negative number");
+  }
+
+  const timestamp = BigInt(Math.floor(now));
+  if (timestamp > MAX_TIMESTAMP) {
+    throw new RangeError("ULID timestamp exceeds the 48-bit range");
+  }
+
+  const random = BigInt(`0x${randomBytes(RANDOM_BYTES).toString("hex")}`);
+  const value = (timestamp << 80n) | (random & RANDOM_MASK);
+
+  let result = "";
+  let remaining = value;
+  for (let index = 0; index < ULID_LENGTH; index += 1) {
+    result = CROCKFORD_ALPHABET[Number(remaining & 31n)] + result;
+    remaining >>= 5n;
+  }
+  return result;
 }

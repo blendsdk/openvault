@@ -2,8 +2,8 @@
 
 > **Document**: 99-execution-plan.md
 > **Parent**: [Index](00-index.md)
-> **Last Updated**: 2026-10-30 22:18
-> **Progress**: 2/58 tasks (3%)
+> **Last Updated**: 2026-10-30 22:20
+> **Progress**: 11/58 tasks (19%)
 > **CodeOps Artifact Schema**: 1
 
 ## Overview
@@ -55,18 +55,18 @@ tests, then full verification.
 
 **Reference**: [03-04](03-04-contracts-logging-runtime.md) §API Contracts, §ULID, §Log Sanitizer, §Runtime Baseline · AR-2, AR-5, AR-12, AR-13, AR-18
 
-- [ ] 1.2.1 Raise the Node baseline — `package.json`, `.nvmrc`, `.github/workflows/ci.yml`, `.github/workflows/docs.yml`, root/server `@types/node`, `README.md`, `CONTRIBUTING.md`, `docs/guide/getting-started.md`, `docs/guide/install.md`
-- [ ] 1.2.2 Add `openid-client@6.8.8` to `apps/server/package.json` and update the lockfile
-- [ ] 1.2.3 Add `newUlid()` to `packages/core/src/ids.ts` and export it
-- [ ] 1.2.4 Add the auth Zod schemas — `packages/api-contract/src/auth.ts` and `index.ts`
-- [ ] 1.2.5 Add the log sanitizer and auth redaction paths — `apps/server/src/observability/logger.ts`
-- [ ] 1.2.6 Run the spec tests and verify green
+- [x] 1.2.1 Raise the Node baseline — `package.json`, `.nvmrc`, `.github/workflows/ci.yml`, `.github/workflows/docs.yml`, root/server `@types/node`, `README.md`, `CONTRIBUTING.md`, `docs/guide/getting-started.md`, `docs/guide/install.md` ✅ (completed: 2026-10-30 22:20)
+- [x] 1.2.2 Add `openid-client@6.8.8` to `apps/server/package.json` and update the lockfile ✅ (completed: 2026-10-30 22:20)
+- [x] 1.2.3 Add `newUlid()` to `packages/core/src/ids.ts` and export it ✅ (completed: 2026-10-30 22:20)
+- [x] 1.2.4 Add the auth Zod schemas — `packages/api-contract/src/auth.ts` and `index.ts` ✅ (completed: 2026-10-30 22:20)
+- [x] 1.2.5 Add the log sanitizer and auth redaction paths — `apps/server/src/observability/logger.ts` ✅ (completed: 2026-10-30 22:20)
+- [x] 1.2.6 Run the spec tests and verify green ✅ (completed: 2026-10-30 22:20)
 
 ### Step 1.3: Implementation Tests and Hardening
 
-- [ ] 1.3.1 Write implementation tests for ULID bounds, sanitizer object/message edges, and contract boundaries — `packages/core/tests/ids.impl.test.ts`, `packages/api-contract/tests/auth.impl.test.ts`, `apps/server/tests/logging.impl.test.ts`
-- [ ] 1.3.2 Run full verification under Node 24.21.0 — `pnpm verify`
-- [ ] 1.3.3 Confirm the existing transport, config, readiness, and migration suites still pass
+- [x] 1.3.1 Write implementation tests for ULID bounds, sanitizer object/message edges, and contract boundaries — `packages/core/tests/ids.impl.test.ts`, `packages/api-contract/tests/auth.impl.test.ts`, `apps/server/tests/logging.impl.test.ts` ✅ (completed: 2026-10-30 22:20)
+- [x] 1.3.2 Run full verification under Node 24.21.0 — `pnpm verify` ✅ (completed: 2026-10-30 22:20)
+- [x] 1.3.3 Confirm the existing transport, config, readiness, and migration suites still pass ✅ (completed: 2026-10-30 22:20)
 
 **Deliverables**:
 - Node 24.7+ baseline documented and enforced in CI.
