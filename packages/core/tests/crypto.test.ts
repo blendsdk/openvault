@@ -1,4 +1,5 @@
 import { randomBytes } from "node:crypto";
+import { inspect } from "node:util";
 import { describe, expect, it } from "vitest";
 import {
   CryptoInputError,
@@ -23,12 +24,29 @@ function withCiphertext(envelope: EncryptedValue, mutate: (bytes: Buffer) => voi
   return { ...envelope, ciphertext: bytes.toString("base64") };
 }
 
+const fixtureKey = Buffer.alloc(32, 9).toString("base64");
+
 describe("Keyring", () => {
-  it("round-trips through JSON", () => {
-    const keyring = Keyring.generate("k1");
-    const parsed = Keyring.fromJSON(keyring.toJSON());
-    expect(parsed.current.id).toBe("k1");
-    expect(parsed.current.key.equals(keyring.current.key)).toBe(true);
+  it("loads a base64 fixture and encrypts with the current key", () => {
+    const keyring = Keyring.fromJSON({
+      version: 1,
+      current: "k1",
+      keys: { k1: fixtureKey },
+    });
+
+    expect(keyring.currentId).toBe("k1");
+    expect(keyring.withCurrentKey((key) => key.equals(Buffer.alloc(32, 9)))).toBe(true);
+  });
+
+  it("redacts serialization and inspection", () => {
+    const keyring = Keyring.fromJSON({
+      version: 1,
+      current: "k1",
+      keys: { k1: fixtureKey },
+    });
+
+    expect(JSON.stringify(keyring)).toBe('{"version":1,"current":"k1","keyIds":["k1"]}');
+    expect(util.inspect(keyring)).toBe("Keyring(current=k1, keys=1, redacted)");
   });
 
   it("rejects a missing current key", () => {

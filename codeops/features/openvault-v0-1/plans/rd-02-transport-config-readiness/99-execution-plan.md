@@ -2,8 +2,8 @@
 
 > **Document**: 99-execution-plan.md
 > **Parent**: [Index](00-index.md)
-> **Last Updated**: 2026-10-30 12:14
-> **Progress**: 0/33 tasks (0%)
+> **Last Updated**: 2026-10-30 14:02
+> **Progress**: 1/33 tasks (3%)
 > **CodeOps Artifact Schema**: 1
 > **Implements**: openvault-v0-1/RD-02
 > **Reasoning**: high — TLS/mTLS, key custody, proxy trust, and startup ordering are security-sensitive.
@@ -29,11 +29,12 @@
 ## Phase 1: Configuration and Keyring
 
 > **Reasoning**: high — fail-closed boot and key custody.
+> **Phase baseline tree**: 2604ff0f965273efbe47a570a5a1bb5bd775c757
 > **Phase gate**: `pnpm verify`; config/keyring unit suites; `pnpm db:types:check` unchanged.
 
 ### Session 1 — Specification tests
 
-- [ ] 1.1.1 [spec-author] Write `apps/server/tests/config.spec.test.ts` for ST-1–ST-9 (loader-level only; ST-9 parses CIDRs, matcher cases move to ST-20) and `packages/core/tests/keyring.spec.test.ts` plus `apps/server/tests/keyring.spec.test.ts` for ST-10–ST-14; replace the old `packages/core/tests/crypto.test.ts` round-trip with a base64 fixture and redaction assertions; run them red and record the failures
+- [x] 1.1.1 [spec-author] Write `apps/server/tests/config.spec.test.ts` for ST-1–ST-9 (loader-level only; ST-9 parses CIDRs, matcher cases move to ST-20) and `packages/core/tests/keyring.spec.test.ts` plus `apps/server/tests/keyring.spec.test.ts` for ST-10–ST-14; replace the old `packages/core/tests/crypto.test.ts` round-trip with a base64 fixture and redaction assertions; run them red and record the failures ✅ (completed: 2026-10-30 14:02)
 - [ ] 1.1.2 [executor] Confirm the red phase proves missing behavior rather than a harness error; update 02-current-state if discovery changes the evidence
 
 ### Session 2 — Implementation
