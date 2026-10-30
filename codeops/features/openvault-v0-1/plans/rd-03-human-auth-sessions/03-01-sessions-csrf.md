@@ -171,6 +171,9 @@ export function csrfGuard(sessions: SessionService): RequestHandler;
 - `OidcController` creates a session with `authMethod: "oidc"`.
 - `ReadyController` is unaffected.
 - `SecureWebApplication` shutdown disposes the `sessions` service, which calls `destroy()`.
+- `SecureWebApplication` gains a public `getService<T>(name: string): Promise<T>` wrapper around
+  the protected service container. Tests use it to create sessions directly; the container itself
+  stays protected.
 
 ## Code Examples
 

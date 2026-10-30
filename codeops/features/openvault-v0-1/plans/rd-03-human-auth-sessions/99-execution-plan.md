@@ -2,8 +2,8 @@
 
 > **Document**: 99-execution-plan.md
 > **Parent**: [Index](00-index.md)
-> **Last Updated**: 2026-10-30 22:20
-> **Progress**: 11/58 tasks (19%)
+> **Last Updated**: 2026-10-30 22:30
+> **Progress**: 13/58 tasks (22%)
 > **CodeOps Artifact Schema**: 1
 
 ## Overview
@@ -88,8 +88,8 @@ tests, then full verification.
 **Reference**: [03-01](03-01-sessions-csrf.md) · [07](07-testing-strategy.md) ST-7–ST-25 · AR-6, AR-9, AR-14
 **Objective**: Define the session, cookie, CSRF, and gate behavior before implementation.
 
-- [ ] 2.1.1 [spec-author] Write specification tests from ST-7–ST-25 — `apps/server/tests/auth/sessions.spec.test.ts`, `apps/server/tests/auth/csrf.spec.test.ts`, `apps/server/tests/integration/auth.sessions.test.ts`
-- [ ] 2.1.2 Run the spec tests and record the red-phase result
+- [x] 2.1.1 [spec-author] Write specification tests from ST-7–ST-25 — `apps/server/tests/auth/sessions.spec.test.ts`, `apps/server/tests/auth/csrf.spec.test.ts`, `apps/server/tests/integration/auth.sessions.test.ts` ✅ (completed: 2026-10-30 22:30)
+- [x] 2.1.2 Run the spec tests and record the red-phase result ✅ (completed: 2026-10-30 22:30)
 
 ### Step 2.2: Implementation
 
