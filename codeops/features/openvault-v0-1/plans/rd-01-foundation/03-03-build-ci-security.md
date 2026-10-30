@@ -131,6 +131,9 @@ env:
 - `pnpm audit --prod --audit-level=high` and `pnpm audit --audit-level=high` both block.
 - `pnpm-lock.yaml` committed; CI uses `--frozen-lockfile`.
 - `pnpm-workspace.yaml` uses `dedupePeerDependents: true` and `strictPeerDependencies: true`.
+- `vitepress` is pinned to `2.0.0-alpha.21`, which uses Vite 8 and clears the Vite 5 high
+  advisory. The docs build remains a required verification step; revisit when VitePress 2 is
+  stable.
 - Build-script allowlist stays minimal (`@swc/core`, `esbuild`).
 - Dependabot updates npm and GitHub Actions. Docker image digests are an RD-13 concern.
 

@@ -2,8 +2,8 @@
 
 > **Document**: 99-execution-plan.md
 > **Parent**: [Index](00-index.md)
-> **Last Updated**: 2026-10-30 11:25
-> **Progress**: 34/40 tasks (85%)
+> **Last Updated**: 2026-10-30 11:40
+> **Progress**: 36/40 tasks (90%)
 > **CodeOps Artifact Schema**: 1
 
 ## Overview
@@ -130,6 +130,11 @@ generated types/constants, updated specs and plan.
 
 > **Reasoning**: high — supply-chain pins, required checks, and secret/artifact leakage.
 > **Phase gate**: `pnpm verify` and a CI run on the branch.
+> **Phase baseline tree**: 1f070d977139e164f030803ba252a6482e25ff69
+> **Scope mode**: strict
+> **Expected modification set**: `.github/workflows/**`, `.gitleaks.toml`, `scripts/**`,
+> `tests/**`, package manifests and lockfile, `tsconfig.base.json`, `apps/web/vite.config.ts`,
+> `CONTRIBUTING.md`, plan docs
 
 ### Step 3.1: CI gates and build hygiene
 
@@ -143,8 +148,8 @@ generated types/constants, updated specs and plan.
 - [x] 3.1.6 [executor] Set the canonical `verify`, disable production source maps, exact-pin production/dev dependencies, and enable strict peers ✅ (completed: 2026-10-30 11:25)
 - [x] 3.1.7 [executor] Run the root suites green; add impl tests for nested dist, symlinks, and content markers ✅ (completed: 2026-10-30 11:25)
 - [x] 3.1.8 [executor] Update `CONTRIBUTING.md` with test DB commands and verification order ✅ (completed: 2026-10-30 11:25)
-- [ ] 3.1.9 [repo-admin] Update branch protection: PR required, linear history, no force pushes, required checks `Verify`, `Integration (16)`, `Integration (17)`, `Audit`, `Analyze JavaScript and TypeScript (javascript-typescript)`, `Gitleaks`, `Review dependency changes`; read back the settings
-- [ ] 3.1.10 [executor] Run the phase gate and a CI run on the branch
+- [x] 3.1.9 [repo-admin] Update branch protection: PR required, linear history, no force pushes, required checks `Verify`, `Integration (16)`, `Integration (17)`, `Audit`, `Analyze JavaScript and TypeScript (javascript-typescript)`, `Gitleaks`, `Review dependency changes`; read back the settings ✅ (completed: 2026-10-30 11:40)
+- [x] 3.1.10 [executor] Run the phase gate and a CI run on the branch ✅ (completed: 2026-10-30 11:40)
 
 **Deliverables**: SHA-pinned workflows, least-privilege permissions, integration matrix, full/prod audit, artifact/React checks, canonical verify.
 
