@@ -144,6 +144,19 @@ export class SecureWebApplication extends WebApplication {
   }
 
   /**
+   * Resolves a registered singleton service without exposing the container.
+   *
+   * Tests use this after `prepare()` to reach the session service and create a
+   * browser session directly. Production health checks may use it the same way.
+   *
+   * @param name - Service name registered by the application or a plugin.
+   * @returns The resolved singleton.
+   */
+  public async getService<T>(name: string): Promise<T> {
+    return this.services.get<T>(name);
+  }
+
+  /**
    * Binds the admin and agent HTTPS listeners.
    *
    * A second start is rejected. If the agent bind fails, the admin listener is

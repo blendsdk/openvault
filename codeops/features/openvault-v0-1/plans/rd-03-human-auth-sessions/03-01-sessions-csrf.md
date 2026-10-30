@@ -150,7 +150,7 @@ export function passwordChangeGate(): RequestHandler;
 
 ```ts
 export function originGuard(config: OpenVaultConfig): RequestHandler;
-export function csrfGuard(sessions: SessionService): RequestHandler;
+export function csrfGuard(): RequestHandler;
 ```
 
 - `originGuard` applies to unsafe methods. If `Origin` is present, it must equal

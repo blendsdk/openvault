@@ -2,8 +2,8 @@
 
 > **Document**: 99-execution-plan.md
 > **Parent**: [Index](00-index.md)
-> **Last Updated**: 2026-10-30 22:30
-> **Progress**: 13/58 tasks (22%)
+> **Last Updated**: 2026-10-30 22:40
+> **Progress**: 25/58 tasks (43%)
 > **CodeOps Artifact Schema**: 1
 
 ## Overview
@@ -95,21 +95,21 @@ tests, then full verification.
 
 **Reference**: [03-01](03-01-sessions-csrf.md) §Implementation Details · AR-5, AR-6, AR-9, AR-14
 
-- [ ] 2.2.1 Implement `SessionService` with create/get/rotate/revoke/list, single-flight rotation, index sweeping, and destroy — `apps/server/src/auth/sessions.ts`
-- [ ] 2.2.2 Implement the cookie helpers — `apps/server/src/auth/cookie.ts`
-- [ ] 2.2.3 Add `CredentialsRepository.findStatus` and the repository skeleton — `apps/server/src/auth/credentials.ts`
-- [ ] 2.2.4 Implement the session middleware, `requireSession`, and `req.auth` typing — `apps/server/src/auth/middleware.ts`, `apps/server/src/types/express.d.ts`
-- [ ] 2.2.5 Implement the origin guard and the session-scoped CSRF wrapper — `apps/server/src/auth/csrf.ts`
-- [ ] 2.2.6 Implement the auth plugin and register its services/middleware — `apps/server/src/auth/plugin.ts`, `apps/server/src/app.ts`
-- [ ] 2.2.7 Implement `/me`, `/refresh`, `/logout`, `/sessions`, and `/sessions/:id` — `apps/server/src/controllers/auth.ts`
-- [ ] 2.2.8 Implement the forced-change gate — `apps/server/src/auth/middleware.ts`
-- [ ] 2.2.9 Run the spec tests and verify green
+- [x] 2.2.1 Implement `SessionService` with create/get/rotate/revoke/list, single-flight rotation, index sweeping, and destroy — `apps/server/src/auth/sessions.ts` ✅ (completed: 2026-10-30 22:40)
+- [x] 2.2.2 Implement the cookie helpers — `apps/server/src/auth/cookie.ts` ✅ (completed: 2026-10-30 22:40)
+- [x] 2.2.3 Add `CredentialsRepository.findStatus` and the repository skeleton — `apps/server/src/auth/credentials.ts` ✅ (completed: 2026-10-30 22:40)
+- [x] 2.2.4 Implement the session middleware, `requireSession`, and `req.auth` typing — `apps/server/src/auth/middleware.ts`, `apps/server/src/types/express.d.ts` ✅ (completed: 2026-10-30 22:40)
+- [x] 2.2.5 Implement the origin guard and the session-scoped CSRF wrapper — `apps/server/src/auth/csrf.ts` ✅ (completed: 2026-10-30 22:40)
+- [x] 2.2.6 Implement the auth plugin and register its services/middleware — `apps/server/src/auth/plugin.ts`, `apps/server/src/app.ts` ✅ (completed: 2026-10-30 22:40)
+- [x] 2.2.7 Implement `/me`, `/refresh`, `/logout`, `/sessions`, and `/sessions/:id` — `apps/server/src/controllers/auth.ts` ✅ (completed: 2026-10-30 22:40)
+- [x] 2.2.8 Implement the forced-change gate — `apps/server/src/auth/middleware.ts` ✅ (completed: 2026-10-30 22:40)
+- [x] 2.2.9 Run the spec tests and verify green ✅ (completed: 2026-10-30 22:40)
 
 ### Step 2.3: Implementation Tests and Hardening
 
-- [ ] 2.3.1 Write implementation tests for expiry, index cleanup, concurrent refresh, malformed cookies, and origin parsing — `apps/server/tests/auth/sessions.impl.test.ts`, `apps/server/tests/auth/csrf.impl.test.ts`
-- [ ] 2.3.2 Run the session/CSRF integration tests against PostgreSQL
-- [ ] 2.3.3 Run full verification — `pnpm verify`
+- [x] 2.3.1 Write implementation tests for expiry, index cleanup, concurrent refresh, malformed cookies, and origin parsing — `apps/server/tests/auth/sessions.impl.test.ts`, `apps/server/tests/auth/cookie.impl.test.ts`, `apps/server/tests/auth/middleware.impl.test.ts` ✅ (completed: 2026-10-30 22:40)
+- [x] 2.3.2 Run the session/CSRF integration tests against PostgreSQL ✅ (completed: 2026-10-30 22:40)
+- [x] 2.3.3 Run full verification — `pnpm verify` ✅ (completed: 2026-10-30 22:40)
 
 **Deliverables**:
 - Opaque `__Host-ov_session` sessions with absolute TTL and rotation.
