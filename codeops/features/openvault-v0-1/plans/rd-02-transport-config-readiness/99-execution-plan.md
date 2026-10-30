@@ -2,8 +2,8 @@
 
 > **Document**: 99-execution-plan.md
 > **Parent**: [Index](00-index.md)
-> **Last Updated**: 2026-10-30 14:46
-> **Progress**: 27/33 tasks (82%)
+> **Last Updated**: 2026-10-30 14:49
+> **Progress**: 30/33 tasks (91%)
 > **CodeOps Artifact Schema**: 1
 > **Implements**: openvault-v0-1/RD-02
 > **Reasoning**: high — TLS/mTLS, key custody, proxy trust, and startup ordering are security-sensitive.
@@ -117,12 +117,12 @@
 
 ### Session 1 — Deployment tests
 
-- [ ] 4.1.1 [spec-author] Add `yaml` as a root devDependency; write `tests/deploy.spec.test.mjs` for ST-34 (structured Compose parse; Caddy text assertions; `caddy validate` when available) and update ST-36 expectations; run red
+- [x] 4.1.1 [spec-author] Add `yaml` as a root devDependency; write `tests/deploy.spec.test.mjs` for ST-34 (structured Compose parse; Caddy text assertions; `caddy validate` when available) and update ST-36 expectations; run red ✅ (completed: 2026-10-30 14:48)
 
 ### Session 2 — Deployment and docs
 
-- [ ] 4.2.1 [executor] Update `deploy/compose/compose.yaml`, `deploy/compose/Caddyfile`, and `deploy/compose/README.md` for `admin_net`, proxy CIDR, CA/agent environment, healthcheck, HSTS, global/transport timeouts, and `caddy validate` (ST-34, AR-7, AR-16, AR-25)
-- [ ] 4.2.2 [executor] Update `docs/reference/configuration.md`, `CONTRIBUTING.md`, `docs/guide/install.md`, `docs/guide/docker-compose.md`, `docs/architecture/overview.md`, `docs/security/threat-model.md`, and the relevant hardening note with the implemented contract, the 8443/8444 split, OpenSSL test prerequisite, keyring requirement/provisioning deferral, and age deferral (ST-34)
+- [x] 4.2.1 [executor] Update `deploy/compose/compose.yaml`, `deploy/compose/Caddyfile`, and `deploy/compose/README.md` for `admin_net`, proxy CIDR, CA/agent environment, healthcheck, HSTS, global/transport timeouts, and `caddy validate` (ST-34, AR-7, AR-16, AR-25) ✅ (completed: 2026-10-30 14:48)
+- [x] 4.2.2 [executor] Update `docs/reference/configuration.md`, `CONTRIBUTING.md`, `docs/guide/install.md`, `docs/guide/docker-compose.md`, `docs/architecture/overview.md`, `docs/security/threat-model.md`, and the relevant hardening note with the implemented contract, the 8443/8444 split, OpenSSL test prerequisite, keyring requirement/provisioning deferral, and age deferral (ST-34) ✅ (completed: 2026-10-30 14:48)
 
 ### Session 3 — Final verification and close-out
 

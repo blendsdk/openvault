@@ -15,10 +15,13 @@
 
 ## Trust boundaries
 
-- **B1** Human to API: untrusted network, TLS.
-- **B2** Agent to API: mTLS with a service identity.
+- **B1** Human to API: untrusted network to Caddy, then proxy-only TLS to the admin
+  listener. The admin listener is on a dedicated `admin_net` and rejects peers outside
+  `OPENVAULT_PROXY_CIDRS`; loopback may only call `/health` and `/ready`.
+- **B2** Agent to API: mTLS on a separate `vault_net` listener; the server verifies the
+  client certificate against the internal CA.
 - **B3** API to database: trusted network, but the database may be dumped.
-- **B4** API to keyring: local file with restrictive permissions.
+- **B4** API to keyring: absolute file with exact mode `0600`.
 - **B5** Agent to application: per-service tmpfs; the app reads only its own files.
 
 ## Adversaries
@@ -41,6 +44,9 @@
 | Database theft | Envelope encryption; KEK outside the database |
 | Backup theft | Encrypted archive; keyring has its own passphrase |
 | Traffic interception | TLS 1.2+, mTLS for workloads, HSTS |
+| Direct admin access | Dedicated `admin_net`, proxy CIDR allowlist, no plaintext listener |
+| Agent header spoofing | Agent listener strips forwarded headers; admin trust is source-checked |
+| Keyring disclosure | Absolute path, exact `0600`, redacted serialization and inspection |
 | Credential stuffing | Argon2id, rate limits, lockout |
 | Session theft | HttpOnly, Secure, SameSite cookies; rotation; 8-hour TTL |
 | Token theft | Short-lived JWTs, rotating refresh tokens |
@@ -61,5 +67,9 @@
 - Single-node deployment has no high availability.
 - Browser sessions are lost on restart.
 - No explicit deny rules in v0.1.
+- Age-encrypted keyrings and the `ov init` provisioner are deferred to RD-11/RD-13. Until
+  then the reference stack is not bootable and RD-02 tests use temporary fixtures.
+- The readiness timeout bounds the response, not an in-flight database query; the pool
+  connection timeout and connection cap bound the residual work.
 
 See [Known limitations](/security/limitations).

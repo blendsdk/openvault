@@ -54,24 +54,35 @@ This creates:
 - the organization and bootstrap administrator
 - the KEK keyring file
 - the internal CA for workload certificates
+- the server certificate signed by the internal CA
 - the JWT signing key, wrapped by the KEK
 
 The bootstrap password is printed once. The first login forces a change.
+
+`ov init` and the reference image are v0.1 deliverables. Until the provisioner lands, the
+reference stack cannot create the required keyring or TLS material; use fixtures for local
+transport tests.
 
 ::: danger Protect the keyring
 The keyring is outside PostgreSQL and is the only way to decrypt stored values. Back it up
 separately from the database, with mode `0600`. Losing it means losing every secret.
 :::
 
+Age-encrypted keyrings are not supported until RD-13. Setting
+`OPENVAULT_KEYRING_PASSPHRASE_FILE` stops startup rather than falling back to plaintext.
+
 ## Ports and networks
 
-| Port | Exposure |
-|---|---|
-| 443 | Proxy, public |
-| 8443 | Server, internal `vault_net` only |
-| 5432 | PostgreSQL, internal `db_net` only |
+| Port | Listener | Exposure |
+|---|---|---|
+| 443 | Caddy public TLS | Host |
+| 8443 | Admin HTTPS | `admin_net` only; not published |
+| 8444 | Agent mTLS | `vault_net` only; not published |
+| 5432 | PostgreSQL | `db_net` only |
 
-Application containers must not join `vault_net`.
+The proxy reaches the admin listener on `admin_net`. Agents use the separate mTLS listener
+on `vault_net`; they never use the admin port. Application containers must not join
+`admin_net`, `vault_net`, or `db_net`.
 
 ## Next
 

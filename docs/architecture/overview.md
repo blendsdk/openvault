@@ -5,11 +5,11 @@ OpenVault is a single-node, self-hosted service built on BlendSDK v5.
 ## Context
 
 ```text
-browser / CLI ── HTTPS ──▶ reverse proxy ──▶ WebAFX server ──▶ PostgreSQL
-                                                   │
-                                                   └── keyring (KEK, outside the database)
+browser / CLI ── HTTPS ──▶ reverse proxy ── HTTPS ──▶ WebAFX server ──▶ PostgreSQL
+                                                          │
+                                                          └── keyring (KEK, outside the database)
 
-app container ◀── tmpfs files ── agent ── mTLS ──▶ WebAFX server
+app container ◀── tmpfs files ── agent ── mTLS ──▶ WebAFX server (separate listener)
 ```
 
 The server owns the API, the browser session, the static React build, and the agent mTLS
@@ -61,14 +61,17 @@ The keyring holds the KEK and older keys. It is never stored in PostgreSQL.
 
 ## Networks
 
-| Network | Members |
-|---|---|
-| `edge_net` | proxy |
-| `vault_net` | proxy, server, agents |
-| `db_net` | server, PostgreSQL |
-| app networks | application, its agent |
+| Network | Members | Purpose |
+|---|---|---|
+| `edge_net` | proxy | Public 80/443 |
+| `admin_net` | proxy, server | Proxy-to-admin HTTPS only; dedicated subnet |
+| `vault_net` | server, agents | Agent mTLS and internal service traffic |
+| `db_net` | server, PostgreSQL | Database only |
+| app networks | application, its agent | Application delivery |
 
-The application has no route to the server or database.
+The proxy is not on `vault_net`. The admin listener on `8443` is reachable only from
+`admin_net`; the agent mTLS listener on `8444` is reachable only from `vault_net`. The
+application has no route to the server or database.
 
 ## Next
 

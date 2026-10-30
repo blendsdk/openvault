@@ -20,7 +20,7 @@ services:
   openvault-agent:
     image: openvault/agent:0.1
     environment:
-      OPENVAULT_URL: https://openvaultd:8443
+      OPENVAULT_URL: https://openvaultd:8444
       OPENVAULT_CA_FILE: /etc/openvault/ca.pem
       OPENVAULT_JOIN_TOKEN: ${OPENVAULT_JOIN_TOKEN}
       OPENVAULT_PROJECT: payments
@@ -51,7 +51,10 @@ services:
 
 ## Networks
 
-- `vault_net` is created by the OpenVault stack and shared with the agent.
+- `vault_net` is created by the OpenVault stack and shared with the agent. It carries only
+  the agent mTLS listener on `8444`.
+- The admin listener on `8443` is on `admin_net`, which the proxy owns. Agents and
+  applications must not join it.
 - The application stays on its Compose project's default network.
 - The application has no route to the vault.
 
@@ -64,6 +67,9 @@ ov docker scaffold payments api
 The command creates the project and service identity if needed, issues a single-use join
 token, and prints the agent snippet. It is idempotent: running it again does not create a
 second identity or service.
+
+The agent authenticates with a client certificate chained to the internal CA. It never uses
+the admin listener, and `OPENVAULT_URL` must point at `https://openvaultd:8444`.
 
 ## UID and file modes
 

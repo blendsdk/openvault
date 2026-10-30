@@ -7,8 +7,8 @@ The reference stack runs one host:
 
 | Service | Networks | Purpose |
 |---|---|---|
-| `proxy` | `edge_net`, `vault_net` | TLS termination |
-| `openvaultd` | `vault_net`, `db_net` | API, UI, auth, policy, audit |
+| `proxy` | `edge_net`, `admin_net` | Public TLS termination, HSTS, and proxy timeouts |
+| `openvaultd` | `admin_net`, `vault_net`, `db_net` | API, UI, auth, policy, audit |
 | `postgres` | `db_net` | Metadata, ciphertext, audit chain |
 
 Application Compose projects add one agent per service. The agent joins `vault_net` and the
@@ -30,12 +30,48 @@ the bootstrap administrator. The bootstrap password is printed once.
 ## Networks
 
 - `edge_net`: proxy only.
-- `vault_net`: proxy, server, agents. Internal; no direct internet.
+- `admin_net`: proxy and server. Dedicated subnet `172.30.0.0/24` with pinned addresses
+  (`172.30.0.2` proxy, `172.30.0.3` server). Internal; no direct internet.
+- `vault_net`: server and agents. Internal; no direct internet.
 - `db_net`: server and PostgreSQL. Internal.
+
+The proxy is not on `vault_net`. Agents cannot reach the admin listener, and PostgreSQL is
+never an admin peer.
+
+## Ports
+
+| Port | Listener | Exposure |
+|---|---|---|
+| 443 | Caddy public TLS | Host |
+| 8443 | Admin HTTPS | `admin_net` only; never published |
+| 8444 | Agent mTLS | `vault_net` only; never published |
+
+Caddy reaches the admin listener at `openvaultd:8443` over `admin_net`. Agents use
+`https://openvaultd:8444` with a client certificate from the internal CA.
+
+## Required environment
+
+The server requires `OPENVAULT_BASE_URL`, `OPENVAULT_DB_URL`, `OPENVAULT_KEYRING`,
+`OPENVAULT_TLS_CERT`, `OPENVAULT_TLS_KEY`, and `OPENVAULT_INTERNAL_CA`. The reference stack
+also sets:
+
+| Variable | Value |
+|---|---|
+| `OPENVAULT_ADMIN_PORT` | `8443` |
+| `OPENVAULT_AGENT_PORT` | `8444` |
+| `OPENVAULT_TRUST_PROXY` | `true` |
+| `OPENVAULT_PROXY_CIDRS` | `172.30.0.2/32` |
+| `OPENVAULT_LOG_LEVEL` | `info` |
+
+The keyring file must be a regular file with mode `0600`. The reference stack is not
+bootable until the `ov init` provisioner (RD-11/RD-13) creates the keyring and TLS material.
+Age-encrypted keyrings are not supported until RD-13; setting
+`OPENVAULT_KEYRING_PASSPHRASE_FILE` fails closed.
 
 ## Notes
 
 - Replace the Caddy `tls internal` certificate with a trusted certificate for production.
-- The proxy trusts the internal CA at `/etc/openvault/tls/ca.pem` for the upstream.
-- Do not expose port 8443 on the host.
+- Caddy owns HSTS and the public client/upstream timeouts; the exact values are in
+  `Caddyfile`.
+- Do not expose ports 8443 or 8444 on the host.
 - Disable swap or use encrypted swap.
