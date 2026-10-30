@@ -11,7 +11,9 @@
     "start": "node dist/main.js",
     "test": "vitest run",
     "test:integration": "vitest run --config vitest.integration.config.ts",
-    "db:migrate": "node dist/db/cli.js"
+    "db:migrate": "node dist/db/cli.js",
+    "db:types": "node scripts/generate-db-types.mjs",
+    "db:types:check": "node scripts/generate-db-types.mjs && git diff --exit-code -- src/database/generated-types.ts src/database/ctypes.ts"
   },
   "dependencies": {
     "@openvault/api-contract": "workspace:*",

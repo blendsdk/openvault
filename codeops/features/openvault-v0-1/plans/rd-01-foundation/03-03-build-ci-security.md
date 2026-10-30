@@ -82,6 +82,12 @@ steps:
   - run: pnpm install --frozen-lockfile
   - run: pnpm build
   - run: pnpm test:integration
+  - run: pnpm db:migrate
+    env:
+      OPENVAULT_DB_URL: postgres://openvault:test-password@localhost:5432/openvault_test
+  - run: pnpm db:types:check
+    env:
+      OPENVAULT_DB_URL: postgres://openvault:test-password@localhost:5432/openvault_test
 services:
   postgres:
     image: postgres:${{ matrix.postgres }}-alpine
@@ -173,6 +179,7 @@ port only on localhost.
 | Missing `TEST_DATABASE_URL` or `OPENVAULT_TEST_DB` | Integration suite fails with setup message | P-01, P-15 |
 | Database name not `_test` or non-local host | Suite refuses to run | P-15 |
 | Duplicate React or Griffel | `check:react` exits 1 | P-06 |
+| Generated database types drift | `db:types:check` exits 1 | P-03, P-16 |
 | Secret/map in build output | `check:artifacts` exits 1 | P-10 |
 | Workflow tag instead of SHA | `tests/ci.spec.test.mjs` fails | P-10 |
 | Postgres not ready | Service healthcheck gates the job | P-04 |

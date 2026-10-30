@@ -79,7 +79,7 @@ reviewable.
 | `audit_checkpoints` | Last event id/hash and HMAC |
 | `audit_keys` | Wrapped HMAC key |
 | `idempotency_keys` | Principal, key, method, path, resource id, created |
-| `schema_migrations` | Applied migration id, checksum, timestamp |
+| `blendsdk_migrations` | Applied migration id, checksum, timestamp (BlendSDK ledger) |
 
 Invariants:
 

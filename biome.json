@@ -13,7 +13,10 @@
       "!**/coverage",
       "!**/.vitepress/cache",
       "!**/.vitepress/dist",
-      "!**/.opencode"
+      "!**/.opencode",
+      "!**/src/database/generated-types.ts",
+      "!**/src/database/ctypes.ts",
+      "!**/migrations/schema.snapshot.json"
     ]
   },
   "formatter": {

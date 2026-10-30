@@ -32,7 +32,7 @@ packages/test-support (dev-only; source-only)
 | `@openvault/core` | none | TypeScript, Vitest, `@types/node` | `dist/index.js`, `dist/index.d.ts` |
 | `@openvault/api-contract` | `zod` exact, `@openvault/core` workspace | TypeScript, Vitest | `dist/index.js`, `dist/index.d.ts` |
 | `@openvault/test-support` | none | TypeScript, Vitest | `src/index.ts` (source-only) |
-| `@openvault/server` | BlendSDK, express, pg, zod, pino, exact | Vitest, supertest, tsx | `dist/main.js` |
+| `@openvault/server` | BlendSDK (`webafx`, `postgresql`, `codegen`), express, pg, zod, pino, exact | Vitest, supertest, tsx | `dist/main.js` |
 | `@openvault/web` | React, Fluent UI, BlendSDK exact | Vite, Vitest, Testing Library | `dist/` |
 
 ### Root scripts
@@ -53,6 +53,8 @@ packages/test-support (dev-only; source-only)
 | `audit:prod` | `pnpm audit --prod --audit-level=high` |
 | `audit:full` | `pnpm audit --audit-level=high` |
 | `db:migrate` | `pnpm --filter @openvault/server db:migrate` |
+| `db:types` | `pnpm --filter @openvault/server db:types` |
+| `db:types:check` | `pnpm --filter @openvault/server db:types:check` |
 
 The `test:integration` and `check:artifacts` scripts are added by Phase 2 and Phase 3; the
 artifact step joins `verify` when that scanner lands. Until then, the phase-1 `verify` is
@@ -73,7 +75,9 @@ only through `test:integration` with a real PostgreSQL service.
     "typecheck": "tsc -p tsconfig.test.json",
     "test": "vitest run --config vitest.config.ts",
     "test:integration": "vitest run --config vitest.integration.config.ts",
-    "db:migrate": "node dist/db/cli.js"
+    "db:migrate": "node dist/db/cli.js",
+    "db:types": "node scripts/generate-db-types.mjs",
+    "db:types:check": "node scripts/generate-db-types.mjs && git diff --exit-code -- src/database/generated-types.ts src/database/ctypes.ts"
   }
 }
 ```
@@ -208,6 +212,8 @@ export const SENTINEL_KEY = "SENTINEL_KEY_DO_NOT_LEAK_7f3a";
     "test:root": "vitest run --config vitest.root.config.ts",
     "test": "pnpm test:unit && pnpm test:root",
     "test:integration": "pnpm --filter @openvault/server test:integration",
+    "db:types": "pnpm --filter @openvault/server db:types",
+    "db:types:check": "pnpm --filter @openvault/server db:types:check",
     "check:react": "node scripts/check-single-react.mjs",
     "verify": "pnpm build && pnpm typecheck && pnpm lint && pnpm test && pnpm check:react && pnpm docs:build"
   }

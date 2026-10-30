@@ -1,18 +1,13 @@
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
-import { migrate } from "../../src/db/migrate.js";
 import { type BaseFixture, bytes32, nonce, seedBase, tag, testUlid } from "./helpers/fixtures.js";
-import {
-  createTestDatabase,
-  migrationsDirectory,
-  type TestDatabase,
-} from "./helpers/test-database.js";
+import { applyMigrations, createTestDatabase, type TestDatabase } from "./helpers/test-database.js";
 
 let testDb: TestDatabase;
 let base: BaseFixture;
 
 beforeAll(async () => {
   testDb = await createTestDatabase();
-  await migrate(testDb.db, migrationsDirectory);
+  await applyMigrations(testDb);
   base = await seedBase(testDb.db);
 });
 
@@ -72,6 +67,7 @@ describe("schema inventory", () => {
       "audit_checkpoints",
       "audit_events",
       "audit_keys",
+      "blendsdk_migrations",
       "certificate_versions",
       "certificates",
       "cli_sessions",
@@ -84,7 +80,6 @@ describe("schema inventory", () => {
       "principals",
       "projects",
       "role_assignments",
-      "schema_migrations",
       "secret_versions",
       "secrets",
       "workload_certs",

@@ -1,6 +1,5 @@
-import { PostgreSQLDatabase } from "blendsdk/postgresql";
-import { defaultMigrationsDirectory, migrate } from "./migrate.js";
-import { parseDatabaseUrl } from "./url.js";
+import { getMigrationStatus, runMigrations, validateMigrations } from "blendsdk/codegen";
+import { migrationConfigPath } from "./config.js";
 
 /**
  * Runs the migration command.
@@ -9,30 +8,41 @@ import { parseDatabaseUrl } from "./url.js";
  */
 async function main(): Promise<number> {
   const args = process.argv.slice(2);
-  const dryRun = args.includes("--dry-run");
-  const unknown = args.filter((argument) => argument !== "--dry-run");
-  if (unknown.length > 0) {
-    process.stderr.write(`Unknown argument: ${unknown[0]}\n`);
+  const allowed = new Set(["--dry-run", "--status", "--validate"]);
+  const unknown = args.find((argument) => !allowed.has(argument));
+  if (unknown) {
+    process.stderr.write(`Unknown argument: ${unknown}\n`);
     return 2;
   }
 
-  const databaseUrl = process.env.OPENVAULT_DB_URL;
-  if (!databaseUrl) {
-    process.stderr.write("OPENVAULT_DB_URL is required.\n");
-    return 1;
-  }
-
-  const db = new PostgreSQLDatabase(parseDatabaseUrl(databaseUrl));
   try {
-    const result = await migrate(db, defaultMigrationsDirectory, { dryRun });
-    const ids = dryRun ? result.pending : result.applied;
-    if (ids.length === 0) {
-      process.stdout.write("No pending migrations.\n");
+    if (args.includes("--status")) {
+      const result = await getMigrationStatus({
+        configPath: migrationConfigPath,
+      });
+      process.stdout.write(`${result.status}\n`);
+      for (const migration of result.migrations) {
+        process.stdout.write(`  ${migration.id}\n`);
+      }
       return 0;
     }
-    process.stdout.write(dryRun ? "Pending migrations:\n" : "Applied migrations:\n");
-    for (const id of ids) {
-      process.stdout.write(`  ${id} ${result.checksums[id] ?? ""}\n`);
+
+    if (args.includes("--validate")) {
+      const result = await validateMigrations({
+        configPath: migrationConfigPath,
+      });
+      process.stdout.write(`${result.status}\n`);
+      return result.status === "INVALID_HISTORY" ? 1 : 0;
+    }
+
+    const result = await runMigrations({
+      command: "up",
+      configPath: migrationConfigPath,
+      dryRun: args.includes("--dry-run"),
+    });
+    process.stdout.write(`${result.status}\n`);
+    for (const migration of result.migrations) {
+      process.stdout.write(`  ${migration.id}\n`);
     }
     return 0;
   } catch (error) {
@@ -40,8 +50,6 @@ async function main(): Promise<number> {
       `Migration failed: ${error instanceof Error ? error.message : String(error)}\n`,
     );
     return 1;
-  } finally {
-    await db.disconnect().catch(() => undefined);
   }
 }
 

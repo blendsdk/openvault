@@ -35,7 +35,7 @@ Kubernetes, and multi-tenant schema.
 
 | # | Document | Description |
 |---|---|---|
-| AR | [Ambiguity Register](00-ambiguity-register.md) | Plan decisions (15 resolved) |
+| AR | [Ambiguity Register](00-ambiguity-register.md) | Plan decisions (16 resolved) |
 | 00 | [Index](00-index.md) | This document |
 | 01 | [Requirements](01-requirements.md) | Delta view of RD-01 |
 | 02 | [Current State](02-current-state.md) | What exists and what is missing |
@@ -53,8 +53,8 @@ Kubernetes, and multi-tenant schema.
 | Decision | Outcome |
 |---|---|
 | Integration DB | Compose/service Postgres via `TEST_DATABASE_URL` |
-| Migrations | Custom TypeScript runner + immutable SQL files + checksums |
-| Schema types | Hand-written domain/repository types; codegen later |
+| Migrations | BlendSDK `DatabaseSchema` + generated baseline + reviewed manual trigger/seed migration |
+| Schema types | Generated row types and CType constants from the migrated database |
 | Database support | PostgreSQL 16 and 17 |
 | Enums | `text` + CHECK constraints |
 | Validation | Zod in `packages/api-contract`; `packages/core` dependency-free |
@@ -98,10 +98,13 @@ and dependency policy. These are security- and correctness-sensitive surfaces.
 | `packages/core/src/` | Dependency-free domain types |
 | `packages/api-contract/src/` | Shared Zod schemas and IDs |
 | `packages/test-support/src/` | Sentinels and fixtures |
-| `apps/server/src/db/` | Migration runner and repositories |
-| `apps/server/migrations/` | Ordered SQL migrations |
-| `apps/server/src/db/migrate.ts` | Migration runner |
-| `apps/server/src/db/cli.ts` | `db:migrate` and `--dry-run` |
+| `apps/server/src/database/schema.ts` | BlendSDK desired-state schema |
+| `apps/server/src/database/generated-types.ts` | Generated row types |
+| `apps/server/src/database/ctypes.ts` | Generated table/column constants |
+| `apps/server/blendsdk.migrations.ts` | Migration configuration |
+| `apps/server/migrations/` | Generated baseline and reviewed manual migration |
+| `apps/server/src/db/cli.ts` | Migration CLI wrapper |
+| `apps/server/scripts/generate-db-types.mjs` | Type and CType generator |
 | `scripts/check-artifacts.mjs` | Build artifact/content check |
 | `scripts/check-single-react.mjs` | React/Griffel duplicate check |
 | `scripts/audit-check.mjs` | Audit JSON parser for tests |

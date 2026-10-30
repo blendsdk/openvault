@@ -2,8 +2,8 @@
 
 > **Document**: 99-execution-plan.md
 > **Parent**: [Index](00-index.md)
-> **Last Updated**: 2026-10-30 08:05
-> **Progress**: 20/34 tasks (59%)
+> **Last Updated**: 2026-10-30 10:50
+> **Progress**: 26/40 tasks (65%)
 > **CodeOps Artifact Schema**: 1
 
 ## Overview
@@ -23,10 +23,11 @@ implement, run green, add impl tests, verify.
 |---|---|---|
 | 1 | Domain contracts and workspace | 10 |
 | 2 | Schema and migrations | 10 |
+| 2.5 | BlendSDK codegen adoption | 6 |
 | 3 | CI and build security | 10 |
 | 4 | Full verification and close-out | 4 |
 
-**Total: 34 tasks across 4 phases**
+**Total: 40 tasks across 5 phases**
 
 > **Execution rule:** mark `[~]` with a timestamp on implementation, `[x]` on verify pass,
 > `[!]` with a reason on blocker. The checkboxes are the single source of truth.
@@ -90,6 +91,33 @@ implement, run green, add impl tests, verify.
 
 **Verify**: phase gate plus `TEST_DATABASE_URL=... OPENVAULT_TEST_DB=1 pnpm test:integration`.
 
+> **Superseded**: the hand-written SQL migrations and custom runner were replaced by the
+> BlendSDK codegen path in Phase 2.5. The Phase 2 evidence remains as history.
+
+---
+
+## Phase 2.5: BlendSDK codegen adoption
+
+> **Reasoning**: high — schema model, generated migrations, reviewed manual SQL, and runtime
+> integration.
+> **Phase gate**: `pnpm verify`, PostgreSQL 16/17 integration, and `pnpm db:types:check`.
+
+### Step 2.5: Replace hand-written schema and migration plumbing
+
+**Reference**: [03-02](03-02-database-schema-migrations.md) · [07](07-testing-strategy.md) · P-03, P-16
+
+- [x] 2.5.1 [spec-author] Rewrite migration integration specs for `runMigrations`, `getMigrationStatus`, `validateMigrations`, and the codegen schema model ✅ (completed: 2026-10-30 10:20)
+- [x] 2.5.2 [executor] Author `apps/server/src/database/schema.ts` and `blendsdk.migrations.ts`; generate the baseline and snapshot ✅ (completed: 2026-10-30 10:20)
+- [x] 2.5.3 [executor] Add the reviewed trigger/seed manual migration and remove the eight hand-written SQL migrations ✅ (completed: 2026-10-30 10:20)
+- [x] 2.5.4 [executor] Replace the custom runner, CLI, and startup hook with codegen migration APIs ✅ (completed: 2026-10-30 10:20)
+- [x] 2.5.5 [executor] Generate row types and CType constants, add `db:types`/`db:types:check`, and exclude generated files from Biome ✅ (completed: 2026-10-30 10:20)
+- [x] 2.5.6 [executor] Run `pnpm verify`, PostgreSQL 16/17 integration, and `db:types:check` ✅ (completed: 2026-10-30 10:50)
+
+**Deliverables**: codegen schema model, baseline and manual migrations, codegen runner/CLI,
+generated types/constants, updated specs and plan.
+
+**Verify**: `pnpm verify`; both integration suites; type drift check.
+
 ---
 
 ## Phase 3: CI and build security
@@ -145,6 +173,8 @@ Phase 1 (domain/workspace)
     ↓
 Phase 2 (schema/migrations)
     ↓
+Phase 2.5 (BlendSDK codegen)
+    ↓
 Phase 3 (CI/build security)
     ↓
 Phase 4 (full verification/preflight)
@@ -154,7 +184,7 @@ Phase 4 (full verification/preflight)
 
 ## Success Criteria
 
-1. ✅ All 34 tasks completed.
+1. ✅ All 40 tasks completed.
 2. ✅ All ST-1…ST-44 and G-1…G-5 pass.
 3. ✅ `pnpm verify` passes without a database.
 4. ✅ PostgreSQL 16 and 17 integration tests pass.

@@ -1,5 +1,6 @@
 import { randomBytes } from "node:crypto";
 import { fileURLToPath } from "node:url";
+import { type MigrationCommandResult, runMigrations } from "blendsdk/codegen";
 import { PostgreSQLDatabase } from "blendsdk/postgresql";
 import { Client } from "pg";
 
@@ -29,8 +30,51 @@ export interface TestDatabase {
   cleanup(): Promise<void>;
 }
 
-/** Absolute path to the ordered SQL migrations shipped with the server. */
-export const migrationsDirectory = fileURLToPath(new URL("../../../migrations/", import.meta.url));
+/** Absolute path to the BlendSDK migration configuration. */
+export const migrationConfigPath = fileURLToPath(
+  new URL("../../../blendsdk.migrations.ts", import.meta.url),
+);
+
+/**
+ * Applies the configured BlendSDK migrations to a disposable database.
+ *
+ * The codegen runner reads its target from `OPENVAULT_DB_URL`; the previous value is
+ * restored so tests cannot leak a database target into another suite.
+ *
+ * @param testDb - Disposable test database.
+ * @returns Migration command result.
+ */
+export async function withTestDatabaseUrl<T>(
+  testDb: TestDatabase,
+  action: () => Promise<T>,
+): Promise<T> {
+  const previous = process.env.OPENVAULT_DB_URL;
+  process.env.OPENVAULT_DB_URL = testDb.url;
+  try {
+    return await action();
+  } finally {
+    if (previous === undefined) {
+      delete process.env.OPENVAULT_DB_URL;
+    } else {
+      process.env.OPENVAULT_DB_URL = previous;
+    }
+  }
+}
+
+/**
+ * Applies the configured BlendSDK migrations to a disposable database.
+ *
+ * @param testDb - Disposable test database.
+ * @returns Migration command result.
+ */
+export async function applyMigrations(testDb: TestDatabase): Promise<MigrationCommandResult> {
+  return withTestDatabaseUrl(testDb, () =>
+    runMigrations({
+      command: "up",
+      configPath: migrationConfigPath,
+    }),
+  );
+}
 
 const LOCAL_HOSTS = new Set(["localhost", "127.0.0.1", "::1"]);
 
