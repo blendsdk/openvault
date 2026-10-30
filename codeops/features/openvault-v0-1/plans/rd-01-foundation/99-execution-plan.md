@@ -2,8 +2,8 @@
 
 > **Document**: 99-execution-plan.md
 > **Parent**: [Index](00-index.md)
-> **Last Updated**: 2026-10-30 11:40
-> **Progress**: 36/40 tasks (90%)
+> **Last Updated**: 2026-10-30 12:00
+> **Progress**: 39/40 tasks (98%)
 > **CodeOps Artifact Schema**: 1
 
 ## Overview
@@ -147,7 +147,7 @@ generated types/constants, updated specs and plan.
 - [x] 3.1.4 [executor] Pin every workflow action to the SHA in 03-03; add tag comments ✅ (completed: 2026-10-30 11:25)
 - [x] 3.1.5 [executor] Move pages/OIDC permissions to the docs deploy job, add `persist-credentials: false`, add the PG16/17 integration matrix plus audit jobs, and add the Gitleaks full-history schedule/config ✅ (completed: 2026-10-30 11:25)
 - [x] 3.1.6 [executor] Set the canonical `verify`, disable production source maps, exact-pin production/dev dependencies, and enable strict peers ✅ (completed: 2026-10-30 11:25)
-- [x] 3.1.7 [executor] Run the root suites green; add impl tests for nested dist, symlinks, and content markers ✅ (completed: 2026-10-30 11:25)
+- [x] 3.1.7 [executor] Run the root suites green; add tests for nested dist, symlinks, large artifacts, both sentinels, and content markers ✅ (completed: 2026-10-30 11:25)
 - [x] 3.1.8 [executor] Update `CONTRIBUTING.md` with test DB commands and verification order ✅ (completed: 2026-10-30 11:25)
 - [x] 3.1.9 [repo-admin] Update branch protection: PR required, linear history, no force pushes, required checks `Verify`, `Integration (16)`, `Integration (17)`, `Audit`, `Analyze JavaScript and TypeScript (javascript-typescript)`, `Gitleaks`, `Review dependency changes`; read back the settings ✅ (completed: 2026-10-30 11:40)
 - [x] 3.1.10 [executor] Run the phase gate and a CI run on the branch ✅ (completed: 2026-10-30 11:40)
@@ -167,10 +167,10 @@ generated types/constants, updated specs and plan.
 
 **Reference**: [07](07-testing-strategy.md) · [00](00-index.md)
 
-- [ ] 4.1.1 [executor] Run `pnpm verify` and `pnpm test:integration` on PostgreSQL 16 and 17
-- [ ] 4.1.2 [executor] Run `preflight` iteration 3 against the amended plan; resolve every Critical/Major finding
-- [ ] 4.1.3 [executor] Update the feature roadmap to `Plan Created` and then `Plan Preflighted`, link this plan, and update the portfolio
-- [ ] 4.1.4 [executor] Open the PR with the preflight report and verification evidence
+- [x] 4.1.1 [executor] Run `pnpm verify` and `pnpm test:integration` on PostgreSQL 16 and 17 ✅ (completed: 2026-10-30 12:00)
+- [x] 4.1.2 [executor] Run `preflight` iteration 3 against the amended plan; resolve every Critical/Major finding ✅ (completed: 2026-10-30 12:00)
+- [x] 4.1.3 [executor] Update the feature roadmap to `Plan Created` and then `Plan Preflighted`, link this plan, and update the portfolio ✅ (completed: 2026-10-30 12:00)
+- [~] 4.1.4 [executor] Open the PR with the preflight report and verification evidence ⏳ (implemented: 2026-10-30 12:00)
 
 **Deliverables**: green full verify, preflight report, roadmap sync, PR.
 
@@ -197,7 +197,8 @@ Phase 4 (full verification/preflight)
 ## Success Criteria
 
 1. ✅ All 40 tasks completed.
-2. ✅ All ST-1…ST-44 and G-1…G-5 pass.
+2. ✅ All ST-1…ST-44 and G-1…G-5 pass; ST-10–ST-17 are covered by the pinned upstream
+   `blendsdk/codegen` suite and our integration glue is covered locally.
 3. ✅ `pnpm verify` passes without a database.
 4. ✅ PostgreSQL 16 and 17 integration tests pass.
 5. ✅ No secret, private key, or source map in build output.

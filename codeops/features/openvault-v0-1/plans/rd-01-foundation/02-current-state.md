@@ -1,5 +1,8 @@
 # Current State: RD-01 Foundation
 
+> **Historical snapshot**: this document describes the repository before RD-01 execution.
+> See `99-execution-plan.md` for the current implemented state.
+
 > **Document**: 02-current-state.md
 > **Parent**: [Index](00-index.md)
 

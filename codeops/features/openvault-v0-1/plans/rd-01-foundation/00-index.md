@@ -23,11 +23,12 @@ workspace and replaces the unverified build/data foundation around them.
 security phases can trust.
 
 **Smallest viable design:** keep the existing pnpm/TypeScript 7/Biome workspace, add the
-missing shared packages, define the schema in plain SQL, run it with a small TypeScript
-runner, and enforce build/CI security with existing tools.
+missing shared packages, define the schema once with BlendSDK `DatabaseSchema`, generate the
+baseline/manual migrations, run the codegen lifecycle, generate row types/constants, and
+enforce build/CI security with existing tools.
 
-**Excluded machinery:** ORM, migration framework, Testcontainers, code generator, Redis,
-Kubernetes, and multi-tenant schema.
+**Excluded machinery:** ORM, hand-written migration runner, Testcontainers, Redis, Kubernetes,
+and multi-tenant schema.
 
 **Approved complexity:** None in this plan. The release signing/SBOM pipeline is RD-14.
 
@@ -40,7 +41,7 @@ Kubernetes, and multi-tenant schema.
 | 01 | [Requirements](01-requirements.md) | Delta view of RD-01 |
 | 02 | [Current State](02-current-state.md) | What exists and what is missing |
 | 03-01 | [Workspace and Toolchain](03-01-workspace-toolchain.md) | pnpm workspace, TS 7, Biome, package layout |
-| 03-02 | [Database Schema and Migrations](03-02-database-schema-migrations.md) | Tables, constraints, indexes, runner |
+| 03-02 | [Database Schema and Migrations](03-02-database-schema-migrations.md) | Codegen schema, migrations, triggers, runner |
 | 03-03 | [Build and CI Security](03-03-build-ci-security.md) | CI, action pinning, audit, secret scan |
 | 05 | [Findings Ledger](05-findings.md) | Phase review findings and rulings |
 | 07 | [Testing Strategy](07-testing-strategy.md) | Specification test cases ST-1…ST-44 and gates G-1…G-5 |
@@ -83,8 +84,9 @@ TEST_DATABASE_URL=postgres://openvault:openvault@localhost:5432/openvault_test \
 | `preflight-auditor` | reviewer | Plan/RD completeness before execution | RD-01 |
 | `spec-test-author` | executor | Write ST-1…ST-44 before implementation | 07 |
 
-Detection evidence: the plan changes the database schema, the migration runner, CI workflows,
-and dependency policy. These are security- and correctness-sensitive surfaces.
+Detection evidence: the plan changes the database schema, the migration lifecycle, generated
+types, CI workflows, and dependency policy. These are security- and correctness-sensitive
+surfaces.
 
 ## Related Files
 
