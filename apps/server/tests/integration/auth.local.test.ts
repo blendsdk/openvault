@@ -496,6 +496,21 @@ describe.skipIf(trustedHost === undefined)("local authentication", () => {
       expect(lockedState.failedCount).toBe(5);
       expect(lockedState.lockedUntil?.getTime()).toBe(lockedUntil.getTime());
     });
+
+    it("should reject a stored hash outside the policy without incrementing the counter", async () => {
+      const user = await insertUser();
+      await testDb.db.executeQuery(
+        "UPDATE local_credentials SET password_hash = '$argon2id$bad' WHERE principal_id = :id",
+        { id: user.id },
+      );
+
+      const response = await login(user.email, TEST_PASSWORD, uniqueAddress());
+
+      expect(response.status).toBe(401);
+      expect(errorEnvelope.parse(response.json).error.code).toBe("invalid_credentials");
+      const state = await readCredential(user.id);
+      expect(state.failedCount).toBe(0);
+    });
   });
 
   describe("login lockout", () => {
@@ -525,6 +540,28 @@ describe.skipIf(trustedHost === undefined)("local authentication", () => {
       const after = await readCredential(user.id);
       expect(after.failedCount).toBe(5);
       expect(after.lockedUntil?.getTime()).toBe(lockedUntil.getTime());
+    });
+
+    it("should reset the window and clear an expired lock", async () => {
+      const user = await insertUser();
+      await testDb.db.executeQuery(
+        `UPDATE local_credentials
+            SET failed_count = 5,
+                locked_until = now() - interval '1 minute',
+                updated_at = now() - interval '16 minutes'
+          WHERE principal_id = :principalId`,
+        { principalId: user.id },
+      );
+
+      const wrong = await login(user.email, "still the wrong password", uniqueAddress());
+      expect(wrong.status).toBe(401);
+
+      const after = await readCredential(user.id);
+      expect(after.failedCount).toBe(1);
+      expect(after.lockedUntil).toBeNull();
+
+      const success = await login(user.email, TEST_PASSWORD, uniqueAddress());
+      expect(success.status).toBe(200);
     });
 
     it("should reset the failure counter when a login succeeds after four failures", async () => {
@@ -666,6 +703,48 @@ describe.skipIf(trustedHost === undefined)("local authentication", () => {
       });
       expect(me.status).toBe(200);
       expect(sessionEnvelope.parse(me.json).data.mustChangePassword).toBe(false);
+
+      const late = await send({
+        path: "/v1/auth/refresh",
+        method: "POST",
+        headers: {
+          cookie: `${SESSION_COOKIE}=${current.secretId}`,
+          [CSRF_HEADER]: current.record.csrfToken,
+          origin: CONFIGURED_ORIGIN,
+        },
+      });
+      expect(late.status).toBe(401);
+      expect(errorEnvelope.parse(late.json).error.code).toBe("authentication_required");
+    });
+
+    it("should let only one of two concurrent password changes win", async () => {
+      const user = await insertUser();
+      const first = await sessions.create({ principalId: user.id, authMethod: "local" });
+      const second = await sessions.create({ principalId: user.id, authMethod: "local" });
+      const otherPassword = "another new passphrase";
+
+      const [firstResponse, secondResponse] = await Promise.all([
+        changePassword(
+          first,
+          { currentPassword: TEST_PASSWORD, newPassword: NEW_PASSWORD },
+          uniqueAddress(),
+        ),
+        changePassword(
+          second,
+          { currentPassword: TEST_PASSWORD, newPassword: otherPassword },
+          uniqueAddress(),
+        ),
+      ]);
+
+      const successful = [firstResponse, secondResponse].filter(
+        (response) => response.status === 200,
+      );
+      expect(successful).toHaveLength(1);
+
+      const winnerPassword = successful[0] === firstResponse ? NEW_PASSWORD : otherPassword;
+      const after = await readCredential(user.id);
+      expect(matchesReference(winnerPassword, after.passwordHash)).toBe(true);
+      expect(matchesReference(TEST_PASSWORD, after.passwordHash)).toBe(false);
     });
   });
 

@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   dummyVerify,
   hashPassword,
+  isPolicyHash,
   PASSWORD_MAX_LENGTH,
   PASSWORD_MIN_LENGTH,
   validateNewPassword,
@@ -37,6 +38,14 @@ describe("password implementation edges", () => {
     const padded = phc.replace(/\$([A-Za-z0-9+/]+)$/, "$1==");
 
     await expect(verifyPassword(PASSWORD, padded)).resolves.toBe(false);
+  });
+
+  it("should report whether a stored hash matches the policy without deriving", async () => {
+    const phc = await hashPassword(PASSWORD);
+
+    expect(isPolicyHash(phc)).toBe(true);
+    expect(isPolicyHash("$argon2id$bad")).toBe(false);
+    expect(isPolicyHash("")).toBe(false);
   });
 
   it("should resolve dummy verification for arbitrary input", async () => {

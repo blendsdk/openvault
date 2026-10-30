@@ -128,7 +128,6 @@ describe("auth middleware implementation", () => {
     const app = express();
     const sessions = {
       get: async (): Promise<undefined> => undefined,
-      hasRecentRotation: (): boolean => false,
       revoke: async (): Promise<boolean> => false,
     };
     const credentials = {

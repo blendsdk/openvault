@@ -15,6 +15,7 @@ import { requireSession } from "../auth/middleware.js";
 import {
   dummyVerify,
   hashPassword,
+  isPolicyHash,
   validateNewPassword,
   verifyPassword,
 } from "../auth/password.js";
@@ -63,11 +64,12 @@ function toSessionEntry(record: SessionRecord, currentPublicId: string) {
 }
 
 /**
- * Browser session routes.
+ * Browser authentication and session routes.
  *
- * The session middleware attaches the authenticated context and the CSRF guard
- * protects unsafe mutations. This controller only renders the session state,
- * rotates it, revokes it, and lists it.
+ * The controller owns local login, password change, `/me`, refresh, logout,
+ * session listing, and session revocation. The session middleware attaches the
+ * authenticated context; the CSRF guard protects unsafe mutations; local login
+ * returns one generic failure for every rejected credential.
  */
 export class AuthController extends BaseController {
   /** @inheritDoc */
@@ -120,16 +122,35 @@ export class AuthController extends BaseController {
             await dummyVerify(input.password);
             throw invalidCredentials();
           }
+          if (!isPolicyHash(credential.passwordHash)) {
+            await req.log?.warn("stored password hash rejected", {
+              principalId: credential.principalId,
+            });
+            await dummyVerify(input.password);
+            throw invalidCredentials();
+          }
           if (!(await verifyPassword(input.password, credential.passwordHash))) {
-            await credentials.recordFailure(credential.principalId);
+            await credentials.recordFailure(credential.principalId, credential.passwordHash);
             throw invalidCredentials();
           }
 
-          await credentials.recordSuccess(credential.principalId);
+          const reset = await credentials.recordSuccess(
+            credential.principalId,
+            credential.passwordHash,
+          );
+          if (!reset) {
+            throw invalidCredentials();
+          }
+
           const issued = await sessions.create({
             principalId: credential.principalId,
             authMethod: "local",
           });
+          const latest = await credentials.findByPrincipalId(credential.principalId);
+          if (latest === undefined || latest.passwordHash !== credential.passwordHash) {
+            await sessions.revoke(issued.record.publicId, credential.principalId);
+            throw invalidCredentials();
+          }
           setSessionCookie(res, issued.secretId, sessions.remainingSeconds(issued.record));
           this.ok(
             res,
@@ -158,11 +179,6 @@ export class AuthController extends BaseController {
             throw new ApiError(400, "validation_error", "Validation failed");
           }
           const input = parsed.data;
-          try {
-            validateNewPassword(input.newPassword);
-          } catch {
-            throw new ApiError(400, "validation_error", "Invalid password");
-          }
 
           const credentials = await this.services.get<CredentialsRepository>("credentials");
           const sessions = await this.services.get<SessionService>("sessions");
@@ -173,9 +189,21 @@ export class AuthController extends BaseController {
           ) {
             throw invalidCredentials();
           }
+          try {
+            validateNewPassword(input.newPassword);
+          } catch {
+            throw new ApiError(400, "validation_error", "Invalid password");
+          }
 
           const passwordHash = await hashPassword(input.newPassword);
-          await credentials.changePassword(auth.session.principalId, passwordHash);
+          const updated = await credentials.changePassword(
+            auth.session.principalId,
+            passwordHash,
+            credential.passwordHash,
+          );
+          if (!updated) {
+            throw invalidCredentials();
+          }
 
           const records = await sessions.list(auth.session.principalId);
           for (const record of records) {
@@ -189,9 +217,12 @@ export class AuthController extends BaseController {
             clearSessionCookie(res);
             throw invalidCredentials();
           }
-          const rotated = await sessions.rotate(secretId);
+          const rotated = await sessions.rotateCurrent(
+            auth.session.publicId,
+            auth.session.principalId,
+          );
+          sessions.clearRotationReceipt(secretId);
           if (rotated === undefined) {
-            clearSessionCookie(res);
             throw invalidCredentials();
           }
 
@@ -225,13 +256,11 @@ export class AuthController extends BaseController {
           const sessions = await this.services.get<SessionService>("sessions");
           const secretId = readSessionCookie(req);
           if (secretId === undefined) {
-            clearSessionCookie(res);
             throw new ApiError(401, "authentication_required", "Authentication required");
           }
 
           const rotated = await sessions.rotate(secretId);
           if (rotated === undefined) {
-            clearSessionCookie(res);
             throw new ApiError(401, "authentication_required", "Authentication required");
           }
 

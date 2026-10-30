@@ -10,8 +10,6 @@ const SAFE_METHODS = new Set(["GET", "HEAD", "OPTIONS"]);
 export interface SessionLookup {
   /** Resolves a session by secret cookie value. */
   get(secretId: string): Promise<SessionRecord | undefined>;
-  /** Reports whether an old secret has a live rotation receipt. */
-  hasRecentRotation(secretId: string): boolean;
   /** Revokes one session owned by the principal. */
   revoke(publicId: string, principalId: string): Promise<boolean>;
 }
@@ -47,9 +45,8 @@ export function sessionMiddleware(
 
       const session = await sessions.get(secretId);
       if (session === undefined) {
-        if (!sessions.hasRecentRotation(secretId)) {
-          clearSessionCookie(res);
-        }
+        // Do not clear the cookie here: a stale request may resolve after a
+        // concurrent rotation and would otherwise delete the fresh cookie.
         next();
         return;
       }

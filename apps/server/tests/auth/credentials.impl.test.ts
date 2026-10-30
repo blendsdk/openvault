@@ -36,7 +36,7 @@ describe("CredentialsRepository SQL shape", () => {
     const database = new RecordingDatabase();
     const repository = new CredentialsRepository(database);
 
-    await expect(repository.recordFailure("principal-1")).resolves.toEqual({
+    await expect(repository.recordFailure("principal-1", "hash-1")).resolves.toEqual({
       failedCount: 0,
       lockedUntil: null,
     });
@@ -46,33 +46,49 @@ describe("CredentialsRepository SQL shape", () => {
     expect(sql).toContain("interval '15 minutes'");
     expect(sql).toContain("failed_count + 1");
     expect(sql).toContain(">= 5");
+    expect(sql).toContain("password_hash = :expectedHash");
+    expect(sql).toContain("AND (locked_until IS NULL OR locked_until <= now())");
     expect(sql).toContain("RETURNING failed_count, locked_until");
-    expect(database.queries[0]?.params).toEqual({ principalId: "principal-1" });
+    expect(database.queries[0]?.params).toEqual({
+      principalId: "principal-1",
+      expectedHash: "hash-1",
+    });
   });
 
-  it("should reset the counter on success", async () => {
+  it("should reset the counter with a hash and lock compare-and-swap", async () => {
     const database = new RecordingDatabase();
     const repository = new CredentialsRepository(database);
 
-    await repository.recordSuccess("principal-1");
+    await expect(repository.recordSuccess("principal-1", "hash-1")).resolves.toBe(false);
 
-    const sql = database.queries[0]?.sql ?? "";
-    expect(sql).toContain("failed_count = 0");
-    expect(sql).toContain("locked_until = NULL");
+    const query = database.queries[0];
+    expect(query?.sql).toContain("failed_count = 0");
+    expect(query?.sql).toContain("locked_until = NULL");
+    expect(query?.sql).toContain("password_hash = :expectedHash");
+    expect(query?.sql).toContain("AND (locked_until IS NULL OR locked_until <= now())");
+    expect(query?.params).toEqual({ principalId: "principal-1", expectedHash: "hash-1" });
   });
 
-  it("should store the new hash and clear the forced-change flag", async () => {
+  it("should store the new hash with a compare-and-swap on the verified hash", async () => {
     const database = new RecordingDatabase();
     const repository = new CredentialsRepository(database);
 
-    await repository.changePassword("principal-1", "$argon2id$v=19$m=65536,t=3,p=1$x$y");
+    await expect(
+      repository.changePassword(
+        "principal-1",
+        "$argon2id$v=19$m=65536,t=3,p=1$x$y",
+        "$argon2id$v=19$m=65536,t=3,p=1$old$hash",
+      ),
+    ).resolves.toBe(false);
 
     const query = database.queries[0];
     expect(query?.sql).toContain("password_hash = :passwordHash");
     expect(query?.sql).toContain("must_change = false");
+    expect(query?.sql).toContain("password_hash = :expectedHash");
     expect(query?.params).toEqual({
       principalId: "principal-1",
       passwordHash: "$argon2id$v=19$m=65536,t=3,p=1$x$y",
+      expectedHash: "$argon2id$v=19$m=65536,t=3,p=1$old$hash",
     });
   });
 });

@@ -159,11 +159,17 @@ export class CredentialsRepository {
    * single atomic `UPDATE … RETURNING`, so concurrent failures cannot lose an
    * increment.
    *
+   * The update is a compare-and-swap on the verified hash and is skipped while
+   * the row is locked. A skipped update returns `{ failedCount: 0,
+   * lockedUntil: null }`; callers only use the result for diagnostics.
+   *
    * @param principalId - Principal identifier.
+   * @param expectedHash - Hash that was verified for this login.
    * @returns The new failure count and lock expiry.
    */
   public async recordFailure(
     principalId: string,
+    expectedHash: string,
   ): Promise<{ failedCount: number; lockedUntil: Date | null }> {
     const result = await this.#database.executeQuery<FailureRow>(
       `UPDATE local_credentials
@@ -172,16 +178,16 @@ export class CredentialsRepository {
                 ELSE failed_count + 1
               END,
               locked_until = CASE
-                WHEN (CASE
-                  WHEN updated_at < now() - interval '15 minutes' THEN 1
-                  ELSE failed_count + 1
-                END) >= 5 THEN now() + interval '15 minutes'
+                WHEN updated_at < now() - interval '15 minutes' THEN NULL
+                WHEN failed_count + 1 >= 5 THEN now() + interval '15 minutes'
                 ELSE locked_until
               END,
               updated_at = now()
         WHERE principal_id = :principalId
+          AND password_hash = :expectedHash
+          AND (locked_until IS NULL OR locked_until <= now())
         RETURNING failed_count, locked_until`,
-      { principalId },
+      { principalId, expectedHash },
     );
 
     const row = result.records[0];
@@ -193,34 +199,56 @@ export class CredentialsRepository {
   /**
    * Resets the failure counter after a successful login.
    *
+   * The update is a compare-and-swap on the verified hash and fails when the
+   * row is locked, so a login that started before a concurrent password change
+   * or lock cannot reset newer state.
+   *
    * @param principalId - Principal identifier.
+   * @param expectedHash - Hash that was verified for this login.
+   * @returns True when the counter was reset.
    */
-  public async recordSuccess(principalId: string): Promise<void> {
-    await this.#database.executeQuery(
+  public async recordSuccess(principalId: string, expectedHash: string): Promise<boolean> {
+    const result = await this.#database.executeQuery<{ readonly principal_id: string }>(
       `UPDATE local_credentials
           SET failed_count = 0, locked_until = NULL, updated_at = now()
-        WHERE principal_id = :principalId`,
-      { principalId },
+        WHERE principal_id = :principalId
+          AND password_hash = :expectedHash
+          AND (locked_until IS NULL OR locked_until <= now())
+        RETURNING principal_id`,
+      { principalId, expectedHash },
     );
+    return result.records.length > 0;
   }
 
   /**
    * Stores a new password hash and clears the forced-change flag.
    *
+   * The update is a compare-and-swap on the hash that was verified for the
+   * change. A concurrent change that committed first wins; the stale writer
+   * receives `false` and must not revoke or rotate sessions.
+   *
    * @param principalId - Principal identifier.
    * @param passwordHash - New Argon2id PHC string.
+   * @param expectedHash - Hash that was verified as the current password.
+   * @returns True when the password was updated.
    */
-  public async changePassword(principalId: string, passwordHash: string): Promise<void> {
-    await this.#database.executeQuery(
+  public async changePassword(
+    principalId: string,
+    passwordHash: string,
+    expectedHash: string,
+  ): Promise<boolean> {
+    const result = await this.#database.executeQuery<{ readonly principal_id: string }>(
       `UPDATE local_credentials
           SET password_hash = :passwordHash,
               must_change = false,
               failed_count = 0,
               locked_until = NULL,
               updated_at = now()
-        WHERE principal_id = :principalId`,
-      { principalId, passwordHash },
+        WHERE principal_id = :principalId AND password_hash = :expectedHash
+        RETURNING principal_id`,
+      { principalId, passwordHash, expectedHash },
     );
+    return result.records.length > 0;
   }
 
   async #queryCredential(

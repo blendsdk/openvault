@@ -56,3 +56,48 @@ returned only while its new secret is the current key. Regression tests cover a 
 HTTP refresh, revoke-after-rotation, supersession, newest-first list order, and non-GET meta.
 A third review pass is not run per the quality-profile re-review budget; the fixes are covered by
 the added tests and full verification.
+
+## Phase 3 — Local password authentication
+
+**Reviewers:** correctness-reviewer, security-auditor, concurrency-auditor
+**Phase diff:** `9b1b996..8f474e2`
+**Verify:** `pnpm verify` under Node 24.21.0 — PASS; unit 132; PostgreSQL 16 integration 84
+
+| ID | Severity | Lens | Finding | Ruling |
+|---|---|---|---|---|
+| C-5 | 🔴 CRITICAL | concurrency | Password change was an unconditional update. A stale change that verified the old hash could overwrite a newer password after the victim's change committed. | Fixed — `changePassword` is a compare-and-swap on the verified hash and returns false when another change won. The controller returns the generic 401 without revoking or rotating. Added a concurrent password-change integration test. |
+| C-4 | 🟠 MAJOR | concurrency | A login that verified the pre-change hash could create a session after the password-change revocation sweep. | Fixed — `recordSuccess` is a hash/lock compare-and-swap, and login re-reads the credential after session creation; a changed hash revokes the new session and returns 401. A deterministic race test is not added; the code path is covered by the normal login tests and review. |
+| C-6 / CA-001 | 🟠 MAJOR | concurrency | The password-change rotation could adopt a concurrent refresh's secret, letting the pre-change cookie holder follow the rotation. | Fixed — the password change uses `rotateCurrent(publicId, principalId)`, which rotates the newest live secret under the per-public-id lock and never issues a receipt. It also clears the old secret's receipt. Added service tests for receipt invalidation and a foreign-principal refusal, plus the old-cookie refresh 401 test. |
+| C-7 | 🟡 MINOR | concurrency | In-flight failures beyond the fifth could extend the lock, and a late success could clear it. | Fixed — `recordFailure` and `recordSuccess` are guarded by `AND (locked_until IS NULL OR locked_until <= now())` and CAS on the verified hash; an expired window clears the lock. Added a lock-expiry integration test and grouped SQL assertions. |
+| CA-002 | 🟡 MINOR | concurrency | A stale-cookie response could clear a newer cookie and log the user out after a successful password change. | Fixed — stale-session and refresh/login failure paths no longer clear the cookie; only an explicit logout or a disabled-principal rejection clears it. |
+| CA-003 | 🟡 MINOR | concurrency | `recordFailure` was not a hash CAS, so a stale failure could increment a newer credential's counter. | Fixed — `recordFailure` now takes the verified hash and updates only when it still matches. |
+| C-8 | 🟡 MINOR | concurrency | Concurrency and lock-expiry tests were missing. | Partially fixed — added lock expiry, concurrent password change, clear-receipt, and old-cookie refresh tests. A ten-concurrent-login test is not added; the SQL guard is asserted and the lock-expiry path is covered. Accepted residual. |
+| RV-001 | 🟡 MINOR | standards | Spec tests and implementation landed in one commit; the integration fixtures stayed in the 693-line spec file. | Accepted — the red phase was recorded in the spec-author report, no expectation was weakened, and the test file remains readable. A future test-helper split is not required for this plan. |
+| RV-002 | 🟡 MINOR | correctness | `verifyPassword` caught derivation errors and returned false, so an infrastructure failure could increment the lockout counter. | Fixed — only parse failures return false; derivation errors propagate to the 500 handler. A malformed stored PHC is logged with the principal id before the generic rejection. |
+| RV-003 | 🟡 MINOR | correctness | The new-password policy ran before current-password verification. | Fixed — current password is verified first; the new policy is checked after. |
+| RV-004 | 🟡 MINOR | maintainability | The PHC prefix and dummy hash duplicated the policy constants. | Fixed — `PHC_PREFIX` and the parser are built from the exported constants. |
+| RV-005 | 🟡 MINOR | standards | The controller class doc described only session routes. | Fixed — the doc now lists local login and password change. |
+| RV-006 | 🟡 MINOR | standards | The rolling-window reset branch had no test. | Fixed — added a lock-expiry integration test that sets `updated_at` 16 minutes in the past and asserts `failed_count=1` and a null lock. |
+| RV-001 (re-review) | 🟡 MINOR | standards | The SQL assertions did not pin the `AND (...)` grouping. | Fixed — both assertions now require the parenthesized fragment. |
+| RV-002 (re-review) | 🟡 MINOR | standards | `rotate`/receipt docs were stale after the forced-rotation change. | Fixed — `rotateCurrent` and the receipt behavior are documented; the class doc describes the no-receipt password-change rotation. |
+| RV-003 (re-review) | 🟡 MINOR | standards | `recordFailure` did not document the locked/hash-CAS no-op. | Fixed — the doc now states the guard and the zero result. |
+| RV-004 (re-review) | 🟡 MINOR | standards | `dummyVerify` did not document derivation rejection. | Fixed — added `@throws`. |
+| RV-005 (re-review) | 🟡 MINOR | standards | Malformed-stored-PHC behavior had no regression test. | Fixed — added an integration test with a malformed hash that asserts 401 and an unchanged counter. A derivation-failure test is not added because the failure is a platform error; the code path propagates to the 500 handler. |
+
+**Security audit:** no findings. Observations accepted:
+- A forced change may reuse the current password; this matches the approved policy (no difference rule).
+- Lockout enables a targeted denial of service; inherent to the accepted five-failure policy.
+- The password-change sweep is not atomic with the hash update; the hash/lock CAS and post-create re-read bound the race.
+- A multi-instance deployment still needs a shared session and rate-limit store (AR-22).
+
+**Re-review:** One scoped pass on the fix diff. C-5, C-4, and C-7 were confirmed. The re-review
+found that C-6 could still adopt a concurrent refresh's secret (CA-001), that stale-cookie
+responses could clear a newer cookie (CA-002), and that `recordFailure` lacked the hash CAS
+(CA-003). All three were fixed: password change now uses `rotateCurrent()` (no receipt, always
+rotates the newest live secret), stale-session responses no longer clear cookies, and
+`recordFailure` is a hash CAS. The documentation and test findings RV-001–RV-005 from the same
+pass were also addressed. A third review pass is not run per the quality-profile re-review budget;
+the fixes are covered by the added service, integration, and full verification tests.
+
+**Verify after fixes:** `pnpm verify` under Node 24.21.0 — PASS; unit 136; PostgreSQL 16
+integration 87.

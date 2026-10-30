@@ -151,6 +151,45 @@ describe("SessionService implementation", () => {
     expect(sessions.hasRecentRotation(created.secretId)).toBe(false);
   });
 
+  it("should clear a rotation receipt on demand", async () => {
+    const { sessions } = harness();
+    const created = await sessions.create({ principalId: PRINCIPAL, authMethod: "local" });
+
+    await expect(sessions.rotate(created.secretId)).resolves.toBeDefined();
+    expect(sessions.hasRecentRotation(created.secretId)).toBe(true);
+
+    sessions.clearRotationReceipt(created.secretId);
+    expect(sessions.hasRecentRotation(created.secretId)).toBe(false);
+    await expect(sessions.rotate(created.secretId)).resolves.toBeUndefined();
+  });
+
+  it("should rotate the current secret without a receipt and invalidate a concurrent receipt", async () => {
+    const { sessions } = harness();
+    const created = await sessions.create({ principalId: PRINCIPAL, authMethod: "local" });
+    const concurrent = await sessions.rotate(created.secretId);
+
+    const forced = await sessions.rotateCurrent(created.record.publicId, PRINCIPAL);
+
+    expect(forced).toBeDefined();
+    expect(concurrent).toBeDefined();
+    if (forced === undefined || concurrent === undefined) {
+      throw new Error("expected both rotations to produce a session");
+    }
+    expect(forced.secretId).not.toBe(concurrent.secretId);
+    await expect(sessions.get(concurrent.secretId)).resolves.toBeUndefined();
+    await expect(sessions.get(forced.secretId)).resolves.toEqual(forced.record);
+    expect(sessions.hasRecentRotation(created.secretId)).toBe(false);
+    await expect(sessions.rotate(created.secretId)).resolves.toBeUndefined();
+  });
+
+  it("should refuse a forced rotation from another principal", async () => {
+    const { sessions } = harness();
+    const created = await sessions.create({ principalId: PRINCIPAL, authMethod: "local" });
+
+    await expect(sessions.rotateCurrent(created.record.publicId, OTHER)).resolves.toBeUndefined();
+    await expect(sessions.get(created.secretId)).resolves.toEqual(created.record);
+  });
+
   it("should not return a rotation receipt after the session is revoked", async () => {
     const { sessions } = harness();
     const created = await sessions.create({ principalId: PRINCIPAL, authMethod: "local" });

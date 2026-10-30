@@ -154,6 +154,62 @@ export class SessionService {
   }
 
   /**
+   * Rotates the current secret for a public session id without a receipt.
+   *
+   * Password change uses this instead of {@link rotate}: if another request
+   * refreshed the same session concurrently, this method rotates the newest
+   * live secret and deletes it, so a pre-change cookie holder cannot follow the
+   * rotation. The result is never cached as a receipt.
+   *
+   * @param publicId - Public session identifier.
+   * @param principalId - Principal that must own the session.
+   * @returns The new secret and record, or `undefined` when the session is gone.
+   */
+  public rotateCurrent(publicId: string, principalId: string): Promise<IssuedSession | undefined> {
+    return this.#withLock(publicId, async () => {
+      const entry = this.#publicIndex.get(publicId);
+      if (
+        entry === undefined ||
+        entry.principalId !== principalId ||
+        entry.expiresAt <= this.#now()
+      ) {
+        return undefined;
+      }
+
+      const record = await this.#cache.get<SessionRecord>(
+        `${SESSION_KEY_PREFIX}${entry.secretHash}`,
+      );
+      if (record === undefined) {
+        this.#removeIndex(publicId);
+        return undefined;
+      }
+
+      const secretIdNext = randomBytes(SECRET_BYTES).toString("base64url");
+      const rotated: SessionRecord = {
+        ...record,
+        csrfToken: randomBytes(CSRF_BYTES).toString("base64url"),
+      };
+      await this.#store(secretIdNext, rotated);
+      await this.#cache.delete(`${SESSION_KEY_PREFIX}${entry.secretHash}`);
+      return { secretId: secretIdNext, record: rotated };
+    });
+  }
+
+  /**
+   * Removes any rotation receipt for an old secret.
+   *
+   * Password change uses this after rotating so the pre-change cookie cannot
+   * obtain the post-change secret through a late refresh.
+   *
+   * @param secretId - Old secret cookie value.
+   */
+  public clearRotationReceipt(secretId: string): void {
+    if (isSecretId(secretId)) {
+      this.#rotationReceipts.delete(hashSecret(secretId));
+    }
+  }
+
+  /**
    * Reports whether an old secret has a live rotation receipt.
    *
    * The session middleware uses this to avoid clearing a cookie that a
