@@ -10,6 +10,8 @@ const SAFE_METHODS = new Set(["GET", "HEAD", "OPTIONS"]);
 export interface SessionLookup {
   /** Resolves a session by secret cookie value. */
   get(secretId: string): Promise<SessionRecord | undefined>;
+  /** Reports whether an old secret has a live rotation receipt. */
+  hasRecentRotation(secretId: string): boolean;
   /** Revokes one session owned by the principal. */
   revoke(publicId: string, principalId: string): Promise<boolean>;
 }
@@ -45,7 +47,9 @@ export function sessionMiddleware(
 
       const session = await sessions.get(secretId);
       if (session === undefined) {
-        clearSessionCookie(res);
+        if (!sessions.hasRecentRotation(secretId)) {
+          clearSessionCookie(res);
+        }
         next();
         return;
       }
@@ -92,9 +96,9 @@ export function requireSession(req: Request): AuthContext {
 /**
  * Blocks authenticated routes while a forced password change is pending.
  *
- * Only `/v1/auth/me`, `/v1/auth/password`, `/v1/auth/logout`, and `/v1/meta/*`
- * are allowed. Unauthenticated requests pass through so public routes and their
- * own authentication checks still work.
+ * Only `GET /v1/auth/me`, `POST /v1/auth/password`, `POST /v1/auth/logout`,
+ * and `GET /v1/meta` or `GET /v1/meta/*` are allowed. Unauthenticated requests
+ * pass through so public routes and their own authentication checks still work.
  *
  * @returns Express middleware.
  */
@@ -112,8 +116,7 @@ export function passwordChangeGate(): RequestHandler {
         (method === "GET" && path === "/v1/auth/me") ||
         (method === "POST" && path === "/v1/auth/password") ||
         (method === "POST" && path === "/v1/auth/logout") ||
-        path === "/v1/meta" ||
-        path.startsWith("/v1/meta/");
+        (method === "GET" && (path === "/v1/meta" || path.startsWith("/v1/meta/")));
 
       if (allowed) {
         next();

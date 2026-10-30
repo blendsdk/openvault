@@ -54,7 +54,7 @@ export function createAuthPlugin(options: AuthPluginOptions): PluginDefinition {
       express.use(sessionMiddleware(sessions, credentials));
       express.use(passwordChangeGate());
       express.use(originGuard(options.config));
-      express.use(csrfGuard());
+      express.use(csrfGuard(sessions));
     },
   };
 }

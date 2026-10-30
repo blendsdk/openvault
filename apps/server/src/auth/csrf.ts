@@ -3,6 +3,7 @@ import type { NextFunction, Request, RequestHandler, Response } from "express";
 import type { OpenVaultConfig } from "../config/index.js";
 import { normalizeRequestPath } from "../transport/scope.js";
 import { isSafeMethod } from "./middleware.js";
+import type { SessionService } from "./sessions.js";
 
 const LOCAL_LOGIN_PATH = "/v1/auth/local/login";
 const CSRF_MESSAGE = "Invalid or missing CSRF token";
@@ -68,11 +69,14 @@ export function originGuard(config: OpenVaultConfig): RequestHandler {
  *
  * The session middleware must run first. Requests without a resolved context
  * (bearer, mTLS, or unauthenticated) pass through; their route authentication
- * decides the response. The expected token is the current session's CSRF value.
+ * decides the response. A session revoked between the middleware and the
+ * mutation returns `401 authentication_required`; otherwise the expected token
+ * is the current session's CSRF value.
  *
+ * @param sessions - Session service used for the liveness check.
  * @returns Express middleware.
  */
-export function csrfGuard(): RequestHandler {
+export function csrfGuard(sessions: SessionService): RequestHandler {
   const check = csrfMiddleware({
     expectedToken: (req) => req.auth?.session.csrfToken,
   });
@@ -80,6 +84,10 @@ export function csrfGuard(): RequestHandler {
   return async (req: Request, res: Response, next: NextFunction) => {
     if (req.auth === undefined) {
       next();
+      return;
+    }
+    if (!sessions.has(req.auth.session.publicId, req.auth.session.principalId)) {
+      next(new ApiError(401, "authentication_required", "Authentication required"));
       return;
     }
     await check(req, res, next);

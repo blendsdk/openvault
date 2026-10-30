@@ -11,6 +11,7 @@ const CSRF_BYTES = 32;
 const SECRET_PATTERN = /^[A-Za-z0-9_-]{43}$/;
 const SESSION_KEY_PREFIX = "session:";
 const DEFAULT_SWEEP_INTERVAL_MS = 60_000;
+const ROTATION_RECEIPT_MS = 10_000;
 
 /** Options for {@link SessionService}. */
 export interface SessionServiceOptions {
@@ -35,9 +36,13 @@ export interface IssuedSession {
 /**
  * Stores opaque browser sessions in an in-memory cache.
  *
- * The cache key is the SHA-256 hash of the secret cookie value. The raw secret
- * is never stored. A small in-process index supports listing and revocation
- * without scanning the cache, which has no enumeration API.
+ * The cache key is the SHA-256 hash of the secret cookie value; the session
+ * cache never stores the raw cookie secret. A small in-process index supports
+ * listing and revocation without scanning the cache, which has no enumeration
+ * API. A completed rotation is remembered for ten seconds so a concurrent or
+ * retried refresh receives the same new secret; the old secret never resolves
+ * through {@link get}, and the receipt is dropped on revoke, supersession, or
+ * expiry.
  */
 export class SessionService {
   readonly #cache: CacheProvider;
@@ -49,6 +54,16 @@ export class SessionService {
     { secretHash: string; principalId: string; expiresAt: number }
   >();
   readonly #rotations = new Map<string, Promise<IssuedSession | undefined>>();
+  readonly #rotationReceipts = new Map<
+    string,
+    {
+      result: IssuedSession;
+      publicId: string;
+      secretHash: string;
+      expiresAt: number;
+    }
+  >();
+  readonly #locks = new Map<string, Promise<void>>();
   readonly #sweeper: ReturnType<typeof setInterval> | undefined;
 
   /**
@@ -106,7 +121,11 @@ export class SessionService {
    * Rotates the secret and CSRF token while preserving the public identity and
    * absolute expiry.
    *
-   * Concurrent rotations for the same old secret share one result.
+   * Concurrent rotations for the same old secret share one result. A result is
+   * remembered for ten seconds so a request that arrives after the first
+   * rotation commits still receives the same new secret. The receipt is
+   * returned only while its new secret is the session's current key; a
+   * revoked, superseded, or expired session yields `undefined`.
    *
    * @param secretId - Current secret cookie value.
    * @returns The new secret and record, or `undefined` when the session is gone.
@@ -122,11 +141,60 @@ export class SessionService {
       return inFlight;
     }
 
+    const receipt = this.#liveReceipt(oldHash);
+    if (receipt !== undefined) {
+      return Promise.resolve(receipt.result);
+    }
+
     const rotation = this.#rotate(secretId, oldHash).finally(() => {
       this.#rotations.delete(oldHash);
     });
     this.#rotations.set(oldHash, rotation);
     return rotation;
+  }
+
+  /**
+   * Reports whether an old secret has a live rotation receipt.
+   *
+   * The session middleware uses this to avoid clearing a cookie that a
+   * concurrent refresh has just rotated. The old secret still never resolves
+   * through {@link get}; only {@link rotate} can use the receipt.
+   *
+   * @param secretId - Old secret cookie value.
+   * @returns True when a valid, unexpired receipt exists.
+   */
+  public hasRecentRotation(secretId: string): boolean {
+    if (!isSecretId(secretId)) {
+      return false;
+    }
+    return this.#liveReceipt(hashSecret(secretId)) !== undefined;
+  }
+
+  /**
+   * Reports whether a public session id still belongs to a live session.
+   *
+   * The check uses the in-process index and the absolute expiry; it does not
+   * read the cache value. The session middleware already resolved the value.
+   *
+   * @param publicId - Public session identifier.
+   * @param principalId - Principal that must own the session.
+   * @returns True when the session is live and owned by the principal.
+   */
+  public has(publicId: string, principalId: string): boolean {
+    const entry = this.#publicIndex.get(publicId);
+    return (
+      entry !== undefined && entry.principalId === principalId && entry.expiresAt > this.#now()
+    );
+  }
+
+  /**
+   * Remaining cookie lifetime in seconds for a record.
+   *
+   * @param record - Session record.
+   * @returns Seconds until the absolute expiry, never negative.
+   */
+  public remainingSeconds(record: SessionRecord): number {
+    return Math.max(0, Math.ceil((record.expiresAt - this.#now()) / 1_000));
   }
 
   /**
@@ -142,9 +210,15 @@ export class SessionService {
       return false;
     }
 
-    await this.#cache.delete(`${SESSION_KEY_PREFIX}${entry.secretHash}`);
-    this.#removeIndex(publicId);
-    return true;
+    return this.#withLock(publicId, async () => {
+      const latest = this.#publicIndex.get(publicId);
+      if (latest === undefined || latest.principalId !== principalId) {
+        return false;
+      }
+      await this.#cache.delete(`${SESSION_KEY_PREFIX}${latest.secretHash}`);
+      this.#removeIndex(publicId);
+      return true;
+    });
   }
 
   /**
@@ -161,10 +235,7 @@ export class SessionService {
 
     let removed = 0;
     for (const publicId of [...publicIds]) {
-      const entry = this.#publicIndex.get(publicId);
-      if (entry !== undefined) {
-        await this.#cache.delete(`${SESSION_KEY_PREFIX}${entry.secretHash}`);
-        this.#removeIndex(publicId);
+      if (await this.revoke(publicId, principalId)) {
         removed += 1;
       }
     }
@@ -204,7 +275,10 @@ export class SessionService {
         `${SESSION_KEY_PREFIX}${entry.secretHash}`,
       );
       if (record === undefined) {
-        this.#removeIndex(publicId);
+        const latest = this.#publicIndex.get(publicId);
+        if (latest === undefined || latest.secretHash === entry.secretHash) {
+          this.#removeIndex(publicId);
+        }
         continue;
       }
       records.push(record);
@@ -222,24 +296,67 @@ export class SessionService {
     this.#principalIndex.clear();
     this.#publicIndex.clear();
     this.#rotations.clear();
+    this.#rotationReceipts.clear();
+    this.#locks.clear();
     await this.#cache.shutdown();
   }
 
-  async #rotate(secretId: string, oldHash: string): Promise<IssuedSession | undefined> {
-    const record = await this.#read(secretId);
-    if (record === undefined) {
+  #liveReceipt(oldHash: string):
+    | {
+        result: IssuedSession;
+        publicId: string;
+        secretHash: string;
+        expiresAt: number;
+      }
+    | undefined {
+    const receipt = this.#rotationReceipts.get(oldHash);
+    if (receipt === undefined) {
       return undefined;
     }
 
-    const secretIdNext = randomBytes(SECRET_BYTES).toString("base64url");
-    const rotated: SessionRecord = {
-      ...record,
-      csrfToken: randomBytes(CSRF_BYTES).toString("base64url"),
-    };
+    const current = this.#publicIndex.get(receipt.publicId);
+    const live =
+      receipt.expiresAt > this.#now() &&
+      current !== undefined &&
+      current.secretHash === receipt.secretHash &&
+      current.expiresAt > this.#now();
+    if (live) {
+      return receipt;
+    }
 
-    await this.#store(secretIdNext, rotated);
-    await this.#cache.delete(`${SESSION_KEY_PREFIX}${oldHash}`);
-    return { secretId: secretIdNext, record: rotated };
+    this.#rotationReceipts.delete(oldHash);
+    return undefined;
+  }
+
+  async #rotate(secretId: string, oldHash: string): Promise<IssuedSession | undefined> {
+    const initial = await this.#read(secretId);
+    if (initial === undefined) {
+      return undefined;
+    }
+
+    return this.#withLock(initial.publicId, async () => {
+      const record = await this.#read(secretId);
+      if (record === undefined) {
+        return undefined;
+      }
+
+      const secretIdNext = randomBytes(SECRET_BYTES).toString("base64url");
+      const rotated: SessionRecord = {
+        ...record,
+        csrfToken: randomBytes(CSRF_BYTES).toString("base64url"),
+      };
+
+      await this.#store(secretIdNext, rotated);
+      await this.#cache.delete(`${SESSION_KEY_PREFIX}${oldHash}`);
+      const result = { secretId: secretIdNext, record: rotated };
+      this.#rotationReceipts.set(oldHash, {
+        result,
+        publicId: rotated.publicId,
+        secretHash: hashSecret(secretIdNext),
+        expiresAt: this.#now() + ROTATION_RECEIPT_MS,
+      });
+      return result;
+    });
   }
 
   async #read(secretId: string): Promise<SessionRecord | undefined> {
@@ -302,14 +419,52 @@ export class SessionService {
         this.#principalIndex.delete(entry.principalId);
       }
     }
+    for (const [hash, receipt] of this.#rotationReceipts) {
+      if (receipt.publicId === publicId) {
+        this.#rotationReceipts.delete(hash);
+      }
+    }
+  }
+
+  /**
+   * Runs one mutation at a time for a public session id.
+   *
+   * The lock is a promise chain: a caller waits for the previous action to
+   * release, then runs its own action. `finally` releases even when the action
+   * throws. The methods that use it (`rotate` and `revoke`) never call each
+   * other while holding it, so the chain cannot deadlock.
+   */
+  async #withLock<T>(publicId: string, action: () => Promise<T>): Promise<T> {
+    const previous = this.#locks.get(publicId) ?? Promise.resolve();
+    let release: () => void = () => undefined;
+    const current = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    const queued = previous.then(() => current);
+    this.#locks.set(publicId, queued);
+
+    await previous;
+    try {
+      return await action();
+    } finally {
+      release();
+      if (this.#locks.get(publicId) === queued) {
+        this.#locks.delete(publicId);
+      }
+    }
   }
 
   #sweep(): void {
     const now = this.#now();
     for (const [publicId, entry] of this.#publicIndex) {
       if (entry.expiresAt <= now) {
-        void this.#cache.delete(`${SESSION_KEY_PREFIX}${entry.secretHash}`);
+        void this.#cache.delete(`${SESSION_KEY_PREFIX}${entry.secretHash}`).catch(() => undefined);
         this.#removeIndex(publicId);
+      }
+    }
+    for (const [hash, receipt] of this.#rotationReceipts) {
+      if (receipt.expiresAt <= now) {
+        this.#rotationReceipts.delete(hash);
       }
     }
   }

@@ -323,6 +323,14 @@ describe.skipIf(trustedHost === undefined)("session routes", () => {
     expect(rotated?.expiresAt).toBe(created.record.expiresAt);
     expect(rotated?.csrfToken).toBe(parsed.csrfToken);
     await expect(sessions.get(created.secretId)).resolves.toBeUndefined();
+
+    const late = await send({
+      path: "/v1/auth/refresh",
+      method: "POST",
+      headers: browserHeaders(created.secretId, created.record.csrfToken),
+    });
+    expect(late.status).toBe(200);
+    expect(requireCookieValue(late, SESSION_COOKIE)).toBe(rotatedSecret);
   });
 
   it("should log out, clear the cookie, and invalidate the old secret", async () => {
@@ -380,9 +388,10 @@ describe.skipIf(trustedHost === undefined)("session routes", () => {
     const currentEntries = entries.filter((entry) => entry.current);
     expect(currentEntries).toHaveLength(1);
     expect(currentEntries[0]?.id).toBe(first.record.publicId);
-    expect(entries.map((entry) => entry.id).sort()).toEqual(
-      [first.record.publicId, second.record.publicId].sort(),
-    );
+    expect(entries.map((entry) => entry.id)).toEqual([
+      second.record.publicId,
+      first.record.publicId,
+    ]);
 
     const recordsById = new Map([
       [first.record.publicId, first.record],

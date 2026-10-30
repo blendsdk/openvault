@@ -85,6 +85,7 @@ describe("auth middleware implementation", () => {
     app.post("/v1/auth/password", (_req, res) => res.status(204).end());
     app.post("/v1/auth/logout", (_req, res) => res.status(204).end());
     app.get("/v1/meta/auth", (_req, res) => res.status(204).end());
+    app.post("/v1/meta/auth", (_req, res) => res.status(204).end());
     app.get("/v1/auth/sessions", (_req, res) => res.status(204).end());
     app.use(errorHandler);
 
@@ -100,6 +101,13 @@ describe("auth middleware implementation", () => {
     const blocked = await request(app).get("/v1/auth/sessions");
     expect(blocked.status).toBe(403);
     expect(blocked.body).toEqual({
+      success: false,
+      error: { code: "password_change_required" },
+    });
+
+    const blockedMeta = await request(app).post("/v1/meta/auth");
+    expect(blockedMeta.status).toBe(403);
+    expect(blockedMeta.body).toEqual({
       success: false,
       error: { code: "password_change_required" },
     });
@@ -120,6 +128,7 @@ describe("auth middleware implementation", () => {
     const app = express();
     const sessions = {
       get: async (): Promise<undefined> => undefined,
+      hasRecentRotation: (): boolean => false,
       revoke: async (): Promise<boolean> => false,
     };
     const credentials = {

@@ -91,7 +91,7 @@ function createCsrfApp(auth: SessionRecord | undefined): GuardApp {
   if (auth !== undefined) {
     app.use(attachAuth(auth));
   }
-  app.use(csrfGuard());
+  app.use(csrfGuard(sessions));
   app.post("/mutate", (_req, res) => {
     calls += 1;
     if (auth === undefined) {

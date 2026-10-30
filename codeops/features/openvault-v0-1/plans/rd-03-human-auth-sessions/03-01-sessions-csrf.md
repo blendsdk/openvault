@@ -92,6 +92,8 @@ export class SessionService {
   revoke(publicId: string, principalId: string): Promise<boolean>;
   revokeAllForPrincipal(principalId: string): Promise<number>;
   list(principalId: string): Promise<SessionRecord[]>;
+  has(publicId: string, principalId: string): boolean;
+  remainingSeconds(record: SessionRecord): number;
   destroy(): Promise<void>;
 }
 ```
@@ -101,13 +103,19 @@ export class SessionService {
   `session:<sha256(secretId)>` with TTL `ceil(remaining / 1000)` and records the indexes.
 - `get` hashes the secret, reads the cache, rejects an expired record (and deletes it), and
   returns the record.
-- `rotate` uses a per-secret single-flight map. It reads the record, rejects if expired, creates a
-  new secret and CSRF token, stores the new record with the same `publicId`, `createdAt`, and
-  `expiresAt`, updates the indexes, and deletes the old key. Concurrent callers for the same old
-  secret share the result. The old secret no longer resolves.
-- `revoke` looks up the secret hash by public ID, verifies `principalId`, deletes the cache key,
-  and removes both index entries. It returns `false` for an unknown or foreign session.
-- `revokeAllForPrincipal` iterates the principal index and deletes each cache key.
+- `rotate` uses a per-secret single-flight map and a per-public-id mutation lock. It reads the
+  record, rejects if expired, creates a new secret and CSRF token, stores the new record with the
+  same `publicId`, `createdAt`, and `expiresAt`, updates the indexes, and deletes the old key.
+  Concurrent callers for the same old secret share the result. A completed rotation is remembered
+  for ten seconds so a late duplicate refresh receives the same new secret; the receipt is
+  returned only while its new secret is still the session's current key. The old secret never
+  resolves through `get`.
+- `revoke` looks up the secret hash by public ID, verifies `principalId`, waits for any in-flight
+  rotation of that public id, deletes the current cache key, and removes both index entries and
+  the rotation receipt. It returns `false` for an unknown or foreign session.
+- `revokeAllForPrincipal` delegates to `revoke` for each public id.
+- `has` and `remainingSeconds` use the injected clock so the CSRF liveness check and the cookie
+  `Max-Age` agree with the session expiry.
 - `list` returns the principal's live records sorted by `createdAt`. It never returns the secret
   or CSRF token.
 - `destroy` clears the sweeper interval and shuts down the cache.
@@ -144,24 +152,26 @@ export function passwordChangeGate(): RequestHandler;
   when `req.auth` is absent.
 - `passwordChangeGate` runs on every request after `sessionMiddleware`. If `req.auth` exists and
   `mustChangePassword` is true, it allows only `GET /v1/auth/me`, `POST /v1/auth/password`,
-  `POST /v1/auth/logout`, and `/v1/meta/*`; everything else gets
+  `POST /v1/auth/logout`, and `GET /v1/meta` or `GET /v1/meta/*`; everything else gets
   `ApiError(403, "password_change_required", "Password change required")`. The path comparison uses
   the normalized path from `normalizeRequestPath`.
 
 ```ts
 export function originGuard(config: OpenVaultConfig): RequestHandler;
-export function csrfGuard(): RequestHandler;
+export function csrfGuard(sessions: SessionService): RequestHandler;
 ```
 
 - `originGuard` applies to unsafe methods. If `Origin` is present, it must equal
   `config.baseUrl.origin`; otherwise `Sec-Fetch-Site` must be `same-origin`; if both are absent,
   reject with `ApiError(403, "csrf_invalid", "Invalid or missing CSRF token")`. It is installed on
   the local login route and on all cookie-authenticated unsafe requests.
-- `csrfGuard` wraps `csrfMiddleware({ expectedToken: req => req.auth?.session.csrfToken })`. It
-  calls the wrapped middleware only when `req.auth` exists; otherwise it calls `next()`. This keeps
-  future bearer/mTLS routes free of cookie CSRF checks.
-- The auth plugin installs `sessionMiddleware`, `passwordChangeGate`, then `csrfGuard` before
-  controllers.
+- `csrfGuard` first checks `sessions.has(publicId, principalId)` so a session revoked between the
+  session middleware and the mutation returns 401. It then wraps
+  `csrfMiddleware({ expectedToken: req => req.auth?.session.csrfToken })`. It calls the wrapped
+  middleware only when `req.auth` exists; otherwise it calls `next()`. This keeps future
+  bearer/mTLS routes free of cookie CSRF checks.
+- The auth plugin installs `sessionMiddleware`, `passwordChangeGate`, `originGuard`, then
+  `csrfGuard` before controllers.
 
 ### Integration Points
 
@@ -184,7 +194,7 @@ const { secretId, record } = await sessions.create({
   principalId,
   authMethod: "local",
 });
-setSessionCookie(res, secretId, remainingSeconds(record));
+setSessionCookie(res, secretId, sessions.remainingSeconds(record));
 this.ok(res, {
   user: toAuthUser(record, principal),
   expiresAt: new Date(record.expiresAt).toISOString(),
@@ -202,7 +212,7 @@ if (rotated === undefined) {
   clearSessionCookie(res);
   throw new ApiError(401, "authentication_required", "Authentication required");
 }
-setSessionCookie(res, rotated.secretId, remainingSeconds(rotated.record));
+setSessionCookie(res, rotated.secretId, sessions.remainingSeconds(rotated.record));
 this.ok(res, {
   expiresAt: new Date(rotated.record.expiresAt).toISOString(),
   csrfToken: rotated.record.csrfToken,
@@ -219,7 +229,7 @@ this.ok(res, {
 | Forced password change | `403 password_change_required` outside the allowlist | AR-17 |
 | Missing/wrong CSRF token | `403 csrf_invalid` from WebAFX | AR-9 |
 | Cross-origin unsafe request | `403 csrf_invalid` from the origin guard | AR-9 |
-| Concurrent refresh | Single-flight; both callers receive the same rotated session | AR-6 |
+| Concurrent refresh | Single-flight; concurrent and late-duplicate callers within 10s receive the same rotated session | AR-6 |
 | Session cache failure | Propagate a 500; never fall back to an unauthenticated context | AR-6 |
 
 ## Testing Requirements

@@ -21,11 +21,6 @@ function toSessionEntry(record: SessionRecord, currentPublicId: string) {
   };
 }
 
-/** Remaining cookie lifetime in seconds, rounded up and never negative. */
-function remainingSeconds(record: SessionRecord): number {
-  return Math.max(0, Math.ceil((record.expiresAt - Date.now()) / 1_000));
-}
-
 /**
  * Browser session routes.
  *
@@ -55,7 +50,6 @@ export class AuthController extends BaseController {
       this.route()
         .post("/refresh")
         .handle(async (req: Request, res: Response) => {
-          requireSession(req);
           const sessions = await this.services.get<SessionService>("sessions");
           const secretId = readSessionCookie(req);
           if (secretId === undefined) {
@@ -69,7 +63,7 @@ export class AuthController extends BaseController {
             throw new ApiError(401, "authentication_required", "Authentication required");
           }
 
-          setSessionCookie(res, rotated.secretId, remainingSeconds(rotated.record));
+          setSessionCookie(res, rotated.secretId, sessions.remainingSeconds(rotated.record));
           this.ok(
             res,
             refreshResponseSchema.parse({
@@ -96,7 +90,9 @@ export class AuthController extends BaseController {
           this.ok(
             res,
             sessionListSchema.parse({
-              sessions: records.map((record) => toSessionEntry(record, auth.session.publicId)),
+              sessions: [...records]
+                .reverse()
+                .map((record) => toSessionEntry(record, auth.session.publicId)),
             }),
           );
         }),
