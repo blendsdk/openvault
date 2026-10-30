@@ -2,8 +2,8 @@
 
 > **Document**: 99-execution-plan.md
 > **Parent**: [Index](00-index.md)
-> **Last Updated**: 2026-10-30 12:00
-> **Progress**: 39/40 tasks (98%)
+> **Last Updated**: 2026-10-30 12:10
+> **Progress**: 40/40 tasks (100%)
 > **CodeOps Artifact Schema**: 1
 
 ## Overview
@@ -170,7 +170,7 @@ generated types/constants, updated specs and plan.
 - [x] 4.1.1 [executor] Run `pnpm verify` and `pnpm test:integration` on PostgreSQL 16 and 17 ✅ (completed: 2026-10-30 12:00)
 - [x] 4.1.2 [executor] Run `preflight` iteration 3 against the amended plan; resolve every Critical/Major finding ✅ (completed: 2026-10-30 12:00)
 - [x] 4.1.3 [executor] Update the feature roadmap to `Plan Created` and then `Plan Preflighted`, link this plan, and update the portfolio ✅ (completed: 2026-10-30 12:00)
-- [~] 4.1.4 [executor] Open the PR with the preflight report and verification evidence ⏳ (implemented: 2026-10-30 12:00)
+- [x] 4.1.4 [executor] Open the PR with the preflight report and verification evidence ✅ (completed: 2026-10-30 12:10)
 
 **Deliverables**: green full verify, preflight report, roadmap sync, PR.
 
