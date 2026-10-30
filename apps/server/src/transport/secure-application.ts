@@ -2,6 +2,7 @@ import { createServer, type Server, type ServerOptions } from "node:https";
 import type { Writable } from "node:stream";
 import type { PostgreSQLDatabase } from "blendsdk/postgresql";
 import { WebApplication } from "blendsdk/webafx";
+import type { AuthOverrides } from "../auth/types.js";
 import { createWebApplicationConfig, type OpenVaultConfig } from "../config/index.js";
 import type { ReadinessProbe } from "../readiness/service.js";
 import type { KeyringProvider } from "../security/keyring.js";
@@ -40,6 +41,8 @@ export interface SecureApplicationDependencies {
   readonly readinessProbes?: readonly ReadinessProbe[];
   /** Test-only pino destination for captured structured logs. */
   readonly loggerDestination?: Writable;
+  /** Test-only auth collaboration seams (OIDC fetch, cache, clock). */
+  readonly authOverrides?: AuthOverrides;
 }
 
 /** Timeouts and connection caps applied to each HTTPS server. */

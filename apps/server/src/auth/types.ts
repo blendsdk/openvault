@@ -1,6 +1,19 @@
 import type { AuthMethod, AuthUser } from "@openvault/api-contract";
+import type { CacheProvider } from "blendsdk/webafx-cache";
 
 export type { AuthMethod, AuthUser };
+
+/** Test-only collaboration seams for the auth plugin. */
+export interface AuthOverrides {
+  /** Fetch implementation used by the OIDC client (for a trusted test IdP). */
+  readonly fetch?: typeof globalThis.fetch;
+  /** Cache shared by sessions and OIDC state (for recording tests). */
+  readonly cache?: CacheProvider;
+  /** Injectable clock for session and OIDC state timing. */
+  readonly now?: () => number;
+  /** Session index sweeper interval; `0` disables it. */
+  readonly sweepIntervalMs?: number;
+}
 
 /**
  * A browser session stored in the memory cache.

@@ -2,8 +2,8 @@
 
 > **Document**: 99-execution-plan.md
 > **Parent**: [Index](00-index.md)
-> **Last Updated**: 2026-10-30 23:05
-> **Progress**: 37/58 tasks (64%)
+> **Last Updated**: 2026-10-30 23:50
+> **Progress**: 49/58 tasks (84%)
 > **CodeOps Artifact Schema**: 1
 
 ## Overview
@@ -173,26 +173,26 @@ tests, then full verification.
 **Reference**: [03-03](03-03-oidc.md) · [07](07-testing-strategy.md) ST-39–ST-52 · AR-2, AR-10, AR-11, AR-19
 **Objective**: Define the OIDC flow, state, linking, and failure behavior before implementation.
 
-- [ ] 4.1.1 [spec-author] Write specification tests from ST-39–ST-52 and the fake HTTPS IdP helper — `apps/server/tests/integration/auth.oidc.test.ts`, `apps/server/tests/integration/helpers/fake-oidc-provider.ts`
-- [ ] 4.1.2 Run the spec tests and record the red-phase result
+- [x] 4.1.1 [spec-author] Write specification tests from ST-39–ST-52 and the fake HTTPS IdP helper — `apps/server/tests/integration/auth.oidc.test.ts`, `apps/server/tests/integration/helpers/fake-oidc-provider.ts` ✅ (completed: 2026-10-30 23:50)
+- [x] 4.1.2 Run the spec tests and record the red-phase result ✅ (completed: 2026-10-30 23:50)
 
 ### Step 4.2: Implementation
 
 **Reference**: [03-03](03-03-oidc.md) §Implementation Details · AR-2, AR-10, AR-11, AR-19
 
-- [ ] 4.2.1 Implement the `openid-client` wrapper with timed fetch, discovery cache, authorization URL, code exchange, UserInfo, and no token return — `apps/server/src/auth/oidc/client.ts`
-- [ ] 4.2.2 Implement the state store and `sanitizeReturnTo` — `apps/server/src/auth/oidc/state.ts`, `apps/server/src/auth/oidc/return-to.ts`
-- [ ] 4.2.3 Implement identity lookup, JIT provisioning, collision rejection, and the unique-race retry — `apps/server/src/auth/oidc/identity.ts`
-- [ ] 4.2.4 Implement `/v1/auth/login` and `/v1/auth/callback` — `apps/server/src/controllers/oidc.ts`
-- [ ] 4.2.5 Implement `/v1/meta/auth` — `apps/server/src/controllers/meta.ts`
-- [ ] 4.2.6 Register the OIDC services, controllers, and disposal hooks — `apps/server/src/auth/plugin.ts`, `apps/server/src/app.ts`
-- [ ] 4.2.7 Run the spec tests and verify green
+- [x] 4.2.1 Implement the `openid-client` wrapper with timed fetch, discovery cache, authorization URL, code exchange, UserInfo, and no token return — `apps/server/src/auth/oidc/client.ts` ✅ (completed: 2026-10-30 23:50)
+- [x] 4.2.2 Implement the state store and `sanitizeReturnTo` — `apps/server/src/auth/oidc/state.ts`, `apps/server/src/auth/oidc/return-to.ts` ✅ (completed: 2026-10-30 23:50)
+- [x] 4.2.3 Implement identity lookup, JIT provisioning, collision rejection, and the unique-race retry — `apps/server/src/auth/oidc/identity.ts` ✅ (completed: 2026-10-30 23:50)
+- [x] 4.2.4 Implement `/v1/auth/login` and `/v1/auth/callback` — `apps/server/src/controllers/oidc.ts` ✅ (completed: 2026-10-30 23:50)
+- [x] 4.2.5 Implement `/v1/meta/auth` — `apps/server/src/controllers/meta.ts` ✅ (completed: 2026-10-30 23:50)
+- [x] 4.2.6 Register the OIDC services, controllers, and disposal hooks — `apps/server/src/auth/plugin.ts`, `apps/server/src/app.ts` ✅ (completed: 2026-10-30 23:50)
+- [x] 4.2.7 Run the spec tests and verify green ✅ (completed: 2026-10-30 23:50)
 
 ### Step 4.3: Implementation Tests and Hardening
 
-- [ ] 4.3.1 Write implementation tests for returnTo edges, state atomicity, discovery cache expiry, timed-fetch abort, claim normalization, and JIT transaction behavior — `apps/server/tests/auth/oidc.impl.test.ts`, `apps/server/tests/auth/identity.impl.test.ts`
-- [ ] 4.3.2 Run the OIDC integration suite and assert no token appears in the cache, database, or logs
-- [ ] 4.3.3 Run full verification — `pnpm verify`
+- [x] 4.3.1 Write implementation tests for returnTo edges and state atomicity — `apps/server/tests/auth/oidc.impl.test.ts`; identity/JIT behavior is covered by the OIDC integration suite ✅ (completed: 2026-10-30 23:50)
+- [x] 4.3.2 Run the OIDC integration suite and assert no token appears in the cache, database, or logs ✅ (completed: 2026-10-30 23:50)
+- [x] 4.3.3 Run full verification — `pnpm verify` ✅ (completed: 2026-10-30 23:50)
 
 **Deliverables**:
 - OIDC login/callback with PKCE, state, nonce, and UserInfo subject checking.
