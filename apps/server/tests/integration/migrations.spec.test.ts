@@ -14,6 +14,7 @@ import { fileURLToPath } from "node:url";
 import { getMigrationStatus, runMigrations, validateMigrations } from "blendsdk/codegen";
 import { Client } from "pg";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { createServerEnvironment } from "./helpers/server-environment.js";
 import {
   applyMigrations,
   createTestDatabase,
@@ -147,20 +148,25 @@ describe("codegen migration integration", () => {
 
   it("should refuse server startup when the database URL is missing", () => {
     const serverRoot = fileURLToPath(new URL("../../", import.meta.url));
-    const env: NodeJS.ProcessEnv = { ...process.env, PORT: "45999" };
-    delete env.OPENVAULT_DB_URL;
+    const environment = createServerEnvironment();
+    try {
+      const env: NodeJS.ProcessEnv = { ...process.env, ...environment.env };
+      delete env.OPENVAULT_DB_URL;
 
-    const result = spawnSync(process.execPath, ["--import", "tsx", "src/main.ts"], {
-      cwd: serverRoot,
-      encoding: "utf8",
-      env,
-      timeout: 15_000,
-    });
+      const result = spawnSync(process.execPath, ["--import", "tsx", "src/main.ts"], {
+        cwd: serverRoot,
+        encoding: "utf8",
+        env,
+        timeout: 15_000,
+      });
 
-    expect(result.error).toBeUndefined();
-    expect(typeof result.status).toBe("number");
-    expect(result.status).not.toBe(0);
-    expect(`${result.stdout}\n${result.stderr}`).toMatch(/database|migration|config/i);
+      expect(result.error).toBeUndefined();
+      expect(typeof result.status).toBe("number");
+      expect(result.status).not.toBe(0);
+      expect(`${result.stdout}\n${result.stderr}`).toContain("OPENVAULT_DB_URL");
+    } finally {
+      environment.cleanup();
+    }
   }, 20_000);
 
   it("should reject tampered migration history and refuse startup", async () => {
@@ -175,16 +181,22 @@ describe("codegen migration integration", () => {
     expect(validation.status).toBe("INVALID_HISTORY");
 
     const serverRoot = fileURLToPath(new URL("../../", import.meta.url));
-    const result = spawnSync(process.execPath, ["--import", "tsx", "src/main.ts"], {
-      cwd: serverRoot,
-      encoding: "utf8",
-      env: { ...process.env, OPENVAULT_DB_URL: testDb.url, PORT: "45998" },
-      timeout: 15_000,
-    });
+    const environment = createServerEnvironment({ OPENVAULT_DB_URL: testDb.url });
+    try {
+      const result = spawnSync(process.execPath, ["--import", "tsx", "src/main.ts"], {
+        cwd: serverRoot,
+        encoding: "utf8",
+        env: { ...process.env, ...environment.env },
+        timeout: 15_000,
+      });
 
-    expect(result.error).toBeUndefined();
-    expect(typeof result.status).toBe("number");
-    expect(result.status).not.toBe(0);
+      expect(result.error).toBeUndefined();
+      expect(typeof result.status).toBe("number");
+      expect(result.status).not.toBe(0);
+      expect(`${result.stdout}\n${result.stderr}`).toMatch(/migration|invalid|tampered/i);
+    } finally {
+      environment.cleanup();
+    }
 
     const cli = spawnSync(process.execPath, ["--import", "tsx", "src/db/cli.ts", "--validate"], {
       cwd: serverRoot,

@@ -2,8 +2,8 @@
 
 > **Document**: 99-execution-plan.md
 > **Parent**: [Index](00-index.md)
-> **Last Updated**: 2026-10-30 14:18
-> **Progress**: 9/33 tasks (27%)
+> **Last Updated**: 2026-10-30 14:24
+> **Progress**: 16/33 tasks (48%)
 > **CodeOps Artifact Schema**: 1
 > **Implements**: openvault-v0-1/RD-02
 > **Reasoning**: high — TLS/mTLS, key custody, proxy trust, and startup ordering are security-sensitive.
@@ -57,20 +57,21 @@
 ## Phase 2: Secure Transport and Listeners
 
 > **Reasoning**: high — TLS/mTLS, proxy trust, listener isolation, and request limits.
+> **Phase baseline tree**: 949b7a561ebbc29d09a4f1f55444077d9f64b0d9
 > **Phase gate**: transport integration suite on an ephemeral TLS fixture; no plaintext listener.
 
 ### Session 1 — Specification tests
 
-- [ ] 2.1.1 [spec-author] Write `apps/server/tests/integration/helpers/tls.ts`, `transport.spec.test.ts` for ST-15–ST-26 and ST-39, extend ST-19 with non-`/v1` prefix denials and ST-20 with IPv6/mixed-family matcher cases, and the startup spec for ST-33; update both spawns in `apps/server/tests/integration/migrations.spec.test.ts` with a complete valid config fixture and migration-specific assertions; run them red
-- [ ] 2.1.2 [executor] Confirm the red phase includes plaintext rejection, unknown-CA rejection, scope bypass attempts, 413/415, and header assertions
+- [x] 2.1.1 [spec-author] Write `apps/server/tests/integration/helpers/tls.ts`, `transport.spec.test.ts` for ST-15–ST-26 and ST-39, extend ST-19 with non-`/v1` prefix denials and ST-20 with IPv6/mixed-family matcher cases, and the startup spec for ST-33; update both spawns in `apps/server/tests/integration/migrations.spec.test.ts` with a complete valid config fixture and migration-specific assertions; run them red ✅ (completed: 2026-10-30 14:24)
+- [x] 2.1.2 [executor] Confirm the red phase includes plaintext rejection, unknown-CA rejection, scope bypass attempts, 413/415, and header assertions ✅ (completed: 2026-10-30 14:24)
 
 ### Session 2 — Implementation
 
-- [ ] 2.2.1 [executor] Implement `apps/server/src/transport/tls.ts` and `proxy.ts` with certificate/key/CA validation, CIDR matching, mapped-address normalization, and the trust function (ST-15–ST-20, AR-6, AR-8)
-- [ ] 2.2.2 [executor] Implement `apps/server/src/transport/scope.ts`: default-deny scope table, path normalization, malformed-path errors, and listener markers (ST-19, AR-5)
-- [ ] 2.2.3 [executor] Implement request middleware: correlation ID, the shared `PinoLoggerProvider`/`createLoggerPlugin` wiring and pre-stack error logger, strict headers/no-store, URL-encoded rejection, JSON limits/413 mapping, and timeout/connection options (ST-21–ST-25, ST-32, AR-13–AR-16, AR-22)
-- [ ] 2.2.4 [executor] Implement `SecureWebApplication` with `prepare`, dual HTTPS listeners, one shutdown, no plaintext `start()`, and `.env` override (ST-15, ST-18, ST-25, ST-26, AR-4)
-- [ ] 2.2.5 [executor] Rework `app.ts`/`main.ts` startup ordering, add the in-process test factory and replace `apps/server/tests/ready.test.ts` with PL-1 (ST-33, AR-21, AR-28)
+- [x] 2.2.1 [executor] Implement `apps/server/src/transport/tls.ts` and `proxy.ts` with certificate/key/CA validation, CIDR matching, mapped-address normalization, and the trust function (ST-15–ST-20, AR-6, AR-8) ✅ (completed: 2026-10-30 14:24)
+- [x] 2.2.2 [executor] Implement `apps/server/src/transport/scope.ts`: default-deny scope table, path normalization, malformed-path errors, and listener markers (ST-19, AR-5) ✅ (completed: 2026-10-30 14:24)
+- [x] 2.2.3 [executor] Implement request middleware: correlation ID, the shared `PinoLoggerProvider`/`createLoggerPlugin` wiring and pre-stack error logger, strict headers/no-store, URL-encoded rejection, JSON limits/413 mapping, and timeout/connection options (ST-21–ST-25, ST-32, AR-13–AR-16, AR-22) ✅ (completed: 2026-10-30 14:24)
+- [x] 2.2.4 [executor] Implement `SecureWebApplication` with `prepare`, dual HTTPS listeners, one shutdown, no plaintext `start()`, and `.env` override (ST-15, ST-18, ST-25, ST-26, AR-4) ✅ (completed: 2026-10-30 14:24)
+- [x] 2.2.5 [executor] Rework `app.ts`/`main.ts` startup ordering, add the in-process test factory and replace `apps/server/tests/ready.test.ts` with PL-1 (ST-33, AR-21, AR-28) ✅ (completed: 2026-10-30 14:24)
 
 ### Session 3 — Impl tests and hardening
 
