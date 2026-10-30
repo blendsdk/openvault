@@ -2,8 +2,8 @@
 
 > **Document**: 99-execution-plan.md
 > **Parent**: [Index](00-index.md)
-> **Last Updated**: 2026-10-30 11:20
-> **Progress**: 25/40 tasks (62%)
+> **Last Updated**: 2026-10-30 11:35
+> **Progress**: 26/40 tasks (65%)
 > **CodeOps Artifact Schema**: 1
 
 ## Overview
@@ -117,7 +117,7 @@ implement, run green, add impl tests, verify.
 - [x] 2.5.3 [executor] Add the reviewed trigger/seed manual migration and remove the eight hand-written SQL migrations ✅ (completed: 2026-10-30 10:20)
 - [x] 2.5.4 [executor] Replace the custom runner, CLI, and startup hook with codegen migration APIs ✅ (completed: 2026-10-30 10:20)
 - [x] 2.5.5 [executor] Generate row types and CType constants, add `db:types`/`db:types:check`, and exclude generated files from Biome ✅ (completed: 2026-10-30 10:20)
-- [~] 2.5.6 [executor] Run `pnpm verify`, PostgreSQL 16/17 integration, and `db:types:check` ⏳ (implemented: 2026-10-30 10:50; review fixes in progress)
+- [x] 2.5.6 [executor] Run `pnpm verify`, PostgreSQL 16/17 integration, and `db:types:check` ✅ (completed: 2026-10-30 11:35)
 
 **Deliverables**: codegen schema model, baseline and manual migrations, codegen runner/CLI,
 generated types/constants, updated specs and plan.
