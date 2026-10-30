@@ -44,7 +44,7 @@
 | ST-12 | Add a migration that sorts before the latest applied id | Codegen rejects the ordering change | RD-01 R3 / P-02 |
 | ST-13 | Empty migration directory | Codegen rejects the configuration | RD-01 R3 / P-02 |
 | ST-14 | Migration contains top-level `BEGIN`, `COMMIT`, or `ROLLBACK` | Codegen rejects transaction control; PL/pgSQL bodies remain valid | RD-01 R3 / P-02 |
-| ST-15 | Migration contains invalid SQL | Codegen rolls back the run; no partial schema | RD-01 R3 / P-02 |
+| ST-15 | Migration contains invalid SQL | The failing migration leaves no partial effects; earlier migrations remain recorded | RD-01 R3 / P-02 |
 | ST-16 | Two migrators on the same database | Codegen advisory lock serializes them; no duplicate ledger rows | RD-01 R3 / P-02 |
 | ST-17 | Migration lock is held | Codegen reports lock contention and leaves no partial apply | RD-01 R3 / P-02 |
 | ST-18 | `db:migrate --dry-run` with pending files | `PENDING`; no ledger or tables created | RD-01 R3 / P-02 |

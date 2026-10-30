@@ -1,5 +1,21 @@
-import { getMigrationStatus, runMigrations, validateMigrations } from "blendsdk/codegen";
+import {
+  formatMigrationError,
+  getMigrationStatus,
+  MigrationError,
+  runMigrations,
+  validateMigrations,
+} from "blendsdk/codegen";
 import { migrationConfigPath } from "./config.js";
+
+/**
+ * Reports whether a migration status needs operator attention.
+ *
+ * @param status - Codegen migration status.
+ * @returns True for invalid, locked, or unknown-outcome states.
+ */
+function isUnhealthy(status: string): boolean {
+  return status === "INVALID_HISTORY" || status === "LOCKED" || status === "UNKNOWN_OUTCOME";
+}
 
 /**
  * Runs the migration command.
@@ -24,7 +40,7 @@ async function main(): Promise<number> {
       for (const migration of result.migrations) {
         process.stdout.write(`  ${migration.id}\n`);
       }
-      return 0;
+      return isUnhealthy(result.status) ? 1 : 0;
     }
 
     if (args.includes("--validate")) {
@@ -32,7 +48,7 @@ async function main(): Promise<number> {
         configPath: migrationConfigPath,
       });
       process.stdout.write(`${result.status}\n`);
-      return result.status === "INVALID_HISTORY" ? 1 : 0;
+      return isUnhealthy(result.status) ? 1 : 0;
     }
 
     const result = await runMigrations({
@@ -46,9 +62,13 @@ async function main(): Promise<number> {
     }
     return 0;
   } catch (error) {
-    process.stderr.write(
-      `Migration failed: ${error instanceof Error ? error.message : String(error)}\n`,
-    );
+    if (error instanceof MigrationError) {
+      process.stderr.write(`${formatMigrationError(error)}\n`);
+    } else {
+      process.stderr.write(
+        `Migration failed: ${error instanceof Error ? error.name : "unknown"}\n`,
+      );
+    }
     return 1;
   }
 }

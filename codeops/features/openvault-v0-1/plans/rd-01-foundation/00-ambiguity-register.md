@@ -1,7 +1,7 @@
 # Ambiguity Register: RD-01 Foundation Plan
 
-> **Status**: ✅ GATE PASSED — all 16 items resolved
-> **Last Updated**: 2026-10-30 10:15
+> **Status**: ✅ GATE PASSED — all 17 items resolved
+> **Last Updated**: 2026-10-30 11:10
 
 | # | Category | Ambiguity / Gap | Options Presented | User Decision | Status |
 |---|----------|-----------------|-------------------|---------------|--------|
@@ -21,6 +21,7 @@
 | P-14 | Data & state | Project name trailing hyphen | Tighten to require alphanumeric ends / allow trailing hyphen | User accepted: tighten RD-08, SQL, and TS regexes | ✅ Resolved |
 | P-15 | Security | Test database reset guard | Explicit opt-in + `_test` suffix + local/CI host + unique database / substring `test` | User accepted: strict guard and unique database | ✅ Resolved |
 | P-16 | Technical | Migration implementation after BlendSDK 5.68.1 | Custom SQL runner + hand-written DDL / BlendSDK `DatabaseSchema` + generated baseline + manual trigger/seed migration | User approved full codegen path on 2026-10-30 | ✅ Resolved |
+| P-17 | Data & state | Migration atomicity | Whole-run rollback / per-migration transaction | Codegen commits per migration; a failed migration rolls back its own effects, earlier migrations remain, startup fails | ✅ Resolved |
 
 ## Resolution Notes
 

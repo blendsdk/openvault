@@ -55,6 +55,16 @@ export function parseDatabaseUrl(rawUrl: string): PostgreSQLConfig {
     throw new DatabaseUrlError("Database URL has an invalid port.");
   }
 
+  const sslmode = parsed.searchParams.get("sslmode");
+  if (sslmode && sslmode !== "disable") {
+    throw new DatabaseUrlError(
+      "TLS database URLs are not supported by this adapter; use sslmode=disable or a local socket.",
+    );
+  }
+  if (parsed.searchParams.get("ssl") === "true") {
+    throw new DatabaseUrlError("TLS database URLs are not supported by this adapter.");
+  }
+
   const config: PostgreSQLConfig = {
     host,
     port,

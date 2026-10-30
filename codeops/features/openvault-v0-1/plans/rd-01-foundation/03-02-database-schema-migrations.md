@@ -169,9 +169,19 @@ The `blendsdk_migrations` ledger is excluded from generated domain types and con
 
 - `DatabaseSchema` does not model triggers, functions, RLS policies, or grants; these use the
   reviewed manual migration lane.
+- The audit prune trigger requires the `openvault_pruner` session role. Version and parent
+  purge triggers require the `openvault_purger` session role and an eligible retention window.
+- Database role separation (`openvault_migrator`, `openvault_app`, `openvault_purger`,
+  `openvault_pruner`) is owned by RD-13. Until it lands, deployment must not run the server as
+  the table owner; CI uses the owner only to exercise rejection paths.
 - The codegen migration ledger is named `blendsdk_migrations`, not `schema_migrations`.
 - Generated types include `Buffer`; the server has Node types.
 - `json`/`jsonb` map to `unknown`; consumers can use a `ColumnMapper` for object-shaped JSON.
+- The version indexes are ascending; the prior `created_at DESC` ordering is not modeled by
+  `DatabaseSchema`. This is a performance-only difference.
+- `principals_user_email_idx` is rendered as an expression index. The codegen snapshot also
+  records the supporting `email` column because the normalizer requires a column; the live
+  index is still correct.
 
 ## Integration Points
 

@@ -36,13 +36,14 @@ export const migrationConfigPath = fileURLToPath(
 );
 
 /**
- * Applies the configured BlendSDK migrations to a disposable database.
+ * Runs an action with `OPENVAULT_DB_URL` pointed at a disposable database.
  *
- * The codegen runner reads its target from `OPENVAULT_DB_URL`; the previous value is
- * restored so tests cannot leak a database target into another suite.
+ * The previous value is restored so tests cannot leak a database target into another
+ * suite.
  *
  * @param testDb - Disposable test database.
- * @returns Migration command result.
+ * @param action - Codegen action to run.
+ * @returns The action result.
  */
 export async function withTestDatabaseUrl<T>(
   testDb: TestDatabase,

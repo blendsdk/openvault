@@ -18,6 +18,15 @@ describe("parseDatabaseUrl", () => {
     expect(parseDatabaseUrl("postgresql://user:pass@localhost/db").port).toBe(5432);
   });
 
+  it("should fail closed when TLS is requested but unsupported", () => {
+    expect(() => parseDatabaseUrl("postgres://user:pass@localhost/db?sslmode=require")).toThrow(
+      DatabaseUrlError,
+    );
+    expect(() => parseDatabaseUrl("postgres://user:pass@localhost/db?ssl=true")).toThrow(
+      DatabaseUrlError,
+    );
+  });
+
   it("should reject malformed or incomplete URLs without echoing the password", () => {
     const cases = [
       "not-a-url",

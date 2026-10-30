@@ -388,6 +388,17 @@ describe("envelope and audit constraints", () => {
     await expect(
       testDb.db.executeQuery("DELETE FROM audit_checkpoints WHERE id = :id", { id: checkpointId }),
     ).rejects.toThrow(/append-only/i);
+
+    await expect(
+      testDb.db.withTransaction(async (tx) => {
+        await tx.executeQuery("SET LOCAL openvault.allow_audit_prune = 'on'");
+        await tx.executeQuery("DELETE FROM audit_events WHERE id = :id", { id: eventRowId });
+      }),
+    ).rejects.toThrow(/append-only/i);
+
+    await expect(testDb.db.executeQuery("TRUNCATE audit_events")).rejects.toThrow(
+      /TRUNCATE is not allowed/i,
+    );
   });
 });
 
@@ -413,6 +424,9 @@ describe("version protection", () => {
         id: base.secretVersionId,
       }),
     ).rejects.toThrow(/purge role/i);
+    await expect(testDb.db.executeQuery("TRUNCATE secret_versions")).rejects.toThrow(
+      /cannot truncate|TRUNCATE is not allowed/i,
+    );
   });
 
   it("should reject disabling purge protection", async () => {
@@ -428,6 +442,9 @@ describe("version protection", () => {
         id: secretId,
       }),
     ).rejects.toThrow(/purge protection cannot be disabled/i);
+    await expect(
+      testDb.db.executeQuery("DELETE FROM secrets WHERE id = :id", { id: secretId }),
+    ).rejects.toThrow(/purge role/i);
   });
 });
 

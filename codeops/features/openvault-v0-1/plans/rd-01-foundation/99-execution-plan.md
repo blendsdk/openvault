@@ -2,8 +2,8 @@
 
 > **Document**: 99-execution-plan.md
 > **Parent**: [Index](00-index.md)
-> **Last Updated**: 2026-10-30 10:50
-> **Progress**: 26/40 tasks (65%)
+> **Last Updated**: 2026-10-30 11:20
+> **Progress**: 25/40 tasks (62%)
 > **CodeOps Artifact Schema**: 1
 
 ## Overview
@@ -101,6 +101,12 @@ implement, run green, add impl tests, verify.
 > **Reasoning**: high — schema model, generated migrations, reviewed manual SQL, and runtime
 > integration.
 > **Phase gate**: `pnpm verify`, PostgreSQL 16/17 integration, and `pnpm db:types:check`.
+> **Phase baseline tree**: 96c509a954abdd9c78cdee2572d6f252b5283d4b
+> **Scope mode**: strict
+> **Expected modification set**: `apps/server/src/database/**`, `apps/server/migrations/**`,
+> `apps/server/blendsdk.migrations.ts`, `apps/server/src/db/**`, `apps/server/scripts/**`,
+> `apps/server/tests/**`, `apps/server/package.json`, root `package.json`, `biome.json`,
+> plan docs, RD-01 data-model row
 
 ### Step 2.5: Replace hand-written schema and migration plumbing
 
@@ -111,7 +117,7 @@ implement, run green, add impl tests, verify.
 - [x] 2.5.3 [executor] Add the reviewed trigger/seed manual migration and remove the eight hand-written SQL migrations ✅ (completed: 2026-10-30 10:20)
 - [x] 2.5.4 [executor] Replace the custom runner, CLI, and startup hook with codegen migration APIs ✅ (completed: 2026-10-30 10:20)
 - [x] 2.5.5 [executor] Generate row types and CType constants, add `db:types`/`db:types:check`, and exclude generated files from Biome ✅ (completed: 2026-10-30 10:20)
-- [x] 2.5.6 [executor] Run `pnpm verify`, PostgreSQL 16/17 integration, and `db:types:check` ✅ (completed: 2026-10-30 10:50)
+- [~] 2.5.6 [executor] Run `pnpm verify`, PostgreSQL 16/17 integration, and `db:types:check` ⏳ (implemented: 2026-10-30 10:50; review fixes in progress)
 
 **Deliverables**: codegen schema model, baseline and manual migrations, codegen runner/CLI,
 generated types/constants, updated specs and plan.

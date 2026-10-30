@@ -8,7 +8,9 @@ INSERT INTO org (id, name) VALUES (1, 'OpenVault') ON CONFLICT (id) DO NOTHING;
 
 CREATE FUNCTION reject_audit_mutation() RETURNS trigger LANGUAGE plpgsql AS $$
 BEGIN
-  IF TG_OP = 'DELETE' AND current_setting('openvault.allow_audit_prune', true) = 'on' THEN
+  IF TG_OP = 'DELETE'
+     AND current_setting('openvault.allow_audit_prune', true) = 'on'
+     AND session_user = 'openvault_pruner' THEN
     RETURN OLD;
   END IF;
   RAISE EXCEPTION 'audit rows are append-only';
@@ -36,12 +38,32 @@ CREATE TRIGGER certificate_versions_no_update BEFORE UPDATE ON certificate_versi
   FOR EACH ROW EXECUTE FUNCTION reject_version_mutation();
 
 CREATE FUNCTION reject_version_delete() RETURNS trigger LANGUAGE plpgsql AS $$
+DECLARE
+  parent_protected boolean;
+  parent_deleted timestamptz;
+  parent_purge_after timestamptz;
 BEGIN
   IF current_setting('openvault.allow_purge', true) = 'on'
      AND session_user = 'openvault_purger' THEN
-    RETURN OLD;
+    IF TG_TABLE_NAME = 'secret_versions' THEN
+      SELECT purge_protected, deleted_at, purge_after
+        INTO parent_protected, parent_deleted, parent_purge_after
+        FROM secrets WHERE id = OLD.secret_id;
+    ELSE
+      SELECT purge_protected, deleted_at, purge_after
+        INTO parent_protected, parent_deleted, parent_purge_after
+        FROM certificates WHERE id = OLD.certificate_id;
+    END IF;
+
+    IF FOUND
+       AND parent_protected = false
+       AND parent_deleted IS NOT NULL
+       AND parent_purge_after IS NOT NULL
+       AND parent_purge_after <= now() THEN
+      RETURN OLD;
+    END IF;
   END IF;
-  RAISE EXCEPTION 'version rows can only be deleted by the purge role';
+  RAISE EXCEPTION 'version rows can only be deleted by the purge role after retention';
 END;
 $$;
 
@@ -63,3 +85,57 @@ CREATE TRIGGER secrets_purge_protection BEFORE UPDATE ON secrets
   FOR EACH ROW EXECUTE FUNCTION reject_purge_protection_disable();
 CREATE TRIGGER certificates_purge_protection BEFORE UPDATE ON certificates
   FOR EACH ROW EXECUTE FUNCTION reject_purge_protection_disable();
+
+CREATE FUNCTION reject_parent_delete() RETURNS trigger LANGUAGE plpgsql AS $$
+DECLARE
+  parent_protected boolean;
+  parent_deleted timestamptz;
+  parent_purge_after timestamptz;
+BEGIN
+  IF current_setting('openvault.allow_purge', true) = 'on'
+     AND session_user = 'openvault_purger' THEN
+    IF TG_TABLE_NAME = 'secrets' THEN
+      SELECT purge_protected, deleted_at, purge_after
+        INTO parent_protected, parent_deleted, parent_purge_after
+        FROM secrets WHERE id = OLD.id;
+    ELSE
+      SELECT purge_protected, deleted_at, purge_after
+        INTO parent_protected, parent_deleted, parent_purge_after
+        FROM certificates WHERE id = OLD.id;
+    END IF;
+
+    IF FOUND
+       AND parent_protected = false
+       AND parent_deleted IS NOT NULL
+       AND parent_purge_after IS NOT NULL
+       AND parent_purge_after <= now() THEN
+      RETURN OLD;
+    END IF;
+  END IF;
+  RAISE EXCEPTION 'secrets and certificates can only be deleted by the purge role after retention';
+END;
+$$;
+
+CREATE TRIGGER secrets_no_delete BEFORE DELETE ON secrets
+  FOR EACH ROW EXECUTE FUNCTION reject_parent_delete();
+CREATE TRIGGER certificates_no_delete BEFORE DELETE ON certificates
+  FOR EACH ROW EXECUTE FUNCTION reject_parent_delete();
+
+CREATE FUNCTION reject_truncate() RETURNS trigger LANGUAGE plpgsql AS $$
+BEGIN
+  RAISE EXCEPTION 'TRUNCATE is not allowed on protected tables';
+END;
+$$;
+
+CREATE TRIGGER audit_events_no_truncate BEFORE TRUNCATE ON audit_events
+  FOR EACH STATEMENT EXECUTE FUNCTION reject_truncate();
+CREATE TRIGGER audit_checkpoints_no_truncate BEFORE TRUNCATE ON audit_checkpoints
+  FOR EACH STATEMENT EXECUTE FUNCTION reject_truncate();
+CREATE TRIGGER secret_versions_no_truncate BEFORE TRUNCATE ON secret_versions
+  FOR EACH STATEMENT EXECUTE FUNCTION reject_truncate();
+CREATE TRIGGER certificate_versions_no_truncate BEFORE TRUNCATE ON certificate_versions
+  FOR EACH STATEMENT EXECUTE FUNCTION reject_truncate();
+CREATE TRIGGER secrets_no_truncate BEFORE TRUNCATE ON secrets
+  FOR EACH STATEMENT EXECUTE FUNCTION reject_truncate();
+CREATE TRIGGER certificates_no_truncate BEFORE TRUNCATE ON certificates
+  FOR EACH STATEMENT EXECUTE FUNCTION reject_truncate();

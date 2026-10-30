@@ -35,7 +35,7 @@ Kubernetes, and multi-tenant schema.
 
 | # | Document | Description |
 |---|---|---|
-| AR | [Ambiguity Register](00-ambiguity-register.md) | Plan decisions (16 resolved) |
+| AR | [Ambiguity Register](00-ambiguity-register.md) | Plan decisions (17 resolved) |
 | 00 | [Index](00-index.md) | This document |
 | 01 | [Requirements](01-requirements.md) | Delta view of RD-01 |
 | 02 | [Current State](02-current-state.md) | What exists and what is missing |
