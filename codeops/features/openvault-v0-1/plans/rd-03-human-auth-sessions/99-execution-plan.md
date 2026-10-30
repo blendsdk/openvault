@@ -190,7 +190,7 @@ tests, then full verification.
 
 ### Step 4.3: Implementation Tests and Hardening
 
-- [x] 4.3.1 Write implementation tests for returnTo edges and state atomicity — `apps/server/tests/auth/oidc.impl.test.ts`; identity/JIT behavior is covered by the OIDC integration suite ✅ (completed: 2026-10-30 23:50)
+- [x] 4.3.1 Write implementation tests for returnTo edges, state atomicity, discovery cache, and timed-fetch abort — `apps/server/tests/auth/oidc.impl.test.ts`; identity/JIT behavior is covered by the OIDC integration suite ✅ (completed: 2026-10-30 23:50)
 - [x] 4.3.2 Run the OIDC integration suite and assert no token appears in the cache, database, or logs ✅ (completed: 2026-10-30 23:50)
 - [x] 4.3.3 Run full verification — `pnpm verify` ✅ (completed: 2026-10-30 23:50)
 

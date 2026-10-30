@@ -1,6 +1,8 @@
 import { createHash } from "node:crypto";
 import { MemoryCacheProvider } from "blendsdk/webafx-cache/memory";
 import { afterEach, describe, expect, it } from "vitest";
+import { OidcClient } from "../../src/auth/oidc/client.js";
+import { OidcUnavailableError } from "../../src/auth/oidc/errors.js";
 import { sanitizeReturnTo } from "../../src/auth/oidc/return-to.js";
 import { OidcStateStore } from "../../src/auth/oidc/state.js";
 
@@ -9,6 +11,26 @@ const STATE = {
   codeVerifier: "verifier",
   nonce: "nonce",
   returnTo: "/projects",
+  bindingHash: "binding-hash",
+};
+
+const OIDC_CONFIG = {
+  issuer: new URL("https://issuer.example/"),
+  clientId: "client",
+  clientSecret: "secret",
+  redirectUrl: new URL("https://vault.example.com/v1/auth/callback"),
+  allowedDomains: [],
+};
+
+const DISCOVERY = {
+  issuer: "https://issuer.example/",
+  authorization_endpoint: "https://issuer.example/authorize",
+  token_endpoint: "https://issuer.example/token",
+  userinfo_endpoint: "https://issuer.example/userinfo",
+  jwks_uri: "https://issuer.example/jwks",
+  response_types_supported: ["code"],
+  subject_types_supported: ["public"],
+  id_token_signing_alg_values_supported: ["RS256"],
 };
 
 class RecordingCache extends MemoryCacheProvider {
@@ -32,6 +54,10 @@ describe("sanitizeReturnTo", () => {
   it("should reject protocol-relative, absolute, backslash, and control values", () => {
     for (const value of [
       "//evil.example",
+      "/.//evil.example",
+      "/..//evil.example",
+      "/%2e%2e//evil.example",
+      "/a/../..//evil.example",
       "https://evil.example",
       "/\\evil",
       "/ok\r\nSet-Cookie: x",
@@ -46,6 +72,47 @@ describe("sanitizeReturnTo", () => {
       expect(sanitizeReturnTo(value, BASE)).toBe("/");
     }
   });
+});
+
+describe("OidcClient discovery", () => {
+  it("should cache discovery for one hour", async () => {
+    let calls = 0;
+    let now = 1_000_000;
+    const fetch = async (input: RequestInfo | URL): Promise<Response> => {
+      calls += 1;
+      if (String(input).includes(".well-known/openid-configuration")) {
+        return new Response(JSON.stringify(DISCOVERY), {
+          status: 200,
+          headers: { "content-type": "application/json" },
+        });
+      }
+      return new Response("{}", {
+        status: 200,
+        headers: { "content-type": "application/json" },
+      });
+    };
+    const client = new OidcClient({ config: OIDC_CONFIG, fetch, now: () => now });
+
+    await client.buildAuthorizationUrl({});
+    await client.buildAuthorizationUrl({});
+    expect(calls).toBe(1);
+
+    now += 3_600_001;
+    await client.buildAuthorizationUrl({});
+    expect(calls).toBe(2);
+  });
+
+  it("should map a stalled discovery to an unavailable error", async () => {
+    const fetch = (_input: RequestInfo | URL, init?: RequestInit): Promise<Response> =>
+      new Promise<Response>((_resolve, reject) => {
+        init?.signal?.addEventListener("abort", () => {
+          reject(new DOMException("aborted", "AbortError"));
+        });
+      });
+    const client = new OidcClient({ config: OIDC_CONFIG, fetch });
+
+    await expect(client.buildAuthorizationUrl({})).rejects.toBeInstanceOf(OidcUnavailableError);
+  }, 10_000);
 });
 
 describe("OidcStateStore", () => {

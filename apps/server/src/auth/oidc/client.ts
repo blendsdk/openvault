@@ -46,6 +46,12 @@ interface CachedDiscovery {
   readonly expiresAt: number;
 }
 
+/**
+ * Adapts the library's request body union to the Fetch `BodyInit` type.
+ *
+ * Form and JSON OIDC requests are text; a Uint8Array is decoded as UTF-8 so
+ * the adapter never needs an unsafe cast for the typed-array generic mismatch.
+ */
 function toBodyInit(body: client.FetchBody): BodyInit | undefined {
   if (body === undefined || body === null) {
     return undefined;
@@ -59,6 +65,13 @@ function toBodyInit(body: client.FetchBody): BodyInit | undefined {
   return Buffer.from(body).toString("utf8");
 }
 
+/**
+ * Classifies a library failure as a user-correctable flow error or an outage.
+ *
+ * 4xx token and UserInfo responses and ID-token validation failures are flow
+ * errors (400). Timeouts, aborts, 5xx responses, and unknown errors are
+ * outages (503), so the user is not told to retry a bad credential forever.
+ */
 function mapOidcError(error: unknown): Error {
   if (error instanceof OidcFlowError || error instanceof OidcUnavailableError) {
     return error;
@@ -70,7 +83,7 @@ function mapOidcError(error: unknown): Error {
     return error.status >= 500 ? new OidcUnavailableError() : new OidcFlowError();
   }
   if (error instanceof client.ClientError) {
-    if (error.code === "OAUTH_TIMEOUT" || error.code === "OAUTH_ABORTED") {
+    if (error.code === "OAUTH_TIMEOUT" || error.code === "OAUTH_ABORT") {
       return new OidcUnavailableError();
     }
     return new OidcFlowError();
@@ -217,6 +230,13 @@ export class OidcClient {
     this.#discovery = undefined;
   }
 
+  /**
+   * Discovers and caches the provider configuration for one hour.
+   *
+   * Discovery uses a 5-second timed fetch and `client_secret_basic`. The
+   * discovered issuer must normalize to the configured issuer. Non-repudiation
+   * checks remain enabled for the ID token.
+   */
   async #configuration(): Promise<client.Configuration> {
     if (this.#discovery !== undefined && this.#discovery.expiresAt > this.#now()) {
       return this.#discovery.configuration;
@@ -237,7 +257,13 @@ export class OidcClient {
 
     client.enableNonRepudiationChecks(configuration);
     const metadata = configuration.serverMetadata();
-    if (metadata.issuer !== this.#config.issuer.href) {
+    let discoveredIssuer: string;
+    try {
+      discoveredIssuer = new URL(metadata.issuer).href;
+    } catch {
+      throw new OidcUnavailableError("OIDC issuer mismatch");
+    }
+    if (discoveredIssuer !== this.#config.issuer.href) {
       throw new OidcUnavailableError("OIDC issuer mismatch");
     }
 

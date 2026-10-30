@@ -12,6 +12,8 @@ export interface OidcState {
   readonly nonce: string;
   /** Sanitized post-login redirect. */
   readonly returnTo: string;
+  /** SHA-256 of the browser-binding cookie, never the raw value. */
+  readonly bindingHash: string;
 }
 
 function stateKey(state: string): string {

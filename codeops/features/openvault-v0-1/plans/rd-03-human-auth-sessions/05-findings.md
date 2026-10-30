@@ -101,3 +101,35 @@ the fixes are covered by the added service, integration, and full verification t
 
 **Verify after fixes:** `pnpm verify` under Node 24.21.0 — PASS; unit 136; PostgreSQL 16
 integration 87.
+
+## Phase 4 — OIDC authentication
+
+**Reviewers:** correctness-reviewer, security-auditor
+**Phase diff:** `4ff60a7..9e93d2f`
+**Verify:** `pnpm verify` under Node 24.21.0 — PASS; unit 141; PostgreSQL 16 integration 106
+
+| ID | Severity | Lens | Finding | Ruling |
+|---|---|---|---|---|
+| SA-001 / RV-001 | 🟠 MAJOR | security / correctness | `returnTo` dot-segment normalization could produce `//evil.example`, an open redirect after login. | Fixed — reject any raw `//` and any resolved pathname starting with `//`; re-sanitize before the final redirect. Added four regression payloads and an origin assertion. |
+| SA-002 | 🟠 MAJOR | security | OIDC state was not bound to the browser, enabling login CSRF/session swapping. | Fixed — login sets a random `__Host-ov_oidc` binding cookie; the state stores only its SHA-256; the callback compares in constant time and clears the cookie. Added missing/mismatch tests. |
+| SA-003 / RV-002 | 🟡 MINOR | security / correctness | Discovery outage on `/login` returned 500 instead of 503; the abort classifier used a non-existent code. | Fixed — login maps `OidcUnavailableError` to 503; `OAUTH_ABORT` is the correct code. Added a provider-outage test. |
+| SA-004 | 🟡 MINOR | security | The collision log wrote the raw `sub` claim. | Fixed — logs a truncated SHA-256 subject hash. |
+| SA-005 | 🟡 MINOR | security | The raw `error` query value was logged. | Fixed — only `/^[a-z_]{1,64}$/` values are logged; others become `invalid`. |
+| SA-006 | 🟡 MINOR | security | Issuer comparison used a raw string against `URL.href`, rejecting origin-only issuers. | Fixed — normalize the discovered issuer with `new URL(...).href` before comparison. |
+| RV-003 | 🟡 MINOR | standards | Task 4.3.1 was narrowed without recording the reduction. | Fixed — added discovery-cache and 5-second abort unit tests; updated the task line to match. |
+| RV-004 | 🟡 MINOR | standards | Non-trivial OIDC helpers lacked documentation. | Fixed — documented body adaptation, error classification, discovery caching, SQLSTATE handling, name fallback, and identity lookup. |
+| RV-005 | 🟡 MINOR | api-surface | `/v1/meta/auth` bypassed the shared schema. | Fixed — parses `metaAuthSchema`. |
+
+**Security audit:** after the fixes, no unresolved critical/major finding. The state binding
+prevents login CSRF; the open-redirect payloads are rejected; token non-persistence remains covered
+by the OIDC integration test.
+
+**Re-review:** One scoped pass on the fix diff. Security and correctness both returned "no
+findings". The binding cookie attributes and constant-time comparison, the open-redirect payloads,
+the 503 login mapping, the subject hash, the error allowlist, the normalized issuer check, the new
+discovery-cache/abort tests, and the meta schema parse were all confirmed. The spec-test changes
+were security-driven and additive; the one modified assertion was strengthened with an origin
+check. No unresolved finding.
+
+**Verify after fixes:** `pnpm verify` under Node 24.21.0 — PASS; unit 143; PostgreSQL 16
+integration 115 (OIDC 28).

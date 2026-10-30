@@ -31,12 +31,7 @@ export function sanitizeReturnTo(raw: unknown, baseUrl: URL): string {
   if (typeof raw !== "string" || raw.length === 0 || raw.length > MAX_RETURN_TO_LENGTH) {
     return "/";
   }
-  if (
-    !raw.startsWith("/") ||
-    raw.startsWith("//") ||
-    raw.includes("\\") ||
-    hasUnsafeCharacter(raw)
-  ) {
+  if (!raw.startsWith("/") || raw.includes("//") || raw.includes("\\") || hasUnsafeCharacter(raw)) {
     return "/";
   }
 
@@ -46,7 +41,7 @@ export function sanitizeReturnTo(raw: unknown, baseUrl: URL): string {
   } catch {
     return "/";
   }
-  if (resolved.origin !== baseUrl.origin) {
+  if (resolved.origin !== baseUrl.origin || resolved.pathname.startsWith("//")) {
     return "/";
   }
   return `${resolved.pathname}${resolved.search}`;

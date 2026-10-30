@@ -94,7 +94,14 @@
 | ST-49 | JIT login with an email already used by another principal | 403 `access_denied`; no auto-link; no second principal | RD-03 line 38; AR-11 |
 | ST-50 | Known `(issuer, subject)` login for a disabled principal | 403 `access_denied`; no session | RD-03 line 39; AR-11 |
 | ST-51 | `GET /v1/meta/auth` with and without OIDC config | `{local:true,oidc:true}` and `{local:true,oidc:false}`; no secrets | RD-03 AC11; AR-12 |
-| ST-52 | Callback `returnTo` values `//evil.example`, `https://evil.example`, `/ok?x=1` | Rejected to `/`, `/`, and accepted as `/ok?x=1` respectively | RD-03 line 92; AR-10 |
+| ST-52 | Callback `returnTo` values `//evil.example`, `/.//evil.example`, `/..//evil.example`, `/%2e%2e//evil.example`, `/a/../..//evil.example`, `https://evil.example`, `/ok?x=1` | Every unsafe value resolves to `/` with the configured origin; `/ok?x=1` is preserved | RD-03 line 92; AR-10; security review |
+
+> **Security review additions to ST-52:** `GET /v1/auth/login` sets a short-lived
+> `__Host-ov_oidc` cookie (HttpOnly, Secure, SameSite=Lax, Path=/, no Domain) containing a random
+> browser binding; the transient state stores only its SHA-256. A callback with a valid code and
+> state but a missing or mismatched binding cookie returns `400 oidc_callback_failed` with no
+> session and no identity. A provider discovery failure during login returns
+> `503 oidc_unavailable`, not `500`.
 
 ### Runtime and Documentation
 

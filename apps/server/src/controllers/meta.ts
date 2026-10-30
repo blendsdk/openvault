@@ -1,3 +1,4 @@
+import { metaAuthSchema } from "@openvault/api-contract";
 import type { RouteDefinition } from "blendsdk/webafx";
 import { BaseController } from "blendsdk/webafx";
 import type { Request, Response } from "express";
@@ -17,7 +18,7 @@ export class MetaController extends BaseController {
         .get("/auth")
         .handle(async (_req: Request, res: Response) => {
           const config = await this.services.get<OpenVaultConfig>("config");
-          this.ok(res, { local: true, oidc: config.oidc !== undefined });
+          this.ok(res, metaAuthSchema.parse({ local: true, oidc: config.oidc !== undefined }));
         }),
     ];
   }

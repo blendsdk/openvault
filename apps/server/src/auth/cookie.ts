@@ -2,19 +2,11 @@ import type { Request, Response } from "express";
 
 /** Host-scoped session cookie name. */
 export const SESSION_COOKIE_NAME = "__Host-ov_session";
+/** Host-scoped OIDC browser-binding cookie name. */
+export const OIDC_BINDING_COOKIE_NAME = "__Host-ov_oidc";
 
-/**
- * Reads the session cookie from a request.
- *
- * The parsed `req.cookies` object is used when cookie-parser is installed. A
- * small header fallback keeps the helper usable in focused tests and if the
- * middleware order changes.
- *
- * @param req - Express request.
- * @returns The raw cookie value, or `undefined`.
- */
-export function readSessionCookie(req: Request): string | undefined {
-  const parsed = req.cookies?.[SESSION_COOKIE_NAME];
+function readCookie(req: Request, name: string): string | undefined {
+  const parsed = req.cookies?.[name];
   if (typeof parsed === "string") {
     return parsed;
   }
@@ -31,11 +23,41 @@ export function readSessionCookie(req: Request): string | undefined {
     if (separator === -1) {
       continue;
     }
-    if (part.slice(0, separator).trim() === SESSION_COOKIE_NAME) {
+    if (part.slice(0, separator).trim() === name) {
       return part.slice(separator + 1).trim();
     }
   }
   return undefined;
+}
+
+/**
+ * Reads the session cookie from a request.
+ *
+ * @param req - Express request.
+ * @returns The raw cookie value, or `undefined`.
+ */
+export function readSessionCookie(req: Request): string | undefined {
+  return readCookie(req, SESSION_COOKIE_NAME);
+}
+
+/**
+ * Reads the OIDC browser-binding cookie from a request.
+ *
+ * @param req - Express request.
+ * @returns The raw binding value, or `undefined`.
+ */
+export function readOidcBindingCookie(req: Request): string | undefined {
+  return readCookie(req, OIDC_BINDING_COOKIE_NAME);
+}
+
+function setHostCookie(res: Response, name: string, value: string, maxAgeSeconds: number): void {
+  res.cookie(name, value, {
+    httpOnly: true,
+    secure: true,
+    sameSite: "lax",
+    path: "/",
+    maxAge: Math.max(0, Math.floor(maxAgeSeconds)) * 1_000,
+  });
 }
 
 /**
@@ -50,26 +72,50 @@ export function readSessionCookie(req: Request): string | undefined {
  * @param maxAgeSeconds - Remaining lifetime in seconds.
  */
 export function setSessionCookie(res: Response, secretId: string, maxAgeSeconds: number): void {
-  res.cookie(SESSION_COOKIE_NAME, secretId, {
-    httpOnly: true,
-    secure: true,
-    sameSite: "lax",
-    path: "/",
-    maxAge: Math.max(0, Math.floor(maxAgeSeconds)) * 1_000,
-  });
+  setHostCookie(res, SESSION_COOKIE_NAME, secretId, maxAgeSeconds);
 }
 
 /**
- * Clears the session cookie with the same security attributes.
+ * Sets the short-lived OIDC browser-binding cookie.
  *
  * @param res - Express response.
+ * @param binding - Random binding value.
+ * @param maxAgeSeconds - Lifetime; defaults to the ten-minute state window.
  */
-export function clearSessionCookie(res: Response): void {
-  res.cookie(SESSION_COOKIE_NAME, "", {
+export function setOidcBindingCookie(res: Response, binding: string, maxAgeSeconds = 600): void {
+  setHostCookie(res, OIDC_BINDING_COOKIE_NAME, binding, maxAgeSeconds);
+}
+
+/**
+ * Clears a host-scoped cookie with the same security attributes.
+ *
+ * @param res - Express response.
+ * @param name - Cookie name.
+ */
+function clearHostCookie(res: Response, name: string): void {
+  res.cookie(name, "", {
     httpOnly: true,
     secure: true,
     sameSite: "lax",
     path: "/",
     maxAge: 0,
   });
+}
+
+/**
+ * Clears the session cookie.
+ *
+ * @param res - Express response.
+ */
+export function clearSessionCookie(res: Response): void {
+  clearHostCookie(res, SESSION_COOKIE_NAME);
+}
+
+/**
+ * Clears the OIDC browser-binding cookie.
+ *
+ * @param res - Express response.
+ */
+export function clearOidcBindingCookie(res: Response): void {
+  clearHostCookie(res, OIDC_BINDING_COOKIE_NAME);
 }

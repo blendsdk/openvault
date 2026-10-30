@@ -23,6 +23,7 @@ import { createServerEnvironment, type ServerEnvironment } from "./helpers/serve
 import { applyMigrations, createTestDatabase, type TestDatabase } from "./helpers/test-database.js";
 
 const SESSION_COOKIE = SESSION_COOKIE_NAME;
+const BINDING_COOKIE = "__Host-ov_oidc";
 const CONFIGURED_ORIGIN = "https://vault.example.com";
 const CLIENT_ID = "openvault-oidc-test-client";
 const CLIENT_SECRET = "openvault-oidc-test-client-secret";
@@ -102,6 +103,16 @@ interface AuthorizationFlow {
   readonly state: string;
   readonly nonce: string;
   readonly codeChallenge: string;
+  /** Browser-binding value from the login cookie, or `undefined` when it is absent. */
+  readonly bindingCookie: string | undefined;
+}
+
+/** Options for one callback request. */
+interface CallbackOptions {
+  /** Browser-binding value captured from the login redirect. */
+  readonly bindingCookie?: string;
+  /** Set false to send the callback without the browser-binding cookie. */
+  readonly sendBindingCookie?: boolean;
 }
 
 interface CompleteLoginOptions {
@@ -113,6 +124,10 @@ interface CompleteLoginOptions {
   readonly idTokenSubject?: string;
   /** Subject returned by UserInfo; defaults to the user's subject. */
   readonly userInfoSubject?: string;
+  /** Overrides the browser-binding cookie sent to the callback. */
+  readonly bindingCookie?: string;
+  /** Set false to send the callback without the browser-binding cookie. */
+  readonly sendBindingCookie?: boolean;
 }
 
 type SendOptions = Omit<TestRequestOptions, "port" | "host" | "ca" | "servername">;
@@ -256,8 +271,8 @@ function requireCookieValue(response: TestResponse, name: string): string {
   return value;
 }
 
-/** Asserts the hardened attributes the session cookie must always carry. */
-function expectSessionCookieAttributes(header: string): void {
+/** Asserts the hardened attributes every security cookie must carry. */
+function expectHardenedCookieAttributes(header: string): void {
   expect(header).toMatch(/;\s*HttpOnly/i);
   expect(header).toMatch(/;\s*Secure/i);
   expect(header).toMatch(/;\s*SameSite=Lax/i);
@@ -333,14 +348,29 @@ async function beginLogin(target: RunningApp, returnTo?: string): Promise<Author
   if (state === null || nonce === null || codeChallenge === null) {
     throw new Error("the authorization URL is missing state, nonce, or the PKCE challenge");
   }
-  return { location: url.href, state, nonce, codeChallenge };
+  return {
+    location: url.href,
+    state,
+    nonce,
+    codeChallenge,
+    bindingCookie: cookieValue(response, BINDING_COOKIE),
+  };
 }
 
 /** Sends the authorization code and original state to the callback endpoint. */
-function sendCallback(target: RunningApp, code: string, state: string): Promise<TestResponse> {
+function sendCallback(
+  target: RunningApp,
+  code: string,
+  state: string,
+  options: CallbackOptions = {},
+): Promise<TestResponse> {
+  const headers: Record<string, string> = { "x-forwarded-for": uniqueAddress() };
+  if (options.sendBindingCookie !== false && options.bindingCookie !== undefined) {
+    headers.cookie = `${BINDING_COOKIE}=${options.bindingCookie}`;
+  }
   return sendTo(target, {
     path: `/v1/auth/callback?code=${encodeURIComponent(code)}&state=${encodeURIComponent(state)}`,
-    headers: { "x-forwarded-for": uniqueAddress() },
+    headers,
   });
 }
 
@@ -361,7 +391,13 @@ async function completeLogin(
     ...(options.idTokenSubject === undefined ? {} : { idTokenSubject: options.idTokenSubject }),
     ...(options.userInfoSubject === undefined ? {} : { userInfoSubject: options.userInfoSubject }),
   });
-  const callback = await sendCallback(target, code, flow.state);
+  const bindingCookie = options.bindingCookie ?? flow.bindingCookie;
+  const callback = await sendCallback(target, code, flow.state, {
+    ...(bindingCookie === undefined ? {} : { bindingCookie }),
+    ...(options.sendBindingCookie === undefined
+      ? {}
+      : { sendBindingCookie: options.sendBindingCookie }),
+  });
   return { flow, code, callback };
 }
 
@@ -372,7 +408,7 @@ async function requireAuthenticatedUser(
 ): Promise<{ readonly secret: string; readonly user: AuthUser }> {
   expect(callback.status).toBe(302);
   const header = requireSetCookie(callback, SESSION_COOKIE);
-  expectSessionCookieAttributes(header);
+  expectHardenedCookieAttributes(header);
   const secret = requireCookieValue(callback, SESSION_COOKIE);
   const me = await sendTo(target, {
     path: "/v1/auth/me",
@@ -578,6 +614,115 @@ describe.skipIf(trustedHost === undefined)("OIDC authentication", () => {
     });
   });
 
+  describe("browser binding", () => {
+    it("should set a hardened browser-binding cookie when login starts", async () => {
+      const response = await sendTo(configured, {
+        path: "/v1/auth/login",
+        headers: { "x-forwarded-for": uniqueAddress() },
+      });
+
+      expect(response.status).toBe(302);
+      const header = requireSetCookie(response, BINDING_COOKIE);
+      expectHardenedCookieAttributes(header);
+      requireCookieValue(response, BINDING_COOKIE);
+    });
+
+    it("should never store the raw browser binding in the transient cache", async () => {
+      const mark = cacheMark();
+      const flow = await beginLogin(configured);
+      const binding = flow.bindingCookie;
+      if (binding === undefined || binding === "") {
+        throw new Error("expected the login response to set the browser-binding cookie");
+      }
+
+      const entries = recordingCache.setEntries.slice(mark);
+      expect(entries.length).toBeGreaterThan(0);
+      for (const entry of entries) {
+        expect(entry.key).not.toContain(binding);
+        expect(entry.value).not.toContain(binding);
+      }
+    });
+
+    it("should reject a valid callback when the browser-binding cookie is missing", async () => {
+      const mark = cacheMark();
+      const subject = fixtureId();
+      const email = uniqueEmail();
+
+      const { callback } = await completeLogin(configured, {
+        user: { subject, email, emailVerified: true },
+        sendBindingCookie: false,
+      });
+
+      expect(callback.status).toBe(400);
+      expect(errorEnvelope.parse(callback.json).error).toMatchObject({
+        code: "oidc_callback_failed",
+        statusCode: 400,
+      });
+      expectNoSessionCookie(callback);
+      expect(sessionKeysSince(mark)).toHaveLength(0);
+      await expect(countIdentities(subject)).resolves.toBe(0);
+    });
+
+    it("should reject a valid callback when the browser-binding cookie does not match", async () => {
+      const mark = cacheMark();
+      const subject = fixtureId();
+      const email = uniqueEmail();
+
+      const { callback } = await completeLogin(configured, {
+        user: { subject, email, emailVerified: true },
+        bindingCookie: `mismatched-${fixtureId()}`,
+      });
+
+      expect(callback.status).toBe(400);
+      expect(errorEnvelope.parse(callback.json).error).toMatchObject({
+        code: "oidc_callback_failed",
+        statusCode: 400,
+      });
+      expectNoSessionCookie(callback);
+      expect(sessionKeysSince(mark)).toHaveLength(0);
+      await expect(countIdentities(subject)).resolves.toBe(0);
+    });
+  });
+
+  describe("provider outage", () => {
+    it("should return oidc_unavailable when the provider cannot be reached during login", async () => {
+      const environment = createServerEnvironment({
+        OPENVAULT_DB_URL: testDb.url,
+        OPENVAULT_PROXY_CIDRS: trustedProxyCidrs(),
+        OPENVAULT_OIDC_ISSUER: provider.issuer,
+        OPENVAULT_OIDC_CLIENT_ID: CLIENT_ID,
+        OPENVAULT_OIDC_CLIENT_SECRET: CLIENT_SECRET,
+        OPENVAULT_OIDC_REDIRECT_URL: REDIRECT_URL,
+        OPENVAULT_OIDC_ALLOWED_DOMAINS: ALLOWED_DOMAIN,
+      });
+      let outage: RunningApp | undefined;
+      try {
+        outage = await startApp(environment, {
+          authOverrides: {
+            fetch: async () => {
+              throw new Error("the OIDC provider is unreachable");
+            },
+          },
+        });
+
+        const response = await sendTo(outage, {
+          path: "/v1/auth/login",
+          headers: { "x-forwarded-for": uniqueAddress() },
+        });
+
+        expect(response.status).toBe(503);
+        expect(errorEnvelope.parse(response.json).error).toMatchObject({
+          code: "oidc_unavailable",
+          statusCode: 503,
+        });
+        expectNoSessionCookie(response);
+      } finally {
+        await outage?.handle.stop();
+        environment.cleanup();
+      }
+    });
+  });
+
   describe("callback", () => {
     it("should create an OIDC session and return the signed-in user when the callback is valid", async () => {
       const subject = fixtureId();
@@ -634,7 +779,9 @@ describe.skipIf(trustedHost === undefined)("OIDC authentication", () => {
       const mark = cacheMark();
       const tokenRequests = provider.tokenRequests();
 
-      const response = await sendCallback(configured, "unused-code", `unknown-${fixtureId()}`);
+      const response = await sendCallback(configured, "unused-code", `unknown-${fixtureId()}`, {
+        bindingCookie: `unbound-${fixtureId()}`,
+      });
 
       expect(response.status).toBe(400);
       expect(errorEnvelope.parse(response.json).error).toMatchObject({
@@ -658,7 +805,9 @@ describe.skipIf(trustedHost === undefined)("OIDC authentication", () => {
       const secret = requireCookieValue(callback, SESSION_COOKIE);
       const tokenRequests = provider.tokenRequests();
 
-      const replay = await sendCallback(configured, code, flow.state);
+      const replay = await sendCallback(configured, code, flow.state, {
+        ...(flow.bindingCookie === undefined ? {} : { bindingCookie: flow.bindingCookie }),
+      });
 
       expect(replay.status).toBe(400);
       expect(errorEnvelope.parse(replay.json).error.code).toBe("oidc_callback_failed");
@@ -895,6 +1044,22 @@ describe.skipIf(trustedHost === undefined)("OIDC authentication", () => {
       await expectSuccessfulReturnTo("//evil.example", "/");
     });
 
+    it("should fall back to the root when returnTo hides a protocol-relative host behind a dot segment", async () => {
+      await expectSuccessfulReturnTo("/.//evil.example", "/");
+    });
+
+    it("should fall back to the root when returnTo escapes above the root into a protocol-relative path", async () => {
+      await expectSuccessfulReturnTo("/..//evil.example", "/");
+    });
+
+    it("should fall back to the root when returnTo encodes a parent segment before a protocol-relative path", async () => {
+      await expectSuccessfulReturnTo("/%2e%2e//evil.example", "/");
+    });
+
+    it("should fall back to the root when returnTo mixes a normal segment with a parent escape", async () => {
+      await expectSuccessfulReturnTo("/a/../..//evil.example", "/");
+    });
+
     it("should fall back to the root when returnTo is an absolute URL", async () => {
       await expectSuccessfulReturnTo("https://evil.example", "/");
     });
@@ -917,5 +1082,6 @@ async function expectSuccessfulReturnTo(returnTo: string, expected: string): Pro
   const location = callback.headers.location;
   expect(location).toBeDefined();
   const resolved = new URL(location ?? "", CONFIGURED_ORIGIN);
+  expect(resolved.origin).toBe(CONFIGURED_ORIGIN);
   expect(`${resolved.pathname}${resolved.search}`).toBe(expected);
 }

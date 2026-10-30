@@ -42,10 +42,17 @@ function hasLength(value: string, minimum: number, maximum: number): boolean {
   return value.length >= minimum && value.length <= maximum;
 }
 
+/** Reports PostgreSQL's unique-violation SQLSTATE (`23505`). */
 function isUniqueViolation(error: unknown): boolean {
   return typeof error === "object" && error !== null && Reflect.get(error, "code") === "23505";
 }
 
+/**
+ * Resolves a display name from the claim or the email local part.
+ *
+ * The database bounds the column at 100 characters; the fallback keeps a
+ * provider that omits `name` from failing the insert.
+ */
 function normalizedName(value: unknown, email: string): string {
   if (typeof value === "string" && value.trim().length > 0) {
     return value.trim().slice(0, MAX_NAME_LENGTH);
@@ -168,6 +175,7 @@ export class OidcIdentityService {
     return { principalId, name, email };
   }
 
+  /** Looks up a linked identity by its `(issuer, subject)` key. */
   async #findIdentity(issuer: string, subject: string): Promise<IdentityRow | undefined> {
     const result = await this.#database.executeQuery<IdentityRow>(
       `SELECT p.id, p.name, p.email, p.status
