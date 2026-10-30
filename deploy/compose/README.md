@@ -35,16 +35,19 @@ the bootstrap administrator. The bootstrap password is printed once.
 - `vault_net`: server and agents. Internal; no direct internet.
 - `db_net`: server and PostgreSQL. Internal.
 
-The proxy is not on `vault_net`. Agents cannot reach the admin listener, and PostgreSQL is
-never an admin peer.
+The proxy is not on `vault_net`. The admin listener binds all container interfaces, but the
+source guard accepts only `OPENVAULT_PROXY_CIDRS` peers (and loopback for health/readiness);
+`admin_net` placement is defense in depth. Agents cannot reach the admin listener, and
+PostgreSQL is never an admin peer.
 
 ## Ports
 
 | Port | Listener | Exposure |
 |---|---|---|
+| 80 | Caddy HTTP redirect / ACME | Host |
 | 443 | Caddy public TLS | Host |
-| 8443 | Admin HTTPS | `admin_net` only; never published |
-| 8444 | Agent mTLS | `vault_net` only; never published |
+| 8443 | Admin HTTPS | Never published; `OPENVAULT_PROXY_CIDRS` guard is authoritative |
+| 8444 | Agent mTLS | `vault_net`; never published |
 
 Caddy reaches the admin listener at `openvaultd:8443` over `admin_net`. Agents use
 `https://openvaultd:8444` with a client certificate from the internal CA.
@@ -64,8 +67,9 @@ also sets:
 | `OPENVAULT_LOG_LEVEL` | `info` |
 
 The keyring file must be a regular file with mode `0600`. The reference stack is not
-bootable until the `ov init` provisioner (RD-11/RD-13) creates the keyring and TLS material.
-Age-encrypted keyrings are not supported until RD-13; setting
+bootable until the `ov init` provisioner from the CLI and backup/rotation releases creates the
+keyring and TLS material.
+Age-encrypted keyrings are not supported in the current release; setting
 `OPENVAULT_KEYRING_PASSPHRASE_FILE` fails closed.
 
 ## Notes

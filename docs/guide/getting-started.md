@@ -32,8 +32,8 @@ pnpm --filter @openvault/server dev
 pnpm --filter @openvault/web dev
 ```
 
-The UI runs at `http://localhost:5173` and proxies `/v1` to the API at port 8443. The API
-currently exposes `GET /v1/ready` and the WebAFX `GET /health`.
+The UI runs at `http://localhost:5173` and proxies `/v1` to the API. The API exposes
+`GET /health` for liveness and `GET /ready` for dependency readiness.
 
 Build the docs:
 

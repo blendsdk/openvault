@@ -47,6 +47,10 @@ services:
     depends_on:
       openvault-agent:
         condition: service_healthy
+
+networks:
+  vault_net:
+    external: true
 ```
 
 ## Networks

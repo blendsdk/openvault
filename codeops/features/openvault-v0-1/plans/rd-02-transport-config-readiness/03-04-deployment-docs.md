@@ -51,6 +51,8 @@ OPENVAULT_LOG_LEVEL: info
 Keep the existing `OPENVAULT_BASE_URL`, `OPENVAULT_DB_URL`, `OPENVAULT_KEYRING`,
 `OPENVAULT_TLS_CERT`, and `OPENVAULT_TLS_KEY`. Do not publish `8443` or `8444` on the host.
 Mount `openvault_tls` read-only at `/etc/openvault/tls` for the CA and server material.
+The proxy mounts only a public CA volume at `/etc/openvault/ca`; it never receives the
+server private key or the CA private key.
 
 Add a container healthcheck that probes the admin `/health` endpoint over TLS. It may use the
 image's Node runtime and accept the internal server certificate only for this loopback probe;
@@ -92,7 +94,7 @@ https://localhost {
   reverse_proxy openvaultd:8443 {
     transport http {
       tls
-      tls_trusted_ca_certs /etc/openvault/tls/ca.pem
+      tls_trust_pool file /etc/openvault/ca/ca.pem
       tls_server_name openvaultd
       read_timeout 30s
       write_timeout 30s
@@ -145,10 +147,13 @@ misstate the trust boundary.
 ## Security Properties
 
 - No admin port is published to the host.
-- The admin listener sees only the dedicated proxy network; the source guard rejects direct
-  admin traffic from agents or database networks.
+- The admin listener binds the container interfaces; the `OPENVAULT_PROXY_CIDRS` source
+  guard is authoritative and rejects direct admin traffic from agents or database
+  networks. `admin_net` placement is defense in depth.
 - The agent listener requires a client certificate from the internal CA.
 - Caddy terminates public TLS, adds HSTS, and applies proxy timeouts.
+- The proxy mounts only the public CA certificate volume; it never receives the server
+  private key or CA private key.
 - The server does not log configuration values or key material.
 - The keyring and TLS material remain outside PostgreSQL.
 

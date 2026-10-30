@@ -42,7 +42,7 @@
 | Threat | Protection |
 |---|---|
 | Database theft | Envelope encryption; KEK outside the database |
-| Backup theft | Encrypted archive; keyring has its own passphrase |
+| Backup theft | Encrypted archive; the keyring is plaintext JSON with mode `0600` until age support lands, so the archive passphrase and keyring backup are stored separately |
 | Traffic interception | TLS 1.2+, mTLS for workloads, HSTS |
 | Direct admin access | Dedicated `admin_net`, proxy CIDR allowlist, no plaintext listener |
 | Agent header spoofing | Agent listener strips forwarded headers; admin trust is source-checked |
@@ -67,8 +67,9 @@
 - Single-node deployment has no high availability.
 - Browser sessions are lost on restart.
 - No explicit deny rules in v0.1.
-- Age-encrypted keyrings and the `ov init` provisioner are deferred to RD-11/RD-13. Until
-  then the reference stack is not bootable and RD-02 tests use temporary fixtures.
+- Age-encrypted keyrings and the `ov init` provisioner are deferred to later CLI and
+  backup/rotation work. Until then the reference stack is not bootable and transport tests use
+  temporary fixtures.
 - The readiness timeout bounds the response, not an in-flight database query; the pool
   connection timeout and connection cap bound the residual work.
 

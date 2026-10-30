@@ -6,6 +6,11 @@ import { parse } from "yaml";
 
 const composePath = fileURLToPath(new URL("../deploy/compose/compose.yaml", import.meta.url));
 const caddyPath = fileURLToPath(new URL("../deploy/compose/Caddyfile", import.meta.url));
+const hasCaddy = spawnSync("caddy", ["version"], { encoding: "utf8" }).status === 0;
+const hasCaddyImage =
+  spawnSync("docker", ["image", "inspect", "caddy:2.10-alpine"], {
+    encoding: "utf8",
+  }).status === 0;
 
 function readCompose() {
   return parse(readFileSync(composePath, "utf8"));
@@ -31,6 +36,15 @@ describe("deployment contract", () => {
     expect(compose.services.proxy.networks.admin_net.ipv4_address).toBe("172.30.0.2");
     expect(compose.services.openvaultd.networks.admin_net.ipv4_address).toBe("172.30.0.3");
     expect(compose.services.proxy.networks.vault_net).toBeUndefined();
+    expect(compose.networks.vault_net.name).toBe("vault_net");
+  });
+
+  it("does not mount server or CA private material into the proxy", () => {
+    const compose = readCompose();
+    const volumes = compose.services.proxy.volumes.map((entry) => String(entry));
+
+    expect(volumes.some((entry) => entry.includes("openvault_tls"))).toBe(false);
+    expect(volumes.some((entry) => entry.includes("openvault_ca_public"))).toBe(true);
   });
 
   it("passes the required transport and proxy environment", () => {
@@ -74,16 +88,31 @@ describe("deployment contract", () => {
     expect(caddy).toContain("read_timeout 30s");
     expect(caddy).toContain("write_timeout 30s");
     expect(caddy).toContain("keepalive 10s");
+    expect(caddy).toContain("tls_trust_pool file /etc/openvault/ca/ca.pem");
     expect(caddy).not.toContain("idle_timeout");
   });
 
-  it("passes caddy validate when Caddy is installed", () => {
-    const result = spawnSync("caddy", ["validate", "--config", caddyPath], {
-      encoding: "utf8",
-    });
-    if (result.error?.code === "ENOENT") {
-      return;
-    }
-    expect(result.status, result.stderr).toBe(0);
-  });
+  it.skipIf(!hasCaddy && !hasCaddyImage)(
+    "passes caddy validate when Caddy or the pinned image is available",
+    () => {
+      const result = hasCaddy
+        ? spawnSync("caddy", ["validate", "--config", caddyPath], { encoding: "utf8" })
+        : spawnSync(
+            "docker",
+            [
+              "run",
+              "--rm",
+              "-v",
+              `${caddyPath}:/etc/caddy/Caddyfile:ro`,
+              "caddy:2.10-alpine",
+              "caddy",
+              "validate",
+              "--config",
+              "/etc/caddy/Caddyfile",
+            ],
+            { encoding: "utf8" },
+          );
+      expect(result.status, result.stderr).toBe(0);
+    },
+  );
 });

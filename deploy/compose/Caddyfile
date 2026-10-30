@@ -17,7 +17,7 @@ https://localhost {
   reverse_proxy openvaultd:8443 {
     transport http {
       tls
-      tls_trusted_ca_certs /etc/openvault/tls/ca.pem
+      tls_trust_pool file /etc/openvault/ca/ca.pem
       tls_server_name openvaultd
       read_timeout 30s
       write_timeout 30s

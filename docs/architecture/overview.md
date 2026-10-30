@@ -69,9 +69,11 @@ The keyring holds the KEK and older keys. It is never stored in PostgreSQL.
 | `db_net` | server, PostgreSQL | Database only |
 | app networks | application, its agent | Application delivery |
 
-The proxy is not on `vault_net`. The admin listener on `8443` is reachable only from
-`admin_net`; the agent mTLS listener on `8444` is reachable only from `vault_net`. The
-application has no route to the server or database.
+The proxy is not on `vault_net`. Both listeners bind the container interfaces; the admin
+source guard accepts only peers in `OPENVAULT_PROXY_CIDRS` (loopback may call only
+`/health` and `/ready`), so `admin_net` placement is defense in depth. The agent mTLS
+listener on `8444` accepts only client certificates from the internal CA. The application
+has no route to the server or database.
 
 ## Next
 

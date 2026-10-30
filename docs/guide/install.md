@@ -68,13 +68,14 @@ The keyring is outside PostgreSQL and is the only way to decrypt stored values. 
 separately from the database, with mode `0600`. Losing it means losing every secret.
 :::
 
-Age-encrypted keyrings are not supported until RD-13. Setting
+Age-encrypted keyrings are not supported in the current release. Setting
 `OPENVAULT_KEYRING_PASSPHRASE_FILE` stops startup rather than falling back to plaintext.
 
 ## Ports and networks
 
 | Port | Listener | Exposure |
 |---|---|---|
+| 80 | Caddy HTTP redirect / ACME | Host |
 | 443 | Caddy public TLS | Host |
 | 8443 | Admin HTTPS | `admin_net` only; not published |
 | 8444 | Agent mTLS | `vault_net` only; not published |

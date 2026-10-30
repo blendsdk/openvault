@@ -13,7 +13,7 @@ bind.
 | `OPENVAULT_AGENT_PORT` | `8444` | no | Agent mTLS port; must differ from the admin port |
 | `OPENVAULT_DB_URL` | — | yes | PostgreSQL connection string |
 | `OPENVAULT_KEYRING` | — | yes | Absolute path to a regular file with mode `0600` |
-| `OPENVAULT_KEYRING_PASSPHRASE_FILE` | none | no | Reserved for age keyrings; setting it fails closed until RD-13 |
+| `OPENVAULT_KEYRING_PASSPHRASE_FILE` | none | no | Reserved for age keyrings; setting it fails closed in the current release |
 | `OPENVAULT_TLS_CERT` | — | yes | Readable server certificate PEM |
 | `OPENVAULT_TLS_KEY` | — | yes | Readable private-key PEM that matches the certificate |
 | `OPENVAULT_INTERNAL_CA` | — | yes | Readable CA certificate with `CA:TRUE` and a valid self-signature |
@@ -21,8 +21,8 @@ bind.
 | `OPENVAULT_OIDC_CLIENT_ID` / `_SECRET` | none | with OIDC | Non-empty when an issuer is set |
 | `OPENVAULT_OIDC_REDIRECT_URL` | `${BASE_URL}/v1/auth/callback` | no | HTTPS URL |
 | `OPENVAULT_OIDC_ALLOWED_DOMAINS` | none | no | Comma-separated domain allowlist |
-| `OPENVAULT_SECRET_MAX_BYTES` | `65536` | no | Product-value limit, 1 KiB–1 MiB (RD-08) |
-| `OPENVAULT_CERT_MAX_BYTES` | `131072` | no | Product-value limit, 1 KiB–2 MiB (RD-09) |
+| `OPENVAULT_SECRET_MAX_BYTES` | `65536` | no | Product-value limit enforced by the secret routes |
+| `OPENVAULT_CERT_MAX_BYTES` | `131072` | no | Product-value limit enforced by the certificate routes |
 | `OPENVAULT_SOFT_DELETE_DAYS` | `30` | no | 7–90 |
 | `OPENVAULT_AUDIT_RETENTION_DAYS` | `180` | no | 30–3650 |
 | `OPENVAULT_JOIN_TOKEN_TTL` | `15m` | no | 1m–24h |
@@ -40,7 +40,7 @@ keyed error. The agent port must differ from the resolved admin port.
 The transport boundary is fixed at 64 KiB for `/v1/secrets*` and 128 KiB for
 `/v1/certificates*` and other JSON under `/v1`. `OPENVAULT_SECRET_MAX_BYTES` and
 `OPENVAULT_CERT_MAX_BYTES` are product-value limits enforced by the secret and certificate
-routes in RD-08/RD-09; they do not widen or narrow the HTTP parser.
+secret and certificate routes; they do not widen or narrow the HTTP parser.
 
 Requests with a non-JSON body under `/v1` are rejected with `415`.
 
@@ -62,10 +62,10 @@ The keyring is a JSON file outside PostgreSQL:
 The path is required and must be an absolute path to a regular file with exact mode
 `0600`. Group- or world-readable files stop startup.
 
-Age-encrypted keyrings are deferred to RD-13. Setting
+Age-encrypted keyrings are deferred to a later release. Setting
 `OPENVAULT_KEYRING_PASSPHRASE_FILE` fails closed with an unsupported-feature error; there is
 no plaintext fallback. The reference stack is not bootable until the `ov init` provisioner
-(RD-11/RD-13) creates the keyring file.
+CLI and backup/rotation releases create the keyring file.
 
 ## Readiness
 

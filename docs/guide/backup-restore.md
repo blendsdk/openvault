@@ -26,7 +26,7 @@ The archive contains the database dump, keyring, and configuration manifest. It 
 encrypted with age using a passphrase or recipient key.
 
 The backup passphrase is a second factor. Age-encrypted keyrings and their passphrase flow
-are deferred to RD-13; until then the keyring is plaintext JSON with mode `0600`, and both
+are deferred to a later release; until then the keyring is plaintext JSON with mode `0600`, and both
 the archive passphrase and the keyring backup must be stored separately from the archive.
 
 ## Restore

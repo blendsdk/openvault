@@ -53,6 +53,16 @@
 | SA-402 | 3 | MINOR | clock/inverted-window | fixed |
 | SA-403 | 3 | MINOR | logging/query-strings | accepted |
 | SA-404 | 3 | MINOR | logging/redaction-depth | accepted |
+| RV-501 | 4 | MAJOR | deploy/formatting | fixed |
+| RV-502 | 4 | MAJOR | deploy/network-name | fixed |
+| RV-503, SA-503 | 4 | MAJOR | docs/backup-claim | fixed |
+| SA-501 | 4 | MAJOR | deploy/proxy-key-mount | fixed |
+| RV-504, SA-505 | 4 | MINOR | deploy/caddy-validation | fixed |
+| RV-505, SA-504 | 4 | MINOR | docs/readiness-path | fixed |
+| RV-506 | 4 | MINOR | docs/ports | fixed |
+| RV-507 | 4 | MINOR | docs/internal-ids | fixed |
+| SA-502 | 4 | MINOR | docs/admin-network | fixed |
+| SA-506 | 4 | MINOR | deploy/container-hardening | deferred |
 
 **Phase 1 review notes**
 
@@ -90,6 +100,16 @@
   major concern when RD-03/RD-05 add query parameters.
 - SA-404 accepted: pino wildcard redaction is one level deep; handlers must log
   explicit fields and never raw nested objects.
+
+**Phase 4 review notes**
+
+- Fixed the proxy key mount, the external network name, the stale backup claim, the
+  readiness path references, the port list, the internal-ID references, and the Caddy
+  validation reporting.
+- SA-506 deferred to RD-14: the release image owns non-root execution and a read-only
+  rootfs. Revisit when the image is built and scanned.
+- `caddy validate` is now an explicit skipped test when neither the binary nor the pinned
+  image is available; the text assertions still run everywhere.
 
 ## Ruling Vocabulary
 

@@ -12,7 +12,7 @@ KEK (32 bytes, keyring file, outside the database)
 ```
 
 The KEK is never written to PostgreSQL. The keyring file is mode `0600`. Age encryption
-and the passphrase-file flow are deferred to RD-13; the RD-02 server rejects a passphrase
+and the passphrase-file flow are deferred to a later release; the server rejects a passphrase
 file instead of falling back to plaintext.
 
 ## Envelope encryption
