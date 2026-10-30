@@ -2,8 +2,8 @@
 
 > **Audit target**: `codeops/features/openvault-v0-1/plans/rd-01-foundation/`
 > **Context**: RD-01 requirements, RD-08, and the existing repository
-> **Date**: 2026-10-29 16:25
-> **Status**: ✅ PASSED WITH NOTES — all Critical/Major findings resolved; 2 minor notes accepted
+> **Date**: 2026-10-30 11:55
+> **Status**: ✅ PASSED WITH NOTES — all Critical/Major findings resolved; final implementation addendum included
 > **Same-session warning**: the plan was authored and reviewed in this session. The fixes were
 > re-checked by a separate read-only preflight auditor; an independent human review is still
 > recommended before implementation.
@@ -77,3 +77,28 @@
 
 The plan is ready for execution testing. The first execution task is still a specification
 test, not product code.
+
+## Final implementation addendum (2026-10-30)
+
+The plan was executed and then amended for BlendSDK 5.68.1 codegen adoption. A second
+read-only phase review covered the codegen refactor; a third review covered the CI/build
+security phase.
+
+| Area | Final evidence |
+|---|---|
+| Codegen schema and migrations | `DatabaseSchema` baseline + reviewed trigger/seed manual migration; PostgreSQL 16/17 integration 30/30 each |
+| Generated types | `db:types:check` clean after a migration |
+| Runtime | `runMigrations` startup and CLI wrapper; invalid history and startup refusal tested |
+| CI | Verify, Integration 16/17, Audit, CodeQL, Gitleaks, dependency review all green |
+| Branch protection | Exact required checks, strict, linear, no force/delete, admins enforced |
+| Full verification | `pnpm verify` green; 18 root policy tests |
+
+Remaining accepted notes:
+
+1. Database role separation is deferred to RD-13; until then deployment must not use the
+   table owner as the runtime role. RD-13 now contains the requirement.
+2. A `schema.ts` change is not a CI drift failure until a migration is generated; the
+   limitation is documented and the generator is part of the workflow.
+3. Container image digests remain deferred to RD-13.
+4. This was an internal/AI review; independent human or external review is still required
+   before production, as RD-14 states.

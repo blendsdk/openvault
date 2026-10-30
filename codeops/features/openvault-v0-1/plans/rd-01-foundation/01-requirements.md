@@ -18,8 +18,8 @@
 
 ### Deferred / out of this plan
 
-- RD-01 R8: generated types from the live schema (`blendsdk/codegen`) — deferred until the
-  schema stabilizes; hand-written types are used now.
+- RD-01 R8: generated types and CType constants from the migrated schema are implemented with
+  `blendsdk/codegen` and checked by `db:types:check`.
 - RD-01 R9: full release signing/SBOM/image scanning — RD-14.
 - Authentication, secrets, certificates, agent, CLI, and UI — later RDs.
 
@@ -28,8 +28,8 @@
 | Decision | Chosen | AR Ref |
 |---|---|---|
 | Integration database harness | Compose/service Postgres via `TEST_DATABASE_URL` | P-01 |
-| Migration runner | Custom TypeScript runner + SQL files + checksums | P-02 |
-| Type generation | Hand-written types now; codegen later | P-03 |
+| Migration runner | BlendSDK codegen baseline/manual migrations + `runMigrations` | P-02, P-16 |
+| Type generation | Generated row types and CType constants from the migrated schema | P-03 |
 | PostgreSQL CI matrix | 16 and 17 | P-04 |
 | Enum representation | `text` + CHECK constraints | P-05 |
 | Validation location | Zod in `packages/api-contract`; core dependency-free | P-06 |
@@ -42,7 +42,8 @@
 
 ## Acceptance Criteria
 
-1. [ ] All 44 specification test cases and 5 CI/manual gates in `07-testing-strategy.md` pass.
+1. [ ] All 44 specification test cases and 5 CI/manual gates in `07-testing-strategy.md` pass;
+   ST-10–ST-17 are covered by the pinned upstream codegen suite.
 2. [ ] `pnpm verify` passes typecheck, Biome, builds, unit/root tests, artifact/React checks, and docs build without a database.
 3. [ ] The schema and migration runner pass on PostgreSQL 16 and 17.
 4. [ ] The workspace contains the RD-01 packages; `apps/agent` and `apps/cli` are created by RD-10/RD-11 (P-13).

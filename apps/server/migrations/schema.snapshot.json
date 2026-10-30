@@ -1,0 +1,2349 @@
+{
+  "formatVersion": 1,
+  "defaultSchema": "public",
+  "extensions": [],
+  "schemas": [
+    {
+      "name": "public"
+    }
+  ],
+  "tables": [
+    {
+      "schema": "public",
+      "name": "audit_checkpoints",
+      "columns": [
+        {
+          "name": "audit_key_id",
+          "type": "text",
+          "nullable": false
+        },
+        {
+          "name": "created_at",
+          "type": "timestamptz",
+          "nullable": false,
+          "default": "now()"
+        },
+        {
+          "name": "hmac",
+          "type": "bytea",
+          "nullable": false
+        },
+        {
+          "name": "id",
+          "type": "bigserial",
+          "nullable": false
+        },
+        {
+          "name": "last_event_id",
+          "type": "bigint",
+          "nullable": false
+        },
+        {
+          "name": "last_hash",
+          "type": "bytea",
+          "nullable": false
+        }
+      ],
+      "primaryKey": {
+        "kind": "primaryKey",
+        "name": "audit_checkpoints_id_pkey",
+        "columns": [
+          "id"
+        ]
+      },
+      "uniqueConstraints": [
+        {
+          "kind": "unique",
+          "name": "audit_checkpoints_last_event_id_key",
+          "columns": [
+            "last_event_id"
+          ]
+        }
+      ],
+      "checkConstraints": [
+        {
+          "kind": "check",
+          "name": "audit_checkpoints_1c138c5698_check",
+          "expression": "octet_length(hmac) = 32"
+        },
+        {
+          "kind": "check",
+          "name": "audit_checkpoints_93adfe320e_check",
+          "expression": "octet_length(last_hash) = 32"
+        }
+      ],
+      "foreignKeys": [
+        {
+          "name": "audit_checkpoints_audit_key_id_fkey",
+          "kind": "foreignKey",
+          "columns": [
+            "audit_key_id"
+          ],
+          "referencedSchema": "public",
+          "referencedTable": "audit_keys",
+          "referencedColumns": [
+            "id"
+          ],
+          "onUpdate": "NO ACTION",
+          "onDelete": "NO ACTION"
+        }
+      ],
+      "indexes": []
+    },
+    {
+      "schema": "public",
+      "name": "audit_events",
+      "columns": [
+        {
+          "name": "action",
+          "type": "text",
+          "nullable": false
+        },
+        {
+          "name": "actor_id",
+          "type": "text",
+          "nullable": true
+        },
+        {
+          "name": "actor_kind",
+          "type": "text",
+          "nullable": false
+        },
+        {
+          "name": "audit_key_id",
+          "type": "text",
+          "nullable": false
+        },
+        {
+          "name": "details",
+          "type": "jsonb",
+          "nullable": false,
+          "default": "'{}'::jsonb"
+        },
+        {
+          "name": "event_id",
+          "type": "text",
+          "nullable": false
+        },
+        {
+          "name": "hash",
+          "type": "bytea",
+          "nullable": false
+        },
+        {
+          "name": "hmac",
+          "type": "bytea",
+          "nullable": false
+        },
+        {
+          "name": "id",
+          "type": "bigserial",
+          "nullable": false
+        },
+        {
+          "name": "object_id",
+          "type": "text",
+          "nullable": true
+        },
+        {
+          "name": "object_type",
+          "type": "text",
+          "nullable": true
+        },
+        {
+          "name": "prev_hash",
+          "type": "bytea",
+          "nullable": false
+        },
+        {
+          "name": "project_id",
+          "type": "text",
+          "nullable": true
+        },
+        {
+          "name": "request_id",
+          "type": "text",
+          "nullable": false
+        },
+        {
+          "name": "result",
+          "type": "text",
+          "nullable": false
+        },
+        {
+          "name": "scope_id",
+          "type": "text",
+          "nullable": true
+        },
+        {
+          "name": "scope_type",
+          "type": "text",
+          "nullable": false
+        },
+        {
+          "name": "source_ip",
+          "type": "inet",
+          "nullable": true
+        },
+        {
+          "name": "ts",
+          "type": "timestamptz",
+          "nullable": false,
+          "default": "now()"
+        },
+        {
+          "name": "user_agent",
+          "type": "text",
+          "nullable": true
+        }
+      ],
+      "primaryKey": {
+        "kind": "primaryKey",
+        "name": "audit_events_id_pkey",
+        "columns": [
+          "id"
+        ]
+      },
+      "uniqueConstraints": [
+        {
+          "kind": "unique",
+          "name": "audit_events_event_id_key",
+          "columns": [
+            "event_id"
+          ]
+        }
+      ],
+      "checkConstraints": [
+        {
+          "kind": "check",
+          "name": "audit_events_001f993cb8_check",
+          "expression": "object_type IS NULL OR length(object_type) <= 64"
+        },
+        {
+          "kind": "check",
+          "name": "audit_events_0b3c34d80f_check",
+          "expression": "event_id ~ '^[0-9A-HJKMNP-TV-Z]{26}$'"
+        },
+        {
+          "kind": "check",
+          "name": "audit_events_1c138c5698_check",
+          "expression": "octet_length(hmac) = 32"
+        },
+        {
+          "kind": "check",
+          "name": "audit_events_1dd8a8c54e_check",
+          "expression": "user_agent IS NULL OR length(user_agent) <= 512"
+        },
+        {
+          "kind": "check",
+          "name": "audit_events_1f0cbbf10c_check",
+          "expression": "(scope_type IN ('project', 'object') AND project_id IS NOT NULL) OR scope_type IN ('org', 'system')"
+        },
+        {
+          "kind": "check",
+          "name": "audit_events_1f52f02f93_check",
+          "expression": "octet_length(prev_hash) = 32"
+        },
+        {
+          "kind": "check",
+          "name": "audit_events_21015d316c_check",
+          "expression": "octet_length(hash) = 32"
+        },
+        {
+          "kind": "check",
+          "name": "audit_events_2c6a28d68d_check",
+          "expression": "length(action) BETWEEN 1 AND 100"
+        },
+        {
+          "kind": "check",
+          "name": "audit_events_381f1a6f59_check",
+          "expression": "scope_type IN ('org', 'project', 'object', 'system')"
+        },
+        {
+          "kind": "check",
+          "name": "audit_events_57aa2b5b28_check",
+          "expression": "actor_kind IN ('user', 'service', 'system')"
+        },
+        {
+          "kind": "check",
+          "name": "audit_events_5fff83c188_check",
+          "expression": "length(request_id) BETWEEN 1 AND 100"
+        },
+        {
+          "kind": "check",
+          "name": "audit_events_6fb31c0932_check",
+          "expression": "result IN ('allow', 'deny', 'error')"
+        },
+        {
+          "kind": "check",
+          "name": "audit_events_7bbb0037aa_check",
+          "expression": "actor_kind <> 'system' OR actor_id IS NULL"
+        },
+        {
+          "kind": "check",
+          "name": "audit_events_925da81d9a_check",
+          "expression": "object_id IS NULL OR length(object_id) <= 64"
+        },
+        {
+          "kind": "check",
+          "name": "audit_events_c7688c3bc3_check",
+          "expression": "jsonb_typeof(details) = 'object'"
+        }
+      ],
+      "foreignKeys": [
+        {
+          "name": "audit_events_audit_key_id_fkey",
+          "kind": "foreignKey",
+          "columns": [
+            "audit_key_id"
+          ],
+          "referencedSchema": "public",
+          "referencedTable": "audit_keys",
+          "referencedColumns": [
+            "id"
+          ],
+          "onUpdate": "NO ACTION",
+          "onDelete": "NO ACTION"
+        },
+        {
+          "name": "audit_events_project_id_fkey",
+          "kind": "foreignKey",
+          "columns": [
+            "project_id"
+          ],
+          "referencedSchema": "public",
+          "referencedTable": "projects",
+          "referencedColumns": [
+            "id"
+          ],
+          "onUpdate": "NO ACTION",
+          "onDelete": "RESTRICT"
+        }
+      ],
+      "indexes": [
+        {
+          "name": "audit_events_action_idx",
+          "columns": [
+            "action"
+          ],
+          "unique": false,
+          "concurrent": false
+        },
+        {
+          "name": "audit_events_actor_idx",
+          "columns": [
+            "actor_id"
+          ],
+          "unique": false,
+          "concurrent": false
+        },
+        {
+          "name": "audit_events_object_idx",
+          "columns": [
+            "object_type",
+            "object_id"
+          ],
+          "unique": false,
+          "concurrent": false
+        },
+        {
+          "name": "audit_events_project_idx",
+          "columns": [
+            "project_id",
+            "ts"
+          ],
+          "unique": false,
+          "concurrent": false
+        },
+        {
+          "name": "audit_events_request_idx",
+          "columns": [
+            "request_id"
+          ],
+          "unique": false,
+          "concurrent": false
+        },
+        {
+          "name": "audit_events_result_idx",
+          "columns": [
+            "result"
+          ],
+          "unique": false,
+          "concurrent": false
+        },
+        {
+          "name": "audit_events_ts_idx",
+          "columns": [
+            "ts"
+          ],
+          "unique": false,
+          "concurrent": false
+        }
+      ]
+    },
+    {
+      "schema": "public",
+      "name": "audit_keys",
+      "columns": [
+        {
+          "name": "created_at",
+          "type": "timestamptz",
+          "nullable": false,
+          "default": "now()"
+        },
+        {
+          "name": "id",
+          "type": "text",
+          "nullable": false
+        },
+        {
+          "name": "kek_id",
+          "type": "text",
+          "nullable": false
+        },
+        {
+          "name": "wrap_nonce",
+          "type": "bytea",
+          "nullable": false
+        },
+        {
+          "name": "wrap_tag",
+          "type": "bytea",
+          "nullable": false
+        },
+        {
+          "name": "wrapped_key",
+          "type": "bytea",
+          "nullable": false
+        }
+      ],
+      "primaryKey": {
+        "kind": "primaryKey",
+        "name": "audit_keys_id_pkey",
+        "columns": [
+          "id"
+        ]
+      },
+      "uniqueConstraints": [],
+      "checkConstraints": [
+        {
+          "kind": "check",
+          "name": "audit_keys_29581f1676_check",
+          "expression": "octet_length(wrap_nonce) = 12"
+        },
+        {
+          "kind": "check",
+          "name": "audit_keys_2f4050c033_check",
+          "expression": "octet_length(wrapped_key) = 32"
+        },
+        {
+          "kind": "check",
+          "name": "audit_keys_349d6258df_check",
+          "expression": "id ~ '^[0-9A-HJKMNP-TV-Z]{26}$'"
+        },
+        {
+          "kind": "check",
+          "name": "audit_keys_9878f8ddc0_check",
+          "expression": "octet_length(wrap_tag) = 16"
+        },
+        {
+          "kind": "check",
+          "name": "audit_keys_a9e2e02429_check",
+          "expression": "length(kek_id) BETWEEN 1 AND 64"
+        }
+      ],
+      "foreignKeys": [],
+      "indexes": []
+    },
+    {
+      "schema": "public",
+      "name": "certificate_versions",
+      "columns": [
+        {
+          "name": "certificate_id",
+          "type": "text",
+          "nullable": false
+        },
+        {
+          "name": "chain_pem",
+          "type": "text",
+          "nullable": false
+        },
+        {
+          "name": "ciphertext",
+          "type": "bytea",
+          "nullable": false
+        },
+        {
+          "name": "created_at",
+          "type": "timestamptz",
+          "nullable": false,
+          "default": "now()"
+        },
+        {
+          "name": "created_by",
+          "type": "text",
+          "nullable": false
+        },
+        {
+          "name": "fingerprint",
+          "type": "text",
+          "nullable": false
+        },
+        {
+          "name": "id",
+          "type": "text",
+          "nullable": false
+        },
+        {
+          "name": "issuer",
+          "type": "text",
+          "nullable": false
+        },
+        {
+          "name": "kek_id",
+          "type": "text",
+          "nullable": false
+        },
+        {
+          "name": "nonce",
+          "type": "bytea",
+          "nullable": false
+        },
+        {
+          "name": "not_after",
+          "type": "timestamptz",
+          "nullable": false
+        },
+        {
+          "name": "not_before",
+          "type": "timestamptz",
+          "nullable": false
+        },
+        {
+          "name": "sans",
+          "type": "jsonb",
+          "nullable": false,
+          "default": "'[]'::jsonb"
+        },
+        {
+          "name": "serial",
+          "type": "text",
+          "nullable": false
+        },
+        {
+          "name": "subject",
+          "type": "text",
+          "nullable": false
+        },
+        {
+          "name": "tag",
+          "type": "bytea",
+          "nullable": false
+        },
+        {
+          "name": "wrap_nonce",
+          "type": "bytea",
+          "nullable": false
+        },
+        {
+          "name": "wrap_tag",
+          "type": "bytea",
+          "nullable": false
+        },
+        {
+          "name": "wrapped_dek",
+          "type": "bytea",
+          "nullable": false
+        }
+      ],
+      "primaryKey": {
+        "kind": "primaryKey",
+        "name": "certificate_versions_id_pkey",
+        "columns": [
+          "id"
+        ]
+      },
+      "uniqueConstraints": [
+        {
+          "kind": "unique",
+          "name": "certificate_versions_certificate_id_id_key",
+          "columns": [
+            "certificate_id",
+            "id"
+          ]
+        }
+      ],
+      "checkConstraints": [
+        {
+          "kind": "check",
+          "name": "certificate_versions_29581f1676_check",
+          "expression": "octet_length(wrap_nonce) = 12"
+        },
+        {
+          "kind": "check",
+          "name": "certificate_versions_349d6258df_check",
+          "expression": "id ~ '^[0-9A-HJKMNP-TV-Z]{26}$'"
+        },
+        {
+          "kind": "check",
+          "name": "certificate_versions_5a2f736030_check",
+          "expression": "not_after > not_before"
+        },
+        {
+          "kind": "check",
+          "name": "certificate_versions_5fa93815b3_check",
+          "expression": "length(subject) <= 1024"
+        },
+        {
+          "kind": "check",
+          "name": "certificate_versions_6cf6c418f2_check",
+          "expression": "octet_length(ciphertext) <= 131072"
+        },
+        {
+          "kind": "check",
+          "name": "certificate_versions_923a07bf74_check",
+          "expression": "octet_length(wrapped_dek) = 32"
+        },
+        {
+          "kind": "check",
+          "name": "certificate_versions_9878f8ddc0_check",
+          "expression": "octet_length(wrap_tag) = 16"
+        },
+        {
+          "kind": "check",
+          "name": "certificate_versions_a89065b2e6_check",
+          "expression": "length(fingerprint) BETWEEN 1 AND 128"
+        },
+        {
+          "kind": "check",
+          "name": "certificate_versions_a9e2e02429_check",
+          "expression": "length(kek_id) BETWEEN 1 AND 64"
+        },
+        {
+          "kind": "check",
+          "name": "certificate_versions_b63ef1e3c9_check",
+          "expression": "octet_length(nonce) = 12"
+        },
+        {
+          "kind": "check",
+          "name": "certificate_versions_b6967a477b_check",
+          "expression": "length(serial) BETWEEN 1 AND 128"
+        },
+        {
+          "kind": "check",
+          "name": "certificate_versions_c6908b2e5c_check",
+          "expression": "jsonb_typeof(sans) = 'array'"
+        },
+        {
+          "kind": "check",
+          "name": "certificate_versions_d60e88ea28_check",
+          "expression": "octet_length(tag) = 16"
+        },
+        {
+          "kind": "check",
+          "name": "certificate_versions_e6cebd2bfb_check",
+          "expression": "length(chain_pem) <= 131072"
+        },
+        {
+          "kind": "check",
+          "name": "certificate_versions_eec144ae3c_check",
+          "expression": "length(issuer) <= 1024"
+        }
+      ],
+      "foreignKeys": [
+        {
+          "name": "certificate_versions_certificate_id_fkey",
+          "kind": "foreignKey",
+          "columns": [
+            "certificate_id"
+          ],
+          "referencedSchema": "public",
+          "referencedTable": "certificates",
+          "referencedColumns": [
+            "id"
+          ],
+          "onUpdate": "NO ACTION",
+          "onDelete": "CASCADE"
+        },
+        {
+          "name": "certificate_versions_created_by_fkey",
+          "kind": "foreignKey",
+          "columns": [
+            "created_by"
+          ],
+          "referencedSchema": "public",
+          "referencedTable": "principals",
+          "referencedColumns": [
+            "id"
+          ],
+          "onUpdate": "NO ACTION",
+          "onDelete": "NO ACTION"
+        }
+      ],
+      "indexes": [
+        {
+          "name": "certificate_versions_certificate_idx",
+          "columns": [
+            "certificate_id",
+            "created_at"
+          ],
+          "unique": false,
+          "concurrent": false
+        }
+      ]
+    },
+    {
+      "schema": "public",
+      "name": "certificates",
+      "columns": [
+        {
+          "name": "created_at",
+          "type": "timestamptz",
+          "nullable": false,
+          "default": "now()"
+        },
+        {
+          "name": "current_version_id",
+          "type": "text",
+          "nullable": true
+        },
+        {
+          "name": "deleted_at",
+          "type": "timestamptz",
+          "nullable": true
+        },
+        {
+          "name": "id",
+          "type": "text",
+          "nullable": false
+        },
+        {
+          "name": "name",
+          "type": "text",
+          "nullable": false
+        },
+        {
+          "name": "project_id",
+          "type": "text",
+          "nullable": false
+        },
+        {
+          "name": "purge_after",
+          "type": "timestamptz",
+          "nullable": true
+        },
+        {
+          "name": "purge_protected",
+          "type": "boolean",
+          "nullable": false,
+          "default": false
+        },
+        {
+          "name": "tags",
+          "type": "jsonb",
+          "nullable": false,
+          "default": "'{}'::jsonb"
+        },
+        {
+          "name": "updated_at",
+          "type": "timestamptz",
+          "nullable": false,
+          "default": "now()"
+        }
+      ],
+      "primaryKey": {
+        "kind": "primaryKey",
+        "name": "certificates_id_pkey",
+        "columns": [
+          "id"
+        ]
+      },
+      "uniqueConstraints": [
+        {
+          "kind": "unique",
+          "name": "certificates_id_current_version_id_key",
+          "columns": [
+            "id",
+            "current_version_id"
+          ]
+        }
+      ],
+      "checkConstraints": [
+        {
+          "kind": "check",
+          "name": "certificates_27f5575b8e_check",
+          "expression": "jsonb_typeof(tags) = 'object'"
+        },
+        {
+          "kind": "check",
+          "name": "certificates_349d6258df_check",
+          "expression": "id ~ '^[0-9A-HJKMNP-TV-Z]{26}$'"
+        },
+        {
+          "kind": "check",
+          "name": "certificates_5cd7f14688_check",
+          "expression": "purge_after IS NULL OR (deleted_at IS NOT NULL AND purge_after >= deleted_at)"
+        },
+        {
+          "kind": "check",
+          "name": "certificates_b7cbe37e00_check",
+          "expression": "name ~ '^[A-Za-z0-9][A-Za-z0-9-]{0,126}$'"
+        }
+      ],
+      "foreignKeys": [
+        {
+          "name": "certificates_id_current_version_id_fkey",
+          "kind": "foreignKey",
+          "columns": [
+            "id",
+            "current_version_id"
+          ],
+          "referencedSchema": "public",
+          "referencedTable": "certificate_versions",
+          "referencedColumns": [
+            "certificate_id",
+            "id"
+          ],
+          "onUpdate": "NO ACTION",
+          "onDelete": "NO ACTION",
+          "deferrable": true,
+          "initiallyDeferred": true
+        },
+        {
+          "name": "certificates_project_id_fkey",
+          "kind": "foreignKey",
+          "columns": [
+            "project_id"
+          ],
+          "referencedSchema": "public",
+          "referencedTable": "projects",
+          "referencedColumns": [
+            "id"
+          ],
+          "onUpdate": "NO ACTION",
+          "onDelete": "RESTRICT"
+        }
+      ],
+      "indexes": [
+        {
+          "name": "certificates_name_active_idx",
+          "columns": [
+            "project_id",
+            "name"
+          ],
+          "unique": true,
+          "where": "deleted_at IS NULL",
+          "concurrent": false
+        },
+        {
+          "name": "certificates_project_idx",
+          "columns": [
+            "project_id"
+          ],
+          "unique": false,
+          "concurrent": false
+        }
+      ]
+    },
+    {
+      "schema": "public",
+      "name": "cli_sessions",
+      "columns": [
+        {
+          "name": "created_at",
+          "type": "timestamptz",
+          "nullable": false,
+          "default": "now()"
+        },
+        {
+          "name": "expires_at",
+          "type": "timestamptz",
+          "nullable": false
+        },
+        {
+          "name": "family_id",
+          "type": "text",
+          "nullable": false
+        },
+        {
+          "name": "id",
+          "type": "text",
+          "nullable": false
+        },
+        {
+          "name": "ip",
+          "type": "inet",
+          "nullable": true
+        },
+        {
+          "name": "principal_id",
+          "type": "text",
+          "nullable": false
+        },
+        {
+          "name": "refresh_hash",
+          "type": "bytea",
+          "nullable": false
+        },
+        {
+          "name": "revoked_at",
+          "type": "timestamptz",
+          "nullable": true
+        },
+        {
+          "name": "user_agent",
+          "type": "text",
+          "nullable": true
+        }
+      ],
+      "primaryKey": {
+        "kind": "primaryKey",
+        "name": "cli_sessions_id_pkey",
+        "columns": [
+          "id"
+        ]
+      },
+      "uniqueConstraints": [
+        {
+          "kind": "unique",
+          "name": "cli_sessions_refresh_hash_key",
+          "columns": [
+            "refresh_hash"
+          ]
+        }
+      ],
+      "checkConstraints": [
+        {
+          "kind": "check",
+          "name": "cli_sessions_09ccf1091c_check",
+          "expression": "octet_length(refresh_hash) = 32"
+        },
+        {
+          "kind": "check",
+          "name": "cli_sessions_1dd8a8c54e_check",
+          "expression": "user_agent IS NULL OR length(user_agent) <= 512"
+        },
+        {
+          "kind": "check",
+          "name": "cli_sessions_349d6258df_check",
+          "expression": "id ~ '^[0-9A-HJKMNP-TV-Z]{26}$'"
+        },
+        {
+          "kind": "check",
+          "name": "cli_sessions_90ebc7a6d2_check",
+          "expression": "family_id ~ '^[0-9A-HJKMNP-TV-Z]{26}$'"
+        }
+      ],
+      "foreignKeys": [
+        {
+          "name": "cli_sessions_principal_id_fkey",
+          "kind": "foreignKey",
+          "columns": [
+            "principal_id"
+          ],
+          "referencedSchema": "public",
+          "referencedTable": "principals",
+          "referencedColumns": [
+            "id"
+          ],
+          "onUpdate": "NO ACTION",
+          "onDelete": "CASCADE"
+        }
+      ],
+      "indexes": [
+        {
+          "name": "cli_sessions_family_idx",
+          "columns": [
+            "family_id"
+          ],
+          "unique": false,
+          "concurrent": false
+        },
+        {
+          "name": "cli_sessions_principal_idx",
+          "columns": [
+            "principal_id"
+          ],
+          "unique": false,
+          "concurrent": false
+        }
+      ]
+    },
+    {
+      "schema": "public",
+      "name": "consumers",
+      "columns": [
+        {
+          "name": "compose_project",
+          "type": "text",
+          "nullable": false
+        },
+        {
+          "name": "compose_service",
+          "type": "text",
+          "nullable": false
+        },
+        {
+          "name": "first_seen",
+          "type": "timestamptz",
+          "nullable": false,
+          "default": "now()"
+        },
+        {
+          "name": "hostname",
+          "type": "text",
+          "nullable": false
+        },
+        {
+          "name": "id",
+          "type": "text",
+          "nullable": false
+        },
+        {
+          "name": "last_seen",
+          "type": "timestamptz",
+          "nullable": false,
+          "default": "now()"
+        },
+        {
+          "name": "manifest_hash",
+          "type": "text",
+          "nullable": false
+        },
+        {
+          "name": "principal_id",
+          "type": "text",
+          "nullable": false
+        },
+        {
+          "name": "project_id",
+          "type": "text",
+          "nullable": false
+        },
+        {
+          "name": "state",
+          "type": "text",
+          "nullable": false,
+          "default": "'ok'"
+        }
+      ],
+      "primaryKey": {
+        "kind": "primaryKey",
+        "name": "consumers_id_pkey",
+        "columns": [
+          "id"
+        ]
+      },
+      "uniqueConstraints": [
+        {
+          "kind": "unique",
+          "name": "consumers_principal_id_key",
+          "columns": [
+            "principal_id"
+          ]
+        }
+      ],
+      "checkConstraints": [
+        {
+          "kind": "check",
+          "name": "consumers_10f81250b1_check",
+          "expression": "length(compose_project) BETWEEN 1 AND 100"
+        },
+        {
+          "kind": "check",
+          "name": "consumers_349d6258df_check",
+          "expression": "id ~ '^[0-9A-HJKMNP-TV-Z]{26}$'"
+        },
+        {
+          "kind": "check",
+          "name": "consumers_7fcda2e7f4_check",
+          "expression": "state IN ('ok', 'degraded', 'failed')"
+        },
+        {
+          "kind": "check",
+          "name": "consumers_a8f0f8bd6d_check",
+          "expression": "manifest_hash ~ '^sha256:[0-9a-f]{64}$'"
+        },
+        {
+          "kind": "check",
+          "name": "consumers_bc49ebf068_check",
+          "expression": "length(compose_service) BETWEEN 1 AND 100"
+        },
+        {
+          "kind": "check",
+          "name": "consumers_e954fefd8e_check",
+          "expression": "hostname ~ '^[A-Za-z0-9._-]{1,255}$'"
+        }
+      ],
+      "foreignKeys": [
+        {
+          "name": "consumers_principal_id_project_id_fkey",
+          "kind": "foreignKey",
+          "columns": [
+            "principal_id",
+            "project_id"
+          ],
+          "referencedSchema": "public",
+          "referencedTable": "principals",
+          "referencedColumns": [
+            "id",
+            "owner_project_id"
+          ],
+          "onUpdate": "NO ACTION",
+          "onDelete": "CASCADE"
+        },
+        {
+          "name": "consumers_project_id_fkey",
+          "kind": "foreignKey",
+          "columns": [
+            "project_id"
+          ],
+          "referencedSchema": "public",
+          "referencedTable": "projects",
+          "referencedColumns": [
+            "id"
+          ],
+          "onUpdate": "NO ACTION",
+          "onDelete": "RESTRICT"
+        }
+      ],
+      "indexes": [
+        {
+          "name": "consumers_project_idx",
+          "columns": [
+            "project_id"
+          ],
+          "unique": false,
+          "concurrent": false
+        }
+      ]
+    },
+    {
+      "schema": "public",
+      "name": "idempotency_keys",
+      "columns": [
+        {
+          "name": "created_at",
+          "type": "timestamptz",
+          "nullable": false,
+          "default": "now()"
+        },
+        {
+          "name": "expires_at",
+          "type": "timestamptz",
+          "nullable": false
+        },
+        {
+          "name": "key",
+          "type": "text",
+          "nullable": false
+        },
+        {
+          "name": "method",
+          "type": "text",
+          "nullable": false
+        },
+        {
+          "name": "path",
+          "type": "text",
+          "nullable": false
+        },
+        {
+          "name": "principal_id",
+          "type": "text",
+          "nullable": false
+        },
+        {
+          "name": "request_hash",
+          "type": "bytea",
+          "nullable": false
+        },
+        {
+          "name": "resource_id",
+          "type": "text",
+          "nullable": true
+        },
+        {
+          "name": "status",
+          "type": "integer",
+          "nullable": false
+        }
+      ],
+      "primaryKey": {
+        "kind": "primaryKey",
+        "name": "idempotency_keys_principal_id_key_pkey",
+        "columns": [
+          "principal_id",
+          "key"
+        ]
+      },
+      "uniqueConstraints": [],
+      "checkConstraints": [
+        {
+          "kind": "check",
+          "name": "idempotency_keys_1e4f3e2834_check",
+          "expression": "status BETWEEN 100 AND 599"
+        },
+        {
+          "kind": "check",
+          "name": "idempotency_keys_5ae97aa1e4_check",
+          "expression": "length(key) BETWEEN 1 AND 200"
+        },
+        {
+          "kind": "check",
+          "name": "idempotency_keys_62c12f0da3_check",
+          "expression": "length(path) BETWEEN 1 AND 500"
+        },
+        {
+          "kind": "check",
+          "name": "idempotency_keys_ade8981e79_check",
+          "expression": "octet_length(request_hash) = 32"
+        },
+        {
+          "kind": "check",
+          "name": "idempotency_keys_f937a7b1ca_check",
+          "expression": "method IN ('POST', 'PUT', 'PATCH', 'DELETE')"
+        }
+      ],
+      "foreignKeys": [
+        {
+          "name": "idempotency_keys_principal_id_fkey",
+          "kind": "foreignKey",
+          "columns": [
+            "principal_id"
+          ],
+          "referencedSchema": "public",
+          "referencedTable": "principals",
+          "referencedColumns": [
+            "id"
+          ],
+          "onUpdate": "NO ACTION",
+          "onDelete": "CASCADE"
+        }
+      ],
+      "indexes": [
+        {
+          "name": "idempotency_keys_expires_idx",
+          "columns": [
+            "expires_at"
+          ],
+          "unique": false,
+          "concurrent": false
+        }
+      ]
+    },
+    {
+      "schema": "public",
+      "name": "join_tokens",
+      "columns": [
+        {
+          "name": "created_at",
+          "type": "timestamptz",
+          "nullable": false,
+          "default": "now()"
+        },
+        {
+          "name": "created_by",
+          "type": "text",
+          "nullable": false
+        },
+        {
+          "name": "expires_at",
+          "type": "timestamptz",
+          "nullable": false
+        },
+        {
+          "name": "id",
+          "type": "text",
+          "nullable": false
+        },
+        {
+          "name": "principal_id",
+          "type": "text",
+          "nullable": false
+        },
+        {
+          "name": "project_id",
+          "type": "text",
+          "nullable": false
+        },
+        {
+          "name": "token_hash",
+          "type": "bytea",
+          "nullable": false
+        },
+        {
+          "name": "used_at",
+          "type": "timestamptz",
+          "nullable": true
+        }
+      ],
+      "primaryKey": {
+        "kind": "primaryKey",
+        "name": "join_tokens_id_pkey",
+        "columns": [
+          "id"
+        ]
+      },
+      "uniqueConstraints": [
+        {
+          "kind": "unique",
+          "name": "join_tokens_token_hash_key",
+          "columns": [
+            "token_hash"
+          ]
+        }
+      ],
+      "checkConstraints": [
+        {
+          "kind": "check",
+          "name": "join_tokens_349d6258df_check",
+          "expression": "id ~ '^[0-9A-HJKMNP-TV-Z]{26}$'"
+        },
+        {
+          "kind": "check",
+          "name": "join_tokens_d3ea639f7f_check",
+          "expression": "octet_length(token_hash) = 32"
+        }
+      ],
+      "foreignKeys": [
+        {
+          "name": "join_tokens_created_by_fkey",
+          "kind": "foreignKey",
+          "columns": [
+            "created_by"
+          ],
+          "referencedSchema": "public",
+          "referencedTable": "principals",
+          "referencedColumns": [
+            "id"
+          ],
+          "onUpdate": "NO ACTION",
+          "onDelete": "NO ACTION"
+        },
+        {
+          "name": "join_tokens_principal_id_project_id_fkey",
+          "kind": "foreignKey",
+          "columns": [
+            "principal_id",
+            "project_id"
+          ],
+          "referencedSchema": "public",
+          "referencedTable": "principals",
+          "referencedColumns": [
+            "id",
+            "owner_project_id"
+          ],
+          "onUpdate": "NO ACTION",
+          "onDelete": "CASCADE"
+        },
+        {
+          "name": "join_tokens_project_id_fkey",
+          "kind": "foreignKey",
+          "columns": [
+            "project_id"
+          ],
+          "referencedSchema": "public",
+          "referencedTable": "projects",
+          "referencedColumns": [
+            "id"
+          ],
+          "onUpdate": "NO ACTION",
+          "onDelete": "RESTRICT"
+        }
+      ],
+      "indexes": [
+        {
+          "name": "join_tokens_principal_idx",
+          "columns": [
+            "principal_id"
+          ],
+          "unique": false,
+          "concurrent": false
+        }
+      ]
+    },
+    {
+      "schema": "public",
+      "name": "local_credentials",
+      "columns": [
+        {
+          "name": "failed_count",
+          "type": "integer",
+          "nullable": false,
+          "default": 0
+        },
+        {
+          "name": "locked_until",
+          "type": "timestamptz",
+          "nullable": true
+        },
+        {
+          "name": "must_change",
+          "type": "boolean",
+          "nullable": false,
+          "default": true
+        },
+        {
+          "name": "password_hash",
+          "type": "text",
+          "nullable": false
+        },
+        {
+          "name": "principal_id",
+          "type": "text",
+          "nullable": false
+        },
+        {
+          "name": "updated_at",
+          "type": "timestamptz",
+          "nullable": false,
+          "default": "now()"
+        }
+      ],
+      "primaryKey": {
+        "kind": "primaryKey",
+        "name": "local_credentials_principal_id_pkey",
+        "columns": [
+          "principal_id"
+        ]
+      },
+      "uniqueConstraints": [],
+      "checkConstraints": [
+        {
+          "kind": "check",
+          "name": "local_credentials_2df8ef154d_check",
+          "expression": "password_hash ~ '^\\$argon2id\\$'"
+        },
+        {
+          "kind": "check",
+          "name": "local_credentials_fdd23b182b_check",
+          "expression": "failed_count >= 0"
+        }
+      ],
+      "foreignKeys": [
+        {
+          "name": "local_credentials_principal_id_fkey",
+          "kind": "foreignKey",
+          "columns": [
+            "principal_id"
+          ],
+          "referencedSchema": "public",
+          "referencedTable": "principals",
+          "referencedColumns": [
+            "id"
+          ],
+          "onUpdate": "NO ACTION",
+          "onDelete": "CASCADE"
+        }
+      ],
+      "indexes": []
+    },
+    {
+      "schema": "public",
+      "name": "oidc_identities",
+      "columns": [
+        {
+          "name": "created_at",
+          "type": "timestamptz",
+          "nullable": false,
+          "default": "now()"
+        },
+        {
+          "name": "issuer",
+          "type": "text",
+          "nullable": false
+        },
+        {
+          "name": "principal_id",
+          "type": "text",
+          "nullable": false
+        },
+        {
+          "name": "subject",
+          "type": "text",
+          "nullable": false
+        }
+      ],
+      "primaryKey": {
+        "kind": "primaryKey",
+        "name": "oidc_identities_issuer_subject_pkey",
+        "columns": [
+          "issuer",
+          "subject"
+        ]
+      },
+      "uniqueConstraints": [],
+      "checkConstraints": [
+        {
+          "kind": "check",
+          "name": "oidc_identities_a1e30a06ce_check",
+          "expression": "length(issuer) BETWEEN 1 AND 255"
+        },
+        {
+          "kind": "check",
+          "name": "oidc_identities_d298fa8c53_check",
+          "expression": "length(subject) BETWEEN 1 AND 255"
+        }
+      ],
+      "foreignKeys": [
+        {
+          "name": "oidc_identities_principal_id_fkey",
+          "kind": "foreignKey",
+          "columns": [
+            "principal_id"
+          ],
+          "referencedSchema": "public",
+          "referencedTable": "principals",
+          "referencedColumns": [
+            "id"
+          ],
+          "onUpdate": "NO ACTION",
+          "onDelete": "CASCADE"
+        }
+      ],
+      "indexes": []
+    },
+    {
+      "schema": "public",
+      "name": "org",
+      "columns": [
+        {
+          "name": "created_at",
+          "type": "timestamptz",
+          "nullable": false,
+          "default": "now()"
+        },
+        {
+          "name": "id",
+          "type": "smallint",
+          "nullable": false,
+          "default": 1
+        },
+        {
+          "name": "name",
+          "type": "text",
+          "nullable": false
+        }
+      ],
+      "primaryKey": {
+        "kind": "primaryKey",
+        "name": "org_id_pkey",
+        "columns": [
+          "id"
+        ]
+      },
+      "uniqueConstraints": [],
+      "checkConstraints": [
+        {
+          "kind": "check",
+          "name": "org_bf0fbc73ee_check",
+          "expression": "length(name) BETWEEN 1 AND 100"
+        },
+        {
+          "kind": "check",
+          "name": "org_cec3cc2294_check",
+          "expression": "id = 1"
+        }
+      ],
+      "foreignKeys": [],
+      "indexes": []
+    },
+    {
+      "schema": "public",
+      "name": "principals",
+      "columns": [
+        {
+          "name": "created_at",
+          "type": "timestamptz",
+          "nullable": false,
+          "default": "now()"
+        },
+        {
+          "name": "disabled_at",
+          "type": "timestamptz",
+          "nullable": true
+        },
+        {
+          "name": "email",
+          "type": "text",
+          "nullable": true
+        },
+        {
+          "name": "id",
+          "type": "text",
+          "nullable": false
+        },
+        {
+          "name": "kind",
+          "type": "text",
+          "nullable": false
+        },
+        {
+          "name": "name",
+          "type": "text",
+          "nullable": false
+        },
+        {
+          "name": "owner_project_id",
+          "type": "text",
+          "nullable": true
+        },
+        {
+          "name": "status",
+          "type": "text",
+          "nullable": false,
+          "default": "'active'"
+        }
+      ],
+      "primaryKey": {
+        "kind": "primaryKey",
+        "name": "principals_id_pkey",
+        "columns": [
+          "id"
+        ]
+      },
+      "uniqueConstraints": [
+        {
+          "kind": "unique",
+          "name": "principals_id_owner_project_id_key",
+          "columns": [
+            "id",
+            "owner_project_id"
+          ]
+        }
+      ],
+      "checkConstraints": [
+        {
+          "kind": "check",
+          "name": "principals_349d6258df_check",
+          "expression": "id ~ '^[0-9A-HJKMNP-TV-Z]{26}$'"
+        },
+        {
+          "kind": "check",
+          "name": "principals_50bdb8d931_check",
+          "expression": "(kind = 'service' AND owner_project_id IS NOT NULL) OR (kind = 'user' AND owner_project_id IS NULL)"
+        },
+        {
+          "kind": "check",
+          "name": "principals_60551f8172_check",
+          "expression": "kind IN ('user', 'service')"
+        },
+        {
+          "kind": "check",
+          "name": "principals_8f0d3cac8b_check",
+          "expression": "(status = 'active' AND disabled_at IS NULL) OR (status = 'disabled' AND disabled_at IS NOT NULL)"
+        },
+        {
+          "kind": "check",
+          "name": "principals_bf0fbc73ee_check",
+          "expression": "length(name) BETWEEN 1 AND 100"
+        },
+        {
+          "kind": "check",
+          "name": "principals_eec5b4891c_check",
+          "expression": "status IN ('active', 'disabled')"
+        }
+      ],
+      "foreignKeys": [
+        {
+          "name": "principals_owner_project_id_fkey",
+          "kind": "foreignKey",
+          "columns": [
+            "owner_project_id"
+          ],
+          "referencedSchema": "public",
+          "referencedTable": "projects",
+          "referencedColumns": [
+            "id"
+          ],
+          "onUpdate": "NO ACTION",
+          "onDelete": "RESTRICT"
+        }
+      ],
+      "indexes": [
+        {
+          "name": "principals_owner_idx",
+          "columns": [
+            "owner_project_id"
+          ],
+          "unique": false,
+          "concurrent": false
+        },
+        {
+          "name": "principals_user_email_idx",
+          "columns": [
+            "email"
+          ],
+          "unique": true,
+          "where": "kind = 'user' AND email IS NOT NULL",
+          "concurrent": false,
+          "expression": "lower(email)"
+        }
+      ]
+    },
+    {
+      "schema": "public",
+      "name": "projects",
+      "columns": [
+        {
+          "name": "created_at",
+          "type": "timestamptz",
+          "nullable": false,
+          "default": "now()"
+        },
+        {
+          "name": "deleted_at",
+          "type": "timestamptz",
+          "nullable": true
+        },
+        {
+          "name": "display_name",
+          "type": "text",
+          "nullable": true
+        },
+        {
+          "name": "id",
+          "type": "text",
+          "nullable": false
+        },
+        {
+          "name": "name",
+          "type": "text",
+          "nullable": false
+        },
+        {
+          "name": "updated_at",
+          "type": "timestamptz",
+          "nullable": false,
+          "default": "now()"
+        }
+      ],
+      "primaryKey": {
+        "kind": "primaryKey",
+        "name": "projects_id_pkey",
+        "columns": [
+          "id"
+        ]
+      },
+      "uniqueConstraints": [],
+      "checkConstraints": [
+        {
+          "kind": "check",
+          "name": "projects_349d6258df_check",
+          "expression": "id ~ '^[0-9A-HJKMNP-TV-Z]{26}$'"
+        },
+        {
+          "kind": "check",
+          "name": "projects_a1b063b729_check",
+          "expression": "name ~ '^[a-z0-9][a-z0-9-]{1,38}[a-z0-9]$'"
+        }
+      ],
+      "foreignKeys": [],
+      "indexes": [
+        {
+          "name": "projects_name_active_idx",
+          "columns": [
+            "name"
+          ],
+          "unique": true,
+          "where": "deleted_at IS NULL",
+          "concurrent": false
+        }
+      ]
+    },
+    {
+      "schema": "public",
+      "name": "role_assignments",
+      "columns": [
+        {
+          "name": "created_at",
+          "type": "timestamptz",
+          "nullable": false,
+          "default": "now()"
+        },
+        {
+          "name": "expires_at",
+          "type": "timestamptz",
+          "nullable": true
+        },
+        {
+          "name": "granted_by",
+          "type": "text",
+          "nullable": false
+        },
+        {
+          "name": "id",
+          "type": "text",
+          "nullable": false
+        },
+        {
+          "name": "principal_id",
+          "type": "text",
+          "nullable": false
+        },
+        {
+          "name": "role",
+          "type": "text",
+          "nullable": false
+        },
+        {
+          "name": "scope_id",
+          "type": "text",
+          "nullable": false
+        },
+        {
+          "name": "scope_type",
+          "type": "text",
+          "nullable": false
+        }
+      ],
+      "primaryKey": {
+        "kind": "primaryKey",
+        "name": "role_assignments_id_pkey",
+        "columns": [
+          "id"
+        ]
+      },
+      "uniqueConstraints": [
+        {
+          "kind": "unique",
+          "name": "role_assignments_principal_id_role_scope_type_scope_id_key",
+          "columns": [
+            "principal_id",
+            "role",
+            "scope_type",
+            "scope_id"
+          ]
+        }
+      ],
+      "checkConstraints": [
+        {
+          "kind": "check",
+          "name": "role_assignments_349d6258df_check",
+          "expression": "id ~ '^[0-9A-HJKMNP-TV-Z]{26}$'"
+        },
+        {
+          "kind": "check",
+          "name": "role_assignments_3990dfecde_check",
+          "expression": "scope_type <> 'object' OR role IN ('secrets.reader', 'certificates.reader')"
+        },
+        {
+          "kind": "check",
+          "name": "role_assignments_6314e762c6_check",
+          "expression": "scope_type IN ('org', 'project', 'object')"
+        },
+        {
+          "kind": "check",
+          "name": "role_assignments_c39e07fba4_check",
+          "expression": "(scope_type = 'org' AND scope_id = 'org') OR (scope_type IN ('project', 'object') AND scope_id ~ '^[0-9A-HJKMNP-TV-Z]{26}$')"
+        },
+        {
+          "kind": "check",
+          "name": "role_assignments_d1bc25e769_check",
+          "expression": "role IN ('org.admin', 'project.admin', 'secrets.manager', 'secrets.officer', 'secrets.reader', 'certificates.officer', 'certificates.reader', 'auditor', 'reader')"
+        }
+      ],
+      "foreignKeys": [
+        {
+          "name": "role_assignments_granted_by_fkey",
+          "kind": "foreignKey",
+          "columns": [
+            "granted_by"
+          ],
+          "referencedSchema": "public",
+          "referencedTable": "principals",
+          "referencedColumns": [
+            "id"
+          ],
+          "onUpdate": "NO ACTION",
+          "onDelete": "NO ACTION"
+        },
+        {
+          "name": "role_assignments_principal_id_fkey",
+          "kind": "foreignKey",
+          "columns": [
+            "principal_id"
+          ],
+          "referencedSchema": "public",
+          "referencedTable": "principals",
+          "referencedColumns": [
+            "id"
+          ],
+          "onUpdate": "NO ACTION",
+          "onDelete": "CASCADE"
+        }
+      ],
+      "indexes": [
+        {
+          "name": "role_assignments_principal_idx",
+          "columns": [
+            "principal_id"
+          ],
+          "unique": false,
+          "concurrent": false
+        },
+        {
+          "name": "role_assignments_scope_idx",
+          "columns": [
+            "scope_type",
+            "scope_id"
+          ],
+          "unique": false,
+          "concurrent": false
+        }
+      ]
+    },
+    {
+      "schema": "public",
+      "name": "secret_versions",
+      "columns": [
+        {
+          "name": "ciphertext",
+          "type": "bytea",
+          "nullable": false
+        },
+        {
+          "name": "created_at",
+          "type": "timestamptz",
+          "nullable": false,
+          "default": "now()"
+        },
+        {
+          "name": "created_by",
+          "type": "text",
+          "nullable": false
+        },
+        {
+          "name": "expires_at",
+          "type": "timestamptz",
+          "nullable": true
+        },
+        {
+          "name": "id",
+          "type": "text",
+          "nullable": false
+        },
+        {
+          "name": "kek_id",
+          "type": "text",
+          "nullable": false
+        },
+        {
+          "name": "nonce",
+          "type": "bytea",
+          "nullable": false
+        },
+        {
+          "name": "secret_id",
+          "type": "text",
+          "nullable": false
+        },
+        {
+          "name": "tag",
+          "type": "bytea",
+          "nullable": false
+        },
+        {
+          "name": "wrap_nonce",
+          "type": "bytea",
+          "nullable": false
+        },
+        {
+          "name": "wrap_tag",
+          "type": "bytea",
+          "nullable": false
+        },
+        {
+          "name": "wrapped_dek",
+          "type": "bytea",
+          "nullable": false
+        }
+      ],
+      "primaryKey": {
+        "kind": "primaryKey",
+        "name": "secret_versions_id_pkey",
+        "columns": [
+          "id"
+        ]
+      },
+      "uniqueConstraints": [
+        {
+          "kind": "unique",
+          "name": "secret_versions_secret_id_id_key",
+          "columns": [
+            "secret_id",
+            "id"
+          ]
+        }
+      ],
+      "checkConstraints": [
+        {
+          "kind": "check",
+          "name": "secret_versions_29581f1676_check",
+          "expression": "octet_length(wrap_nonce) = 12"
+        },
+        {
+          "kind": "check",
+          "name": "secret_versions_349d6258df_check",
+          "expression": "id ~ '^[0-9A-HJKMNP-TV-Z]{26}$'"
+        },
+        {
+          "kind": "check",
+          "name": "secret_versions_923a07bf74_check",
+          "expression": "octet_length(wrapped_dek) = 32"
+        },
+        {
+          "kind": "check",
+          "name": "secret_versions_9878f8ddc0_check",
+          "expression": "octet_length(wrap_tag) = 16"
+        },
+        {
+          "kind": "check",
+          "name": "secret_versions_a9e2e02429_check",
+          "expression": "length(kek_id) BETWEEN 1 AND 64"
+        },
+        {
+          "kind": "check",
+          "name": "secret_versions_b63ef1e3c9_check",
+          "expression": "octet_length(nonce) = 12"
+        },
+        {
+          "kind": "check",
+          "name": "secret_versions_d3f7991c45_check",
+          "expression": "octet_length(ciphertext) <= 65536"
+        },
+        {
+          "kind": "check",
+          "name": "secret_versions_d60e88ea28_check",
+          "expression": "octet_length(tag) = 16"
+        }
+      ],
+      "foreignKeys": [
+        {
+          "name": "secret_versions_created_by_fkey",
+          "kind": "foreignKey",
+          "columns": [
+            "created_by"
+          ],
+          "referencedSchema": "public",
+          "referencedTable": "principals",
+          "referencedColumns": [
+            "id"
+          ],
+          "onUpdate": "NO ACTION",
+          "onDelete": "NO ACTION"
+        },
+        {
+          "name": "secret_versions_secret_id_fkey",
+          "kind": "foreignKey",
+          "columns": [
+            "secret_id"
+          ],
+          "referencedSchema": "public",
+          "referencedTable": "secrets",
+          "referencedColumns": [
+            "id"
+          ],
+          "onUpdate": "NO ACTION",
+          "onDelete": "CASCADE"
+        }
+      ],
+      "indexes": [
+        {
+          "name": "secret_versions_secret_idx",
+          "columns": [
+            "secret_id",
+            "created_at"
+          ],
+          "unique": false,
+          "concurrent": false
+        }
+      ]
+    },
+    {
+      "schema": "public",
+      "name": "secrets",
+      "columns": [
+        {
+          "name": "content_type",
+          "type": "text",
+          "nullable": false,
+          "default": "'text/plain'"
+        },
+        {
+          "name": "created_at",
+          "type": "timestamptz",
+          "nullable": false,
+          "default": "now()"
+        },
+        {
+          "name": "current_version_id",
+          "type": "text",
+          "nullable": true
+        },
+        {
+          "name": "deleted_at",
+          "type": "timestamptz",
+          "nullable": true
+        },
+        {
+          "name": "id",
+          "type": "text",
+          "nullable": false
+        },
+        {
+          "name": "name",
+          "type": "text",
+          "nullable": false
+        },
+        {
+          "name": "project_id",
+          "type": "text",
+          "nullable": false
+        },
+        {
+          "name": "purge_after",
+          "type": "timestamptz",
+          "nullable": true
+        },
+        {
+          "name": "purge_protected",
+          "type": "boolean",
+          "nullable": false,
+          "default": false
+        },
+        {
+          "name": "tags",
+          "type": "jsonb",
+          "nullable": false,
+          "default": "'{}'::jsonb"
+        },
+        {
+          "name": "updated_at",
+          "type": "timestamptz",
+          "nullable": false,
+          "default": "now()"
+        }
+      ],
+      "primaryKey": {
+        "kind": "primaryKey",
+        "name": "secrets_id_pkey",
+        "columns": [
+          "id"
+        ]
+      },
+      "uniqueConstraints": [
+        {
+          "kind": "unique",
+          "name": "secrets_id_current_version_id_key",
+          "columns": [
+            "id",
+            "current_version_id"
+          ]
+        }
+      ],
+      "checkConstraints": [
+        {
+          "kind": "check",
+          "name": "secrets_180bff05b7_check",
+          "expression": "length(content_type) BETWEEN 1 AND 128"
+        },
+        {
+          "kind": "check",
+          "name": "secrets_27f5575b8e_check",
+          "expression": "jsonb_typeof(tags) = 'object'"
+        },
+        {
+          "kind": "check",
+          "name": "secrets_349d6258df_check",
+          "expression": "id ~ '^[0-9A-HJKMNP-TV-Z]{26}$'"
+        },
+        {
+          "kind": "check",
+          "name": "secrets_5cd7f14688_check",
+          "expression": "purge_after IS NULL OR (deleted_at IS NOT NULL AND purge_after >= deleted_at)"
+        },
+        {
+          "kind": "check",
+          "name": "secrets_b7cbe37e00_check",
+          "expression": "name ~ '^[A-Za-z0-9][A-Za-z0-9-]{0,126}$'"
+        }
+      ],
+      "foreignKeys": [
+        {
+          "name": "secrets_id_current_version_id_fkey",
+          "kind": "foreignKey",
+          "columns": [
+            "id",
+            "current_version_id"
+          ],
+          "referencedSchema": "public",
+          "referencedTable": "secret_versions",
+          "referencedColumns": [
+            "secret_id",
+            "id"
+          ],
+          "onUpdate": "NO ACTION",
+          "onDelete": "NO ACTION",
+          "deferrable": true,
+          "initiallyDeferred": true
+        },
+        {
+          "name": "secrets_project_id_fkey",
+          "kind": "foreignKey",
+          "columns": [
+            "project_id"
+          ],
+          "referencedSchema": "public",
+          "referencedTable": "projects",
+          "referencedColumns": [
+            "id"
+          ],
+          "onUpdate": "NO ACTION",
+          "onDelete": "RESTRICT"
+        }
+      ],
+      "indexes": [
+        {
+          "name": "secrets_name_active_idx",
+          "columns": [
+            "project_id",
+            "name"
+          ],
+          "unique": true,
+          "where": "deleted_at IS NULL",
+          "concurrent": false
+        },
+        {
+          "name": "secrets_project_idx",
+          "columns": [
+            "project_id"
+          ],
+          "unique": false,
+          "concurrent": false
+        }
+      ]
+    },
+    {
+      "schema": "public",
+      "name": "workload_certs",
+      "columns": [
+        {
+          "name": "fingerprint",
+          "type": "text",
+          "nullable": false
+        },
+        {
+          "name": "id",
+          "type": "text",
+          "nullable": false
+        },
+        {
+          "name": "issued_at",
+          "type": "timestamptz",
+          "nullable": false,
+          "default": "now()"
+        },
+        {
+          "name": "not_after",
+          "type": "timestamptz",
+          "nullable": false
+        },
+        {
+          "name": "not_before",
+          "type": "timestamptz",
+          "nullable": false
+        },
+        {
+          "name": "principal_id",
+          "type": "text",
+          "nullable": false
+        },
+        {
+          "name": "revoked_at",
+          "type": "timestamptz",
+          "nullable": true
+        },
+        {
+          "name": "serial",
+          "type": "text",
+          "nullable": false
+        }
+      ],
+      "primaryKey": {
+        "kind": "primaryKey",
+        "name": "workload_certs_id_pkey",
+        "columns": [
+          "id"
+        ]
+      },
+      "uniqueConstraints": [
+        {
+          "kind": "unique",
+          "name": "workload_certs_fingerprint_key",
+          "columns": [
+            "fingerprint"
+          ]
+        },
+        {
+          "kind": "unique",
+          "name": "workload_certs_serial_key",
+          "columns": [
+            "serial"
+          ]
+        }
+      ],
+      "checkConstraints": [
+        {
+          "kind": "check",
+          "name": "workload_certs_349d6258df_check",
+          "expression": "id ~ '^[0-9A-HJKMNP-TV-Z]{26}$'"
+        },
+        {
+          "kind": "check",
+          "name": "workload_certs_5a2f736030_check",
+          "expression": "not_after > not_before"
+        },
+        {
+          "kind": "check",
+          "name": "workload_certs_a89065b2e6_check",
+          "expression": "length(fingerprint) BETWEEN 1 AND 128"
+        },
+        {
+          "kind": "check",
+          "name": "workload_certs_b6967a477b_check",
+          "expression": "length(serial) BETWEEN 1 AND 128"
+        }
+      ],
+      "foreignKeys": [
+        {
+          "name": "workload_certs_principal_id_fkey",
+          "kind": "foreignKey",
+          "columns": [
+            "principal_id"
+          ],
+          "referencedSchema": "public",
+          "referencedTable": "principals",
+          "referencedColumns": [
+            "id"
+          ],
+          "onUpdate": "NO ACTION",
+          "onDelete": "CASCADE"
+        }
+      ],
+      "indexes": [
+        {
+          "name": "workload_certs_principal_idx",
+          "columns": [
+            "principal_id"
+          ],
+          "unique": false,
+          "concurrent": false
+        }
+      ]
+    }
+  ],
+  "views": []
+}

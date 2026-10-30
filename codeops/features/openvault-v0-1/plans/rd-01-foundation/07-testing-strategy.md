@@ -36,25 +36,25 @@
 
 | # | Input / Scenario | Expected Output / Behavior | Source |
 |---|---|---|---|
-| ST-7 | Empty PostgreSQL 16 database; apply migrations | Exit 0; all tables exist | RD-01 R3 / P-04 |
-| ST-8 | Empty PostgreSQL 17 database; apply migrations | Exit 0; all tables exist | RD-01 R3 / P-04 |
-| ST-9 | Apply the same migrations twice | Second run exits 0; no new rows | RD-01 R3 / P-02 |
-| ST-10 | Modify an applied migration; run migrate | Exit non-zero; error names the file; no schema change | RD-01 R3 / P-02 |
-| ST-11 | Delete or rename an applied migration; run migrate | Exit non-zero; error names the missing id | RD-01 R3 / P-02 |
-| ST-12 | Add a new migration that sorts before the highest applied id | Exit non-zero; no DDL applied | RD-01 R3 / P-02 |
-| ST-13 | Empty migration directory | Exit non-zero with a clear error | RD-01 R3 / P-02 |
-| ST-14 | Migration contains `BEGIN`, `COMMIT`, or `ROLLBACK` | Exit non-zero before DDL | RD-01 R3 / P-02 |
-| ST-15 | Migration contains invalid SQL | Whole run rolls back; no partial table | RD-01 R3 / P-02 |
-| ST-16 | Two migrators on separate `PostgreSQLDatabase` instances | Advisory lock serializes; both finish without duplicates or errors | RD-01 R3 / P-02 |
-| ST-17 | Lock held by another session for 30 s | Runner fails with a lock-timeout error, no partial apply | RD-01 R3 / P-02 |
-| ST-18 | `db:migrate --dry-run` with pending files | Lists pending ids/checksums; no DDL; exit 0 | RD-01 R3 / P-02 |
-| ST-19 | Server starts with a failed migration | Startup exits non-zero before binding HTTP | RD-01 R3 / RD-01 AC4 |
+| ST-7 | Empty PostgreSQL 16 database; apply migrations | `UP_TO_DATE`; baseline, manual migration, and 19 tables exist | RD-01 R3 / P-04 |
+| ST-8 | Empty PostgreSQL 17 database; apply migrations | `UP_TO_DATE`; baseline, manual migration, and 19 tables exist | RD-01 R3 / P-04 |
+| ST-9 | Apply the same migrations twice | Second run is `UP_TO_DATE`; no new ledger rows | RD-01 R3 / P-02 |
+| ST-10 | Modify an applied migration; validate history | `INVALID_HISTORY`; codegen rejects the checksum mismatch | RD-01 R3 / P-02 |
+| ST-11 | Delete or rename an applied migration; validate history | `INVALID_HISTORY`; codegen rejects the missing id | RD-01 R3 / P-02 |
+| ST-12 | Add a migration that sorts before the latest applied id | Codegen rejects the ordering change | RD-01 R3 / P-02 |
+| ST-13 | Empty migration directory | Codegen rejects the configuration | RD-01 R3 / P-02 |
+| ST-14 | Migration contains top-level `BEGIN`, `COMMIT`, or `ROLLBACK` | Codegen rejects transaction control; PL/pgSQL bodies remain valid | RD-01 R3 / P-02 |
+| ST-15 | Migration contains invalid SQL | The failing migration leaves no partial effects; earlier migrations remain recorded | RD-01 R3 / P-02 |
+| ST-16 | Two migrators on the same database | Codegen advisory lock serializes them; no duplicate ledger rows | RD-01 R3 / P-02 |
+| ST-17 | Migration lock is held | Codegen reports lock contention and leaves no partial apply | RD-01 R3 / P-02 |
+| ST-18 | `db:migrate --dry-run` with pending files | `PENDING`; no ledger or tables created | RD-01 R3 / P-02 |
+| ST-19 | Server starts without `OPENVAULT_DB_URL` | Startup exits non-zero before binding HTTP | RD-01 R3 / RD-01 AC4 |
 
 ### Schema inventory and constraints
 
 | # | Input / Scenario | Expected Output / Behavior | Source |
 |---|---|---|---|
-| ST-20 | Query `information_schema.tables` | 19 tables exist, including `schema_migrations` | RD-01 R2 |
+| ST-20 | Query `information_schema.tables` | 19 tables exist, including `blendsdk_migrations` | RD-01 R2 |
 | ST-21 | Query foreign keys | Every declared FK exists with the expected columns and delete action | RD-01 R2/AC8 |
 | ST-22 | Query unique constraints/indexes | Active project/secret/certificate names, refresh/token hashes, serials, fingerprints, consumer principal, and assignment coalescence are unique | RD-01 R2/AC8 |
 | ST-23 | Query CHECK constraints | Role, scope, result, actor kind, status, name, purge, and envelope length checks exist | RD-01 R2/AC8 |
@@ -109,8 +109,9 @@
 | `packages/core/tests/ids.spec.test.ts` | ST-1, ST-2 | Domain guards |
 | `packages/api-contract/tests/names.spec.test.ts` | ST-3–ST-6 | Schemas |
 | `packages/test-support/tests/sentinels.spec.test.ts` | sentinel exports | Test support |
-| `apps/server/tests/integration/migrations.spec.test.ts` | ST-7–ST-19, ST-36–ST-38 | Runner |
+| `apps/server/tests/integration/migrations.spec.test.ts` | ST-7–ST-9, ST-18, ST-19, ST-36–ST-38 | Codegen integration |
 | `apps/server/tests/integration/schema.spec.test.ts` | ST-20–ST-35 | Schema |
+| Upstream `blendsdk/codegen` suite | ST-10–ST-17 | Library migration lifecycle |
 | `tests/ci.spec.test.mjs` | ST-39, ST-40, G-3 | CI policy |
 | `tests/artifacts.spec.test.mjs` | ST-41–ST-43 | Audit/artifact |
 | `tests/react-single.spec.test.mjs` | ST-44 | React/Griffel |
@@ -119,7 +120,7 @@
 
 | Test file | Description | Priority |
 |---|---|---|
-| `apps/server/tests/integration/migrations.impl.test.ts` | Lock timeout, checksum edge, failed SQL cleanup, dry-run | High |
+| `apps/server/tests/generated-database.test.ts` | Generated row types and CType constants compile and expose expected names | High |
 | `packages/core/tests/ids.impl.test.ts` | Boundary and Unicode cases | Medium |
 | `tests/artifacts.impl.test.mjs` | Nested dist, symlinks, empty files, content markers | Medium |
 
@@ -127,9 +128,9 @@
 
 | Test | Components | Description |
 |---|---|---|
-| Migration matrix | Runner + PostgreSQL 16/17 | Apply, re-apply, checksum, rollback |
-| Schema constraints | Schema + PostgreSQL | FKs, CHECKs, indexes, triggers |
-| Concurrent migrators | Runner + PostgreSQL | Two DB instances, advisory lock |
+| Migration matrix | Codegen + PostgreSQL 16/17 | Apply baseline + manual migration, re-apply, status, validate |
+| Schema constraints | Schema + PostgreSQL | FKs, CHECKs, indexes, triggers, org seed |
+| Generated types | Codegen introspection | Row types, CType constants, drift check |
 
 ### End-to-end tests
 

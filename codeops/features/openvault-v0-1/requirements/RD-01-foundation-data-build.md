@@ -79,7 +79,7 @@ reviewable.
 | `audit_checkpoints` | Last event id/hash and HMAC |
 | `audit_keys` | Wrapped HMAC key |
 | `idempotency_keys` | Principal, key, method, path, resource id, created |
-| `schema_migrations` | Applied migration id, checksum, timestamp |
+| `blendsdk_migrations` | Applied migration id, checksum, timestamp (BlendSDK ledger) |
 
 Invariants:
 
@@ -95,11 +95,13 @@ Invariants:
 ### Migration runner
 
 - Migrations are ordered SQL files with a recorded checksum.
-- The migration run is transactional; a failure rolls back the whole run.
+- Each migration runs in its own transaction; a failure rolls back the failing migration and
+  stops startup. Earlier applied migrations remain recorded in the ledger.
 - The run takes an advisory lock so two instances cannot race.
 - Re-running a migration set is a no-op.
 - A checksum mismatch aborts startup.
-- Failed migrations roll back and stop startup.
+- A failed migration leaves no partial effects from that migration and stops startup; the next
+  run retries the pending migration.
 - Migrations never contain secret values.
 - All timestamps are stored and returned in UTC; user-facing formatting is the UI's
   responsibility.
@@ -151,7 +153,8 @@ Invariants:
 2. [ ] `pnpm verify` passes typecheck, Biome, tests, builds, and docs build.
 3. [ ] Applying migrations to an empty PostgreSQL 16 database succeeds; applying them a
    second time is a no-op; a checksum mismatch aborts startup.
-4. [ ] A failed migration leaves no partial schema and prevents the server from starting.
+4. [ ] A failed migration leaves no partial effects from that migration and prevents the server
+   from starting; earlier applied migrations remain recorded.
 5. [ ] `pnpm audit --prod --audit-level=high` exits 0 with the committed lockfile.
 6. [ ] CI fails when a high-severity dependency is introduced or a secret is detected.
 7. [ ] No `.env`, keyring, private key, or production hostname is present in the repository

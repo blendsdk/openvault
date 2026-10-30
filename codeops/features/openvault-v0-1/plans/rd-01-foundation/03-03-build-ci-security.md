@@ -82,6 +82,12 @@ steps:
   - run: pnpm install --frozen-lockfile
   - run: pnpm build
   - run: pnpm test:integration
+  - run: pnpm db:migrate
+    env:
+      OPENVAULT_DB_URL: postgres://openvault:test-password@localhost:5432/openvault_test
+  - run: pnpm db:types:check
+    env:
+      OPENVAULT_DB_URL: postgres://openvault:test-password@localhost:5432/openvault_test
 services:
   postgres:
     image: postgres:${{ matrix.postgres }}-alpine
@@ -125,6 +131,9 @@ env:
 - `pnpm audit --prod --audit-level=high` and `pnpm audit --audit-level=high` both block.
 - `pnpm-lock.yaml` committed; CI uses `--frozen-lockfile`.
 - `pnpm-workspace.yaml` uses `dedupePeerDependents: true` and `strictPeerDependencies: true`.
+- `vitepress` is pinned to `2.0.0-alpha.21`, which uses Vite 8 and clears the Vite 5 high
+  advisory. The docs build remains a required verification step; revisit when VitePress 2 is
+  stable.
 - Build-script allowlist stays minimal (`@swc/core`, `esbuild`).
 - Dependabot updates npm and GitHub Actions. Docker image digests are an RD-13 concern.
 
@@ -173,6 +182,7 @@ port only on localhost.
 | Missing `TEST_DATABASE_URL` or `OPENVAULT_TEST_DB` | Integration suite fails with setup message | P-01, P-15 |
 | Database name not `_test` or non-local host | Suite refuses to run | P-15 |
 | Duplicate React or Griffel | `check:react` exits 1 | P-06 |
+| Generated database types drift | `db:types:check` exits 1 | P-03, P-16 |
 | Secret/map in build output | `check:artifacts` exits 1 | P-10 |
 | Workflow tag instead of SHA | `tests/ci.spec.test.mjs` fails | P-10 |
 | Postgres not ready | Service healthcheck gates the job | P-04 |
@@ -196,3 +206,17 @@ port only on localhost.
 - Branch-protection read-back includes `Verify`, `Integration (16)`, `Integration (17)`,
   `Audit`, `Analyze JavaScript and TypeScript (javascript-typescript)`, `Gitleaks`, and
   `Review dependency changes`.
+
+## Branch protection read-back
+
+| Setting | Value |
+|---|---|
+| Required checks | `Verify`, `Integration (16)`, `Integration (17)`, `Audit`, `Analyze JavaScript and TypeScript (javascript-typescript)`, `Gitleaks`, `Review dependency changes` |
+| Strict status checks | Enabled |
+| Required approvals | 0 (single-maintainer project) |
+| Dismiss stale reviews | Enabled |
+| Linear history | Enabled |
+| Force pushes | Disabled |
+| Deletions | Disabled |
+| Conversation resolution | Enabled |
+| Admin enforcement | Enabled |
