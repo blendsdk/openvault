@@ -2,8 +2,8 @@
 
 > **Document**: 99-execution-plan.md
 > **Parent**: [Index](00-index.md)
-> **Last Updated**: 2026-10-30 22:40
-> **Progress**: 25/58 tasks (43%)
+> **Last Updated**: 2026-10-30 23:05
+> **Progress**: 37/58 tasks (64%)
 > **CodeOps Artifact Schema**: 1
 
 ## Overview
@@ -132,26 +132,26 @@ tests, then full verification.
 **Reference**: [03-02](03-02-local-auth.md) · [07](07-testing-strategy.md) ST-26–ST-38 · AR-4, AR-7, AR-8, AR-14, AR-17
 **Objective**: Define hashing, login, lockout, rate limits, and password change before implementation.
 
-- [ ] 3.1.1 [spec-author] Write specification tests from ST-26–ST-38 — `apps/server/tests/auth/password.spec.test.ts`, `apps/server/tests/integration/auth.local.test.ts`
-- [ ] 3.1.2 Run the spec tests and record the red-phase result
+- [x] 3.1.1 [spec-author] Write specification tests from ST-26–ST-38 — `apps/server/tests/auth/password.spec.test.ts`, `apps/server/tests/integration/auth.local.test.ts` ✅ (completed: 2026-10-30 23:05)
+- [x] 3.1.2 Run the spec tests and record the red-phase result ✅ (completed: 2026-10-30 23:05)
 
 ### Step 3.2: Implementation
 
 **Reference**: [03-02](03-02-local-auth.md) §Implementation Details · AR-4, AR-7, AR-8, AR-14, AR-17
 
-- [ ] 3.2.1 Implement the Argon2id PHC hash/verify/dummy/policy helpers — `apps/server/src/auth/password.ts`
-- [ ] 3.2.2 Implement the credential lookup, atomic failure counter, success reset, status query, and password update — `apps/server/src/auth/credentials.ts`
-- [ ] 3.2.3 Implement local login with the generic failure path — `apps/server/src/controllers/auth.ts`
-- [ ] 3.2.4 Wire the per-IP and per-account WebAFX rate limiters — `apps/server/src/controllers/auth.ts`
-- [ ] 3.2.5 Implement `/v1/auth/password` with current-password verification, policy, session revocation, and rotation — `apps/server/src/controllers/auth.ts`
-- [ ] 3.2.6 Add the bootstrap credential fixture helper and the forced-change integration setup — `apps/server/tests/integration/helpers/auth-fixtures.ts`
-- [ ] 3.2.7 Run the spec tests and verify green
+- [x] 3.2.1 Implement the Argon2id PHC hash/verify/dummy/policy helpers — `apps/server/src/auth/password.ts` ✅ (completed: 2026-10-30 23:05)
+- [x] 3.2.2 Implement the credential lookup, atomic failure counter, success reset, status query, and password update — `apps/server/src/auth/credentials.ts` ✅ (completed: 2026-10-30 23:05)
+- [x] 3.2.3 Implement local login with the generic failure path — `apps/server/src/controllers/auth.ts` ✅ (completed: 2026-10-30 23:05)
+- [x] 3.2.4 Wire the per-IP and per-account WebAFX rate limiters — `apps/server/src/controllers/auth.ts` ✅ (completed: 2026-10-30 23:05)
+- [x] 3.2.5 Implement `/v1/auth/password` with current-password verification, policy, session revocation, and rotation — `apps/server/src/controllers/auth.ts` ✅ (completed: 2026-10-30 23:05)
+- [x] 3.2.6 Add the bootstrap credential fixture helper and the forced-change integration setup — `apps/server/tests/integration/auth.local.test.ts` ✅ (completed: 2026-10-30 23:05)
+- [x] 3.2.7 Run the spec tests and verify green ✅ (completed: 2026-10-30 23:05)
 
 ### Step 3.3: Implementation Tests and Hardening
 
-- [ ] 3.3.1 Write implementation tests for malformed PHC, parameter bounds, atomic increments, window reset, and dummy-verify invocation — `apps/server/tests/auth/password.impl.test.ts`, `apps/server/tests/auth/credentials.impl.test.ts`
-- [ ] 3.3.2 Run local-auth integration tests against PostgreSQL 16 and 17
-- [ ] 3.3.3 Run full verification — `pnpm verify`
+- [x] 3.3.1 Write implementation tests for malformed PHC, parameter bounds, atomic increments, window reset, and dummy-verify invocation — `apps/server/tests/auth/password.impl.test.ts`, `apps/server/tests/auth/credentials.impl.test.ts` ✅ (completed: 2026-10-30 23:05)
+- [x] 3.3.2 Run local-auth integration tests against PostgreSQL 16 and 17 ✅ (completed: 2026-10-30 23:05)
+- [x] 3.3.3 Run full verification — `pnpm verify` ✅ (completed: 2026-10-30 23:05)
 
 **Deliverables**:
 - Argon2id local login with a generic failure path.
