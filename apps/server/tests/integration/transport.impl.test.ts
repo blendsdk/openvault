@@ -1,9 +1,11 @@
 import { createServer } from "node:net";
 import { networkInterfaces } from "node:os";
 import { PostgreSQLDatabase } from "blendsdk/postgresql";
+import { BaseController, type RouteDefinition } from "blendsdk/webafx";
+import type { Request, Response } from "express";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { z } from "zod";
-import { createTestApplication } from "../../src/app.js";
+import { createApplication, createTestApplication } from "../../src/app.js";
 import { KeyringProvider } from "../../src/security/keyring.js";
 import { TlsMaterial } from "../../src/transport/tls.js";
 import { testRequest } from "./helpers/https.js";
@@ -13,6 +15,31 @@ const errorEnvelope = z.object({
   success: z.literal(false),
   error: z.object({ code: z.string(), statusCode: z.number() }),
 });
+
+const echoEnvelope = z.object({
+  success: z.literal(true),
+  data: z.object({
+    ip: z.string().nullable(),
+    forwardedFor: z.string().nullable(),
+    realIp: z.string().nullable(),
+    body: z.unknown(),
+  }),
+});
+
+/** Test-only controller that exposes what the request boundary left behind. */
+class EchoController extends BaseController {
+  public routes(): RouteDefinition[] {
+    const handle = async (req: Request, res: Response): Promise<void> => {
+      this.ok(res, {
+        ip: req.ip ?? null,
+        forwardedFor: req.headers["x-forwarded-for"] ?? null,
+        realIp: req.headers["x-real-ip"] ?? null,
+        body: req.body ?? null,
+      });
+    };
+    return [this.route().get("/test").handle(handle), this.route().post("/test").handle(handle)];
+  }
+}
 
 function externalIpv4(): string | undefined {
   for (const entries of Object.values(networkInterfaces())) {
@@ -51,7 +78,6 @@ async function start(environment: ServerEnvironment): Promise<RunningApp> {
     database,
     tls,
     keyring,
-    readinessProbes: [],
   });
   const handle = await app.startTransport({ adminPort: 0, agentPort: 0 });
   return {
@@ -128,6 +154,92 @@ describe("body parser order", () => {
     expect(response.status).toBe(404);
     expect(errorEnvelope.parse(response.json).error.code).toBe("NOT_FOUND");
   });
+
+  it("rejects malformed percent encoding at the live listener", async () => {
+    const tls = running.environment.tls;
+    const response = await testRequest({
+      ...(trustedHost === undefined ? {} : { host: trustedHost }),
+      port: running.adminPort,
+      path: "/v1/%ZZ",
+      ca: tls.caPem,
+      servername: "localhost",
+    });
+
+    expect(response.status).toBe(400);
+    expect(errorEnvelope.parse(response.json).error.code).toBe("BAD_REQUEST");
+  });
+});
+
+describe("forwarded headers", () => {
+  it.skipIf(trustedHost === undefined)(
+    "strips agent forwarded headers and honours them on a trusted admin peer",
+    async () => {
+      const environment = createServerEnvironment({
+        OPENVAULT_PROXY_CIDRS: trustedCidrs(),
+      });
+      const keyring = await KeyringProvider.load(environment.keyringPath);
+      const tls = TlsMaterial.load(environment.config);
+      const database = new PostgreSQLDatabase({
+        ...environment.config.database,
+        poolConfig: { connectionTimeoutMillis: 2_000 },
+        enableGracefulShutdown: false,
+      });
+      const app = createApplication(environment.config, { database, tls, keyring });
+      app.registerController("/v1", EchoController);
+      app.registerController("/v1/agent", EchoController);
+      await app.prepare();
+      const handle = await app.startTransport({ adminPort: 0, agentPort: 0 });
+
+      try {
+        const admin = await testRequest({
+          host: trustedHost ?? "127.0.0.1",
+          port: handle.adminPort,
+          path: "/v1/test",
+          headers: {
+            "x-forwarded-for": "203.0.113.9",
+            "x-real-ip": "203.0.113.10",
+          },
+          ca: tls.caPem,
+          servername: "localhost",
+        });
+        const adminData = echoEnvelope.parse(admin.json).data;
+        expect(adminData.ip).toBe("203.0.113.9");
+
+        const posted = await testRequest({
+          host: trustedHost ?? "127.0.0.1",
+          port: handle.adminPort,
+          path: "/v1/test",
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({ value: "plain" }),
+          ca: tls.caPem,
+          servername: "localhost",
+        });
+        expect(echoEnvelope.parse(posted.json).data.body).toEqual({ value: "plain" });
+
+        const agent = await testRequest({
+          host: trustedHost ?? "127.0.0.1",
+          port: handle.agentPort,
+          path: "/v1/agent/test",
+          headers: {
+            "x-forwarded-for": "203.0.113.9",
+            "x-real-ip": "203.0.113.10",
+          },
+          cert: environment.tls.clientCertPem,
+          key: environment.tls.clientKeyPem,
+          ca: tls.caPem,
+          servername: "localhost",
+        });
+        const agentData = echoEnvelope.parse(agent.json).data;
+        expect(agentData.forwardedFor).toBeNull();
+        expect(agentData.realIp).toBeNull();
+        expect(agentData.ip).not.toBe("203.0.113.9");
+      } finally {
+        await handle.stop();
+        environment.cleanup();
+      }
+    },
+  );
 });
 
 describe("transport lifecycle", () => {
@@ -146,7 +258,6 @@ describe("transport lifecycle", () => {
       database,
       tls,
       keyring,
-      readinessProbes: [],
     });
     const reserved = createServer();
     await new Promise<void>((resolve) => reserved.listen(0, "0.0.0.0", resolve));

@@ -37,6 +37,21 @@ function correlationMiddleware(
   next();
 }
 
+function stripAgentForwardedHeadersMiddleware(
+  req: express.Request,
+  _res: express.Response,
+  next: express.NextFunction,
+): void {
+  if (listenerOf(req) !== "admin") {
+    delete req.headers["x-forwarded-for"];
+    delete req.headers["x-forwarded-proto"];
+    delete req.headers["x-forwarded-host"];
+    delete req.headers["x-real-ip"];
+    delete req.headers.forwarded;
+  }
+  next();
+}
+
 function noStoreMiddleware(
   req: express.Request,
   res: express.Response,
@@ -86,18 +101,31 @@ function sourceGuardMiddleware(matcher: CidrMatcher): express.RequestHandler {
   };
 }
 
-function urlEncodedGuardMiddleware(
+function mediaTypeGuardMiddleware(
   req: express.Request,
   _res: express.Response,
   next: express.NextFunction,
 ): void {
   try {
     const path = normalizeRequestPath(req.originalUrl || req.url);
+    if (path !== "/v1" && !path.startsWith("/v1/")) {
+      next();
+      return;
+    }
+
+    const hasBody =
+      (req.headers["content-length"] !== undefined && req.headers["content-length"] !== "0") ||
+      req.headers["transfer-encoding"] !== undefined;
+    if (!hasBody) {
+      next();
+      return;
+    }
+
     const contentType = req.headers["content-type"]?.toLowerCase() ?? "";
-    if (
-      (path === "/v1" || path.startsWith("/v1/")) &&
-      contentType.startsWith("application/x-www-form-urlencoded")
-    ) {
+    const isJson =
+      contentType.startsWith("application/json") ||
+      /^application\/[^;]+\+json(?:;|$)/.test(contentType);
+    if (!isJson) {
       next(new ApiError(415, "unsupported_media_type", "Use application/json"));
       return;
     }
@@ -112,15 +140,24 @@ function contentLengthGuardMiddleware(
   _res: express.Response,
   next: express.NextFunction,
 ): void {
-  const header = req.headers["content-length"];
-  if (header !== undefined) {
-    const length = Number(header);
-    if (Number.isFinite(length) && length > GLOBAL_BODY_LIMIT) {
-      next(new ApiError(413, "payload_too_large", "Payload too large"));
-      return;
+  try {
+    const path = normalizeRequestPath(req.originalUrl || req.url);
+    const limit =
+      path === "/v1/secrets" || path.startsWith("/v1/secrets/")
+        ? SECRET_BODY_LIMIT
+        : GLOBAL_BODY_LIMIT;
+    const header = req.headers["content-length"];
+    if (header !== undefined) {
+      const length = Number(header);
+      if (Number.isFinite(length) && length > limit) {
+        next(new ApiError(413, "payload_too_large", "Payload too large"));
+        return;
+      }
     }
+    next();
+  } catch (error) {
+    next(error);
   }
-  next();
 }
 
 function jsonParserMiddleware(): express.RequestHandler {
@@ -153,6 +190,10 @@ function bodyParserErrorMapper(
   _res: express.Response,
   next: express.NextFunction,
 ): void {
+  if (typeof error === "object" && error !== null) {
+    // body-parser attaches the raw request bytes to its thrown error.
+    Reflect.deleteProperty(error, "body");
+  }
   if (error instanceof ApiError) {
     next(error);
     return;
@@ -249,6 +290,7 @@ export function installPreStack(
   }
 
   app.use(correlationMiddleware);
+  app.use(stripAgentForwardedHeadersMiddleware);
   app.use(
     helmet({
       contentSecurityPolicy: {
@@ -266,7 +308,7 @@ export function installPreStack(
   app.use(noStoreMiddleware);
   app.use(createScopeMiddleware());
   app.use(sourceGuardMiddleware(matcher));
-  app.use(urlEncodedGuardMiddleware);
+  app.use(mediaTypeGuardMiddleware);
   app.use(contentLengthGuardMiddleware);
   app.use(jsonParserMiddleware());
   app.use(bodyParserErrorMapper);

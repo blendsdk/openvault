@@ -22,6 +22,15 @@ function readPem(key: string, path: string): string {
   }
 }
 
+function assertCurrentlyValid(key: string, certificate: X509Certificate): void {
+  const now = Date.now();
+  const from = Date.parse(certificate.validFrom);
+  const to = Date.parse(certificate.validTo);
+  if (!Number.isFinite(from) || !Number.isFinite(to) || now < from || now > to) {
+    throw new TlsMaterialError(key, "must be currently valid");
+  }
+}
+
 /**
  * Validated TLS material for both listeners.
  *
@@ -91,6 +100,7 @@ export class TlsMaterial {
         "does not match the configured server certificate",
       );
     }
+    assertCurrentlyValid("OPENVAULT_TLS_CERT", certificate);
 
     let caCertificate: X509Certificate;
     try {
@@ -105,6 +115,7 @@ export class TlsMaterial {
     if (!caCertificate.verify(caCertificate.publicKey)) {
       throw new TlsMaterialError("OPENVAULT_INTERNAL_CA", "must be self-verifying");
     }
+    assertCurrentlyValid("OPENVAULT_INTERNAL_CA", caCertificate);
 
     return new TlsMaterial(certPem, keyPem, keyObject, caPem, certificate, caCertificate);
   }
@@ -124,5 +135,7 @@ export class TlsMaterial {
     if (!this.caCertificate.verify(this.caCertificate.publicKey)) {
       throw new TlsMaterialError("OPENVAULT_INTERNAL_CA", "must be self-verifying");
     }
+    assertCurrentlyValid("OPENVAULT_TLS_CERT", this.certificate);
+    assertCurrentlyValid("OPENVAULT_INTERNAL_CA", this.caCertificate);
   }
 }

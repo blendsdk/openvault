@@ -57,12 +57,6 @@ export function createApplication(
       }
     },
   });
-  app.registerService({
-    name: "tls",
-    type: "singleton",
-    factory: () => dependencies.tls,
-  });
-
   app.registerController("", ReadyController);
   app.use(createLoggerPlugin(provider));
 

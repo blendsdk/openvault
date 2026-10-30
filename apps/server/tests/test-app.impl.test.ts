@@ -21,7 +21,6 @@ describe("in-process test application", () => {
         database,
         tls,
         keyring,
-        readinessProbes: [],
       });
 
       try {

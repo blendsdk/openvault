@@ -70,6 +70,10 @@ export function normalizeRequestPath(raw: string | undefined): string {
   }
 
   const collapsed = decoded.replace(/\/{2,}/g, "/").toLowerCase();
+  const segments = collapsed.split("/");
+  if (segments.some((segment) => segment === "." || segment === "..")) {
+    throw new BadRequestError("Malformed request path");
+  }
   return collapsed.length > 1 && collapsed.endsWith("/") ? collapsed.slice(0, -1) : collapsed;
 }
 

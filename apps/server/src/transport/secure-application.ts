@@ -22,6 +22,10 @@ export interface TransportHandle {
   readonly adminPort: number;
   /** Bound agent port. */
   readonly agentPort: number;
+  /** Bound admin server; exposed for lifecycle assertions. */
+  readonly adminServer: Server;
+  /** Bound agent server; exposed for lifecycle assertions. */
+  readonly agentServer: Server;
   /** Idempotent shutdown for both listeners and owned services. */
   readonly stop: () => Promise<void>;
 }
@@ -31,8 +35,6 @@ export interface SecureApplicationDependencies {
   readonly database: PostgreSQLDatabase;
   readonly tls: TlsMaterial;
   readonly keyring: KeyringProvider;
-  /** Test override; production builds readiness probes from the dependencies. */
-  readonly readinessProbes?: readonly unknown[];
   /** Test-only pino destination for captured structured logs. */
   readonly loggerDestination?: Writable;
 }
@@ -112,6 +114,7 @@ export class SecureWebApplication extends WebApplication {
   #servers: { readonly admin: Server; readonly agent: Server } | undefined;
   #transport: TransportHandle | undefined;
   #stopping: Promise<void> | undefined;
+  #stopped = false;
 
   public constructor(config: OpenVaultConfig, dependencies: SecureApplicationDependencies) {
     super(createWebApplicationConfig(config));
@@ -140,8 +143,8 @@ export class SecureWebApplication extends WebApplication {
    * closed and the keyring is destroyed before the error propagates.
    */
   public async startTransport(options: StartTransportOptions = {}): Promise<TransportHandle> {
-    if (this.#transport !== undefined) {
-      throw new Error("SecureWebApplication transport is already started");
+    if (this.#transport !== undefined || this.#stopped) {
+      throw new Error("SecureWebApplication transport is already started or stopped");
     }
     await this.prepare();
 
@@ -182,11 +185,33 @@ export class SecureWebApplication extends WebApplication {
 
     this.#servers = { admin, agent };
     this.started = true;
-    this.setupSignalHandlers(() => this.stop());
+
+    try {
+      await this.runHooks("afterStart");
+    } catch (error) {
+      try {
+        await this.stop();
+      } catch {
+        // Preserve the original after-start failure; cleanup already ran best-effort.
+      }
+      throw error;
+    }
+
+    this.setupSignalHandlers(async () => {
+      try {
+        await this.stop();
+      } catch (error) {
+        process.stderr.write(
+          `Shutdown failed: ${error instanceof Error ? error.name : "unknown"}\n`,
+        );
+      }
+    });
 
     const handle: TransportHandle = {
       adminPort,
       agentPort,
+      adminServer: admin,
+      agentServer: agent,
       stop: () => this.stop(),
     };
     this.#transport = handle;
@@ -202,6 +227,9 @@ export class SecureWebApplication extends WebApplication {
 
   /** Stops both listeners, disposes services, and destroys the keyring. */
   public async stop(): Promise<void> {
+    if (this.#stopped) {
+      return;
+    }
     if (this.#stopping !== undefined) {
       await this.#stopping;
       return;
@@ -218,17 +246,24 @@ export class SecureWebApplication extends WebApplication {
     const servers = this.#servers;
     this.#servers = undefined;
     this.#transport = undefined;
+    let disposed = false;
 
-    if (servers !== undefined) {
-      await Promise.all([closeServer(servers.admin), closeServer(servers.agent)]);
+    try {
+      if (servers !== undefined) {
+        await Promise.all([closeServer(servers.admin), closeServer(servers.agent)]);
+      }
+
+      // WebAFX only disposes services when its started flag is set.
+      this.started = true;
+      await this.shutdown();
+      disposed = true;
+    } finally {
+      this.#dependencies.keyring.destroy();
+      this.cleanupSignalHandlers();
+      this.started = false;
+      // Keep a failed stop retryable while still releasing keys and signals.
+      this.#stopped = disposed;
     }
-
-    // WebAFX only disposes services when its started flag is set.
-    this.started = true;
-    await this.shutdown();
-    this.#dependencies.keyring.destroy();
-    this.cleanupSignalHandlers();
-    this.started = false;
   }
 
   /** Validated configuration is injected; WebAFX file overrides stay disabled. */

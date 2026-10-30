@@ -29,6 +29,21 @@
 | RV-104 | 1 re-review | MINOR | config/dead-code | fixed |
 | SA-007 | 1 | MINOR | config/serialization | deferred |
 | RV-007 | 1 | MINOR | plan/traceability | deferred |
+| RV-201, SA-201 | 2 | MAJOR | transport/lifecycle-trust | fixed |
+| RV-202 | 2 | MINOR | transport/readiness-seam | fixed |
+| RV-203 | 2 | MINOR | tests/transport-settings | fixed |
+| RV-204 | 2 | MINOR | transport/trust-proxy | fixed |
+| RV-205 | 2 | MINOR | tests/parser-order | fixed |
+| RV-206 | 2 | MINOR | tests/host-assumption | fixed |
+| RV-207 | 2 | MINOR | transport/lifecycle-hooks | fixed |
+| SA-202 | 2 | MINOR | scope/dot-segments | fixed |
+| SA-203 | 2 | MINOR | transport/media-limits | fixed |
+| SA-204 | 2 | MINOR | transport/loopback-policy | accepted |
+| SA-205 | 2 | MINOR | transport/tls-di | fixed |
+| SA-206 | 2 | MINOR | transport/cert-validity | fixed |
+| SA-207 | 2 | MINOR | transport/parser-error | fixed |
+| SA-208 | 2 | MINOR | logging/duplicate-entry | dismissed |
+| RV-301, RV-302 | 2 re-review | MINOR | transport/lifecycle-tests | fixed |
 
 **Phase 1 review notes**
 
@@ -39,6 +54,19 @@
   code path serializes the full config object.
 - RV-007: the `.env` loading override is part of task 2.2.4, not the Phase 1
   settings bridge. Revisit at the Phase 2 gate.
+
+**Phase 2 review notes**
+
+- Fixed the stop-cleanup and agent forwarded-header trust majors; transport
+  spec+impl passes 24/24 and `pnpm verify` passes after the fixes.
+- SA-204 accepted: the loopback health-only rule is the approved listener
+  policy, and trusted-proxy tests use a non-loopback source.
+- SA-208 dismissed: pre-stack rejections carry no `req.services`, so the
+  terminal handler cannot log a second entry; the suite observes one entry.
+- SA-206: `checkReady` validity checks are wired when the readiness service
+  lands in Phase 3.
+- Re-review residual RV-301/RV-302 fixed; no third review was run per the
+  one-scoped-re-review cap.
 
 ## Ruling Vocabulary
 
