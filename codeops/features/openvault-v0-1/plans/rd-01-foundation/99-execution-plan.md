@@ -2,8 +2,8 @@
 
 > **Document**: 99-execution-plan.md
 > **Parent**: [Index](00-index.md)
-> **Last Updated**: 2026-10-30 11:35
-> **Progress**: 26/40 tasks (65%)
+> **Last Updated**: 2026-10-30 11:25
+> **Progress**: 34/40 tasks (85%)
 > **CodeOps Artifact Schema**: 1
 
 ## Overview
@@ -135,14 +135,14 @@ generated types/constants, updated specs and plan.
 
 **Reference**: [03-03](03-03-build-ci-security.md) · [07](07-testing-strategy.md) · P-08, P-09, P-10
 
-- [ ] 3.1.1 [spec-author] Write `tests/ci.spec.test.mjs` and `tests/artifacts.spec.test.mjs` for ST-39–ST-43 and G-3/G-5
-- [ ] 3.1.2 [executor] Implement `scripts/check-artifacts.mjs` and `scripts/audit-check.mjs`
-- [ ] 3.1.3 [executor] Run the root suites and record red-phase failures
-- [ ] 3.1.4 [executor] Pin every workflow action to the SHA in 03-03; add tag comments
-- [ ] 3.1.5 [executor] Move pages/OIDC permissions to the docs deploy job, add `persist-credentials: false`, add the PG16/17 integration matrix plus audit jobs, and add the Gitleaks full-history schedule/config
-- [ ] 3.1.6 [executor] Set the canonical `verify`, disable production source maps, exact-pin production/dev dependencies, and enable strict peers
-- [ ] 3.1.7 [executor] Run the root suites green; add impl tests for nested dist, symlinks, and content markers
-- [ ] 3.1.8 [executor] Update `CONTRIBUTING.md` with test DB commands and verification order
+- [x] 3.1.1 [spec-author] Write `tests/ci.spec.test.mjs` and `tests/artifacts.spec.test.mjs` for ST-39–ST-43 and G-3/G-5 ✅ (completed: 2026-10-30 11:25)
+- [x] 3.1.2 [executor] Implement `scripts/check-artifacts.mjs` and `scripts/audit-check.mjs` ✅ (completed: 2026-10-30 11:25)
+- [x] 3.1.3 [executor] Run the root suites and record red-phase failures ✅ (completed: 2026-10-30 11:25)
+- [x] 3.1.4 [executor] Pin every workflow action to the SHA in 03-03; add tag comments ✅ (completed: 2026-10-30 11:25)
+- [x] 3.1.5 [executor] Move pages/OIDC permissions to the docs deploy job, add `persist-credentials: false`, add the PG16/17 integration matrix plus audit jobs, and add the Gitleaks full-history schedule/config ✅ (completed: 2026-10-30 11:25)
+- [x] 3.1.6 [executor] Set the canonical `verify`, disable production source maps, exact-pin production/dev dependencies, and enable strict peers ✅ (completed: 2026-10-30 11:25)
+- [x] 3.1.7 [executor] Run the root suites green; add impl tests for nested dist, symlinks, and content markers ✅ (completed: 2026-10-30 11:25)
+- [x] 3.1.8 [executor] Update `CONTRIBUTING.md` with test DB commands and verification order ✅ (completed: 2026-10-30 11:25)
 - [ ] 3.1.9 [repo-admin] Update branch protection: PR required, linear history, no force pushes, required checks `Verify`, `Integration (16)`, `Integration (17)`, `Audit`, `Analyze JavaScript and TypeScript (javascript-typescript)`, `Gitleaks`, `Review dependency changes`; read back the settings
 - [ ] 3.1.10 [executor] Run the phase gate and a CI run on the branch
 

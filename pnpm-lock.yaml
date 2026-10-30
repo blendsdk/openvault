@@ -201,59 +201,59 @@ importers:
         specifier: 5.68.1
         version: 5.68.1(cookie-parser@1.4.7)(cors@2.8.6)(express@5.3.0)(helmet@8.3.0)(jose@6.2.13)(pg@8.23.1)(pino-http@10.5.0)(pino@9.14.0)(react-dom@19.3.1(react@19.3.1))(react-router@7.18.5(react-dom@19.3.1(react@19.3.1))(react@19.3.1))(react@19.3.1)(yesql@7.0.0)
       cookie-parser:
-        specifier: ^1.4.7
+        specifier: 1.4.7
         version: 1.4.7
       cors:
-        specifier: ^2.8.6
+        specifier: 2.8.6
         version: 2.8.6
       express:
-        specifier: ^5.2.1
+        specifier: 5.3.0
         version: 5.3.0
       helmet:
-        specifier: ^8.3.0
+        specifier: 8.3.0
         version: 8.3.0
       jose:
-        specifier: ^6.2.5
+        specifier: 6.2.13
         version: 6.2.13
       pg:
-        specifier: ^8.22.0
+        specifier: 8.23.1
         version: 8.23.1
       pino:
-        specifier: ^9.0.0
+        specifier: 9.14.0
         version: 9.14.0
       pino-http:
-        specifier: ^10.0.0
+        specifier: 10.5.0
         version: 10.5.0
       yesql:
-        specifier: ^7.0.0
+        specifier: 7.0.0
         version: 7.0.0
       zod:
-        specifier: ^4.4.3
+        specifier: 4.6.7
         version: 4.6.7
     devDependencies:
       '@openvault/test-support':
         specifier: workspace:*
         version: link:../../packages/test-support
       '@types/cookie-parser':
-        specifier: ^1.4.9
+        specifier: 1.4.10
         version: 1.4.10(@types/express@5.0.6)
       '@types/cors':
-        specifier: ^2.8.19
+        specifier: 2.8.19
         version: 2.8.19
       '@types/express':
-        specifier: ^5.0.0
+        specifier: 5.0.6
         version: 5.0.6
       '@types/pg':
-        specifier: ^8.15.0
+        specifier: 8.23.1
         version: 8.23.1
       '@types/supertest':
-        specifier: ^6.0.0
+        specifier: 6.0.3
         version: 6.0.3
       supertest:
-        specifier: ^7.3.1
+        specifier: 7.3.1
         version: 7.3.1
       tsx:
-        specifier: ^4.23.15
+        specifier: 4.23.15
         version: 4.23.15
       typescript:
         specifier: 7.0.2
@@ -268,13 +268,13 @@ importers:
         specifier: 0.6.0
         version: 0.6.0(@fluentui/react-components@9.75.0(@types/react@19.3.0)(react-dom@19.3.1(react@19.3.1))(react@19.3.1)(scheduler@0.28.0))(@fluentui/react-datepicker-compat@0.6.40(@types/react@19.3.0)(react-dom@19.3.1(react@19.3.1))(react@19.3.1)(scheduler@0.28.0))(@fluentui/react-icons@2.0.344(react@19.3.1))(@types/react@19.3.0)(react-dom@19.3.1(react@19.3.1))(react-hook-form@7.91.0(@types/react@19.3.0)(react@19.3.1))(react@19.3.1)
       '@fluentui/react-components':
-        specifier: ^9.75.0
+        specifier: 9.75.0
         version: 9.75.0(@types/react@19.3.0)(react-dom@19.3.1(react@19.3.1))(react@19.3.1)(scheduler@0.28.0)
       '@fluentui/react-datepicker-compat':
-        specifier: ^0.6.40
+        specifier: 0.6.40
         version: 0.6.40(@types/react@19.3.0)(react-dom@19.3.1(react@19.3.1))(react@19.3.1)(scheduler@0.28.0)
       '@fluentui/react-icons':
-        specifier: ^2.0.344
+        specifier: 2.0.344
         version: 2.0.344(react@19.3.1)
       blendsdk:
         specifier: 5.68.1
@@ -286,29 +286,29 @@ importers:
         specifier: 19.3.1
         version: 19.3.1(react@19.3.1)
       react-hook-form:
-        specifier: ^7.91.0
+        specifier: 7.91.0
         version: 7.91.0(@types/react@19.3.0)(react@19.3.1)
       react-router:
-        specifier: ^7.0.0
+        specifier: 7.18.5
         version: 7.18.5(react-dom@19.3.1(react@19.3.1))(react@19.3.1)
     devDependencies:
       '@testing-library/jest-dom':
-        specifier: ^6.9.0
+        specifier: 6.9.1
         version: 6.9.1
       '@testing-library/react':
-        specifier: ^16.3.3
+        specifier: 16.3.3
         version: 16.3.3(@testing-library/dom@10.4.2)(@types/react-dom@19.3.0(@types/react@19.3.0))(@types/react@19.3.0)(react-dom@19.3.1(react@19.3.1))(react@19.3.1)
       '@types/react':
-        specifier: ^19.3.0
+        specifier: 19.3.0
         version: 19.3.0
       '@types/react-dom':
-        specifier: ^19.3.0
+        specifier: 19.3.0
         version: 19.3.0(@types/react@19.3.0)
       '@vitejs/plugin-react-swc':
-        specifier: ^4.3.3
+        specifier: 4.3.3
         version: 4.3.3(@swc/helpers@0.5.23)(vite@8.3.5(@types/node@22.20.5)(esbuild@0.28.2)(jiti@2.7.0)(tsx@4.23.15)(yaml@2.9.1))
       jsdom:
-        specifier: ^30.1.3
+        specifier: 30.1.3
         version: 30.1.3(@noble/hashes@1.8.0)
       typescript:
         specifier: 7.0.2

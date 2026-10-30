@@ -1,0 +1,4 @@
+title = "OpenVault secret scanning"
+
+[extend]
+useDefault = true

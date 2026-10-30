@@ -87,6 +87,7 @@ describe("workspace policy", () => {
       "pnpm typecheck",
       "pnpm lint",
       "pnpm test",
+      "pnpm check:artifacts",
       "pnpm check:react",
       "pnpm docs:build",
     ];
