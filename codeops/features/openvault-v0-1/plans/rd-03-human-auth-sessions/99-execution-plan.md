@@ -2,8 +2,8 @@
 
 > **Document**: 99-execution-plan.md
 > **Parent**: [Index](00-index.md)
-> **Last Updated**: 2026-10-30 23:50
-> **Progress**: 49/58 tasks (84%)
+> **Last Updated**: 2026-10-31 00:25
+> **Progress**: 58/58 tasks (100%)
 > **CodeOps Artifact Schema**: 1
 
 ## Overview
@@ -213,18 +213,18 @@ tests, then full verification.
 
 **Reference**: [03-01](03-01-sessions-csrf.md), [03-02](03-02-local-auth.md), [03-03](03-03-oidc.md), [03-04](03-04-contracts-logging-runtime.md) · PF-016
 
-- [ ] 5.1.1 Update the API reference with password change, session list/revoke, error codes, and cookie behavior — `docs/reference/api.md`
-- [ ] 5.1.2 Update the authentication guide, identity architecture, and limitations — `docs/guide/authentication.md`, `docs/architecture/identity.md`, `docs/security/limitations.md`
-- [ ] 5.1.3 Replace the "printed once" bootstrap wording with the `0600` one-time file and operator read/delete step — `deploy/compose/README.md`
-- [ ] 5.1.4 Document the session TTL setting and Node 24.7+ baseline — `docs/reference/configuration.md`, `docs/guide/getting-started.md`, `docs/guide/install.md`
-- [ ] 5.1.5 Update the project README and contributing requirements — `README.md`, `CONTRIBUTING.md`
+- [x] 5.1.1 Update the API reference with password change, session list/revoke, error codes, and cookie behavior — `docs/reference/api.md` ✅ (completed: 2026-10-31 00:20)
+- [x] 5.1.2 Update the authentication guide, identity architecture, and limitations — `docs/guide/authentication.md`, `docs/architecture/identity.md`, `docs/security/limitations.md` ✅ (completed: 2026-10-31 00:20)
+- [x] 5.1.3 Replace the "printed once" bootstrap wording with the `0600` one-time file and operator read/delete step — `deploy/compose/README.md` ✅ (completed: 2026-10-31 00:20)
+- [x] 5.1.4 Document the session TTL setting and Node 24.7+ baseline — `docs/reference/configuration.md`, `docs/guide/getting-started.md`, `docs/guide/install.md` ✅ (completed: 2026-10-31 00:20)
+- [x] 5.1.5 Update the project README and contributing requirements — `README.md`, `CONTRIBUTING.md` ✅ (completed: 2026-10-31 00:20)
 
 ### Step 5.2: Release Verification
 
-- [ ] 5.2.1 Run full verification, production/full audits, and the database type check — `pnpm verify`, `pnpm audit:prod`, `pnpm audit:full`, `pnpm db:types:check`
-- [ ] 5.2.2 Run the integration suite against PostgreSQL 16 and 17
-- [ ] 5.2.3 Record the RD-03 acceptance mapping and PR summary — `00-index.md`
-- [ ] 5.2.4 Run the post-phase security review and resolve every critical/major finding before close-out
+- [x] 5.2.1 Run full verification, production/full audits, and the database type check — `pnpm verify`, `pnpm audit:prod`, `pnpm audit:full`, `pnpm db:types:check` ✅ (completed: 2026-10-31 00:20)
+- [x] 5.2.2 Run the integration suite against PostgreSQL 16 and 17 ✅ (completed: 2026-10-31 00:20)
+- [x] 5.2.3 Record the RD-03 acceptance mapping and PR summary — `00-index.md` ✅ (completed: 2026-10-31 00:20)
+- [x] 5.2.4 Run the post-phase security review and resolve every critical/major finding before close-out ✅ (completed: 2026-10-31 00:25)
 
 **Deliverables**:
 - Documentation aligned with the implementation.

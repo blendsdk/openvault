@@ -133,3 +133,27 @@ check. No unresolved finding.
 
 **Verify after fixes:** `pnpm verify` under Node 24.21.0 — PASS; unit 143; PostgreSQL 16
 integration 115 (OIDC 28).
+
+## Phase 5 — Documentation and release verification
+
+**Reviewers:** correctness-reviewer (docs-only phase; security and performance auditors
+skipped per the quality profile, with the phase 1–4 security audits covering the code)
+**Phase diff:** `43272b8..working tree`
+**Verify:** `pnpm verify`; `pnpm audit:prod`; `pnpm audit:full`; `pnpm db:types:check`;
+PostgreSQL 16 and 17 integration 115 each
+
+| ID | Severity | Lens | Finding | Ruling |
+|---|---|---|---|---|
+| RV-001 | 🟠 MAJOR | correctness | `docs/guide/install.md` still said the bootstrap password is printed once. | Fixed — one-time `0600` file wording, never printed, delete after change. |
+| RV-002 | 🟠 MAJOR | correctness | The auth guide said the old refresh cookie no longer resolves, but the 10-second receipt returns the same new secret to a late refresh. | Fixed — documents the receipt behavior and the 10-second window. |
+| RV-003 | 🟡 MINOR | correctness | Limitations listed lockout counters as process-local; they are database-backed. | Fixed — lockout is shared; sessions, OIDC state, and rate-limit counters are process-local. |
+| RV-004 | 🟡 MINOR | correctness | Acceptance mapping rows 12–14 were out of order. | Fixed — session list, password change, security verification. |
+| RV-005 | 🟡 MINOR | correctness | The timing criterion mapping overstated the test; it proves an Argon2 floor, not a p95 difference. | Accepted — the mapping now states the p95 difference is not separately measured. The dummy path is proven to spend one full derivation; a timing comparison test is deferred to avoid a flaky load-sensitive assertion. |
+| RV-006 | 🟡 MINOR | correctness | Limitations described the password policy as a length change rather than a length range. | Fixed — 12–1024 range, no difference check. |
+
+**Re-review:** The corrections are documentation-only and were checked against the phase 4
+behavior and the final docs build. No third review pass is run per the quality-profile budget;
+the phase 1–4 security audits have no unresolved critical/major finding.
+
+**Verify after fixes:** `pnpm verify`; `pnpm docs:build`; PostgreSQL 16 and 17 integration
+115 each; audits and `db:types:check` clean.

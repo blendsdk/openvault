@@ -20,12 +20,14 @@ project's default network; the application joins only its own network.
 cp .env.example .env
 # change POSTGRES_PASSWORD and OPENVAULT_BASE_URL
 docker compose -f deploy/compose/compose.yaml up -d
-# The openvault-init service prints the bootstrap password once.
-docker compose -f deploy/compose/compose.yaml logs openvault-init
 ```
 
 `ov init` creates the keyring, the internal CA, the server certificate, the JWT key, and
-the bootstrap administrator. The bootstrap password is printed once.
+the bootstrap administrator. It writes the bootstrap password to a one-time file with mode
+`0600` in the persistent data volume. The password is never printed to stdout, stderr, or
+container logs. Read the file once with a short-lived command, sign in, change the password,
+and delete the file. The exact file path and the read/delete command are owned by the CLI and
+operations releases.
 
 ## Networks
 

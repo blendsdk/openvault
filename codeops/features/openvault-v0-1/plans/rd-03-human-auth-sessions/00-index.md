@@ -117,10 +117,13 @@ _Detection evidence: RD-03 is an authentication and session feature; the feature
 - `apps/server/src/auth/csrf.ts`
 - `apps/server/src/auth/middleware.ts`
 - `apps/server/src/auth/plugin.ts`
+- `apps/server/src/auth/types.ts`
 - `apps/server/src/auth/oidc/client.ts`
 - `apps/server/src/auth/oidc/state.ts`
 - `apps/server/src/auth/oidc/identity.ts`
 - `apps/server/src/auth/oidc/return-to.ts`
+- `apps/server/src/auth/oidc/binding.ts`
+- `apps/server/src/auth/oidc/errors.ts`
 - `apps/server/src/controllers/auth.ts`
 - `apps/server/src/controllers/oidc.ts`
 - `apps/server/src/controllers/meta.ts`
@@ -145,7 +148,47 @@ _Detection evidence: RD-03 is an authentication and session feature; the feature
 
 **Tests**
 - `packages/api-contract/tests/auth.spec.test.ts`
-- `apps/server/tests/auth/*.spec.test.ts`, `*.impl.test.ts`
-- `apps/server/tests/integration/auth.*.test.ts`
+- `apps/server/tests/auth/password.spec.test.ts`
+- `apps/server/tests/auth/sessions.spec.test.ts`
+- `apps/server/tests/auth/csrf.spec.test.ts`
+- `apps/server/tests/auth/*.impl.test.ts`
+- `apps/server/tests/integration/auth.local.test.ts`
+- `apps/server/tests/integration/auth.sessions.test.ts`
+- `apps/server/tests/integration/auth.oidc.test.ts`
 - `apps/server/tests/integration/helpers/fake-oidc-provider.ts`
-- `apps/server/tests/integration/helpers/auth-fixtures.ts`
+
+## Acceptance Mapping
+
+| RD-03 criterion | Evidence |
+|---|---|
+| 1. Local login returns a hardened cookie | `auth.local.test.ts` — valid login and cookie attributes |
+| 2. Generic 401 and comparable timing | `auth.local.test.ts` — unknown, wrong, disabled, locked; each generic path spends one Argon2 derivation (the 50 ms p95 difference is not separately measured) |
+| 3. Five failures lock the account | `auth.local.test.ts` — lockout and lock-expiry tests |
+| 4. Bootstrap password handling and forced change | RD-03 portion: `auth.local.test.ts` forced-change test and logger non-persistence. Provisioning/`0600` file lifecycle is RD-11/RD-13 |
+| 5. OIDC valid callback and rejection paths | `auth.oidc.test.ts` — valid, bad nonce, bad/replayed state, UserInfo `sub`, binding |
+| 6. Tokens absent from cache/database/logs | `auth.oidc.test.ts` — token non-persistence test |
+| 7. Refresh rotates the session | `auth.sessions.test.ts`; the old secret no longer authenticates, while a concurrent/retried refresh within 10s receives the same new secret |
+| 8. CSRF token enforcement | `csrf.spec.test.ts` and session integration tests |
+| 9. Cross-origin mutation rejected | `csrf.spec.test.ts` — evil Origin, `same-site`, missing headers |
+| 10. Disabled principal invalidated | `auth.sessions.test.ts` — `/me` 401 and session deletion |
+| 11. `/v1/meta/auth` only booleans | `auth.oidc.test.ts` — configured and unconfigured |
+| 12. Session list/revoke | `auth.sessions.test.ts` — list, owner revoke, foreign 404 |
+| 13. Password change | `auth.local.test.ts` — current password, policy, revocation, rotation, concurrent CAS |
+| 14. Security requirements verified | Phase security audits (no unresolved critical/major) plus the tests above |
+
+## PR Summary
+
+**Title:** `feat: human authentication and sessions`
+
+**Summary:**
+- Local Argon2id login with generic failures, rolling lockout, per-IP/per-account limits, and password change.
+- OIDC authorization-code login with PKCE S256, state, nonce, browser binding, UserInfo subject checking, and token discard.
+- Opaque `__Host-ov_session` sessions with absolute expiry, refresh rotation, list/revoke, and disable invalidation.
+- Per-session CSRF plus same-origin enforcement, and a forced-change gate.
+- Shared auth contracts, request-log sanitization, Node 24.7+, and the approved `openid-client` dependency.
+
+**Evidence:** `pnpm verify`; `pnpm audit:prod`; `pnpm audit:full`; `pnpm db:types:check`; PostgreSQL 16 and 17 integration suites (115 tests each); 143 unit tests.
+
+**Known limitations:** sessions, OIDC state, lockout, and rate limits are process-local; `ov init` provisioning lands in RD-11/RD-13; JIT users have no roles until RD-06; lockout can be used for targeted denial of service; the forced-change flow does not require a different password.
+
+**Deferred owners:** `ov init`/bootstrap file → RD-11/RD-13; RBAC role assignment and admin OIDC linking → RD-06; audit persistence → RD-07; OIDC identity rows for CLI/agent → RD-04/RD-05; UI → RD-12; release image hardening → RD-14.

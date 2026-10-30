@@ -2,7 +2,7 @@
 
 Configuration is read from environment variables, validated at boot, and passed to the
 WebAFX application. Missing required values stop startup before migrations or a listener
-bind.
+bind. The server requires Node.js 24.7 or newer (the built-in Argon2 API).
 
 | Variable | Default | Required | Notes |
 |---|---|---|---|
@@ -34,6 +34,11 @@ bind.
 
 `OPENVAULT_ADMIN_PORT` wins over `PORT`. If both are set and differ, startup fails with a
 keyed error. The agent port must differ from the resolved admin port.
+
+`OPENVAULT_SESSION_TTL_HOURS` is an absolute lifetime measured from session creation, not a
+sliding idle timeout. `OPENVAULT_OIDC_ALLOWED_DOMAINS` enables JIT provisioning; without it,
+OIDC identities must already be linked. JIT also requires `email_verified: true` and an exact
+domain match.
 
 ## Body limits
 
