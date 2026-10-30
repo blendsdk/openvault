@@ -19,6 +19,8 @@ export interface TestRequestOptions {
   readonly key?: string;
   readonly servername?: string;
   readonly plaintext?: boolean;
+  /** Send the body without a Content-Length header. */
+  readonly chunked?: boolean;
 }
 
 /** A response captured by the test helper. */
@@ -39,7 +41,7 @@ export function testRequest(options: TestRequestOptions): Promise<TestResponse> 
   return new Promise((resolve, reject) => {
     const body = options.body === undefined ? undefined : Buffer.from(options.body);
     const headers = { ...options.headers };
-    if (body !== undefined && headers["content-length"] === undefined) {
+    if (body !== undefined && !options.chunked && headers["content-length"] === undefined) {
       headers["content-length"] = String(body.length);
     }
 
