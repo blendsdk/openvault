@@ -185,6 +185,15 @@ describe("codegen migration integration", () => {
     expect(result.error).toBeUndefined();
     expect(typeof result.status).toBe("number");
     expect(result.status).not.toBe(0);
+
+    const cli = spawnSync(process.execPath, ["--import", "tsx", "src/db/cli.ts", "--validate"], {
+      cwd: serverRoot,
+      encoding: "utf8",
+      env: { ...process.env, OPENVAULT_DB_URL: testDb.url },
+      timeout: 15_000,
+    });
+    expect(cli.error).toBeUndefined();
+    expect(cli.status).toBe(1);
   }, 20_000);
 
   it("should preserve earlier migrations when a later migration fails", async () => {
@@ -204,7 +213,7 @@ describe("codegen migration integration", () => {
       );
       writeFileSync(
         join(directory, "20261030094300_bad.up.sql"),
-        "-- blendsdk-migration: 1\n-- id: 20261030094300_bad\n-- transaction: true\n-- from-snapshot: none\n-- to-snapshot: none\nCREATE TABLE bad_table (\n",
+        "-- blendsdk-migration: 1\n-- id: 20261030094300_bad\n-- transaction: true\n-- from-snapshot: none\n-- to-snapshot: none\nCREATE TABLE partial_probe (id int);\nINSERT INTO missing_table VALUES (1);\n",
       );
 
       await expect(
@@ -212,7 +221,7 @@ describe("codegen migration integration", () => {
       ).rejects.toThrow();
 
       expect(await tableExists(testDb, "org")).toBe(true);
-      expect(await tableExists(testDb, "bad_table")).toBe(false);
+      expect(await tableExists(testDb, "partial_probe")).toBe(false);
     } finally {
       rmSync(directory, { recursive: true, force: true });
     }

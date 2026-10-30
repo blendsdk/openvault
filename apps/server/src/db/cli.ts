@@ -2,6 +2,7 @@ import {
   formatMigrationError,
   getMigrationStatus,
   MigrationError,
+  type MigrationStatus,
   runMigrations,
   validateMigrations,
 } from "blendsdk/codegen";
@@ -13,7 +14,7 @@ import { migrationConfigPath } from "./config.js";
  * @param status - Codegen migration status.
  * @returns True for invalid, locked, or unknown-outcome states.
  */
-function isUnhealthy(status: string): boolean {
+function isUnhealthy(status: MigrationStatus): boolean {
   return status === "INVALID_HISTORY" || status === "LOCKED" || status === "UNKNOWN_OUTCOME";
 }
 

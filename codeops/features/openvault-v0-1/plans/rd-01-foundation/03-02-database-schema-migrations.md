@@ -182,6 +182,10 @@ The `blendsdk_migrations` ledger is excluded from generated domain types and con
 - `principals_user_email_idx` is rendered as an expression index. The codegen snapshot also
   records the supporting `email` column because the normalizer requires a column; the live
   index is still correct.
+- A controlled purge deletes versions first and then the parent row in one transaction. The
+  parent-cascade path is intentionally blocked by the parent-delete trigger.
+- Local databases migrated before the trigger-hardening revision must be recreated; RD-01 has
+  no production data yet.
 
 ## Integration Points
 

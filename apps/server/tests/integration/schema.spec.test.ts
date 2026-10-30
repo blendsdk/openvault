@@ -424,8 +424,8 @@ describe("version protection", () => {
         id: base.secretVersionId,
       }),
     ).rejects.toThrow(/purge role/i);
-    await expect(testDb.db.executeQuery("TRUNCATE secret_versions")).rejects.toThrow(
-      /cannot truncate|TRUNCATE is not allowed/i,
+    await expect(testDb.db.executeQuery("TRUNCATE secrets CASCADE")).rejects.toThrow(
+      /TRUNCATE is not allowed/i,
     );
   });
 

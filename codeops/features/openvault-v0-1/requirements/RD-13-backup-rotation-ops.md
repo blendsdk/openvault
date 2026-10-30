@@ -38,6 +38,11 @@ break-glass procedure.
 - [ ] Containers run as non-root, with read-only root filesystems where possible,
   `cap_drop: ALL`, `no-new-privileges`, and resource limits.
 - [ ] PostgreSQL uses a persistent volume and a healthcheck.
+- [ ] The deployment provisions separate least-privilege roles: `openvault_migrator` owns DDL,
+  `openvault_app` has only runtime DML, `openvault_purger` can execute the controlled purge
+  path, and `openvault_pruner` can execute the audit prune path. The server connects as
+  `openvault_app`; migrations run as `openvault_migrator`; the table owner is never the runtime
+  role.
 - [ ] Structured JSON logs with redaction and request ids.
 - [ ] `/health` and `/ready` behave as defined in RD-02.
 - [ ] Migrations run at startup or via `ov migrate`, idempotently.

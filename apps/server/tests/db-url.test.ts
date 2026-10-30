@@ -22,9 +22,11 @@ describe("parseDatabaseUrl", () => {
     expect(() => parseDatabaseUrl("postgres://user:pass@localhost/db?sslmode=require")).toThrow(
       DatabaseUrlError,
     );
-    expect(() => parseDatabaseUrl("postgres://user:pass@localhost/db?ssl=true")).toThrow(
-      DatabaseUrlError,
-    );
+    for (const value of ["true", "1", "on"]) {
+      expect(() => parseDatabaseUrl(`postgres://user:pass@localhost/db?ssl=${value}`)).toThrow(
+        DatabaseUrlError,
+      );
+    }
   });
 
   it("should reject malformed or incomplete URLs without echoing the password", () => {

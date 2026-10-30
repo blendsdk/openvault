@@ -36,6 +36,13 @@
 | SA-205 | 2.5 | MINOR | tls-parser | fixed |
 | SA-206 | 2.5 | MINOR | error-redaction | fixed |
 | SA-207 | 2.5 | MINOR | migration-coverage | fixed |
+| RR-201 | 2.5 | MINOR | purge-order | fixed |
+| RR-202 | 2.5 | MINOR | rd13-role-requirement | fixed |
+| RR-203 | 2.5 | MINOR | partial-failure-test | fixed |
+| RR-204 | 2.5 | MINOR | truncate-test | fixed |
+| RR-205 | 2.5 | MINOR | ssl-parser | fixed |
+| RR-206 | 2.5 | MINOR | cli-test | fixed |
+| RR-207 | 2.5 | MINOR | pre-release-note | fixed |
 
 Deferral targets: RV-002 → Phase 3 task 3.1.8 (CONTRIBUTING clean-checkout commands);
 SA-004 → Phase 3 task 3.1.6 (exact dependency pins and peer policy).
