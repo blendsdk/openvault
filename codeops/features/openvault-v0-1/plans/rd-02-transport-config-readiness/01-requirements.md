@@ -67,15 +67,15 @@
 
 RD-02 owns the product acceptance criteria. This plan adds only the following plan-local gates:
 
-1. [ ] `pnpm verify` passes, including the root policy tests and docs build.
-2. [ ] PostgreSQL 16 and 17 integration suites pass, including the transport and readiness
+1. [x] `pnpm verify` passes, including the root policy tests and docs build.
+2. [x] PostgreSQL 16 and 17 integration suites pass, including the transport and readiness
    suites.
-3. [ ] No new production dependency is introduced; the runtime uses BlendSDK WebAFX,
+3. [x] No new production dependency is introduced; the runtime uses BlendSDK WebAFX,
    `blendsdk/postgresql`, the BlendSDK pino plugin, Node HTTPS/OpenSSL, and existing core code.
-4. [ ] `db:types:check` remains clean; RD-02 does not change the database schema.
-5. [ ] The in-process test factory remains usable through `app.express` without binding a
+4. [x] `db:types:check` remains clean; RD-02 does not change the database schema.
+5. [x] The in-process test factory remains usable through `app.express` without binding a
    plaintext listener; the plan-local harness tests (`PL-1`/`PL-2`) prove it.
-6. [ ] `apps/server` starts only after config, keyring, TLS, and CA validation; a bad value
+6. [x] `apps/server` starts only after config, keyring, TLS, and CA validation; a bad value
    never binds a port and never reaches migrations with an invalid config.
-7. [ ] The reference `deploy/compose/Caddyfile` passes `caddy validate` (when Caddy or Docker
+7. [x] The reference `deploy/compose/Caddyfile` passes `caddy validate` (when Caddy or Docker
    is available), and ST-34 asserts the corrected global/transport timeout blocks.

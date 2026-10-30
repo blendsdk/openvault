@@ -108,8 +108,8 @@
   validation reporting.
 - SA-506 deferred to RD-14: the release image owns non-root execution and a read-only
   rootfs. Revisit when the image is built and scanned.
-- `caddy validate` is now an explicit skipped test when neither the binary nor the pinned
-  image is available; the text assertions still run everywhere.
+- `caddy validate` now runs against the pinned `caddy:2.10-alpine` image when available
+  (and an explicit skip otherwise); the text assertions still run everywhere.
 
 ## Ruling Vocabulary
 

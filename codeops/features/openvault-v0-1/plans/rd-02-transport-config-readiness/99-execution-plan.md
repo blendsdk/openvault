@@ -2,8 +2,8 @@
 
 > **Document**: 99-execution-plan.md
 > **Parent**: [Index](00-index.md)
-> **Last Updated**: 2026-10-30 14:57
-> **Progress**: 32/33 tasks (97%)
+> **Last Updated**: 2026-10-30 14:59
+> **Progress**: 33/33 tasks (100%)
 > **CodeOps Artifact Schema**: 1
 > **Implements**: openvault-v0-1/RD-02
 > **Reasoning**: high — TLS/mTLS, key custody, proxy trust, and startup ordering are security-sensitive.
@@ -128,7 +128,7 @@
 
 - [x] 4.3.1 [executor] Run `pnpm verify`, `pnpm audit:prod`, `pnpm audit:full`, PostgreSQL 16/17 integration, and `pnpm db:types:check`; record evidence ✅ (completed: 2026-10-30 14:51)
 - [x] 4.3.2 [executor] Run the Phase 4 quality review, record it in `05-findings.md`, and fix every critical/major finding ✅ (completed: 2026-10-30 14:56)
-- [ ] 4.3.3 [executor] Advance the feature roadmap to `Executing`/`Done` as appropriate (preflight already recorded `Plan Preflighted`) and prepare the PR summary with the RD-02 acceptance mapping
+- [x] 4.3.3 [executor] Advance the feature roadmap to `Executing`/`Done` as appropriate (preflight already recorded `Plan Preflighted`) and prepare the PR summary with the RD-02 acceptance mapping ✅ (completed: 2026-10-30 14:59)
 
 **Deliverables:** deployment/docs alignment, verification evidence, final plan state.
 
@@ -141,18 +141,18 @@
 | PostgreSQL 16 integration | 5 files, 63 tests passed |
 | PostgreSQL 17 integration | 5 files, 63 tests passed |
 | `pnpm db:types:check` | Passed against a migrated database; no schema drift |
-| Deployment/artifact root tests | 11 tests passed |
+| Deployment/artifact root tests | 12 tests passed (Caddy validated in the pinned image) |
 | Transport spec + impl | 24 tests passed |
 | Readiness/logging/clock/harness | 13 unit tests and 9 readiness integration tests passed |
 
 ## Success Criteria
 
-1. All 33 tasks completed.
-2. RD-02 acceptance criteria 1–15 have direct ST coverage or an explicit deferred owner:
+1. [x] All 33 tasks completed.
+2. [x] RD-02 acceptance criteria 1–15 have direct ST coverage or an explicit deferred owner:
    - AR-2 (age keyring) → RD-13;
    - AR-3 (agent fingerprint/expiry/revocation) → RD-05;
    - OIDC/auth/session flows → RD-03;
    - secret/certificate handlers → RD-08/RD-09.
-3. `pnpm verify`, both PostgreSQL integration suites, and both audit commands pass.
-4. No new production dependency; no source maps; no key material in logs or build output.
-5. The execution plan and `05-findings.md` record every review ruling; preflight decisions remain in `00-preflight-report.md`.
+3. [x] `pnpm verify`, both PostgreSQL integration suites, and both audit commands pass.
+4. [x] No new production dependency; no source maps; no key material in logs or build output.
+5. [x] The execution plan and `05-findings.md` record every review ruling; preflight decisions remain in `00-preflight-report.md`.

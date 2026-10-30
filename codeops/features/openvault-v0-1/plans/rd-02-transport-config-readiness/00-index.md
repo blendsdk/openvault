@@ -1,7 +1,7 @@
 # RD-02 Transport, Configuration, and Readiness Implementation Plan
 
 > **Feature**: Typed fail-closed configuration, HTTPS/mTLS listeners, proxy trust, request limits, redacted logging, and truthful readiness for OpenVault.
-> **Status**: Plan Preflighted — ready for execution
+> **Status**: Done — executed and verified
 > **Created**: 2026-10-30 12:14
 > **Preflight**: [00-preflight-report.md](00-preflight-report.md) — 24 findings resolved
 > **Implements**: openvault-v0-1/RD-02
@@ -92,6 +92,62 @@ OPENVAULT_TEST_DB=1 pnpm --filter @openvault/server test:integration
 | Readiness | WebAFX `/health` plus root `/ready` dependency probe |
 | Logging | BlendSDK pino plugin with the documented path-based redaction and a no-nested-object handler rule |
 | Deployment | Dedicated `admin_net`, pinned proxy CIDR, Caddy HSTS/timeouts |
+
+## PR Summary
+
+**Branch:** `feat/rd-02-transport-config-readiness` (base `main` at `e4b21f1`)
+
+**What changed**
+
+- Typed Zod configuration with fail-closed file, mode, CIDR, URL, duration, and port checks.
+- Hardened core keyring (scoped callback access, redacted serialization/inspection, `#private`
+  storage, idempotent destroy) plus a server provider with exact `0600` loading.
+- A `SecureWebApplication` adapter that owns admin HTTPS and agent mTLS listeners over one
+  WebAFX application, with one shutdown and no plaintext `start()`.
+- TLS material validation, CIDR proxy trust, default-deny listener scope, request
+  correlation, strict headers/no-store, media-type rejection, and 64/128 KiB body limits.
+- Root `/ready` with bounded PostgreSQL, keyring, TLS, and audit probes; `/health` remains
+  liveness only.
+- Shared pino logging with the documented redaction paths and a 30-second clock-skew helper.
+- Reference Compose `admin_net`, pinned proxy CIDR, CA-only proxy mount, healthcheck, and
+  Caddy HSTS/timeouts; documentation aligned with the implemented contract.
+
+**Acceptance mapping**
+
+| RD-02 AC | Evidence |
+|---|---|
+| 1 | `loadConfig` + `main.ts` fail-closed ordering; ST-33 startup spec |
+| 2 | ST-2/ST-5/ST-39 config and TLS-material tests; startup spec |
+| 3 | ST-4 keyring permission case; server provider tests |
+| 4 | ST-16 direct admin rejection; source guard |
+| 5 | ST-18 missing/unknown-CA client certificate cases |
+| 6 | ST-20 matcher/trust tests; agent forwarded-header stripping test |
+| 7 | ST-28/ST-29 readiness success/failure matrix; ST-30 timeout |
+| 8 | ST-22 64/128 KiB boundary cases |
+| 9 | ST-21 headers/no-store/no-CORS assertions |
+| 10 | ST-24 envelope and production-error tests; WebAFX terminal handler |
+| 11 | ST-19 scope matrix; ST-24 envelope assertions |
+| 12 | ST-21 cross-origin assertion |
+| 13 | ST-38 clock-skew boundaries; enforcement deferred to RD-03/RD-05 |
+| 14 | ST-12/ST-13 redaction and destroy tests; code-review zeroization gate |
+| 15 | Transport/readiness/security suites, audits, and Phase 1–4 reviews |
+
+**Deferred owners**
+
+- Age keyring and export/provisioning: RD-13; `OPENVAULT_KEYRING_PASSPHRASE_FILE` fails closed.
+- Agent fingerprint, expiry, and revocation: RD-05.
+- OIDC, browser sessions, and CSRF: RD-03/RD-06.
+- Secret and certificate product routes: RD-08/RD-09.
+- Static UI and CSP expansion: RD-12.
+- Non-root/read-only release image: RD-14.
+- `ov init` keyring/TLS provisioning: RD-11/RD-13; the reference stack is not bootable until then.
+
+**Verification**
+
+`pnpm verify`, `pnpm audit:prod`, `pnpm audit:full`, `pnpm db:types:check`, PostgreSQL 16/17
+integration (63 tests each), transport (24), readiness (9), and `caddy validate` against
+`caddy:2.10-alpine` all pass. Preflight and execution review rulings are recorded in
+[00-preflight-report.md](00-preflight-report.md) and [05-findings.md](05-findings.md).
 
 ## Specialist Agents
 

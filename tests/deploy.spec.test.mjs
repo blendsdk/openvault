@@ -1,5 +1,7 @@
 import { spawnSync } from "node:child_process";
-import { readFileSync } from "node:fs";
+import { mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
 import { parse } from "yaml";
@@ -11,6 +13,37 @@ const hasCaddyImage =
   spawnSync("docker", ["image", "inspect", "caddy:2.10-alpine"], {
     encoding: "utf8",
   }).status === 0;
+const hasOpenSsl = spawnSync("openssl", ["version"], { encoding: "utf8" }).status === 0;
+
+function createCaDirectory() {
+  const directory = mkdtempSync(join(tmpdir(), "openvault-caddy-"));
+  const result = spawnSync(
+    "openssl",
+    [
+      "req",
+      "-x509",
+      "-newkey",
+      "rsa:2048",
+      "-nodes",
+      "-keyout",
+      join(directory, "ca.key"),
+      "-out",
+      join(directory, "ca.pem"),
+      "-days",
+      "1",
+      "-subj",
+      "/CN=OpenVault Test CA",
+      "-addext",
+      "basicConstraints=critical,CA:TRUE",
+    ],
+    { encoding: "utf8" },
+  );
+  if (result.status !== 0) {
+    rmSync(directory, { recursive: true, force: true });
+    throw new Error(`OpenSSL CA fixture failed: ${result.stderr}`);
+  }
+  return directory;
+}
 
 function readCompose() {
   return parse(readFileSync(composePath, "utf8"));
@@ -92,18 +125,40 @@ describe("deployment contract", () => {
     expect(caddy).not.toContain("idle_timeout");
   });
 
-  it.skipIf(!hasCaddy && !hasCaddyImage)(
+  it.skipIf(!hasOpenSsl || (!hasCaddy && !hasCaddyImage))(
     "passes caddy validate when Caddy or the pinned image is available",
     () => {
-      const result = hasCaddy
-        ? spawnSync("caddy", ["validate", "--config", caddyPath], { encoding: "utf8" })
-        : spawnSync(
+      const caDirectory = createCaDirectory();
+      try {
+        let result;
+        if (hasCaddy) {
+          const configDirectory = mkdtempSync(join(tmpdir(), "openvault-caddy-config-"));
+          try {
+            const config = readFileSync(caddyPath, "utf8").replaceAll(
+              "/etc/openvault/ca/ca.pem",
+              join(caDirectory, "ca.pem"),
+            );
+            const configPath = join(configDirectory, "Caddyfile");
+            writeFileSync(configPath, config);
+            result = spawnSync("caddy", ["validate", "--config", configPath], {
+              encoding: "utf8",
+              env: { ...process.env, ACME_EMAIL: "admin@example.com" },
+            });
+          } finally {
+            rmSync(configDirectory, { recursive: true, force: true });
+          }
+        } else {
+          result = spawnSync(
             "docker",
             [
               "run",
               "--rm",
+              "-e",
+              "ACME_EMAIL=admin@example.com",
               "-v",
               `${caddyPath}:/etc/caddy/Caddyfile:ro`,
+              "-v",
+              `${caDirectory}:/etc/openvault/ca:ro`,
               "caddy:2.10-alpine",
               "caddy",
               "validate",
@@ -112,7 +167,11 @@ describe("deployment contract", () => {
             ],
             { encoding: "utf8" },
           );
-      expect(result.status, result.stderr).toBe(0);
+        }
+        expect(result.status, result.stderr).toBe(0);
+      } finally {
+        rmSync(caDirectory, { recursive: true, force: true });
+      }
     },
   );
 });
