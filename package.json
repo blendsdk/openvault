@@ -23,6 +23,8 @@
     "db:types:check": "pnpm --filter @openvault/server db:types:check",
     "check:artifacts": "node scripts/check-artifacts.mjs",
     "check:react": "node scripts/check-single-react.mjs",
+    "audit:prod": "pnpm audit --prod --audit-level=high",
+    "audit:full": "pnpm audit --audit-level=high",
     "verify": "pnpm build && pnpm typecheck && pnpm lint && pnpm test && pnpm check:artifacts && pnpm check:react && pnpm docs:build",
     "docs:dev": "vitepress dev docs",
     "docs:build": "vitepress build docs",
@@ -38,7 +40,7 @@
     "@changesets/cli": "3.0.3",
     "@types/node": "^22.15.0",
     "typescript": "7.0.2",
-    "vitepress": "1.6.4",
+    "vitepress": "2.0.0-alpha.21",
     "vitest": "5.0.5"
   }
 }
