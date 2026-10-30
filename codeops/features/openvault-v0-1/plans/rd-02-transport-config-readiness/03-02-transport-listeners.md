@@ -65,13 +65,30 @@ Rules:
 4. Shutdown closes both servers with `Promise.all`, sets the app started, calls WebAFX
    `shutdown()` for plugin/service disposal, destroys the keyring provider, and removes signal
    handlers. It is idempotent and has a hard timeout. It does not reuse WebAFX's one-server
-   `createShutdownFn` or `setupSignalHandlers` (AR-4).
+   `createShutdownFn`; its own signal-handler set covers both listeners (AR-4).
 5. If binding the second server fails, the first is closed and keyring material is destroyed.
 6. `loadConfiguration()` is a no-op so WebAFX cannot load `.env.js`/`.env.local.js` after the
    Zod loader (AR-11).
 
-`startTransport` throws a startup error if the application has no TLS material; the factory in
-`apps/server/src/app.ts` must always supply it.
+`startTransport` throws a startup error if the application has no TLS material. The adapter does
+not read `process.env` or files itself. `createApplication(config, dependencies)` supplies the
+validated runtime dependencies through a small `SecureApplicationDependencies` interface:
+
+```ts
+export interface SecureApplicationDependencies {
+  readonly database: PostgreSQLDatabase;
+  readonly tls: TlsMaterial;
+  readonly keyring: KeyringProvider;
+  /** Test override; production builds probes from database/tls/keyring. */
+  readonly readinessProbes?: readonly ReadinessProbe[];
+}
+```
+
+`createApplication` installs the pre-stack on `app.express` before `prepare()`, builds the
+production readiness probes when `readinessProbes` is absent, and owns the database dispose hook.
+`createTestApplication(config, dependencies)` reuses the same assembly, accepts fake
+`readinessProbes`, and returns the app for supertest without calling `startTransport`.
+`createApplication` is the only production construction path.
 
 ## TLS Material
 
@@ -154,6 +171,9 @@ percent-encoded letters, duplicate slashes, trailing slashes, absolute-form URLs
 The middleware is installed on `app.express` before `prepare()` so it executes before
 WebAFX's core parsers. Order:
 
+0. Correlation ID: reuse a valid inbound `X-Request-ID` UUID or generate one, then set `req.id`,
+   the `X-Request-ID` response header, and `req.headers["x-request-id"]` so WebAFX's later
+   request-id middleware reuses the same value. This runs before every rejection path.
 1. Helmet with the strict API CSP (03-03) and existing Helmet baseline.
 2. `/v1` `Cache-Control: no-store`.
 3. Listener scope.
@@ -162,7 +182,16 @@ WebAFX's core parsers. Order:
 6. Content-Length precheck.
 7. JSON parser with `limit: "128kb"` and a `verify` byte counter.
 8. Body-parser error mapper (413/400).
-9. WebAFX `initialize()` middleware, plugins, controllers, `/health`, 404, error handler.
+9. Pre-stack error logger: call the shared pino provider with the WebAFX message-first signature
+   (`warn("request rejected", { requestId, method, path, statusCode, code })`), then call
+   `next(error)`. Guard on `!req.services` so only errors raised before `prepare()` are logged
+   here; WebAFX's terminal handler remains the single envelope renderer.
+10. WebAFX `initialize()` middleware, plugins, controllers, `/health`, 404, error handler.
+
+The correlation middleware and the pre-stack logger are why a 403/404/400/413/415 response still
+carries `requestId` and an `X-Request-ID` header, and why the rejection appears once in the
+structured log. Use `createLoggerPlugin(provider)` (the two-step pino API) rather than the
+one-liner so the pre-stack logger and `req.log` share the same provider and redaction policy.
 
 ### Limits
 
@@ -175,7 +204,14 @@ WebAFX's core parsers. Order:
 The parser is installed with a 128 KiB ceiling. `verify` checks the actual bytes for the
 normalised path and throws `ApiError(413, "payload_too_large", "Payload too large")`. An
 oversized `Content-Length` is rejected before reading the body. WebAFX's own `BODY_LIMIT` is
-set to `128kb` as a second ceiling; `req._body` prevents a second parse.
+set to `128kb` as a second ceiling. Installed body-parser 2.4.0 skips its own read because the
+custom parser has already finished the Request stream (`onFinished.isFinished(req)`); it does
+not use a `req._body` flag. The implementation test asserts that the body is parsed exactly once
+and that the pre-parser limit still wins, not that `req._body` exists.
+
+These transport guardrails are fixed at RD-02's required values. `OPENVAULT_SECRET_MAX_BYTES`
+and `OPENVAULT_CERT_MAX_BYTES` are product-value limits enforced in RD-08/RD-09 and do not
+change the parser boundary (03-01).
 
 `application/x-www-form-urlencoded` under `/v1` returns
 `ApiError(415, "unsupported_media_type", "Use application/json")`. WebAFX's URL-encoded parser
@@ -202,25 +238,30 @@ AR-14).
 | `maxConnections` (admin) | 1024 |
 | `maxConnections` (agent) | 512 |
 
-Caddy adds 30 s read/write and 120 s idle timeouts (03-04).
+Caddy enforces the client leg with the global `servers.timeouts` block and the upstream leg with
+`transport http` read/write timeouts and `keepalive` (the exact Caddyfile is in 03-04). The
+upstream keepalive stays below the origin's 15 s `keepAliveTimeout` to avoid intermittent 502s
+on reused connections.
 
 ## Error Handling
 
 | Condition | Result |
 |---|---|
 | Missing/invalid client certificate | TLS handshake failure on agent listener |
-| Admin peer outside proxy CIDRs | `403` WebAFX envelope; no controller |
-| Admin peer on loopback for non-health path | `403` |
-| Client asks for agent path on admin (or vice versa) | `404` WebAFX envelope |
-| Oversized body | `413 payload_too_large` |
-| URL-encoded body under `/v1` | `415 unsupported_media_type` |
-| Malformed JSON | `400 invalid_json` |
+| Admin peer outside proxy CIDRs | `403` WebAFX envelope; no controller; `requestId` and `X-Request-ID` present; logged once |
+| Admin peer on loopback for non-health path | `403`; same correlation/logging |
+| Client asks for agent path on admin (or vice versa) | `404` WebAFX envelope; same correlation/logging |
+| Oversized body | `413 payload_too_large`; same correlation/logging |
+| URL-encoded body under `/v1` | `415 unsupported_media_type`; same correlation/logging |
+| Malformed JSON | `400 invalid_json`; same correlation/logging |
 | Unknown route | WebAFX `404` envelope |
 | Unexpected handler error | WebAFX `500` envelope, no stack in production |
 
 The error mapper converts body-parser's `entity.too.large` and syntax errors before WebAFX's
-final error handler; all responses keep the standard `{ success: false, error, requestId, path }`
-shape.
+final error handler. All responses use WebAFX's envelope
+`{ success: false, error: { code, message, statusCode, timestamp, requestId, path } }`; `requestId`
+and `path` are nested inside `error`, matching `03-03` and the framework renderer. The pre-stack
+correlation middleware supplies the ID and the pre-stack logger records the rejection once.
 
 ## Startup and Shutdown Sequence
 
@@ -264,8 +305,11 @@ plaintext port.
 
 ## Testing Requirements
 
-- ST-15–ST-26 in [07-testing-strategy.md](07-testing-strategy.md) cover TLS, mTLS, no plaintext,
-  scope isolation, proxy trust, headers, limits, and error envelopes.
+- ST-15–ST-26 and ST-39 in [07-testing-strategy.md](07-testing-strategy.md) cover TLS, mTLS,
+  no plaintext, scope isolation, proxy trust, headers, limits, error envelopes, and real
+  `TlsMaterial` validation failures.
+- ST-19 includes non-`/v1` prefix denials; ST-32 asserts that a 403/413/415 pre-stack rejection
+  carries `requestId` and `X-Request-ID` and produces one structured log entry.
 - Integration tests use `apps/server/tests/integration/helpers/tls.ts` to generate a temporary
   CA/server/client fixture with the system `openssl`; no private keys are committed.
 - Listener tests bind ephemeral ports through `startTransport({ adminPort: 0, agentPort: 0 })`.

@@ -13,7 +13,7 @@ and keyring contract.
 
 The deployment target and network model are owned by RD-02 and
 [RD-13](../../requirements/RD-13-backup-rotation-ops.md); this document records the RD-02
-changes (AR-7, AR-16).
+changes (AR-7, AR-16, AR-25).
 
 ## Compose Topology
 
@@ -69,13 +69,44 @@ loopback source, `/health`, TLS, and no host port publication.
 
 ### Caddy
 
-`deploy/compose/Caddyfile` keeps the upstream TLS connection to `openvaultd:8443` and adds:
+`deploy/compose/Caddyfile` keeps the upstream TLS connection to `openvaultd:8443` and adds
+client and upstream timeouts plus HSTS:
 
-- `Strict-Transport-Security: max-age=31536000; includeSubDomains` at the public edge;
-- upstream `tls_trusted_ca_certs /etc/openvault/tls/ca.pem`;
-- `read_timeout 30s`, `write_timeout 30s`, and `idle_timeout 120s` on the reverse proxy;
-- no HSTS on plain HTTP before redirect;
-- no `8443` listener.
+```caddyfile
+{
+  email {$ACME_EMAIL}
+  servers {
+    timeouts {
+      read_header 10s
+      read_body 30s
+      write 30s
+      idle 120s
+    }
+  }
+}
+
+https://localhost {
+  tls internal
+  header Strict-Transport-Security "max-age=31536000; includeSubDomains"
+
+  reverse_proxy openvaultd:8443 {
+    transport http {
+      tls
+      tls_trusted_ca_certs /etc/openvault/tls/ca.pem
+      tls_server_name openvaultd
+      read_timeout 30s
+      write_timeout 30s
+      keepalive 10s
+    }
+  }
+}
+```
+
+There is no `idle_timeout` subdirective on `reverse_proxy`; Caddy rejects it. The upstream
+`keepalive` stays below the origin's 15 s `keepAliveTimeout` to avoid 502s on reused
+connections. Phase 4 runs `caddy validate --config deploy/compose/Caddyfile` when Caddy/Docker
+is available; ST-34 also asserts the exact directives and the absence of `idle_timeout` under
+`reverse_proxy`.
 
 The proxy certificate remains the public TLS trust anchor. The server certificate is separate
 and is trusted by Caddy through the internal CA.
@@ -86,7 +117,7 @@ Update `docs/reference/configuration.md`:
 
 - Keyring path is required, with mode `0600`.
 - `OPENVAULT_ADMIN_PORT` is canonical; `PORT` is a compatibility alias; a conflict is an error.
-- `OPENVAULT_AGENT_PORT` and `OPENVAULT_INTERNAL_CA` are required.
+- `OPENVAULT_INTERNAL_CA` is required; `OPENVAULT_AGENT_PORT` is optional with default `8444`.
 - `OPENVAULT_PROXY_CIDRS` is the only source allowed to set forwarded headers; the reference
   Compose uses a single proxy address.
 - `OPENVAULT_KEYRING_PASSPHRASE_FILE` is reserved for RD-13; setting it in RD-02 fails closed.
@@ -97,6 +128,19 @@ Update `docs/reference/configuration.md`:
 Update `deploy/compose/README.md` with the network table and the required environment. Add
 `openssl` to the local development prerequisites in `CONTRIBUTING.md` for the transport test
 fixtures.
+
+Also update the pages that describe the old topology or keyring behavior:
+
+- `docs/guide/install.md` — 8443 is the admin listener on `admin_net`, 8444 is the mTLS agent
+  listener on `vault_net`, and no host port is published;
+- `docs/guide/docker-compose.md` — agent examples use `https://openvaultd:8444` with the client
+  certificate, never the admin listener;
+- `docs/architecture/overview.md` — proxy, server, agents, and PostgreSQL network placement;
+- `docs/security/threat-model.md` — age/passphrase keyrings are unsupported until RD-13 and
+  `ov init` is the keyring provisioner.
+
+Leaving these pages on the old 8443/`vault_net` model would point agents at the admin guard and
+misstate the trust boundary.
 
 ## Security Properties
 
@@ -119,7 +163,10 @@ fixtures.
 ## Testing Requirements
 
 - ST-34 in [07-testing-strategy.md](07-testing-strategy.md) asserts the Compose network,
-  required environment, no published `8443`, Caddy HSTS, and proxy timeouts.
+  required environment, no published `8443`/`8444`, Caddy HSTS, the global/transport timeout
+  blocks, and the absence of `idle_timeout` under `reverse_proxy`; `caddy validate` runs when
+  Caddy or Docker is available. Add `yaml` as a root **devDependency** so the test parses the
+  Compose file structurally; production dependencies are unchanged.
 - Documentation checks are part of `pnpm docs:build`; links resolve and the configuration page
   matches the implemented variable names.
 - No test or documentation example includes a real secret, private key, or keyring value.

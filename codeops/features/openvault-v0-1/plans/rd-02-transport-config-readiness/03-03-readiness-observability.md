@@ -32,25 +32,38 @@ root path and uses the WebAFX success/error envelopes.
 
 ```ts
 export interface ReadinessProbe {
+  readonly name: "postgresql" | "keyring" | "tls" | "audit";
   check(): Promise<void>;
 }
 
 export class ReadinessService {
   public constructor(
-    private readonly database: PostgreSQLDatabase,
-    private readonly keyring: KeyringProvider,
-    private readonly tls: TlsMaterial,
+    private readonly probes: readonly ReadinessProbe[],
     private readonly timeoutMs = 2_000,
   );
   public async check(): Promise<void>;
 }
 ```
 
-`check()` runs the following probes with a single 2 s timeout around the whole operation:
+`createApplication` builds the production probes from `PostgreSQLDatabase`,
+`KeyringProvider`, and `TlsMaterial`; tests pass fake `ReadinessProbe` objects for the failure
+matrix. No unsafe cast or `vi.spyOn` on a concrete adapter is needed.
+
+`check()` runs the following probes with a single 2 s timeout around the whole operation. A
+failed probe throws `ReadinessError`, which carries a fixed probe name and never a SQL string,
+host, path, or key:
+
+```ts
+export class ReadinessError extends Error {
+  public readonly probe: "postgresql" | "keyring" | "tls" | "audit" | "timeout";
+  public constructor(probe: ReadinessError["probe"]);
+}
+```
 
 1. **PostgreSQL** — `database.executeQuery("SELECT 1")`. The pool is constructed with
-   `connectionTimeoutMillis: 2_000` and `enableGracefulShutdown: false`; the service owns
-   disconnect on application shutdown.
+   `poolConfig: { connectionTimeoutMillis: 2_000 }` and `enableGracefulShutdown: false`; the
+   application factory owns the pool's dispose hook. `connectionTimeoutMillis` is a `poolConfig`
+   field, not a top-level `PostgreSQLConfig` field.
 2. **Keyring** — `keyring.status()` reports loaded and a current key id. The probe never reads
    key bytes.
 3. **TLS/CA** — `tls` reports parsed server certificate/key match and a CA with `CA:TRUE` and a
@@ -61,15 +74,18 @@ export class ReadinessService {
 5. **Timeout** — `Promise.race` returns `ReadinessError` at 2 s. The error contains no SQL,
    host, path, or key material.
 
-Any failure makes the controller throw:
+Each production probe translates an expected adapter/dependency failure into `ReadinessError`;
+programming errors propagate unchanged. The controller catches only that type, logs the fixed
+probe name at `warn` through `req.log`, and throws:
 
 ```ts
 new ApiError(503, "not_ready", "Not ready");
 ```
 
-The response is the standard WebAFX error envelope with `requestId` and `path`. No internal
-reason is exposed; the detailed reason is logged at `warn` with a fixed probe name and no
-secret values.
+Other errors remain 500, so an unexpected handler bug is not disguised as a dependency outage.
+The response is the standard WebAFX error envelope with `requestId` and `path` nested inside
+`error`. No internal reason is exposed; the logged reason contains only the fixed probe name and
+no secret values.
 
 ## Controller
 
@@ -81,8 +97,17 @@ export class ReadyController extends BaseController {
     return [
       this.route()
         .get("/ready")
-        .handle(async (_req, res) => {
-          await this.services.get<ReadinessService>("readiness").check();
+        .handle(async (req, res) => {
+          const readiness = await this.services.get<ReadinessService>("readiness");
+          try {
+            await readiness.check();
+          } catch (error) {
+            if (error instanceof ReadinessError) {
+              await req.log.warn("readiness probe failed", { probe: error.probe });
+              throw new ApiError(503, "not_ready", "Not ready");
+            }
+            throw error;
+          }
           this.ok(res, { status: "ready" });
         }),
     ];
@@ -90,18 +115,28 @@ export class ReadyController extends BaseController {
 }
 ```
 
+`ServiceContainer.get()` is asynchronous; the `await` is part of the API contract, not an
+optional style choice. A blanket catch would turn genuine bugs into 503s, so only
+`ReadinessError` is translated.
+
+WebAFX's `Logger` is **message-first**: `warn(message, data)`, not pino's object-first order.
+The `Express.Request.log` augmentation uses the WebAFX `Logger` type, so the controller and the
+pre-stack logger both call `warn("readiness probe failed", { probe })`.
+
 The controller is mounted with `app.registerController("", ReadyController)`. The old
 `/v1/ready` route and its constant body are removed.
 
 ## Logging
 
-`apps/server/src/observability/logger.ts` uses BlendSDK `pinoLoggerPlugin`:
+`apps/server/src/observability/logger.ts` uses the two-step BlendSDK pino API so the pre-stack
+error logger and the request logger share one provider:
 
 ```ts
-app.use(
-  pinoLoggerPlugin({
-    level: config.logLevel,
-    redact: [
+import { createLoggerPlugin, PinoLoggerProvider } from "blendsdk/webafx-pino";
+
+const provider = new PinoLoggerProvider({
+  level: config.logLevel,
+  redact: [
       "req.headers.authorization",
       "req.headers.cookie",
       'res.headers["set-cookie"]',
@@ -116,21 +151,38 @@ app.use(
       "*.token",
       "*.value",
       "*.privateKey",
+      "req.body.password",
+      "req.body.token",
+      "req.body.value",
+      "req.body.privateKey",
     ],
-  }),
-);
+});
+
+app.use(createLoggerPlugin(provider));
 ```
+
+Pino redaction is path-based and each `*` wildcard covers one level. The list covers the
+documented top-level fields, the authorization/cookie headers, and the known one-level request
+body shapes; it is not recursive.
 
 Rules:
 
-- The pino plugin replaces WebAFX's default logger and registers `req.log`.
-- Request IDs from WebAFX's request-id middleware are bound to `req.log`.
+- The pino plugin replaces WebAFX's default logger and registers `req.log`; the pre-stack error
+  logger (03-02) uses the same provider and redaction list.
+- Add `apps/server/src/types/express.d.ts` with an `Express.Request.log: Logger` module
+  augmentation (WebAFX declares `id` but not `log`); the pino plugin supplies the runtime value.
+- Request IDs from WebAFX's request-id middleware are bound to `req.log`; a pre-stack rejection
+  carries the correlation middleware's ID.
 - The config object, keyring, TLS material, and raw environment are never logged.
 - Startup config failures log only the environment key and a fixed reason.
 - API handlers must keep credentials out of URL query strings; pino redaction is field/path
   based. RD-03/RD-05 use headers and bodies. This is recorded in AR-20.
+- Handlers must not log raw request bodies, config objects, keyring/TLS objects, or arbitrary
+  nested objects; log explicit fields. Pino's wildcard redaction is one level deep, so a
+  handler-created nested object is outside the redaction guarantee.
 - Structured log tests use a `Writable` destination and assert that a token, value, password,
-  private key, authorization header, and set-cookie value are redacted.
+  private key, authorization header, and set-cookie value are redacted, including a
+  `req.body.token` field and a documented one-level `*.token` field.
 
 ## Error Handling
 
@@ -160,8 +212,9 @@ export function isWithinClockSkew(
 ```
 
 The helper accepts a 30-second early/late tolerance and is used by RD-03 token validation and
-RD-05 certificate validation. RD-02 tests the boundary values with an injected clock; it does
-not implement a token or agent certificate validator (RD-03/RD-05 own those flows).
+RD-05 certificate validation. ST-38 tests the exact-30-second, 30-second-plus-1 ms, and
+early/late boundaries with an injected clock; RD-02 does not implement a token or agent
+certificate validator (RD-03/RD-05 own those flows).
 
 ## Operational Behavior
 
@@ -185,8 +238,8 @@ not implement a token or agent certificate validator (RD-03/RD-05 own those flow
 
 ## Testing Requirements
 
-- ST-27–ST-32 in [07-testing-strategy.md](07-testing-strategy.md) cover liveness, readiness
-  success/failure/timeout, error envelopes, log redaction, and clock-skew boundaries.
+- ST-27–ST-32 and ST-38 in [07-testing-strategy.md](07-testing-strategy.md) cover liveness,
+  readiness success/failure/timeout, error envelopes, log redaction, and clock-skew boundaries.
 - Readiness tests inject fake probes for the failure matrix and use a real migrated database
   for the success path.
 - Logging tests capture pino output and assert both redaction and request correlation.

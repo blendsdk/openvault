@@ -43,6 +43,7 @@ export interface OpenVaultConfig {
   readonly baseUrl: URL;
   readonly adminPort: number;
   readonly agentPort: number;
+  readonly envMode: "production" | "development" | "test";
   readonly databaseUrl: string;
   readonly database: PostgreSQLConfig;
   readonly keyringPath: string;
@@ -87,10 +88,13 @@ any file content. The startup reporter uses only `error.key` and `error.message`
 1. Read the supplied environment object (defaults to `process.env`); never mutate it.
 2. Parse required values with explicit Zod transforms. Do not use a loose `z.coerce` where it
    would accept `"0"` or an empty string for a required value.
-3. Validate URL schemes, integer ranges, durations, booleans, and CIDRs.
+3. Validate URL schemes, integer ranges, durations, booleans, CIDRs, and `ENV_MODE`
+   (`production`/`development`/`test`, default `production`). `ENV_MODE` is part of the typed
+   config so the stack-trace switch cannot bypass validation.
 4. Resolve and validate required file paths and file modes.
-5. Return a frozen `OpenVaultConfig`.
-6. Build `toRedactedConfig(config)` for support output. It redacts the database password and
+5. Reject an admin/agent port collision before any socket or database work.
+6. Return a frozen `OpenVaultConfig`.
+7. Build `toRedactedConfig(config)` for support output. It redacts the database password and
    OIDC client secret and never includes file contents.
 
 ### Port precedence
@@ -98,7 +102,9 @@ any file content. The startup reporter uses only `error.key` and `error.message`
 `OPENVAULT_ADMIN_PORT` is the canonical admin port. If it is absent, `PORT` is accepted as a
 compatibility alias. If both are present and differ, startup fails with
 `OPENVAULT_ADMIN_PORT: conflicts with PORT`. `OPENVAULT_AGENT_PORT` is independent and defaults
-to `8444`. Both ports are validated as integers 1–65535. (AR-12)
+to `8444`. Both ports are validated as integers 1–65535, and `OPENVAULT_AGENT_PORT` must differ
+from the resolved admin port; equality fails with a keyed `ConfigError` naming both variables
+before migrations or binding. (AR-12)
 
 ### Required files
 
@@ -136,12 +142,12 @@ rejected even when the process owns them. (AR-10, AR-2)
 
 ### WebAFX bridge
 
-`createWebApplicationConfig(config, envMode)` returns only:
+`createWebApplicationConfig(config)` returns only:
 
 ```ts
 {
   PORT: config.adminPort,
-  ENV_MODE: envMode,
+  ENV_MODE: config.envMode,
   LOG_LEVEL: config.logLevel.toUpperCase(),
   BODY_LIMIT: "128kb",
   CORS: false,
@@ -152,17 +158,29 @@ rejected even when the process owns them. (AR-10, AR-2)
 `SecureWebApplication` overrides WebAFX's protected `loadConfiguration()` to a no-op so
 `.env.js` and `.env.local.js` cannot overwrite a validated value (AR-11).
 
+### Body-limit precedence
+
+RD-02's transport guardrails are fixed at 64 KiB for secret routes and 128 KiB for certificate
+routes (03-02). `OPENVAULT_SECRET_MAX_BYTES` and `OPENVAULT_CERT_MAX_BYTES` are validated here
+because RD-02 documents them, but they are product-value limits enforced by RD-08/RD-09; they do
+not widen or narrow the transport boundary. The plan states this so an operator does not expect
+`OPENVAULT_SECRET_MAX_BYTES=1024` to tighten the HTTP parser in RD-02.
+
 ### Redacted support output
 
-`toRedactedConfig(config)` returns a JSON-safe object with:
+`toRedactedConfig(config)` returns a JSON-safe object built from an explicit allowlist:
 
-- `databaseUrl` password replaced by `***`;
-- OIDC client secret replaced by `***`;
-- keyring/passphrase/TLS paths shown as paths (not contents);
-- all other validated values as-is.
+- `baseUrl` as its `href`;
+- `adminPort`, `agentPort`, `envMode`, and the non-secret scalar settings;
+- `database` as `{ host, port, database, user, pass: "***" }`; the raw `databaseUrl` is never
+  included, so the password exists in exactly one masked representation;
+- `oidc` only when configured, with `clientSecret: "***"`;
+- keyring/passphrase/TLS paths shown as paths (not contents).
 
-It must never be called with `process.env` and must never include `OPENVAULT_DB_URL` raw.
-A test asserts that a known password and client secret do not appear in the result.
+It must never be called with `process.env` and must never include `OPENVAULT_DB_URL` raw. A test
+serializes the result and asserts that the known database password, the known `database.pass`,
+and the OIDC client secret are absent. Building from an allowlist is deliberate: a future secret
+field is omitted by default rather than leaked by a spread.
 
 ## Keyring Hardening
 
@@ -203,6 +221,13 @@ The old round-trip test that encoded via `toJSON()` must be replaced with a base
 redaction test. RD-13 owns a storage/export API for backup and rotation; it is not added here
 (AR-2, AR-9).
 
+**Provisioning boundary.** `toJSON()` no longer writes key bytes, so RD-02 does not create the
+initial keyring file. `ov init` (RD-11) will use the RD-13 export API to write it; the reference
+stack is not bootable until that lands. RD-02 tests use temporary keyring fixtures and
+`01-requirements.md` records this as a deferred dependency. Zeroization is best-effort: ST-13
+asserts only the observable behavior (idempotent `destroy()`, access throws after destroy);
+actual buffer wiping is a code-review gate because Node cannot guarantee it.
+
 ### Server provider
 
 `apps/server/src/security/keyring.ts` adds `KeyringProvider`:
@@ -212,10 +237,15 @@ redaction test. RD-13 owns a storage/export API for backup and rotation; it is n
   any failure.
 - `status()` returns `{ loaded: boolean; currentId?: string; keyCount: number }`. It never
   returns a key buffer or key bytes.
+- `toJSON()` returns the same status shape, so `JSON.stringify(provider)` cannot traverse the
+  private keyring object.
+- `[Symbol.for("nodejs.util.inspect.custom")]` returns
+  `KeyringProvider(loaded=<bool>, current=<id>, keys=<count>)`.
 - `destroy()` delegates to `Keyring.destroy()`.
 - It is registered as a singleton service with a dispose hook. The application shutdown path
   also calls `destroy()` defensively so zeroization happens even if plugin shutdown fails.
-- The provider is never serialized. `JSON.stringify(provider)` returns status only.
+- The provider is never serialized beyond the redacted status; a test covers both `toJSON()` and
+  `util.inspect`.
 
 ## Startup Order
 

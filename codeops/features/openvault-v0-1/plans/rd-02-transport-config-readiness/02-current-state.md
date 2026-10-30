@@ -34,8 +34,11 @@
 | `packages/core/src/keyring.ts` | Raw-buffer keyring API | Callback access, redaction, inspect, destroy |
 | `packages/core/src/crypto.ts` | Envelope crypto | Adapt to the hardened keyring API |
 | `packages/core/src/index.ts` | Core exports | Remove raw key-material export |
+| `apps/server/tests/integration/migrations.spec.test.ts` | Migration startup regression tests | Supply a complete valid config fixture; assert the migration-specific failure |
+| `apps/server/tests/ready.test.ts` | Legacy `/v1/ready` test | Replace with the PL-1/PL-2 harness tests |
+| `packages/core/tests/crypto.test.ts` | Keyring and envelope tests | Update to callback access and redacted serialization |
 | `deploy/compose/compose.yaml` | Target topology | Add `admin_net`, CA/agent/proxy env, healthcheck |
-| `deploy/compose/Caddyfile` | Public TLS proxy | HSTS, upstream TLS CA, timeouts |
+| `deploy/compose/Caddyfile` | Public TLS proxy | HSTS, upstream TLS CA, global/transport timeouts |
 | `docs/reference/configuration.md` | Config reference | Align required paths, ports, proxy trust, age deferral |
 
 ### Code Analysis
@@ -48,6 +51,15 @@ no HTTPS or mTLS option. The protected lifecycle methods (`initialize()`, `shutd
 body parsers (`web-application.js:189-190`) and sets `trust proxy` to hop count 1 when
 `TRUST_PROXY` is true (`web-application.js:171-176`). Its default Helmet configuration disables
 CSP (`web-application.js:209-214`).
+
+Two orderings matter for the new pre-stack. First, WebAFX installs its body parsers before
+`requestIdMiddleware()` (`web-application.js:192`) and before the service container
+(`:298-303`), so any pre-stack rejection would otherwise lack `req.id`/`X-Request-ID` and
+`req.services`; the plan installs its own correlation and pre-stack logging before
+`prepare()`. Second, installed body-parser 2.4.0 does not use a `req._body` flag; it skips a
+second read when the request stream is finished (`onFinished.isFinished(req)`). A custom parser
+that consumes the stream is skipped correctly, but the implementation test must prove the
+one-parse property rather than assert a flag that does not exist.
 
 `Keyring.current` and `Keyring.get()` return `KeyMaterial` containing the internal `Buffer`
 (`packages/core/src/keyring.ts:57-68`), and `toJSON()` returns base64 key material
@@ -142,6 +154,6 @@ No new production npm dependency is planned.
 | Keyring zeroization is best-effort in Node | High | Medium | Document limitation; destroy internal buffers; no plaintext logs |
 | OpenSSL unavailable in some developer environment | Low | Medium | CI is Linux; document prerequisite; unit tests not needing TLS still run |
 | Readiness DB probe hangs | Low | High | 2 s pool timeout + bounded `Promise.race`; ST-30 |
-| Body parser order differs after a WebAFX upgrade | Low | High | `req._body` test, 413/415 tests, reopen trigger in AR-13 |
+| Body parser order differs after a WebAFX upgrade | Low | High | One-parse test (`onFinished.isFinished`), 413/415 tests, reopen trigger in AR-13 |
 | Age-encrypted keyring is unsupported until RD-13 | Certain | Medium | Fail closed on passphrase file; explicit AR-2 deferral |
 | Agent revocation is not checked until RD-05 | Certain | High | Chain-only scope is explicit; RD-05 requirement remains; no agent routes in RD-02 |

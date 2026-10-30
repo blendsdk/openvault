@@ -1,8 +1,9 @@
 # RD-02 Transport, Configuration, and Readiness Implementation Plan
 
 > **Feature**: Typed fail-closed configuration, HTTPS/mTLS listeners, proxy trust, request limits, redacted logging, and truthful readiness for OpenVault.
-> **Status**: Planning Complete — preflight pending
+> **Status**: Plan Preflighted — ready for execution
 > **Created**: 2026-10-30 12:14
+> **Preflight**: [00-preflight-report.md](00-preflight-report.md) — 24 findings resolved
 > **Implements**: openvault-v0-1/RD-02
 > **CodeOps Artifact Schema**: 1
 > **Execution commit mode**: auto-commit (requested for the execution run)
@@ -37,13 +38,14 @@ and a policy engine.
 
 **Approved complexity:** None. The secure-listener adapter is the smallest direct control for
 RD-02's required TLS/mTLS boundary; the design challenger returned **Simplify** and the plan
-implements only the one-method adapter, not a parallel lifecycle.
+implements one small adapter with one owned lifecycle, not a parallel framework lifecycle.
 
 ## Document Index
 
 | # | Document | Description |
 |---|---|---|
 | AR | [Ambiguity Register](00-ambiguity-register.md) | Zero-Ambiguity Gate decisions and delegated provenance |
+| PF | [Preflight Report](00-preflight-report.md) | Audit findings, resolutions, and delegated provenance |
 | 00 | [Index](00-index.md) | This document |
 | 01 | [Requirements](01-requirements.md) | Delta view of RD-02 |
 | 02 | [Current State](02-current-state.md) | Existing implementation and gaps |
@@ -51,7 +53,8 @@ implements only the one-method adapter, not a parallel lifecycle.
 | 03-02 | [Transport and Listeners](03-02-transport-listeners.md) | Secure WebAFX adapter, TLS/mTLS, proxy trust, headers, limits |
 | 03-03 | [Readiness and Observability](03-03-readiness-observability.md) | `/health`, `/ready`, logging, redaction, errors |
 | 03-04 | [Deployment and Documentation](03-04-deployment-docs.md) | Compose networks, Caddy, configuration docs |
-| 07 | [Testing Strategy](07-testing-strategy.md) | Specification test cases ST-1…ST-37 |
+| 05 | [Findings Ledger](05-findings.md) | Execution-phase review rulings |
+| 07 | [Testing Strategy](07-testing-strategy.md) | Specification test cases ST-1…ST-39 (ST-35 reclassified as PL-1/PL-2) and plan-local harness tests |
 | 99 | [Execution Plan](99-execution-plan.md) | Phases, sessions, and task checklist |
 
 ## Quick Reference
@@ -85,9 +88,9 @@ OPENVAULT_TEST_DB=1 pnpm --filter @openvault/server test:integration
 | Agent listener | HTTPS with required client certificate from the internal CA |
 | Proxy trust | Explicit CIDR function; never WebAFX's hop-count `TRUST_PROXY` |
 | Keyring | Core API hardened; server provider checks mode `0600`; age deferred to RD-13 |
-| Body limits | Custom pre-parser ceiling and 64/128 KiB path limits; 413 mapping |
+| Body limits | Custom pre-parser ceiling and fixed 64/128 KiB path guardrails; 413 mapping; product max-byte settings documented as RD-08/RD-09 limits |
 | Readiness | WebAFX `/health` plus root `/ready` dependency probe |
-| Logging | BlendSDK pino plugin with full sensitive-field redaction |
+| Logging | BlendSDK pino plugin with the documented path-based redaction and a no-nested-object handler rule |
 | Deployment | Dedicated `admin_net`, pinned proxy CIDR, Caddy HSTS/timeouts |
 
 ## Specialist Agents
@@ -110,10 +113,13 @@ BlendSDK WebAFX transport gap is bounded by AR-4 and can be reviewed with a dyna
 | `packages/core/src/crypto.ts` | Crypto primitive adapted to callback access |
 | `apps/server/src/transport/` | Secure WebAFX adapter, TLS material, listeners, middleware |
 | `apps/server/src/readiness/` | PostgreSQL/keyring/TLS/CA/audit probes |
+| `apps/server/src/observability/logger.ts` | Shared pino provider, redaction paths, and pre-stack logger |
+| `apps/server/src/types/express.d.ts` | `Express.Request.log` augmentation for the pino request logger |
 | `apps/server/src/app.ts` | Application factory and service registration |
 | `apps/server/src/main.ts` | Validate → load material → migrate → bind |
 | `apps/server/src/controllers/ready.ts` | Root `/ready` controller |
-| `apps/server/tests/` | Config, keyring, transport, readiness, logging, startup tests |
+| `apps/server/tests/` | Config, keyring, transport, readiness, logging, startup, clock, and plan-local harness tests |
+| `apps/server/tests/test-app.impl.test.ts` + `ready.impl.test.ts` | PL-1/PL-2 plan-local harness evidence |
 | `apps/server/tests/integration/helpers/tls.ts` | Ephemeral OpenSSL certificate fixture |
 | `deploy/compose/compose.yaml` | `admin_net`, CA, ports, proxy CIDR, healthcheck |
 | `deploy/compose/Caddyfile` | HSTS, upstream TLS, proxy timeouts |

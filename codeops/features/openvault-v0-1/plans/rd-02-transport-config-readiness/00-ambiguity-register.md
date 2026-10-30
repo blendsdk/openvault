@@ -26,7 +26,7 @@
 | AR-17 | Behavioral | `/health`, `/ready`, and `/v1/ready` overlap; WebAFX owns `/health` and the existing controller is under `/v1`. | WebAFX `/health` liveness + root `/ready` dependency probe / keep `/v1/ready` / duplicate both | AI — delegated by `--auto-design` (readiness; note R11) | ✅ Resolved |
 | AR-18 | Technical | Readiness checks need a database connection, timeout, and disposal without leaking pools. | BlendSDK `PostgreSQLDatabase` with 2 s connection timeout, singleton dispose, bounded probe / raw `pg` client per probe / no DB probe | AI — delegated by `--auto-design` (readiness; note R11) | ✅ Resolved |
 | AR-19 | Security | CA readiness cannot verify a live agent chain when no agent is connected. | Parse CA and require CA:TRUE/self-signed / require a peer certificate / skip CA check | AI — delegated by `--auto-design` (readiness semantics; note R11) | ✅ Resolved |
-| AR-20 | Security | Logs must redact `value`, `privateKey`, `password`, `token`, `authorization`, `cookie`, and `set-cookie`; WebAFX logs URLs and plugin defaults redact only two headers. | Pino plugin + full redact path set + no config values / default plugin only / custom logger | AI — delegated by `--auto-design` (observability; note R12) | ✅ Resolved |
+| AR-20 | Security | Logs must redact `value`, `privateKey`, `password`, `token`, `authorization`, `cookie`, and `set-cookie`; WebAFX logs URLs and plugin defaults redact only two headers. | Pino plugin + documented path set (top-level + one wildcard level) + no-nested-object rule + no config values / default plugin only / custom logger | AI — delegated by `--auto-design` (observability; note R12) | ✅ Resolved |
 | AR-21 | Behavioral | Startup ordering must fail before binding ports and must not touch the database on a bad config. | Config/keyring/TLS/CA validation → migrations → bind listeners / migrations first / bind then validate | AI — delegated by `--auto-design` (startup safety; note R13) | ✅ Resolved |
 | AR-22 | Behavioral | Error responses need the WebAFX envelope for 413, 415, 503, and unexpected errors without leaking internals. | WebAFX `ApiError` mapping and production error handler / custom envelopes / raw Express | AI — delegated by `--auto-design` (error contract; note R14) | ✅ Resolved |
 | AR-23 | Technical | OIDC settings are optional and not used for a flow in RD-02. | Validate conditionally and store redacted / ignore until RD-03 / implement discovery now | AI — delegated by `--auto-design` (configuration; note R7) | ✅ Resolved |
@@ -117,7 +117,7 @@
 **Decision:** install a JSON parser and error mapper before WebAFX initialisation. Use a 128 KiB global ceiling; use byte counting in `verify` to enforce 64 KiB for `/v1/secrets*` and 128 KiB for `/v1/certificates*`; map entity-too-large to a 413 WebAFX envelope; reject `application/x-www-form-urlencoded` on `/v1` with 415 before parsing. Keep WebAFX's `BODY_LIMIT` aligned at 128 KiB as a second ceiling.
 **Evidence:** `web-application.js:189-190` always installs JSON and URL-encoded parsers; design-challenger probe showed oversized JSON becomes 500 through WebAFX's error handler.
 **Rejected alternatives:** WebAFX global limit only (no route-specific headroom); route middleware after parsing (too late); override WebAFX core middleware (larger rewrite).
-**Strongest counterargument:** two parsers can drift. Mitigation: the custom parser sets `req._body`, WebAFX skips it, and tests cover both Content-Length and chunked bodies.
+**Strongest counterargument:** two parsers can drift. Mitigation: the custom parser consumes the stream, WebAFX's body-parser skips on `onFinished.isFinished(req)`, and tests cover both Content-Length and chunked bodies plus the one-parse invariant.
 **Confidence:** High.
 **Reopen triggers:** WebAFX exposes per-route parser limits; secret routes move under a different prefix.
 
@@ -228,3 +228,21 @@
 **Decision:** `createApplication(config, dependencies)` is the production factory; `createTestApplication` is a test-only helper that uses the same WebAFX assembly and `.express` access without binding a plaintext listener. `SecureWebApplication.start()` always throws.
 **Rejected alternatives:** one factory with optional production/test behavior (risk of accidental plaintext); raw Express test apps (bypasses the contract).
 **Confidence:** High. **Reopen trigger:** a second runtime (worker/CLI) needs the same app assembly.
+
+## Preflight Addendum (2026-10-30)
+
+Preflight found 24 issues and refined six existing decisions. The durable decisions live in
+[00-preflight-report.md](00-preflight-report.md); this register records only the cross-references
+so the creation-time history stays intact.
+
+| AR | Preflight refinement | PF |
+|---|---|---|
+| AR-8 / AR-16 | Caddy timeouts move to global `servers.timeouts` plus `transport http`; `idle_timeout` is invalid at the reverse-proxy level | PF-003 |
+| AR-11 | `ENV_MODE` is added to the typed config so stack-trace behavior is validated | PF-008 |
+| AR-13 | Body-parser 2.4.0 skips on `onFinished.isFinished`, not `req._body`; the test proves one parse | PF-023 |
+| AR-17 | Readiness failures map only `ReadinessError` to 503; other errors stay 500 | PF-002 |
+| AR-22 | Pre-stack correlation and logging are added; WebAFX remains the single envelope renderer; `req.log` uses the message-first WebAFX `Logger` and an `Express.Request.log` augmentation | PF-001, PF-002 |
+| AR-28 | ST-35 is reclassified as plan-local harness tests (`PL-1`/`PL-2`), not a spec oracle | PF-006 |
+
+No prior decision is re-litigated; the refinements are implementation mechanisms inside the
+already approved scope.

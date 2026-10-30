@@ -33,6 +33,12 @@
   shared 30 s policy and boundary-tested helper (AR-26).
 - `ov config show --redacted` command surface — RD-11; RD-02 provides and tests the redacted
   config function (AR-27).
+- Initial keyring-file provisioning (`ov init`) — RD-11/RD-13. RD-02's `Keyring.toJSON()` is
+  redacted and no longer writes key bytes; the reference stack is not bootable until the CLI
+  provisioner lands. RD-02 uses temporary fixtures (PF-021).
+- Transport body-limit precedence — RD-02 keeps the fixed 64/128 KiB guardrails; the
+  `OPENVAULT_SECRET_MAX_BYTES`/`OPENVAULT_CERT_MAX_BYTES` product limits are enforced in
+  RD-08/RD-09 (PF-008).
 - Agent certificate fingerprint, expiry, and revocation enforcement — RD-05 (AR-3).
 - Browser authentication, sessions, OIDC flow, CSRF, and route authorization — RD-03/RD-06.
 - Secret/certificate product routes (the body-limit paths are transport guardrails only) —
@@ -49,7 +55,7 @@
 | Secure listener adapter | `SecureWebApplication` reuses WebAFX `initialize()` once; owns two HTTPS servers and one shutdown | AR-4 |
 | Listener isolation | One app + normalised default-deny listener scope table | AR-5 |
 | Proxy trust | Explicit CIDR trust function; WebAFX `TRUST_PROXY: false` | AR-6 |
-| Reference network | Dedicated `admin_net` with pinned proxy address; broad default warns in production | AR-7, AR-16 |
+| Reference network | Dedicated `admin_net` with pinned proxy address; broad default warns in production | AR-7, AR-25 |
 | Key custody | Core `Keyring` callback access + redacted serialization/inspection + `destroy`; server provider loads mode `0600` | AR-9, AR-10 |
 | Config bridge | Zod loader; only standard fields passed to WebAFX; `.env.js` loading disabled | AR-11, AR-12 |
 | Request limits | Pre-parser JSON ceiling, path byte limits, 413 mapper, 415 form rejection | AR-13, AR-14 |
@@ -68,6 +74,8 @@ RD-02 owns the product acceptance criteria. This plan adds only the following pl
    `blendsdk/postgresql`, the BlendSDK pino plugin, Node HTTPS/OpenSSL, and existing core code.
 4. [ ] `db:types:check` remains clean; RD-02 does not change the database schema.
 5. [ ] The in-process test factory remains usable through `app.express` without binding a
-   plaintext listener.
+   plaintext listener; the plan-local harness tests (`PL-1`/`PL-2`) prove it.
 6. [ ] `apps/server` starts only after config, keyring, TLS, and CA validation; a bad value
    never binds a port and never reaches migrations with an invalid config.
+7. [ ] The reference `deploy/compose/Caddyfile` passes `caddy validate` (when Caddy or Docker
+   is available), and ST-34 asserts the corrected global/transport timeout blocks.
