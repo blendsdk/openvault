@@ -1,4 +1,5 @@
 export {
+  type AuthMethod,
   type AuthUser,
   authMethodSchema,
   authUserSchema,

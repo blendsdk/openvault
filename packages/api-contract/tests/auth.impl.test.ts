@@ -46,7 +46,7 @@ describe("auth schema implementation edges", () => {
     );
   });
 
-  it("should reject a login password that is only whitespace only when empty", () => {
+  it("should accept a whitespace-only password and reject an empty password", () => {
     expect(loginRequestSchema.safeParse({ identifier: "alice", password: " " }).success).toBe(true);
     expect(loginRequestSchema.safeParse({ identifier: "alice", password: "" }).success).toBe(false);
   });

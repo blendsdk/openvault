@@ -90,6 +90,9 @@ export const metaAuthSchema = z.strictObject({
   oidc: z.boolean(),
 });
 
+/** Inferred authentication method type. */
+export type AuthMethod = z.infer<typeof authMethodSchema>;
+
 /** Inferred login request type. */
 export type LoginRequest = z.infer<typeof loginRequestSchema>;
 

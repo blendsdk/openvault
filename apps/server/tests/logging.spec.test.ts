@@ -56,12 +56,33 @@ describe("log redaction", () => {
         token: "secret-token",
         value: "secret-value",
         password: "secret-password",
+        currentPassword: "secret-current-password",
+        newPassword: "secret-new-password",
+        csrfToken: "secret-csrf-token",
+        codeVerifier: "secret-code-verifier",
+        nonce: "secret-nonce",
+        idToken: "secret-id-token",
+        accessToken: "secret-access-token",
+        refreshToken: "secret-refresh-token",
+        secretId: "secret-session-id",
+        sessionSecret: "secret-session-secret",
         privateKey: "secret-private-key",
         authorization: "Bearer secret-authorization",
         cookie: "session=secret-cookie",
         "set-cookie": "session=secret-set-cookie",
-        req: { body: { token: "secret-body-token" } },
+        req: {
+          body: { token: "secret-body-token", csrfToken: "secret-body-csrf" },
+          headers: { "x-csrf-token": "secret-header-csrf" },
+          cookies: { "__Host-ov_session": "secret-cookie-value" },
+          url: "/v1/auth/callback?code=secret-url-code&state=secret-url-state",
+          originalUrl: "/v1/auth/callback?code=secret-original-code&state=secret-original-state",
+          query: { code: "secret-query-code", state: "secret-query-state" },
+        },
         nested: { token: "secret-nested-token" },
+      });
+      await provider.info("error probe", {
+        code: "invalid_credentials",
+        statusCode: 401,
       });
       await provider.shutdown();
 
@@ -70,16 +91,59 @@ describe("log redaction", () => {
         "secret-token",
         "secret-value",
         "secret-password",
+        "secret-current-password",
+        "secret-new-password",
+        "secret-csrf-token",
+        "secret-code-verifier",
+        "secret-nonce",
+        "secret-id-token",
+        "secret-access-token",
+        "secret-refresh-token",
+        "secret-session-id",
+        "secret-session-secret",
         "secret-private-key",
         "secret-authorization",
         "secret-cookie",
         "secret-set-cookie",
         "secret-body-token",
+        "secret-body-csrf",
+        "secret-header-csrf",
+        "secret-cookie-value",
+        "secret-url-code",
+        "secret-url-state",
+        "secret-original-code",
+        "secret-original-state",
+        "secret-query-code",
+        "secret-query-state",
         "secret-nested-token",
       ]) {
         expect(output).not.toContain(secret);
       }
       expect(output).toContain("[Redacted]");
+      expect(output).toContain("invalid_credentials");
+    } finally {
+      environment.cleanup();
+    }
+  });
+});
+
+describe("request log sanitization", () => {
+  it("should strip callback query secrets through the real pino provider", async () => {
+    const environment = createServerEnvironment();
+    const destination = new MemoryDestination();
+    const provider = createLoggerProvider(environment.config, destination);
+    try {
+      await provider.info("GET /v1/auth/callback?code=abc&state=xyz 200 4ms", {
+        url: "/v1/auth/callback?code=abc&state=xyz",
+      });
+      await provider.shutdown();
+
+      expect(destination.entries()).toContainEqual(
+        expect.objectContaining({
+          msg: "GET /v1/auth/callback 200 4ms",
+          url: "/v1/auth/callback",
+        }),
+      );
     } finally {
       environment.cleanup();
     }

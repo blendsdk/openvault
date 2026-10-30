@@ -80,7 +80,7 @@ request with a linear history.
 
 ## Code expectations
 
-- TypeScript strict mode, ESM, Node.js 22.
+- TypeScript strict mode, ESM, Node.js 24.7+.
 - Public APIs have documentation comments that explain behavior and edge cases.
 - No `any`, no unsafe casts, no string-concatenated SQL.
 - No secret values in logs, errors, tests, fixtures, screenshots, or documentation.
