@@ -226,6 +226,8 @@ certificate validator (RD-03/RD-05 own those flows).
   shutdown.
 - A readiness timeout is logged once with `probe: "timeout"`; repeated probes do not leak
   connection strings.
+- The outer 2 s timeout ends the readiness response; it does not cancel an in-flight database
+  query. The pool connection timeout and connection cap bound the residual work.
 
 ## Integration Points
 

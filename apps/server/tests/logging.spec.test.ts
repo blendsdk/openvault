@@ -113,17 +113,29 @@ describe("request correlation", () => {
     environment.cleanup();
   });
 
+  it("correlates a 403 rejection and logs it once", async () => {
+    const tls = environment.tls;
+    const response = await testRequest({
+      port: handle.adminPort,
+      path: "/v1/missing",
+      ca: tls.caPem,
+      servername: "localhost",
+    });
+    const parsed = errorEnvelope.parse(response.json);
+    const header = response.headers["x-request-id"];
+
+    expect(response.status).toBe(403);
+    expect(typeof header).toBe("string");
+    expect(parsed.error.requestId).toBe(header);
+    const rejected = destination.entries().filter((entry) => entry.msg === "request rejected");
+    expect(rejected.filter((entry) => entry.requestId === parsed.error.requestId)).toHaveLength(1);
+  });
+
   it.skipIf(trustedHost === undefined)(
-    "correlates 403, 413, and 415 rejections and logs each once",
+    "correlates 413 and 415 rejections and logs each once",
     async () => {
       const tls = environment.tls;
       const responses = [
-        await testRequest({
-          port: handle.adminPort,
-          path: "/v1/missing",
-          ca: tls.caPem,
-          servername: "localhost",
-        }),
         await testRequest({
           host: trustedHost ?? "127.0.0.1",
           port: handle.adminPort,
@@ -146,7 +158,7 @@ describe("request correlation", () => {
         }),
       ];
 
-      expect(responses.map((response) => response.status)).toEqual([403, 413, 415]);
+      expect(responses.map((response) => response.status)).toEqual([413, 415]);
       const requestIds: string[] = [];
       for (const response of responses) {
         const parsed = errorEnvelope.parse(response.json);
@@ -156,7 +168,6 @@ describe("request correlation", () => {
         requestIds.push(parsed.error.requestId ?? "");
       }
 
-      await app.stop();
       const rejected = destination.entries().filter((entry) => entry.msg === "request rejected");
       for (const requestId of requestIds) {
         expect(rejected.filter((entry) => entry.requestId === requestId)).toHaveLength(1);

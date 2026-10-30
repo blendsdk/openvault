@@ -22,4 +22,10 @@ describe("clock skew policy", () => {
     expect(isWithinClockSkew(now, now + 10_000, now + 20_000)).toBe(true);
     expect(isWithinClockSkew(now, now - 20_000, now - 10_000)).toBe(true);
   });
+
+  it("fails closed for an inverted or non-finite window", () => {
+    expect(isWithinClockSkew(now, now + 20_000, now - 20_000)).toBe(false);
+    expect(isWithinClockSkew(Number.NaN, now - 1, now + 1)).toBe(false);
+    expect(isWithinClockSkew(now, now - 1, Number.POSITIVE_INFINITY)).toBe(false);
+  });
 });

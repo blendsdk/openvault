@@ -21,7 +21,10 @@ export class ReadyController extends BaseController {
             await readiness.check();
           } catch (error) {
             if (error instanceof ReadinessError) {
-              await req.log?.warn("readiness probe failed", { probe: error.probe });
+              if (req.log === undefined) {
+                throw new Error("Request logger is not installed");
+              }
+              await req.log.warn("readiness probe failed", { probe: error.probe });
               throw new ApiError(503, "not_ready", "Not ready");
             }
             throw error;

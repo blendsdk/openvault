@@ -14,6 +14,12 @@ export const CLOCK_SKEW_SECONDS = 30;
  * @returns `true` when the value is within the tolerated window.
  */
 export function isWithinClockSkew(nowMs: number, notBeforeMs: number, notAfterMs: number): boolean {
+  if (!Number.isFinite(nowMs) || !Number.isFinite(notBeforeMs) || !Number.isFinite(notAfterMs)) {
+    return false;
+  }
+  if (notAfterMs < notBeforeMs) {
+    return false;
+  }
   const toleranceMs = CLOCK_SKEW_SECONDS * 1_000;
   return nowMs >= notBeforeMs - toleranceMs && nowMs <= notAfterMs + toleranceMs;
 }

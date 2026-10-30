@@ -1,6 +1,6 @@
 import type { PostgreSQLDatabase } from "blendsdk/postgresql";
 import type { KeyringProvider } from "../security/keyring.js";
-import type { TlsMaterial } from "../transport/tls.js";
+import { type TlsMaterial, TlsMaterialError } from "../transport/tls.js";
 
 /** Dependency probe that contributes to readiness. */
 export type ReadinessProbeName = "postgresql" | "keyring" | "tls" | "audit";
@@ -64,6 +64,20 @@ export class ReadinessService {
   }
 }
 
+/**
+ * Reports whether an error looks like a PostgreSQL/driver failure.
+ *
+ * Driver errors carry a string `code` (for example `ECONNREFUSED` or `57P01`).
+ * A plain programming error has no such code and must propagate as a 500.
+ */
+function isPostgresDependencyError(error: unknown): boolean {
+  if (typeof error !== "object" || error === null) {
+    return false;
+  }
+  const code = Reflect.get(error, "code");
+  return typeof code === "string" && code.length > 0;
+}
+
 /** Builds the production probes from the runtime dependencies. */
 export function createProductionProbes(dependencies: {
   readonly database: PostgreSQLDatabase;
@@ -76,8 +90,11 @@ export function createProductionProbes(dependencies: {
       async check(): Promise<void> {
         try {
           await dependencies.database.executeQuery("SELECT 1");
-        } catch {
-          throw new ReadinessError("postgresql");
+        } catch (error) {
+          if (isPostgresDependencyError(error)) {
+            throw new ReadinessError("postgresql");
+          }
+          throw error;
         }
       },
     },
@@ -95,8 +112,11 @@ export function createProductionProbes(dependencies: {
       async check(): Promise<void> {
         try {
           dependencies.tls.checkReady();
-        } catch {
-          throw new ReadinessError("tls");
+        } catch (error) {
+          if (error instanceof TlsMaterialError) {
+            throw new ReadinessError("tls");
+          }
+          throw error;
         }
       },
     },
@@ -105,8 +125,11 @@ export function createProductionProbes(dependencies: {
       async check(): Promise<void> {
         try {
           await dependencies.database.executeQuery("SELECT 1 FROM audit_events LIMIT 1");
-        } catch {
-          throw new ReadinessError("audit");
+        } catch (error) {
+          if (isPostgresDependencyError(error)) {
+            throw new ReadinessError("audit");
+          }
+          throw error;
         }
       },
     },

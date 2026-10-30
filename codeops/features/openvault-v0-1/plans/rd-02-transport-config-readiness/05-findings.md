@@ -44,6 +44,15 @@
 | SA-207 | 2 | MINOR | transport/parser-error | fixed |
 | SA-208 | 2 | MINOR | logging/duplicate-entry | dismissed |
 | RV-301, RV-302 | 2 re-review | MINOR | transport/lifecycle-tests | fixed |
+| RV-401 | 3 | MINOR | readiness/probe-translation | fixed |
+| RV-402, SA-406 | 3 | MINOR | readiness/error-split | fixed |
+| RV-403 | 3 | MINOR | readiness/timeout-scope | accepted |
+| RV-404, SA-405 | 3 | MINOR | readiness/logger-wiring | fixed |
+| RV-405 | 3 | MINOR | tests/readiness-correlation | fixed |
+| SA-401 | 3 | MINOR | logging/request-id-trust | accepted |
+| SA-402 | 3 | MINOR | clock/inverted-window | fixed |
+| SA-403 | 3 | MINOR | logging/query-strings | accepted |
+| SA-404 | 3 | MINOR | logging/redaction-depth | accepted |
 
 **Phase 1 review notes**
 
@@ -67,6 +76,20 @@
   lands in Phase 3.
 - Re-review residual RV-301/RV-302 fixed; no third review was run per the
   one-scoped-re-review cap.
+
+**Phase 3 review notes**
+
+- No critical or major findings. Production probe translation, the 500 branch,
+  timeout logging, and request-id correlation now have direct tests.
+- RV-403 accepted and documented: the 2 s timeout ends the response, not an
+  in-flight query; the pool cap and connection timeout bound residual work.
+- SA-401 accepted: valid inbound request IDs are reused by design; the ID is a
+  correlation aid, not an authorization control. Revisit if it becomes an
+  audit key.
+- SA-403 accepted: credentials must stay out of query strings; re-open as a
+  major concern when RD-03/RD-05 add query parameters.
+- SA-404 accepted: pino wildcard redaction is one level deep; handlers must log
+  explicit fields and never raw nested objects.
 
 ## Ruling Vocabulary
 

@@ -16,7 +16,7 @@ import { applyMigrations, createTestDatabase, type TestDatabase } from "./helper
 
 const errorEnvelope = z.object({
   success: z.literal(false),
-  error: z.object({ code: z.string(), statusCode: z.number() }),
+  error: z.object({ code: z.string(), statusCode: z.number(), requestId: z.string().optional() }),
 });
 
 let testDb: TestDatabase;
@@ -39,8 +39,9 @@ interface TestApp {
 async function createApp(
   probes?: readonly ReadinessProbe[],
   destination?: MemoryDestination,
+  databaseUrl = testDb.url,
 ): Promise<TestApp> {
-  const environment = createServerEnvironment({ OPENVAULT_DB_URL: testDb.url });
+  const environment = createServerEnvironment({ OPENVAULT_DB_URL: databaseUrl });
   const keyring = await KeyringProvider.load(environment.keyringPath);
   const tls = TlsMaterial.load(environment.config);
   const database = new PostgreSQLDatabase({
@@ -99,6 +100,29 @@ describe("readiness endpoints", () => {
     }
   }, 30_000);
 
+  it("maps a real database failure to 503 not_ready", async () => {
+    const destination = new MemoryDestination();
+    const running = await createApp(
+      undefined,
+      destination,
+      "postgres://openvault:test-password@127.0.0.1:59998/openvault_test",
+    );
+    try {
+      const response = await request(running.app.express).get("/ready");
+      const parsed = errorEnvelope.parse(response.body);
+
+      expect(response.status).toBe(503);
+      expect(parsed.error.code).toBe("not_ready");
+      const entries = destination
+        .entries()
+        .filter((entry) => entry.msg === "readiness probe failed");
+      expect(entries).toHaveLength(1);
+      expect(entries[0]?.probe).toBe("postgresql");
+    } finally {
+      await running.stop();
+    }
+  }, 30_000);
+
   it.each(["postgresql", "keyring", "tls", "audit"] as const)(
     "maps a %s failure to 503 not_ready and logs the fixed probe name",
     async (name) => {
@@ -115,27 +139,59 @@ describe("readiness endpoints", () => {
           .filter((entry) => entry.msg === "readiness probe failed");
         expect(entries).toHaveLength(1);
         expect(entries[0]?.probe).toBe(name);
+        expect(entries[0]?.requestId).toBe(parsed.error.requestId);
       } finally {
         await running.stop();
       }
     },
   );
 
-  it("bounds a hanging probe at the readiness timeout", async () => {
+  it("keeps an unexpected probe error as 500", async () => {
     const running = await createApp([
       {
         name: "postgresql",
-        check: () => new Promise<void>(() => undefined),
+        check: async () => {
+          throw new Error("programming failure");
+        },
       },
     ]);
+    try {
+      const response = await request(running.app.express).get("/ready");
+      const parsed = errorEnvelope.parse(response.body);
+
+      expect(response.status).toBe(500);
+      expect(parsed.error.code).toBe("INTERNAL_SERVER_ERROR");
+    } finally {
+      await running.stop();
+    }
+  }, 30_000);
+
+  it("bounds a hanging probe at the readiness timeout", async () => {
+    const destination = new MemoryDestination();
+    const running = await createApp(
+      [
+        {
+          name: "postgresql",
+          check: () => new Promise<void>(() => undefined),
+        },
+      ],
+      destination,
+    );
     try {
       const started = Date.now();
       const response = await request(running.app.express).get("/ready");
       const elapsed = Date.now() - started;
+      const parsed = errorEnvelope.parse(response.body);
 
       expect(response.status).toBe(503);
-      expect(errorEnvelope.parse(response.body).error.code).toBe("not_ready");
+      expect(parsed.error.code).toBe("not_ready");
       expect(elapsed).toBeLessThan(5_000);
+      const entries = destination
+        .entries()
+        .filter((entry) => entry.msg === "readiness probe failed");
+      expect(entries).toHaveLength(1);
+      expect(entries[0]?.probe).toBe("timeout");
+      expect(entries[0]?.requestId).toBe(parsed.error.requestId);
     } finally {
       await running.stop();
     }
