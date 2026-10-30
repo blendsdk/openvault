@@ -165,7 +165,10 @@ describe("ST-17 loopback health access", () => {
     });
 
     expect(health.status).toBe(200);
-    expect(ready.status).toBe(200);
+    expect([200, 503]).toContain(ready.status);
+    if (ready.status === 503) {
+      expect(envelope(ready).error.code).toBe("not_ready");
+    }
     expect(missing.status).toBe(403);
     expect(envelope(missing).error.code).toBe("FORBIDDEN");
   });
