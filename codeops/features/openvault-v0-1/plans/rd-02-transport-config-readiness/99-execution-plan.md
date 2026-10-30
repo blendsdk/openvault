@@ -2,8 +2,8 @@
 
 > **Document**: 99-execution-plan.md
 > **Parent**: [Index](00-index.md)
-> **Last Updated**: 2026-10-30 14:41
-> **Progress**: 24/33 tasks (73%)
+> **Last Updated**: 2026-10-30 14:42
+> **Progress**: 25/33 tasks (76%)
 > **CodeOps Artifact Schema**: 1
 > **Implements**: openvault-v0-1/RD-02
 > **Reasoning**: high — TLS/mTLS, key custody, proxy trust, and startup ordering are security-sensitive.
@@ -102,7 +102,7 @@
 
 ### Session 3 — Impl tests and hardening
 
-- [ ] 3.3.1 [executor] Add impl tests for timeout cleanup, fixed probe names, double shutdown, logger destination flushing, and the root `/ready` harness (PL-2)
+- [x] 3.3.1 [executor] Add impl tests for timeout cleanup, fixed probe names, double shutdown, logger destination flushing, and the root `/ready` harness (PL-2) ✅ (completed: 2026-10-30 14:42)
 - [ ] 3.3.2 [executor] Run the Phase 3 gate: readiness/logging suites, `pnpm verify`, and PostgreSQL 16/17 readiness integration
 - [ ] 3.3.3 [executor] Record the Phase 3 quality review findings in `05-findings.md` and fix every critical/major finding
 
