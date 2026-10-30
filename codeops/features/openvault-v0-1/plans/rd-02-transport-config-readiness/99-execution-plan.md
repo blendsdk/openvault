@@ -2,8 +2,8 @@
 
 > **Document**: 99-execution-plan.md
 > **Parent**: [Index](00-index.md)
-> **Last Updated**: 2026-10-30 14:06
-> **Progress**: 6/33 tasks (18%)
+> **Last Updated**: 2026-10-30 14:07
+> **Progress**: 7/33 tasks (21%)
 > **CodeOps Artifact Schema**: 1
 > **Implements**: openvault-v0-1/RD-02
 > **Reasoning**: high — TLS/mTLS, key custody, proxy trust, and startup ordering are security-sensitive.
@@ -46,7 +46,7 @@
 
 ### Session 3 — Impl tests and hardening
 
-- [ ] 1.3.1 [executor] Add impl tests for mapped/zone CIDRs, unsafe key ids, destroyed access, malformed base64, and redacted support output
+- [x] 1.3.1 [executor] Add impl tests for mapped/zone CIDRs, unsafe key ids, destroyed access, malformed base64, and redacted support output ✅ (completed: 2026-10-30 14:07)
 - [ ] 1.3.2 [executor] Run the Phase 1 gate: `pnpm verify`, config/keyring suites, and confirm the database schema is unchanged
 - [ ] 1.3.3 [executor] Update `05-findings.md` with the Phase 1 quality review findings and fix every critical/major finding
 
