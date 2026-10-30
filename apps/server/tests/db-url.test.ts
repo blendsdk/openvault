@@ -27,6 +27,7 @@ describe("parseDatabaseUrl", () => {
         DatabaseUrlError,
       );
     }
+    expect(parseDatabaseUrl("postgres://user:pass@localhost/db?ssl=off").database).toBe("db");
   });
 
   it("should reject malformed or incomplete URLs without echoing the password", () => {

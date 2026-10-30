@@ -1,5 +1,5 @@
 import { spawnSync } from "node:child_process";
-import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { mkdirSync, mkdtempSync, rmSync, symlinkSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
@@ -57,6 +57,11 @@ describe("check-artifacts", () => {
       "packages/core/dist/index.js",
       "-----BEGIN PRIVATE KEY-----\nnot-real\n-----END PRIVATE KEY-----\n",
     );
+    writeFile(
+      root,
+      "apps/server/dist/large.js",
+      `${"x".repeat(6 * 1024 * 1024)}-----BEGIN PRIVATE KEY-----\n`,
+    );
 
     const result = runCheck(root);
     const output = `${result.stdout}\n${result.stderr}`;
@@ -64,6 +69,7 @@ describe("check-artifacts", () => {
     expect(output).toContain("main.js.map");
     expect(output).toContain(".env");
     expect(output).toContain("server.key");
+    expect(output).toContain("large.js");
     expect(output).toMatch(/private key/i);
   });
 
@@ -75,12 +81,31 @@ describe("check-artifacts", () => {
     expect(result.status).toBe(1);
   });
 
+  it("should fail on the sentinel key and on symlinks in build output", () => {
+    const root = makeRoot();
+    writeFile(root, "apps/web/dist/assets/index.js", "SENTINEL_KEY_DO_NOT_LEAK_7f3a\n");
+    writeFile(root, "apps/server/dist/target.js", "ok\n");
+    symlinkSync(
+      join(root, "apps/server/dist/target.js"),
+      join(root, "apps/server/dist/link.js"),
+      "file",
+    );
+
+    const result = runCheck(root);
+    const output = `${result.stdout}\n${result.stderr}`;
+    expect(result.status).toBe(1);
+    expect(output).toContain("index.js");
+    expect(output).toContain("symlink");
+  });
+
   it("should fail an audit fixture with a high advisory and pass a low one", () => {
     const root = makeRoot();
     const high = join(root, "high.json");
     const low = join(root, "low.json");
+    const unknown = join(root, "unknown.json");
     writeFile(root, "high.json", JSON.stringify({ advisories: { 1: { severity: "high" } } }));
     writeFile(root, "low.json", JSON.stringify({ advisories: { 1: { severity: "low" } } }));
+    writeFile(root, "unknown.json", JSON.stringify({ unexpected: true }));
 
     const highResult = spawnSync(process.execPath, ["scripts/audit-check.mjs", high], {
       cwd: process.cwd(),
@@ -90,8 +115,13 @@ describe("check-artifacts", () => {
       cwd: process.cwd(),
       encoding: "utf8",
     });
+    const unknownResult = spawnSync(process.execPath, ["scripts/audit-check.mjs", unknown], {
+      cwd: process.cwd(),
+      encoding: "utf8",
+    });
 
     expect(highResult.status).toBe(1);
     expect(lowResult.status).toBe(0);
+    expect(unknownResult.status).toBe(2);
   });
 });

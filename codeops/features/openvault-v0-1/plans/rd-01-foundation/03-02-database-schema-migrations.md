@@ -186,6 +186,9 @@ The `blendsdk_migrations` ledger is excluded from generated domain types and con
   parent-cascade path is intentionally blocked by the parent-delete trigger.
 - Local databases migrated before the trigger-hardening revision must be recreated; RD-01 has
   no production data yet.
+- A change to `schema.ts` is not detected until `blendsdk migrate generate` is run. CI checks
+  the generated types, not desired-state drift against the snapshot. Run the generator and
+  `db:types:check` for every schema change.
 
 ## Integration Points
 

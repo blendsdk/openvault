@@ -130,11 +130,12 @@ generated types/constants, updated specs and plan.
 
 > **Reasoning**: high — supply-chain pins, required checks, and secret/artifact leakage.
 > **Phase gate**: `pnpm verify` and a CI run on the branch.
-> **Phase baseline tree**: 1f070d977139e164f030803ba252a6482e25ff69
+> **Phase baseline tree**: 5eeea7444d2f2cde484b06bc4558c2e3e0c46648
 > **Scope mode**: strict
 > **Expected modification set**: `.github/workflows/**`, `.gitleaks.toml`, `scripts/**`,
 > `tests/**`, package manifests and lockfile, `tsconfig.base.json`, `apps/web/vite.config.ts`,
-> `CONTRIBUTING.md`, plan docs
+> `CONTRIBUTING.md`, plan docs. Commits `9375364` and `4e90ad1` are Phase 2.5 review
+> follow-ups; Phase 3 begins at `ba1e12e`.
 
 ### Step 3.1: CI gates and build hygiene
 

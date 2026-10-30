@@ -62,7 +62,7 @@ export function parseDatabaseUrl(rawUrl: string): PostgreSQLConfig {
     );
   }
   const ssl = parsed.searchParams.get("ssl");
-  if (ssl !== null && ssl !== "false" && ssl !== "0") {
+  if (ssl !== null && !["false", "0", "off", "no"].includes(ssl.toLowerCase())) {
     throw new DatabaseUrlError("TLS database URLs are not supported by this adapter.");
   }
 

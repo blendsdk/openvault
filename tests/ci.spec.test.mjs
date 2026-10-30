@@ -29,6 +29,10 @@ describe("workflow security policy", () => {
   it("should use least-privilege workflow permissions and disable persisted credentials", () => {
     for (const workflow of workflowFiles) {
       expect(workflow.source).not.toContain("pull_request_target");
+      expect(workflow.source).not.toContain("continue-on-error");
+      const topLevel = workflow.source.split("jobs:")[0];
+      expect(topLevel).toContain("permissions:");
+      expect(topLevel).toContain("contents: read");
       if (workflow.source.includes("uses: actions/checkout@")) {
         expect(workflow.source).toContain("persist-credentials: false");
       }
@@ -48,6 +52,9 @@ describe("workflow security policy", () => {
   it("should run the full verification, audit, and PostgreSQL integration gates", () => {
     const ci = workflowFiles.find((workflow) => workflow.name === "ci.yml");
     expect(ci).toBeDefined();
+    expect(ci.source).toContain("verify:");
+    expect(ci.source).toContain("audit:");
+    expect(ci.source).toContain("integration:");
     expect(ci.source).toContain("pnpm verify");
     expect(ci.source).toContain("pnpm audit:prod");
     expect(ci.source).toContain("pnpm audit:full");

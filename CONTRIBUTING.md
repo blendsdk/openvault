@@ -73,7 +73,8 @@ from Biome formatting.
 5. Add a Changeset for user-visible changes.
 6. Use a Conventional Commit title (`feat:`, `fix:`, `docs:`, `chore:`).
 
-Pull requests must pass CI and receive one approval. `main` is protected.
+Pull requests must pass the required CI checks. `main` is protected and requires a pull
+request with a linear history.
 
 ## Code expectations
 

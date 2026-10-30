@@ -90,7 +90,6 @@ jobs:
           --health-retries 10
     env:
       TEST_DATABASE_URL: postgres://openvault:test-password@localhost:5432/openvault_test
-      OPENVAULT_DB_URL: postgres://openvault:test-password@localhost:5432/openvault_test
       OPENVAULT_TEST_DB: "1"
     steps:
       - name: Checkout
@@ -120,6 +119,10 @@ jobs:
 
       - name: Apply migrations for type generation
         run: pnpm db:migrate
+        env:
+          OPENVAULT_DB_URL: postgres://openvault:test-password@localhost:5432/openvault_test
 
       - name: Check generated database types
         run: pnpm db:types:check
+        env:
+          OPENVAULT_DB_URL: postgres://openvault:test-password@localhost:5432/openvault_test

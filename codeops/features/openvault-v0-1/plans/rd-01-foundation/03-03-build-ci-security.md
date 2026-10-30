@@ -206,3 +206,17 @@ port only on localhost.
 - Branch-protection read-back includes `Verify`, `Integration (16)`, `Integration (17)`,
   `Audit`, `Analyze JavaScript and TypeScript (javascript-typescript)`, `Gitleaks`, and
   `Review dependency changes`.
+
+## Branch protection read-back
+
+| Setting | Value |
+|---|---|
+| Required checks | `Verify`, `Integration (16)`, `Integration (17)`, `Audit`, `Analyze JavaScript and TypeScript (javascript-typescript)`, `Gitleaks`, `Review dependency changes` |
+| Strict status checks | Enabled |
+| Required approvals | 0 (single-maintainer project) |
+| Dismiss stale reviews | Enabled |
+| Linear history | Enabled |
+| Force pushes | Disabled |
+| Deletions | Disabled |
+| Conversation resolution | Enabled |
+| Admin enforcement | Enabled |

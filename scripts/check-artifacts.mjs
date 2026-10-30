@@ -1,10 +1,10 @@
 #!/usr/bin/env node
 
-import { existsSync, readdirSync, readFileSync, statSync } from "node:fs";
+import { existsSync, lstatSync, readdirSync, readFileSync } from "node:fs";
 import { basename, join, resolve } from "node:path";
 
-const SENTINEL = "SENTINEL_DO_NOT_LEAK_7f3a";
-const PRIVATE_KEY_MARKER = /-----BEGIN (?:RSA |EC |OPENSSH )?PRIVATE KEY-----/;
+const SENTINELS = ["SENTINEL_DO_NOT_LEAK_7f3a", "SENTINEL_KEY_DO_NOT_LEAK_7f3a"];
+const PRIVATE_KEY_MARKER = /-----BEGIN (?:RSA |EC |DSA |OPENSSH |ENCRYPTED |PGP )?PRIVATE KEY-----/;
 
 /**
  * Parses the optional `--root` argument.
@@ -54,11 +54,10 @@ function buildDirectories(root) {
 function filesBelow(directory) {
   const files = [];
   for (const entry of readdirSync(directory, { withFileTypes: true })) {
-    if (entry.isSymbolicLink()) {
-      continue;
-    }
     const path = join(directory, entry.name);
-    if (entry.isDirectory()) {
+    if (entry.isSymbolicLink()) {
+      files.push(path);
+    } else if (entry.isDirectory()) {
       files.push(...filesBelow(path));
     } else if (entry.isFile()) {
       files.push(path);
@@ -102,11 +101,8 @@ function nameViolation(path) {
  * @returns {string | null} Violation reason.
  */
 function contentViolation(path) {
-  if (statSync(path).size > 5 * 1024 * 1024) {
-    return null;
-  }
   const content = readFileSync(path, "utf8");
-  if (content.includes(SENTINEL)) {
+  if (SENTINELS.some((sentinel) => content.includes(sentinel))) {
     return "test sentinel value";
   }
   if (PRIVATE_KEY_MARKER.test(content)) {
@@ -132,7 +128,9 @@ function main() {
   const violations = [];
   for (const directory of buildDirectories(root)) {
     for (const path of filesBelow(directory)) {
-      const reason = nameViolation(path) ?? contentViolation(path);
+      const reason = lstatSync(path).isSymbolicLink()
+        ? "symlink in build output"
+        : (nameViolation(path) ?? contentViolation(path));
       if (reason) {
         violations.push(`${path}: ${reason}`);
       }

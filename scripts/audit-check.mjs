@@ -12,14 +12,19 @@ const HIGH_SEVERITIES = new Set(["high", "critical"]);
  */
 function advisories(report) {
   if (!report || typeof report !== "object") {
-    return [];
+    return null;
   }
   const value = report;
+  const hasAdvisories = value.advisories && typeof value.advisories === "object";
+  const hasVulnerabilities = value.vulnerabilities && typeof value.vulnerabilities === "object";
+  if (!hasAdvisories && !hasVulnerabilities) {
+    return null;
+  }
   const collected = [];
-  if (value.advisories && typeof value.advisories === "object") {
+  if (hasAdvisories) {
     collected.push(...Object.values(value.advisories));
   }
-  if (value.vulnerabilities && typeof value.vulnerabilities === "object") {
+  if (hasVulnerabilities) {
     collected.push(...Object.values(value.vulnerabilities));
   }
   return collected.filter((entry) => entry && typeof entry === "object");
@@ -45,7 +50,13 @@ function main() {
     return 2;
   }
 
-  const findings = advisories(report).filter((entry) =>
+  const entries = advisories(report);
+  if (entries === null) {
+    process.stderr.write("Audit report shape is not recognized.\n");
+    return 2;
+  }
+
+  const findings = entries.filter((entry) =>
     HIGH_SEVERITIES.has(String(entry.severity).toLowerCase()),
   );
   if (findings.length > 0) {
