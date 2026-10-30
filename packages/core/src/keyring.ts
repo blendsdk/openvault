@@ -1,14 +1,7 @@
 import { randomBytes } from "node:crypto";
+import { inspect } from "node:util";
 
-/** A key encryption key (KEK) and the identifier stored alongside wrapped data. */
-export interface KeyMaterial {
-  /** Stable key identifier written into every wrapped record. */
-  readonly id: string;
-  /** 32-byte AES-256 key. The caller must not mutate or log this buffer. */
-  readonly key: Buffer;
-}
-
-/** Raised when a keyring is malformed or a key is missing. */
+/** Raised when a keyring is malformed, a key is missing, or a keyring was destroyed. */
 export class KeyringError extends Error {
   public constructor(message: string) {
     super(message);
@@ -16,19 +9,49 @@ export class KeyringError extends Error {
   }
 }
 
+/** Serialized status returned by {@link Keyring.toJSON}. It contains no key material. */
+export interface KeyringStatus {
+  /** On-disk format version. */
+  readonly version: 1;
+  /** Current key identifier. */
+  readonly current: string;
+  /** Every available key identifier. */
+  readonly keyIds: readonly string[];
+}
+
 const KEY_BYTES = 32;
+const KEY_ID_PATTERN = /^[A-Za-z0-9][A-Za-z0-9._-]{0,63}$/;
+const RESERVED_IDS = new Set(["__proto__", "constructor", "prototype"]);
+const BASE64_PATTERN = /^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$/;
+
+function assertKeyId(id: string): void {
+  if (!KEY_ID_PATTERN.test(id) || RESERVED_IDS.has(id)) {
+    throw new KeyringError(`Key identifier ${id} is invalid`);
+  }
+}
+
+function assertKeyBuffer(key: unknown, id: string): asserts key is Buffer {
+  if (!Buffer.isBuffer(key) || key.length !== KEY_BYTES) {
+    throw new KeyringError(`Key ${id} must be a 32-byte Buffer`);
+  }
+}
 
 /**
- * Holds the current KEK and any older keys still needed to decrypt existing data.
+ * Holds the current key encryption key (KEK) and older keys still needed to
+ * decrypt existing data.
  *
- * The keyring is deliberately small and dependency-free. It is loaded from a file by the
- * server and is never stored in PostgreSQL.
+ * Key bytes are only available inside a synchronous callback. The class never
+ * returns a raw buffer, serializes key bytes, or prints its internal map.
+ * Destruction is best-effort zeroization: Node cannot wipe copies that the
+ * runtime or a caller already made.
  */
 export class Keyring {
   private readonly keys: Map<string, Buffer>;
-  private readonly currentId: string;
+  private readonly currentIdValue: string;
+  private destroyed = false;
 
   public constructor(keys: Readonly<Record<string, Buffer>>, currentId: string) {
+    assertKeyId(currentId);
     const entries = Object.entries(keys);
     if (entries.length === 0) {
       throw new KeyringError("Keyring must contain at least one key");
@@ -36,12 +59,8 @@ export class Keyring {
 
     const copy = new Map<string, Buffer>();
     for (const [id, key] of entries) {
-      if (id.length === 0) {
-        throw new KeyringError("Key identifier must not be empty");
-      }
-      if (!Buffer.isBuffer(key) || key.length !== KEY_BYTES) {
-        throw new KeyringError(`Key ${id} must be a 32-byte Buffer`);
-      }
+      assertKeyId(id);
+      assertKeyBuffer(key, id);
       copy.set(id, Buffer.from(key));
     }
 
@@ -50,40 +69,85 @@ export class Keyring {
     }
 
     this.keys = copy;
-    this.currentId = currentId;
+    this.currentIdValue = currentId;
   }
 
-  /** Returns the key new data must be encrypted with. */
-  public get current(): KeyMaterial {
-    return this.get(this.currentId);
+  /** Identifier of the key new data must be encrypted with. */
+  public get currentId(): string {
+    return this.currentIdValue;
   }
 
-  /** Returns a key by identifier. */
-  public get(id: string): KeyMaterial {
+  /** Reports whether a key identifier is available and the keyring is alive. */
+  public has(id: string): boolean {
+    return !this.destroyed && this.keys.has(id);
+  }
+
+  /**
+   * Runs a synchronous action with the current key.
+   *
+   * The callback must not retain or mutate the buffer. The keyring throws after
+   * {@link destroy} or when the current key is unavailable.
+   */
+  public withCurrentKey<T>(action: (key: Readonly<Buffer>) => T): T {
+    return this.withKey(this.currentIdValue, action);
+  }
+
+  /**
+   * Runs a synchronous action with a named key.
+   *
+   * The callback must not retain or mutate the buffer.
+   */
+  public withKey<T>(id: string, action: (key: Readonly<Buffer>) => T): T {
+    if (this.destroyed) {
+      throw new KeyringError("Keyring has been destroyed");
+    }
+    assertKeyId(id);
     const key = this.keys.get(id);
     if (!key) {
       throw new KeyringError(`Key ${id} is not present in the keyring`);
     }
-    return { id, key };
+    return action(key);
   }
 
-  /** Reports whether a key identifier is available. */
-  public has(id: string): boolean {
-    return this.keys.has(id);
-  }
-
-  /** Serializes the keyring to the on-disk JSON shape. */
-  public toJSON(): { version: 1; current: string; keys: Record<string, string> } {
-    const keys: Record<string, string> = {};
-    for (const [id, key] of this.keys) {
-      keys[id] = key.toString("base64");
+  /**
+   * Zeroes every key buffer and clears the keyring.
+   *
+   * The operation is idempotent. Zeroization is best-effort because JavaScript
+   * cannot guarantee that no runtime copy exists.
+   */
+  public destroy(): void {
+    if (this.destroyed) {
+      return;
     }
-    return { version: 1, current: this.currentId, keys };
+    for (const key of this.keys.values()) {
+      key.fill(0);
+    }
+    this.keys.clear();
+    this.destroyed = true;
   }
 
-  /** Parses and validates the on-disk keyring shape. */
+  /** Returns status only; key bytes are never serialized. */
+  public toJSON(): KeyringStatus {
+    return {
+      version: 1,
+      current: this.currentIdValue,
+      keyIds: [...this.keys.keys()],
+    };
+  }
+
+  /** Prints status only; key bytes and the internal map are never inspected. */
+  public [inspect.custom](): string {
+    return `Keyring(current=${this.currentIdValue}, keys=${this.keys.size}, redacted)`;
+  }
+
+  /**
+   * Parses and validates the on-disk keyring shape.
+   *
+   * The accepted shape is `{ version: 1, current, keys: { [id]: base64 } }`.
+   * Each key must decode to exactly 32 bytes from canonical base64.
+   */
   public static fromJSON(value: unknown): Keyring {
-    if (typeof value !== "object" || value === null) {
+    if (typeof value !== "object" || value === null || Array.isArray(value)) {
       throw new KeyringError("Keyring must be a JSON object");
     }
 
@@ -94,18 +158,27 @@ export class Keyring {
     if (typeof record.current !== "string" || record.current.length === 0) {
       throw new KeyringError("Keyring current key is missing");
     }
-    if (typeof record.keys !== "object" || record.keys === null) {
+    if (typeof record.keys !== "object" || record.keys === null || Array.isArray(record.keys)) {
       throw new KeyringError("Keyring keys are missing");
     }
 
     const decoded: Record<string, Buffer> = {};
-    for (const [id, encoded] of Object.entries(record.keys as Record<string, unknown>)) {
-      if (typeof encoded !== "string") {
-        throw new KeyringError(`Key ${id} must be a base64 string`);
+    const entries = Object.entries(record.keys as Record<string, unknown>);
+    if (entries.length === 0) {
+      throw new KeyringError("Keyring must contain at least one key");
+    }
+
+    for (const [id, encoded] of entries) {
+      assertKeyId(id);
+      if (typeof encoded !== "string" || !BASE64_PATTERN.test(encoded) || encoded.length === 0) {
+        throw new KeyringError(`Key ${id} must be a canonical base64 string`);
       }
       const key = Buffer.from(encoded, "base64");
       if (key.length !== KEY_BYTES) {
         throw new KeyringError(`Key ${id} must decode to 32 bytes`);
+      }
+      if (key.toString("base64") !== encoded) {
+        throw new KeyringError(`Key ${id} must be a canonical base64 string`);
       }
       decoded[id] = key;
     }

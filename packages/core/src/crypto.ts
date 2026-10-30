@@ -72,52 +72,56 @@ function decodeField(name: string, value: string, expectedBytes?: number): Buffe
 /**
  * Encrypts a value with a fresh data key and wraps that key with the current KEK.
  *
- * The value's AAD binds the ciphertext to its project, object, and version. The wrapped
- * data key has its own AAD, so copying either part onto another record fails on decrypt.
+ * The value's AAD binds the ciphertext to its project, object, and version. The
+ * wrapped data key has its own AAD, so copying either part onto another record
+ * fails on decrypt. The KEK is only read inside the keyring's callback scope.
  */
 export function encryptValue(
   plaintext: Buffer,
   keyring: Keyring,
   aad: EnvelopeAad,
 ): EncryptedValue {
-  const kek = keyring.current;
-  const dek = randomBytes(DEK_BYTES);
+  const kekId = keyring.currentId;
 
-  try {
-    const nonce = randomBytes(NONCE_BYTES);
-    const valueCipher = createCipheriv(ALGORITHM, dek, nonce);
-    valueCipher.setAAD(valueAad(aad));
-    const ciphertext = Buffer.concat([valueCipher.update(plaintext), valueCipher.final()]);
-    const tag = valueCipher.getAuthTag();
+  return keyring.withKey(kekId, (kek) => {
+    const dek = randomBytes(DEK_BYTES);
 
-    const wrapNonce = randomBytes(NONCE_BYTES);
-    const wrapCipher = createCipheriv(ALGORITHM, kek.key, wrapNonce);
-    wrapCipher.setAAD(wrapAad(kek.id, aad));
-    const wrappedDek = Buffer.concat([wrapCipher.update(dek), wrapCipher.final()]);
-    const wrapTag = wrapCipher.getAuthTag();
+    try {
+      const nonce = randomBytes(NONCE_BYTES);
+      const valueCipher = createCipheriv(ALGORITHM, dek, nonce);
+      valueCipher.setAAD(valueAad(aad));
+      const ciphertext = Buffer.concat([valueCipher.update(plaintext), valueCipher.final()]);
+      const tag = valueCipher.getAuthTag();
 
-    return {
-      kekId: kek.id,
-      nonce: nonce.toString("base64"),
-      ciphertext: ciphertext.toString("base64"),
-      tag: tag.toString("base64"),
-      wrapNonce: wrapNonce.toString("base64"),
-      wrappedDek: wrappedDek.toString("base64"),
-      wrapTag: wrapTag.toString("base64"),
-    };
-  } finally {
-    dek.fill(0);
-  }
+      const wrapNonce = randomBytes(NONCE_BYTES);
+      const wrapCipher = createCipheriv(ALGORITHM, kek, wrapNonce);
+      wrapCipher.setAAD(wrapAad(kekId, aad));
+      const wrappedDek = Buffer.concat([wrapCipher.update(dek), wrapCipher.final()]);
+      const wrapTag = wrapCipher.getAuthTag();
+
+      return {
+        kekId,
+        nonce: nonce.toString("base64"),
+        ciphertext: ciphertext.toString("base64"),
+        tag: tag.toString("base64"),
+        wrapNonce: wrapNonce.toString("base64"),
+        wrappedDek: wrappedDek.toString("base64"),
+        wrapTag: wrapTag.toString("base64"),
+      };
+    } finally {
+      dek.fill(0);
+    }
+  });
 }
 
 /**
  * Decrypts an envelope produced by {@link encryptValue}.
  *
- * Throws {@link CryptoInputError} for malformed fields and {@link CryptoIntegrityError}
- * when either authentication tag fails.
+ * Throws {@link CryptoInputError} for malformed fields and
+ * {@link CryptoIntegrityError} when either authentication tag fails. The KEK is
+ * only read inside the keyring's callback scope.
  */
 export function decryptValue(envelope: EncryptedValue, keyring: Keyring, aad: EnvelopeAad): Buffer {
-  const kek = keyring.get(envelope.kekId);
   const nonce = decodeField("nonce", envelope.nonce, NONCE_BYTES);
   const ciphertext = decodeField("ciphertext", envelope.ciphertext);
   const tag = decodeField("tag", envelope.tag, TAG_BYTES);
@@ -125,21 +129,23 @@ export function decryptValue(envelope: EncryptedValue, keyring: Keyring, aad: En
   const wrappedDek = decodeField("wrappedDek", envelope.wrappedDek, DEK_BYTES);
   const wrapTag = decodeField("wrapTag", envelope.wrapTag, TAG_BYTES);
 
-  let dek: Buffer | undefined;
+  return keyring.withKey(envelope.kekId, (kek) => {
+    let dek: Buffer | undefined;
 
-  try {
-    const unwrapCipher = createDecipheriv(ALGORITHM, kek.key, wrapNonce);
-    unwrapCipher.setAAD(wrapAad(kek.id, aad));
-    unwrapCipher.setAuthTag(wrapTag);
-    dek = Buffer.concat([unwrapCipher.update(wrappedDek), unwrapCipher.final()]);
+    try {
+      const unwrapCipher = createDecipheriv(ALGORITHM, kek, wrapNonce);
+      unwrapCipher.setAAD(wrapAad(envelope.kekId, aad));
+      unwrapCipher.setAuthTag(wrapTag);
+      dek = Buffer.concat([unwrapCipher.update(wrappedDek), unwrapCipher.final()]);
 
-    const valueCipher = createDecipheriv(ALGORITHM, dek, nonce);
-    valueCipher.setAAD(valueAad(aad));
-    valueCipher.setAuthTag(tag);
-    return Buffer.concat([valueCipher.update(ciphertext), valueCipher.final()]);
-  } catch {
-    throw new CryptoIntegrityError();
-  } finally {
-    dek?.fill(0);
-  }
+      const valueCipher = createDecipheriv(ALGORITHM, dek, nonce);
+      valueCipher.setAAD(valueAad(aad));
+      valueCipher.setAuthTag(tag);
+      return Buffer.concat([valueCipher.update(ciphertext), valueCipher.final()]);
+    } catch {
+      throw new CryptoIntegrityError();
+    } finally {
+      dek?.fill(0);
+    }
+  });
 }

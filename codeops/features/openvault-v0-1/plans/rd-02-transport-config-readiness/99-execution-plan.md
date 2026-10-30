@@ -2,8 +2,8 @@
 
 > **Document**: 99-execution-plan.md
 > **Parent**: [Index](00-index.md)
-> **Last Updated**: 2026-10-30 14:03
-> **Progress**: 2/33 tasks (6%)
+> **Last Updated**: 2026-10-30 14:06
+> **Progress**: 6/33 tasks (18%)
 > **CodeOps Artifact Schema**: 1
 > **Implements**: openvault-v0-1/RD-02
 > **Reasoning**: high — TLS/mTLS, key custody, proxy trust, and startup ordering are security-sensitive.
@@ -39,10 +39,10 @@
 
 ### Session 2 — Implementation
 
-- [ ] 1.2.1 [executor] Add `apps/server/src/config/` with `OpenVaultConfig`, `ConfigError`, `loadConfig`, `ENV_MODE` validation, file/mode/CIDR/URL/duration checks, port precedence and collision rejection, and the allowlist-based `toRedactedConfig` (ST-1–ST-9, AR-11, AR-12, AR-23)
-- [ ] 1.2.2 [executor] Harden `packages/core/src/keyring.ts` with callback access, redacted `toJSON`/inspect, safe ids, and idempotent `destroy`; adapt `packages/core/src/crypto.ts` and exports (ST-10–ST-13, AR-9)
-- [ ] 1.2.3 [executor] Add `apps/server/src/security/keyring.ts` `KeyringProvider` with exact `0600` loading, status-only `toJSON`/inspect API, disposal, and unsupported age passphrase failure (ST-10, ST-11, ST-14, AR-2, AR-10)
-- [ ] 1.2.4 [executor] Add the WebAFX bridge that passes only standard settings and disables `.env.js` loading (ST-8, AR-11)
+- [x] 1.2.1 [executor] Add `apps/server/src/config/` with `OpenVaultConfig`, `ConfigError`, `loadConfig`, `ENV_MODE` validation, file/mode/CIDR/URL/duration checks, port precedence and collision rejection, and the allowlist-based `toRedactedConfig` (ST-1–ST-9, AR-11, AR-12, AR-23) ✅ (completed: 2026-10-30 14:06)
+- [x] 1.2.2 [executor] Harden `packages/core/src/keyring.ts` with callback access, redacted `toJSON`/inspect, safe ids, and idempotent `destroy`; adapt `packages/core/src/crypto.ts` and exports (ST-10–ST-13, AR-9) ✅ (completed: 2026-10-30 14:06)
+- [x] 1.2.3 [executor] Add `apps/server/src/security/keyring.ts` `KeyringProvider` with exact `0600` loading, status-only `toJSON`/inspect API, disposal, and unsupported age passphrase failure (ST-10, ST-11, ST-14, AR-2, AR-10) ✅ (completed: 2026-10-30 14:06)
+- [x] 1.2.4 [executor] Add the WebAFX bridge that passes only standard settings and disables `.env.js` loading (ST-8, AR-11) ✅ (completed: 2026-10-30 14:06)
 
 ### Session 3 — Impl tests and hardening
 

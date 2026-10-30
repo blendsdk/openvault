@@ -2,7 +2,11 @@ import { writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
 import { ConfigError, loadConfig, toRedactedConfig } from "../src/config/index.js";
-import { createConfigFixture, writeFixtureFile, type ConfigFixture } from "./helpers/config-fixture.js";
+import {
+  type ConfigFixture,
+  createConfigFixture,
+  writeFixtureFile,
+} from "./helpers/config-fixture.js";
 
 let fixture: ConfigFixture | undefined;
 
@@ -28,7 +32,7 @@ function requireConfigError(action: () => unknown): ConfigError {
   throw new Error("Expected ConfigError");
 }
 
-describe("ST-1 required base URL", () => {
+describe("required base URL", () => {
   it("names OPENVAULT_BASE_URL when the environment is empty", () => {
     const error = requireConfigError(() => loadConfig({}));
 
@@ -45,7 +49,7 @@ describe("ST-1 required base URL", () => {
   });
 });
 
-describe("ST-2 database URL", () => {
+describe("database URL", () => {
   it("rejects a non-PostgreSQL scheme without echoing the password", () => {
     const { env } = validFixture();
     const error = requireConfigError(() =>
@@ -72,7 +76,7 @@ describe("ST-2 database URL", () => {
   });
 });
 
-describe("ST-3 base URL", () => {
+describe("base URL", () => {
   it("rejects a non-HTTPS URL, credentials, a query, and a fragment", () => {
     const { env } = validFixture();
     const invalid = [
@@ -83,9 +87,7 @@ describe("ST-3 base URL", () => {
     ];
 
     for (const value of invalid) {
-      const error = requireConfigError(() =>
-        loadConfig({ ...env, OPENVAULT_BASE_URL: value }),
-      );
+      const error = requireConfigError(() => loadConfig({ ...env, OPENVAULT_BASE_URL: value }));
       expect(error.key).toBe("OPENVAULT_BASE_URL");
       expect(error.message).not.toContain("pass");
     }
@@ -99,7 +101,7 @@ describe("ST-3 base URL", () => {
   });
 });
 
-describe("ST-4 keyring permissions", () => {
+describe("keyring permissions", () => {
   it("rejects a group- or world-readable keyring file", () => {
     const { env, directory } = validFixture();
     const worldReadable = writeFixtureFile(directory, "keyring-0644.json", "{}", 0o644);
@@ -115,13 +117,13 @@ describe("ST-4 keyring permissions", () => {
   it("rejects a relative keyring path", () => {
     const { env } = validFixture();
 
-    expect(requireConfigError(() => loadConfig({ ...env, OPENVAULT_KEYRING: "keyring.json" })).key).toBe(
-      "OPENVAULT_KEYRING",
-    );
+    expect(
+      requireConfigError(() => loadConfig({ ...env, OPENVAULT_KEYRING: "keyring.json" })).key,
+    ).toBe("OPENVAULT_KEYRING");
   });
 });
 
-describe("ST-5 required TLS material", () => {
+describe("required TLS material", () => {
   it("names each missing TLS file", () => {
     const { env } = validFixture();
     for (const key of ["OPENVAULT_TLS_CERT", "OPENVAULT_TLS_KEY", "OPENVAULT_INTERNAL_CA"]) {
@@ -135,22 +137,21 @@ describe("ST-5 required TLS material", () => {
   it("rejects a directory used as a TLS file", () => {
     const { env, directory } = validFixture();
 
-    expect(requireConfigError(() => loadConfig({ ...env, OPENVAULT_TLS_CERT: directory })).key).toBe(
-      "OPENVAULT_TLS_CERT",
-    );
+    expect(
+      requireConfigError(() => loadConfig({ ...env, OPENVAULT_TLS_CERT: directory })).key,
+    ).toBe("OPENVAULT_TLS_CERT");
   });
 });
 
-describe("ST-6 OIDC configuration", () => {
+describe("OIDC configuration", () => {
   it("requires client credentials when an issuer is set", () => {
     const { env } = validFixture();
     const withIssuer = { ...env, OPENVAULT_OIDC_ISSUER: "https://id.example.com" };
 
     expect(requireConfigError(() => loadConfig(withIssuer)).key).toBe("OPENVAULT_OIDC_CLIENT_ID");
     expect(
-      requireConfigError(() =>
-        loadConfig({ ...withIssuer, OPENVAULT_OIDC_CLIENT_ID: "client" }),
-      ).key,
+      requireConfigError(() => loadConfig({ ...withIssuer, OPENVAULT_OIDC_CLIENT_ID: "client" }))
+        .key,
     ).toBe("OPENVAULT_OIDC_CLIENT_SECRET");
   });
 
@@ -158,9 +159,7 @@ describe("ST-6 OIDC configuration", () => {
     const { env } = validFixture();
 
     expect(
-      requireConfigError(() =>
-        loadConfig({ ...env, OPENVAULT_OIDC_CLIENT_ID: "client" }),
-      ).key,
+      requireConfigError(() => loadConfig({ ...env, OPENVAULT_OIDC_CLIENT_ID: "client" })).key,
     ).toBe("OPENVAULT_OIDC_ISSUER");
     expect(
       requireConfigError(() =>
@@ -179,9 +178,7 @@ describe("ST-6 OIDC configuration", () => {
       OPENVAULT_OIDC_ALLOWED_DOMAINS: "example.com, sub.example.com",
     });
 
-    expect(config.oidc?.redirectUrl.href).toBe(
-      "https://vault.example.com/v1/auth/callback",
-    );
+    expect(config.oidc?.redirectUrl.href).toBe("https://vault.example.com/v1/auth/callback");
     expect(config.oidc?.allowedDomains).toEqual(["example.com", "sub.example.com"]);
   });
 
@@ -207,7 +204,7 @@ describe("ST-6 OIDC configuration", () => {
   });
 });
 
-describe("ST-7 redacted support output", () => {
+describe("redacted support output", () => {
   it("omits the database password, OIDC secret, and raw database URL", () => {
     const { env } = validFixture();
     const config = loadConfig({
@@ -229,7 +226,7 @@ describe("ST-7 redacted support output", () => {
   });
 });
 
-describe("ST-8 port precedence", () => {
+describe("port precedence", () => {
   it("fails when OPENVAULT_ADMIN_PORT and PORT differ", () => {
     const { env } = validFixture();
     const error = requireConfigError(() =>
@@ -259,15 +256,13 @@ describe("ST-8 port precedence", () => {
     expect(defaults.adminPort).toBe(8443);
     expect(defaults.agentPort).toBe(8444);
 
-    const error = requireConfigError(() =>
-      loadConfig({ ...env, OPENVAULT_AGENT_PORT: "8443" }),
-    );
+    const error = requireConfigError(() => loadConfig({ ...env, OPENVAULT_AGENT_PORT: "8443" }));
     expect(error.key).toBe("OPENVAULT_AGENT_PORT");
     expect(error.message).toContain("OPENVAULT_ADMIN_PORT");
   });
 });
 
-describe("ST-9 CIDR list parsing", () => {
+describe("CIDR list parsing", () => {
   it("parses IPv4 and IPv6 entries", () => {
     const { env } = validFixture();
     const config = loadConfig({
@@ -284,9 +279,7 @@ describe("ST-9 CIDR list parsing", () => {
   it("rejects malformed entries and empty list items", () => {
     const { env } = validFixture();
     for (const value of ["not-a-cidr", "172.30.0.2/33", "172.30.0.2/32,,10.0.0.0/8", ""]) {
-      const error = requireConfigError(() =>
-        loadConfig({ ...env, OPENVAULT_PROXY_CIDRS: value }),
-      );
+      const error = requireConfigError(() => loadConfig({ ...env, OPENVAULT_PROXY_CIDRS: value }));
       expect(error.key).toBe("OPENVAULT_PROXY_CIDRS");
     }
   });
@@ -295,9 +288,7 @@ describe("ST-9 CIDR list parsing", () => {
     const { env } = validFixture();
 
     expect(
-      requireConfigError(() =>
-        loadConfig({ ...env, OPENVAULT_PROXY_CIDRS: "172.30.0.9/24" }),
-      ).key,
+      requireConfigError(() => loadConfig({ ...env, OPENVAULT_PROXY_CIDRS: "172.30.0.9/24" })).key,
     ).toBe("OPENVAULT_PROXY_CIDRS");
   });
 });

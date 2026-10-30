@@ -15,18 +15,14 @@ function validKeyringJson(): Record<string, unknown> {
   };
 }
 
-describe("ST-11 keyring validation", () => {
+describe("keyring validation", () => {
   it("rejects malformed JSON shapes and versions", () => {
     expect(() => Keyring.fromJSON(null)).toThrow(KeyringError);
     expect(() => Keyring.fromJSON("not-an-object")).toThrow(KeyringError);
     expect(() => Keyring.fromJSON({ ...validKeyringJson(), version: 2 })).toThrow(KeyringError);
-    expect(() => Keyring.fromJSON({ version: 1, keys: { k1: base64Key() } })).toThrow(
-      KeyringError,
-    );
+    expect(() => Keyring.fromJSON({ version: 1, keys: { k1: base64Key() } })).toThrow(KeyringError);
     expect(() => Keyring.fromJSON({ version: 1, current: "k1" })).toThrow(KeyringError);
-    expect(() =>
-      Keyring.fromJSON({ version: 1, current: "k1", keys: {} }),
-    ).toThrow(KeyringError);
+    expect(() => Keyring.fromJSON({ version: 1, current: "k1", keys: {} })).toThrow(KeyringError);
   });
 
   it("rejects a missing current key and wrong key lengths", () => {
@@ -34,7 +30,11 @@ describe("ST-11 keyring validation", () => {
       Keyring.fromJSON({ version: 1, current: "k2", keys: { k1: base64Key() } }),
     ).toThrow(KeyringError);
     expect(() =>
-      Keyring.fromJSON({ version: 1, current: "k1", keys: { k1: randomBytes(16).toString("base64") } }),
+      Keyring.fromJSON({
+        version: 1,
+        current: "k1",
+        keys: { k1: randomBytes(16).toString("base64") },
+      }),
     ).toThrow(KeyringError);
   });
 
@@ -50,14 +50,14 @@ describe("ST-11 keyring validation", () => {
 
   it("rejects non-canonical or malformed base64", () => {
     for (const encoded of ["not base64!", "AAAA", `${base64Key()}garbage`]) {
-      expect(() =>
-        Keyring.fromJSON({ version: 1, current: "k1", keys: { k1: encoded } }),
-      ).toThrow(KeyringError);
+      expect(() => Keyring.fromJSON({ version: 1, current: "k1", keys: { k1: encoded } })).toThrow(
+        KeyringError,
+      );
     }
   });
 });
 
-describe("ST-12 redacted serialization and inspection", () => {
+describe("redacted serialization and inspection", () => {
   it("never emits key bytes from JSON.stringify", () => {
     const keyring = Keyring.fromJSON(validKeyringJson());
     const serialized = JSON.stringify(keyring);
@@ -77,7 +77,7 @@ describe("ST-12 redacted serialization and inspection", () => {
   });
 });
 
-describe("ST-13 callback access and destruction", () => {
+describe("callback access and destruction", () => {
   it("provides scoped access to the current and historical keys", () => {
     const keyring = Keyring.fromJSON({
       version: 1,

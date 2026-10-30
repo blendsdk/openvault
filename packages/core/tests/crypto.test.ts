@@ -46,7 +46,7 @@ describe("Keyring", () => {
     });
 
     expect(JSON.stringify(keyring)).toBe('{"version":1,"current":"k1","keyIds":["k1"]}');
-    expect(util.inspect(keyring)).toBe("Keyring(current=k1, keys=1, redacted)");
+    expect(inspect(keyring)).toBe("Keyring(current=k1, keys=1, redacted)");
   });
 
   it("rejects a missing current key", () => {

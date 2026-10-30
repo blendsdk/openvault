@@ -31,7 +31,7 @@ function keyringJson(current = "k1"): string {
   });
 }
 
-describe("ST-10 keyring provider loading", () => {
+describe("keyring provider loading", () => {
   it("loads a 0600 keyring and reports status without key bytes", async () => {
     const directoryPath = fixtureDirectory();
     const path = writeFixtureFile(directoryPath, "keyring.json", keyringJson("k2"));
@@ -66,7 +66,7 @@ describe("ST-10 keyring provider loading", () => {
   });
 });
 
-describe("ST-12 provider serialization and inspection", () => {
+describe("provider serialization and inspection", () => {
   it("serializes only status fields", async () => {
     const directoryPath = fixtureDirectory();
     const path = writeFixtureFile(directoryPath, "keyring.json", keyringJson());
