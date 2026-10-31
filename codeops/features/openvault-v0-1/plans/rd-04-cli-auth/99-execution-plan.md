@@ -1,0 +1,308 @@
+# Execution Plan: RD-04 CLI Authentication
+
+> **Document**: 99-execution-plan.md
+> **Parent**: [Index](00-index.md)
+> **Last Updated**: 2026-11-01 00:38
+> **Progress**: 0/69 tasks (0%)
+> **CodeOps Artifact Schema**: 1
+
+## Overview
+
+Implement RD-04 in five phases: contracts/schema/signing keys, shared login and CLI login,
+refresh/logout/bearer authentication, sessions/password-change/retention, and logging/docs/
+release verification. Each feature phase follows the mandatory specification-first order:
+spec tests, red result, implementation, green result, implementation tests, full verification.
+
+**🚨 Update this document after EACH completed task!**
+
+---
+
+## Implementation Phases
+
+| Phase | Title | Tasks |
+|---|---|---|
+| 1 | Contracts, schema, signing keys, and JWT | 18 |
+| 2 | Shared local login and CLI login | 14 |
+| 3 | Refresh, logout, and bearer authentication | 15 |
+| 4 | Sessions, password change, and retention | 14 |
+| 5 | Redaction, documentation, and release verification | 8 |
+
+**Total: 69 tasks across 5 phases**
+
+> **⚠️ EXECUTION RULE — APPLIES TO EVERY AGENT EXECUTING THIS PLAN:**
+>
+> The task checkboxes below are the **single source of truth** for progress. Every task line
+> appears exactly once in this document. The executing agent MUST:
+>
+> 1. **On implementation:** mark the task `[~]` with a timestamp —
+>    `- [~] 1.1.1 Task description ⏳ (implemented: YYYY-MM-DD HH:MM)`
+> 2. **On verify pass:** promote it to `[x]` —
+>    `- [x] 1.1.1 Task description ✅ (completed: YYYY-MM-DD HH:MM)`
+> 3. **Update the Progress header** (`> **Progress**: X/Y tasks (Z%)`) and the Last Updated
+>    stamp after EVERY task — never batch updates. Only `[x]` counts as complete.
+> 4. **Resume** by scanning the phase sections top-to-bottom: the first `[~]` task is resumed
+>    first, else the first `[ ]` task.
+> 5. **On blocker:** mark the task `[!]` and append `Blocked: <short reason>` on the same line.
+>    The plan lifecycle is `Ready`, `Executing`, `Done`, or `Blocked`, derived from these markers.
+>
+> Timestamps come from `date '+%Y-%m-%d %H:%M'` — never invented.
+
+---
+
+## Phase 1: Contracts, schema, signing keys, and JWT
+
+> **Lenses**: security, api-surface, migration
+> **Reasoning**: max — key wrapping, signing, and JWT verification are security-critical and
+> the schema change is the foundation for every later phase
+
+### Step 1.1: Specification Tests
+
+**Reference**: [03-01](03-01-contracts-schema.md), [03-02](03-02-signing-keys-jwt.md) · [07](07-testing-strategy.md) ST-1–ST-15 · AR-2, AR-3, AR-8, AR-13, AR-17, AR-22, AR-28
+**Objective**: Freeze the contracts, schema, key lifecycle, and JWT expectations before code.
+
+- [ ] 1.1.1 [spec-author] Write contract tests for ST-1–ST-5 — `packages/api-contract/tests/cli-auth.spec.test.ts`
+- [ ] 1.1.2 [spec-author] Write signing-key lifecycle tests for ST-9–ST-14 — `apps/server/tests/auth/signing-keys.spec.test.ts`
+- [ ] 1.1.3 [spec-author] Write pure JWT verification tests for ST-12–ST-15 — `apps/server/tests/auth/cli-jwt.spec.test.ts`
+- [ ] 1.1.4 [spec-author] Extend schema and migration tests for ST-6–ST-8 — `apps/server/tests/integration/schema.spec.test.ts`, `apps/server/tests/integration/migrations.spec.test.ts`
+- [ ] 1.1.5 Run the Phase 1 spec tests and record the red result
+
+### Step 1.2: Implementation
+
+**Reference**: [03-01](03-01-contracts-schema.md) §New contracts, §Database model · [03-02](03-02-signing-keys-jwt.md) §Implementation Details · AR-3, AR-13, AR-17, AR-22, AR-28
+
+- [ ] 1.2.1 Add the strict CLI schemas, inferred types, and package exports — `packages/api-contract/src/cli-auth.ts`, `packages/api-contract/src/index.ts`
+- [ ] 1.2.2 Add `signing_keys`, the live-family unique index, and the cleanup expression index to the desired schema — `apps/server/src/database/schema.ts`
+- [ ] 1.2.3 Generate and review the additive `cli-auth` migration and snapshot — `apps/server/migrations/`
+- [ ] 1.2.4 Regenerate and commit database row types and CType constants — `apps/server/src/database/generated-types.ts`, `apps/server/src/database/ctypes.ts`
+- [ ] 1.2.5 Add scoped current/named KEK callbacks to the server keyring provider — `apps/server/src/security/keyring.ts`
+- [ ] 1.2.6 Add Ed25519 key generation, AES-256-GCM seed wrap/unwrap, and the signing-key error types — `apps/server/src/security/signing-keys.ts`
+- [ ] 1.2.7 Add the signing-key repository with advisory-locked ensure, rotate, and retire-due — `apps/server/src/security/signing-keys.ts`
+- [ ] 1.2.8 Add the signing-key service cache and access-token sign/verify methods — `apps/server/src/security/signing-keys.ts`
+- [ ] 1.2.9 Add pure `jose` access-token sign/verify helpers matching the fixed claim set — `apps/server/src/auth/cli-jwt.ts`
+- [ ] 1.2.10 Run the Phase 1 spec tests and verify green
+
+### Step 1.3: Implementation Tests and Hardening
+
+- [ ] 1.3.1 Write implementation tests for keyring callbacks, wrap AAD/tamper, seed lengths, and key-generation errors — `apps/server/tests/auth/signing-keys.impl.test.ts`
+- [ ] 1.3.2 Write implementation tests for JWT claim edges, clock tolerance, due-previous rejection, and cache reload — `apps/server/tests/auth/cli-jwt.impl.test.ts`
+- [ ] 1.3.3 Run full verification — `pnpm verify`
+
+**Deliverables**:
+- Strict CLI contracts exported from `@openvault/api-contract`.
+- Reviewed additive migration and regenerated types.
+- KEK-wrapped Ed25519 key lifecycle with current/previous/retired states.
+- Pure JWT sign/verify helpers with pinned algorithm and claims.
+- All verification passing.
+
+**Verify**: `pnpm verify`
+
+---
+
+## Phase 2: Shared local login and CLI login
+
+> **Lenses**: security, api-surface
+> **Reasoning**: max — shared lockout and rate-limit buckets are security-critical and the
+> login path issues the first credential
+
+### Step 2.1: Specification Tests
+
+**Reference**: [03-03](03-03-local-login-rate-limits.md) · [07](07-testing-strategy.md) ST-16–ST-24 · AR-5, AR-8, AR-15, AR-33
+**Objective**: Define CLI login, generic failure, shared lockout, shared buckets, and forced-change login.
+
+- [ ] 2.1.1 [spec-author] Write the CLI login and shared-limit integration tests for ST-16–ST-24 — `apps/server/tests/integration/auth.cli-login.spec.test.ts`
+- [ ] 2.1.2 Run the Phase 2 spec tests and record the red result
+
+### Step 2.2: Implementation
+
+**Reference**: [03-03](03-03-local-login-rate-limits.md) §Local login service, §Shared rate limits, §CLI login route · AR-5, AR-8, AR-15
+
+- [ ] 2.2.1 Extract `LocalLoginService`, normalization, generic failure, and the post-success recheck — `apps/server/src/auth/local-login.ts`
+- [ ] 2.2.2 Add the per-app limiter service, account hash, async route wrappers, and refresh-family request field — `apps/server/src/auth/login-rate-limits.ts`, `apps/server/src/types/express.d.ts`
+- [ ] 2.2.3 Refactor browser login to use the shared service and limiter wrappers — `apps/server/src/controllers/auth.ts`
+- [ ] 2.2.4 Add raw-token generation, hashing, and lock-through-insert family creation with the hash recheck — `apps/server/src/auth/cli-sessions.ts`
+- [ ] 2.2.5 Add CLI login token assembly, family issuance, revalidation, and signing — `apps/server/src/auth/cli-auth-service.ts`
+- [ ] 2.2.6 Add the CLI login route and controller shell — `apps/server/src/controllers/cli-auth.ts`
+- [ ] 2.2.7 Register the login, limiter, CLI-session, signing, and CLI-auth services; register the controller — `apps/server/src/auth/plugin.ts`, `apps/server/src/app.ts`
+- [ ] 2.2.8 Add the idempotent auth bootstrap for signing-key ensure; call it from `main.ts` and CLI integration setup — `apps/server/src/auth/bootstrap.ts`, `apps/server/src/main.ts`
+- [ ] 2.2.9 Run the Phase 2 spec tests and verify green
+
+### Step 2.3: Implementation Tests and Hardening
+
+- [ ] 2.3.1 Write implementation tests for local-login branches, CAS loss, revalidation, and account keying — `apps/server/tests/auth/local-login.impl.test.ts`, `apps/server/tests/auth/login-rate-limits.impl.test.ts`
+- [ ] 2.3.2 Run the browser login regression integration tests against PostgreSQL — `apps/server/tests/integration/auth.local.test.ts`
+- [ ] 2.3.3 Run full verification — `pnpm verify`
+
+**Deliverables**:
+- One local-login service shared by browser and CLI.
+- One per-app set of login limiter buckets.
+- CLI login issues a refresh family and access token with no cookie.
+- Generic failures, lockout, and forced-change login verified.
+- All verification passing.
+
+**Verify**: `pnpm verify`
+
+---
+
+## Phase 3: Refresh, logout, and bearer authentication
+
+> **Lenses**: security, concurrency, api-surface
+> **Reasoning**: max — rotation locking, reuse detection, bearer precedence, and the auth
+> context split are security- and concurrency-critical
+
+### Step 3.1: Specification Tests
+
+**Reference**: [03-04](03-04-refresh-bearer.md) · [07](07-testing-strategy.md) ST-25–ST-37, ST-49–ST-50 · AR-2, AR-4, AR-6, AR-18, AR-21, AR-22, AR-23, AR-35
+**Objective**: Define rotation, reuse, logout, bearer precedence, browser rejection, and refresh limits.
+
+- [ ] 3.1.1 [spec-author] Write the refresh, logout, and bearer integration tests for ST-25–ST-37 and ST-49–ST-50 — `apps/server/tests/integration/auth.cli-refresh.spec.test.ts`
+- [ ] 3.1.2 Run the Phase 3 spec tests and record the red result
+
+### Step 3.2: Implementation
+
+**Reference**: [03-04](03-04-refresh-bearer.md) §Implementation Details · AR-4, AR-6, AR-18, AR-21, AR-22, AR-23
+
+- [ ] 3.2.1 Split `AuthContext` into browser/CLI variants, add `requireSession`/`requireCli`/`requirePrincipal`, and narrow existing `req.auth` callers — `apps/server/src/auth/types.ts`, `apps/server/src/auth/middleware.ts`, `apps/server/src/controllers/auth.ts`
+- [ ] 3.2.2 Add the bearer middleware and the no-cookie-fallback rule — `apps/server/src/auth/middleware.ts`
+- [ ] 3.2.3 Make Origin and CSRF guards browser-only — `apps/server/src/auth/csrf.ts`
+- [ ] 3.2.4 Extend the forced-change gate with the CLI `/cli/me` and logout allowlist — `apps/server/src/auth/middleware.ts`
+- [ ] 3.2.5 Add refresh lookup and the one-query active principal/family check — `apps/server/src/auth/cli-sessions.ts`
+- [ ] 3.2.6 Add the locked rotation and logout transactions, including reuse and unique-race handling — `apps/server/src/auth/cli-sessions.ts`
+- [ ] 3.2.7 Add CLI refresh/logout orchestration and token assembly — `apps/server/src/auth/cli-auth-service.ts`
+- [ ] 3.2.8 Add refresh, logout, and `/cli/me` routes — `apps/server/src/controllers/cli-auth.ts`
+- [ ] 3.2.9 Install the CLI middleware before the session middleware and update request typing — `apps/server/src/auth/plugin.ts`, `apps/server/src/types/express.d.ts`
+- [ ] 3.2.10 Run the Phase 3 spec tests and verify green
+
+### Step 3.3: Implementation Tests and Hardening
+
+- [ ] 3.3.1 Write implementation tests for the context union, bearer parsing, no-fallback rule, and browser-only guards; update existing contexts — `apps/server/tests/auth/middleware.impl.test.ts`, `apps/server/tests/auth/csrf.impl.test.ts`, `apps/server/tests/auth/csrf.spec.test.ts`
+- [ ] 3.3.2 Run the CLI refresh integration suite against PostgreSQL 16 and 17 — `apps/server/tests/integration/auth.cli-refresh.spec.test.ts`
+- [ ] 3.3.3 Run full verification — `pnpm verify`
+
+**Deliverables**:
+- Atomic refresh rotation with absolute family expiry and reuse detection.
+- Idempotent logout and immediate family revocation.
+- Bearer authentication with principal/family checks and no cookie fallback.
+- Browser-only CSRF/Origin and a CLI forced-change gate.
+- Refresh IP/family limits.
+- All verification passing.
+
+**Verify**: `pnpm verify`
+
+---
+
+## Phase 4: Sessions, password change, and retention
+
+> **Lenses**: security, concurrency, migration
+> **Reasoning**: max — password-change locking, family revocation, and cleanup can corrupt
+> authentication state if ordered incorrectly
+
+### Step 4.1: Specification Tests
+
+**Reference**: [03-05](03-05-sessions-retention.md) · [07](07-testing-strategy.md) ST-38–ST-44, ST-51 · AR-7, AR-9, AR-11, AR-16, AR-19, AR-20, AR-24, AR-31, AR-32, AR-33, AR-34
+**Objective**: Define family management, password-change revocation, cleanup, and bootstrap.
+
+- [ ] 4.1.1 [spec-author] Write the session, password-change, cleanup, and bootstrap integration tests for ST-38–ST-44 and ST-51 — `apps/server/tests/integration/auth.cli-sessions.spec.test.ts`
+- [ ] 4.1.2 Run the Phase 4 spec tests and record the red result
+
+### Step 4.2: Implementation
+
+**Reference**: [03-05](03-05-sessions-retention.md) §Implementation Details · AR-7, AR-9, AR-11, AR-16, AR-19, AR-20, AR-24, AR-31, AR-32
+
+- [ ] 4.2.1 Add the family list query and principal-locked owned-family revoke transaction — `apps/server/src/auth/cli-sessions.ts`
+- [ ] 4.2.2 Add the bounded 30-day cleanup delete — `apps/server/src/auth/cli-sessions.ts`
+- [ ] 4.2.3 Add the CLI session list and delete routes — `apps/server/src/controllers/cli-auth.ts`
+- [ ] 4.2.4 Allow the credential password update to run on a transaction handle — `apps/server/src/auth/credentials.ts`
+- [ ] 4.2.5 Revoke every CLI family inside the browser password-change transaction — `apps/server/src/controllers/auth.ts`
+- [ ] 4.2.6 Add the idempotent maintenance service for startup and 24-hour cleanup — `apps/server/src/auth/cli-maintenance.ts`
+- [ ] 4.2.7 Extend the auth bootstrap to retire due keys and start maintenance — `apps/server/src/auth/bootstrap.ts`
+- [ ] 4.2.8 Register the maintenance service with its disposal hook — `apps/server/src/auth/plugin.ts`
+- [ ] 4.2.9 Run the Phase 4 spec tests and verify green
+
+### Step 4.3: Implementation Tests and Hardening
+
+- [ ] 4.3.1 Write implementation tests for repository result mapping, cleanup bounds, timer idempotence, and bootstrap failure handling — `apps/server/tests/auth/cli-sessions.impl.test.ts`, `apps/server/tests/auth/cli-maintenance.impl.test.ts`
+- [ ] 4.3.2 Run the CLI session integration suite against PostgreSQL 16 and 17 — `apps/server/tests/integration/auth.cli-sessions.spec.test.ts`
+- [ ] 4.3.3 Run full verification — `pnpm verify`
+
+**Deliverables**:
+- CLI family list and revoke with stable 404 behavior.
+- Password change revokes every CLI family in the same transaction.
+- 30-day bounded cleanup at startup and every 24 hours.
+- Production bootstrap for key ensure and maintenance.
+- All verification passing.
+
+**Verify**: `pnpm verify`
+
+---
+
+## Phase 5: Redaction, documentation, and release verification
+
+> **Lenses**: security, maintainability
+> **Reasoning**: high — the final log and documentation checks are security-facing release gates
+
+### Step 5.1: Specification Tests
+
+**Reference**: [03-02](03-02-signing-keys-jwt.md) §Error handling · [07](07-testing-strategy.md) ST-45–ST-46 · AR-12, AR-28, AR-29
+**Objective**: Define nested redaction and captured-log behavior before the final hardening.
+
+- [ ] 5.1.1 [spec-author] Write the captured-log and nested-redaction tests for ST-45–ST-46 — `apps/server/tests/integration/auth.cli-logging.spec.test.ts`
+- [ ] 5.1.2 Run the Phase 5 spec tests and record the red result
+
+### Step 5.2: Implementation
+
+**Reference**: [03-02](03-02-signing-keys-jwt.md) §Error handling · AR-12, AR-29
+
+- [ ] 5.2.1 Add nested access/refresh token redaction paths — `apps/server/src/observability/logger.ts`
+- [ ] 5.2.2 Update the authentication guide and known limitations — `docs/guide/authentication.md`, `docs/security/limitations.md`
+- [ ] 5.2.3 Run the Phase 5 spec tests and verify green
+
+### Step 5.3: Implementation Tests and Hardening
+
+- [ ] 5.3.1 Write implementation tests for redaction path boundaries and stable error bodies — `apps/server/tests/logging.impl.test.ts`
+- [ ] 5.3.2 Run the full release verification and generated-type check — `pnpm verify`, `pnpm db:types:check`
+- [ ] 5.3.3 Cross-check the public API, identity, and crypto docs against the implemented fields and update drift only — `docs/reference/api.md`, `docs/architecture/identity.md`, `docs/architecture/crypto.md`
+
+**Deliverables**:
+- Nested token redaction with a captured-log proof.
+- Authentication guide and limitations aligned with the server behavior.
+- Full verification and generated-type checks passing.
+- All verification passing.
+
+**Verify**: `pnpm verify`
+
+---
+
+## Dependencies
+
+```
+Phase 1: contracts, schema, signing keys, JWT
+    ↓
+Phase 2: shared login, CLI login, limiter buckets
+    ↓
+Phase 3: refresh, logout, bearer auth, /cli/me
+    ↓
+Phase 4: sessions, password change, retention, bootstrap
+    ↓
+Phase 5: redaction, docs, release verification
+```
+
+Phase 1 has no dependency on later phases. Phase 2 needs the signing service from Phase 1.
+Phase 3 needs the family-creation and login service from Phase 2. Phase 4 needs the repository
+and bearer context from Phase 3. Phase 5 needs the complete request surface and error behavior
+from Phases 1–4.
+
+---
+
+## Success Criteria
+
+**Feature is complete when:**
+
+1. ✅ All phases completed.
+2. ✅ All verification passing under Node 24.21.0.
+3. ✅ No warnings or errors.
+4. ✅ No dead code — no unused parameters, functions, classes, or modules.
+5. ✅ Security hardened — token validation, key wrapping, auth, rate limits, CSRF scoping, no
+   token leakage, and fail-closed key errors.
+6. ✅ Documentation updated.
+7. ✅ Code reviewed by the assigned correctness, security, and concurrency roles.
+8. ✅ Post-completion project re-analysis handled by the exec-plan skill.
