@@ -7,7 +7,9 @@ matter more than speed.
 
 - Node.js 22.23 or newer
 - pnpm 12.11.2 (`corepack enable` is the simplest way to match it)
+- OpenSSL 1.1.1 or newer, for the ephemeral TLS/mTLS transport fixtures
 - Docker, for integration tests and the reference stack
+- Caddy 2.10, optional; the deployment test runs `caddy validate` when it is installed
 
 ## Setup
 
@@ -91,7 +93,9 @@ request with a linear history.
 - `*.spec.test.ts` derives from the documented behavior and is the oracle.
 - `*.impl.test.ts` covers internals and may change with refactoring.
 - Integration tests use a real PostgreSQL instance and real TLS where the behavior depends
-  on it. Mocks are for true externals only.
+  on it. The transport suite generates a disposable CA, server certificate, and client
+  certificate with the system `openssl`; no private key is committed. Mocks are for true
+  externals only.
 - Security tests are mandatory for authentication, authorization, audit, crypto, and the
   agent.
 

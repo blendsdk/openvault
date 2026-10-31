@@ -11,8 +11,9 @@ KEK (32 bytes, keyring file, outside the database)
  └── wraps JWT signing key (Ed25519)
 ```
 
-The KEK is never written to PostgreSQL. The keyring file is mode `0600` and can be
-age-encrypted with a passphrase.
+The KEK is never written to PostgreSQL. The keyring file is mode `0600`. Age encryption
+and the passphrase-file flow are deferred to a later release; the server rejects a passphrase
+file instead of falling back to plaintext.
 
 ## Envelope encryption
 

@@ -14,19 +14,25 @@ Use this before putting OpenVault in front of real workloads.
 ## Network
 
 - [ ] The server is not attached to application networks.
-- [ ] Only the proxy exposes port 443.
+- [ ] Only the proxy exposes ports 80 and 443.
+- [ ] Admin `8443` is not published; the `OPENVAULT_PROXY_CIDRS` source guard is
+  authoritative, and `admin_net` placement is defense in depth.
+- [ ] Agent `8444` is on `vault_net` only and is not published.
 - [ ] PostgreSQL is on `db_net` only.
 - [ ] Agents are the only containers on both `vault_net` and an app network.
 - [ ] No Docker socket is mounted into any container.
 - [ ] `OPENVAULT_TRUST_PROXY` is true only behind the proxy.
+- [ ] `OPENVAULT_PROXY_CIDRS` is pinned to the proxy address, not the broad default.
 
 ## TLS and certificates
 
 - [ ] The proxy uses a trusted certificate.
+- [ ] The server certificate and key match; the internal CA has `CA:TRUE`.
 - [ ] The agent trusts only the expected server CA.
 - [ ] Workload certificates are short-lived and renewed.
 - [ ] Revoked identities are removed from service.
 - [ ] Certificate expiry alerts reach a real channel.
+- [ ] The keyring file is mode `0600`; age encryption is unavailable in the current release.
 
 ## Identity
 
@@ -57,5 +63,6 @@ Use this before putting OpenVault in front of real workloads.
 - [ ] A restore drill succeeded.
 - [ ] KEK rotation was tested.
 - [ ] The keyring is backed up separately.
+- [ ] `ov init` provisioned the keyring and TLS material.
 - [ ] Monitoring alerts on `/ready`, agent health, and certificate expiry.
 - [ ] The threat model and limitations were reviewed.

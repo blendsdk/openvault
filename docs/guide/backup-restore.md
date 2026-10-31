@@ -25,8 +25,9 @@ ov backup --out /backup/openvault-2026-10-29.age
 The archive contains the database dump, keyring, and configuration manifest. It is
 encrypted with age using a passphrase or recipient key.
 
-The backup passphrase is a second factor. If the keyring is also age-encrypted, its
-passphrase is required at restore. Store both separately from the archive.
+The backup passphrase is a second factor. Age-encrypted keyrings and their passphrase flow
+are deferred to a later release; until then the keyring is plaintext JSON with mode `0600`, and both
+the archive passphrase and the keyring backup must be stored separately from the archive.
 
 ## Restore
 

@@ -1,33 +1,91 @@
-import { WebApplication } from "blendsdk/webafx";
+import { PostgreSQLDatabase } from "blendsdk/postgresql";
+import { createLoggerPlugin } from "blendsdk/webafx-pino";
+import type { OpenVaultConfig } from "./config/index.js";
 import { ReadyController } from "./controllers/ready.js";
+import { createLoggerProvider } from "./observability/logger.js";
+import { createProductionProbes, ReadinessService } from "./readiness/service.js";
+import { KeyringProvider } from "./security/keyring.js";
+import { installPreStack, type PreStackOptions } from "./transport/pre-stack.js";
+import {
+  type SecureApplicationDependencies,
+  SecureWebApplication,
+} from "./transport/secure-application.js";
 
-/** Supported WebAFX environment modes. */
-export type EnvMode = "production" | "development" | "test";
+/**
+ * Builds the production application with validated configuration and runtime
+ * dependencies.
+ *
+ * The pre-stack is installed before WebAFX initialization so security-boundary
+ * rejections never reach a controller. WebAFX remains the only response
+ * envelope renderer.
+ *
+ * @param config - Validated runtime configuration.
+ * @param dependencies - Database, TLS material, and keyring provider.
+ * @returns An application that must be prepared and bound with `startTransport`.
+ */
+export function createApplication(
+  config: OpenVaultConfig,
+  dependencies: SecureApplicationDependencies,
+  options: PreStackOptions = {},
+): SecureWebApplication {
+  const app = new SecureWebApplication(config, dependencies);
+  const provider = createLoggerProvider(config, dependencies.loggerDestination);
 
-/** Options used by tests and the process entry point. */
-export interface CreateAppOptions {
-  /** HTTP port. Defaults to `PORT` or 8443. */
-  readonly PORT?: number;
-  /** WebAFX environment mode. Defaults to `production`. */
-  readonly ENV_MODE?: EnvMode;
-}
+  installPreStack(app.express, config, provider, options);
 
-function resolveEnvMode(value: string | undefined): EnvMode {
-  return value === "development" || value === "test" ? value : "production";
+  app.registerService({
+    name: "config",
+    type: "singleton",
+    factory: () => config,
+  });
+  app.registerService({
+    name: "database",
+    type: "singleton",
+    factory: () => dependencies.database,
+    dispose: async (database) => {
+      if (database instanceof PostgreSQLDatabase) {
+        await database.disconnect();
+      }
+    },
+  });
+  app.registerService({
+    name: "keyring",
+    type: "singleton",
+    factory: () => dependencies.keyring,
+    dispose: (keyring) => {
+      if (keyring instanceof KeyringProvider) {
+        keyring.destroy();
+      }
+    },
+  });
+  app.registerService({
+    name: "readiness",
+    type: "singleton",
+    factory: () =>
+      new ReadinessService(dependencies.readinessProbes ?? createProductionProbes(dependencies)),
+  });
+  app.registerController("", ReadyController);
+  app.use(createLoggerPlugin(provider));
+
+  return app;
 }
 
 /**
- * Builds the WebAFX application without starting the HTTP server.
+ * Builds a prepared application for in-process tests.
  *
- * Keeping construction separate makes controller tests fast and lets the process entry
- * point own the listen and shutdown lifecycle.
+ * The application uses the same WebAFX assembly as production but does not
+ * bind a listener. Tests read `app.express` through supertest or call
+ * `startTransport` when they need real HTTPS sockets.
+ *
+ * @param config - Validated runtime configuration.
+ * @param dependencies - Test dependencies, including fake readiness probes.
+ * @returns A prepared application.
  */
-export function createApp(options: CreateAppOptions = {}): WebApplication {
-  const app = new WebApplication({
-    PORT: options.PORT ?? Number(process.env.PORT ?? 8443),
-    ENV_MODE: options.ENV_MODE ?? resolveEnvMode(process.env.ENV_MODE),
-  });
-
-  app.registerController("/v1", ReadyController);
+export async function createTestApplication(
+  config: OpenVaultConfig,
+  dependencies: SecureApplicationDependencies,
+): Promise<SecureWebApplication> {
+  const app = createApplication(config, dependencies, { testListener: "admin" });
+  await app.prepare();
   return app;
 }

@@ -1,15 +1,27 @@
 {
   email {$ACME_EMAIL}
+  servers {
+    timeouts {
+      read_header 10s
+      read_body 30s
+      write 30s
+      idle 120s
+    }
+  }
 }
 
 https://localhost {
   tls internal
+  header Strict-Transport-Security "max-age=31536000; includeSubDomains"
 
   reverse_proxy openvaultd:8443 {
     transport http {
       tls
-      tls_trusted_ca_certs /etc/openvault/tls/ca.pem
+      tls_trust_pool file /etc/openvault/ca/ca.pem
       tls_server_name openvaultd
+      read_timeout 30s
+      write_timeout 30s
+      keepalive 10s
     }
   }
 }

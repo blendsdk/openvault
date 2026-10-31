@@ -10,15 +10,16 @@ services:
       ACME_EMAIL: ${ACME_EMAIL:-admin@example.com}
     volumes:
       - ./Caddyfile:/etc/caddy/Caddyfile:ro
-      - openvault_tls:/etc/openvault/tls:ro
+      - openvault_ca_public:/etc/openvault/ca:ro
       - caddy_data:/data
       - caddy_config:/config
     networks:
-      - edge_net
-      - vault_net
+      edge_net: {}
+      admin_net:
+        ipv4_address: 172.30.0.2
     depends_on:
       openvaultd:
-        condition: service_started
+        condition: service_healthy
 
   openvault-init:
     # Runs once to create the keyring, CA, server certificate, and bootstrap admin.
@@ -29,9 +30,12 @@ services:
       OPENVAULT_KEYRING: /var/lib/openvault/keyring.json
       OPENVAULT_TLS_CERT: /etc/openvault/tls/server.crt
       OPENVAULT_TLS_KEY: /etc/openvault/tls/server.key
+      # The provisioner publishes only the CA certificate here for the proxy.
+      OPENVAULT_CA_PUBLIC_DIR: /etc/openvault/ca
     volumes:
       - openvault_data:/var/lib/openvault
       - openvault_tls:/etc/openvault/tls
+      - openvault_ca_public:/etc/openvault/ca
     networks:
       - db_net
     depends_on:
@@ -47,13 +51,27 @@ services:
       OPENVAULT_KEYRING: /var/lib/openvault/keyring.json
       OPENVAULT_TLS_CERT: /etc/openvault/tls/server.crt
       OPENVAULT_TLS_KEY: /etc/openvault/tls/server.key
-      PORT: "8443"
+      OPENVAULT_INTERNAL_CA: /etc/openvault/tls/ca.pem
+      OPENVAULT_ADMIN_PORT: "8443"
+      OPENVAULT_AGENT_PORT: "8444"
+      OPENVAULT_TRUST_PROXY: "true"
+      OPENVAULT_PROXY_CIDRS: 172.30.0.2/32
+      OPENVAULT_LOG_LEVEL: info
     volumes:
-      - openvault_data:/var/lib/openvault
-      - openvault_tls:/etc/openvault/tls
+      - openvault_data:/var/lib/openvault:ro
+      - openvault_tls:/etc/openvault/tls:ro
     networks:
-      - vault_net
-      - db_net
+      admin_net:
+        ipv4_address: 172.30.0.3
+      vault_net: {}
+      db_net: {}
+    healthcheck:
+      test:
+        ["CMD-SHELL", "wget --no-check-certificate -qO- https://127.0.0.1:8443/health || exit 1"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+      start_period: 10s
     depends_on:
       openvault-init:
         condition: service_completed_successfully
@@ -77,8 +95,14 @@ services:
       retries: 10
 
 networks:
-  edge_net:
+  edge_net: {}
+  admin_net:
+    internal: true
+    ipam:
+      config:
+        - subnet: 172.30.0.0/24
   vault_net:
+    name: vault_net
     internal: true
   db_net:
     internal: true
@@ -89,3 +113,4 @@ volumes:
   caddy_config:
   openvault_data:
   openvault_tls:
+  openvault_ca_public:

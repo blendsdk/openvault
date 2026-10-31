@@ -1,30 +1,48 @@
 # Configuration
 
 Configuration is read from environment variables, validated at boot, and passed to the
-WebAFX application. Missing required values stop startup.
+WebAFX application. Missing required values stop startup before migrations or a listener
+bind.
 
 | Variable | Default | Required | Notes |
 |---|---|---|---|
-| `OPENVAULT_BASE_URL` | — | yes | Public URL for OIDC redirects and cookies |
-| `PORT` | `8443` | no | WebAFX listen port |
+| `ENV_MODE` | `production` | no | `production`, `development`, or `test` |
+| `OPENVAULT_BASE_URL` | — | yes | Absolute HTTPS URL; no credentials, query, or fragment |
+| `OPENVAULT_ADMIN_PORT` | `8443` | no | Canonical admin HTTPS port |
+| `PORT` | — | no | Compatibility alias for `OPENVAULT_ADMIN_PORT`; a conflict is an error |
+| `OPENVAULT_AGENT_PORT` | `8444` | no | Agent mTLS port; must differ from the admin port |
 | `OPENVAULT_DB_URL` | — | yes | PostgreSQL connection string |
-| `OPENVAULT_KEYRING` | `/etc/openvault/keyring.json` | no | KEK keyring |
-| `OPENVAULT_KEYRING_PASSPHRASE_FILE` | none | no | If the keyring is age-encrypted |
-| `OPENVAULT_TLS_CERT` / `_KEY` | — | yes | Server certificate |
-| `OPENVAULT_OIDC_ISSUER` | none | no | Enables OIDC |
-| `OPENVAULT_OIDC_CLIENT_ID` / `_SECRET` | none | with OIDC | |
-| `OPENVAULT_OIDC_REDIRECT_URL` | `${BASE_URL}/v1/auth/callback` | no | |
-| `OPENVAULT_OIDC_ALLOWED_DOMAINS` | none | no | If set, JIT provisioning is allowed |
-| `OPENVAULT_SECRET_MAX_BYTES` | `65536` | no | 1 KiB–1 MiB |
-| `OPENVAULT_CERT_MAX_BYTES` | `131072` | no | Certificate import limit |
+| `OPENVAULT_KEYRING` | — | yes | Absolute path to a regular file with mode `0600` |
+| `OPENVAULT_KEYRING_PASSPHRASE_FILE` | none | no | Reserved for age keyrings; setting it fails closed in the current release |
+| `OPENVAULT_TLS_CERT` | — | yes | Readable server certificate PEM |
+| `OPENVAULT_TLS_KEY` | — | yes | Readable private-key PEM that matches the certificate |
+| `OPENVAULT_INTERNAL_CA` | — | yes | Readable CA certificate with `CA:TRUE` and a valid self-signature |
+| `OPENVAULT_OIDC_ISSUER` | none | no | HTTPS URL; enables OIDC |
+| `OPENVAULT_OIDC_CLIENT_ID` / `_SECRET` | none | with OIDC | Non-empty when an issuer is set |
+| `OPENVAULT_OIDC_REDIRECT_URL` | `${BASE_URL}/v1/auth/callback` | no | HTTPS URL |
+| `OPENVAULT_OIDC_ALLOWED_DOMAINS` | none | no | Comma-separated domain allowlist |
+| `OPENVAULT_SECRET_MAX_BYTES` | `65536` | no | Product-value limit enforced by the secret routes |
+| `OPENVAULT_CERT_MAX_BYTES` | `131072` | no | Product-value limit enforced by the certificate routes |
 | `OPENVAULT_SOFT_DELETE_DAYS` | `30` | no | 7–90 |
-| `OPENVAULT_AUDIT_RETENTION_DAYS` | `180` | no | |
-| `OPENVAULT_JOIN_TOKEN_TTL` | `15m` | no | Max 24h |
-| `OPENVAULT_CERT_TTL_DAYS` | `30` | no | Workload certificates |
-| `OPENVAULT_SESSION_TTL_HOURS` | `8` | no | Browser sessions |
-| `OPENVAULT_LOG_LEVEL` | `info` | no | Mapped to WebAFX `LOG_LEVEL` |
-| `OPENVAULT_TRUST_PROXY` | `true` | no | Trust forwarded headers only from the proxy |
-| `OPENVAULT_PROXY_CIDRS` | `172.16.0.0/12` | no | Allowed forwarded-header sources |
+| `OPENVAULT_AUDIT_RETENTION_DAYS` | `180` | no | 30–3650 |
+| `OPENVAULT_JOIN_TOKEN_TTL` | `15m` | no | 1m–24h |
+| `OPENVAULT_CERT_TTL_DAYS` | `30` | no | 1–90 |
+| `OPENVAULT_SESSION_TTL_HOURS` | `8` | no | 1–24 |
+| `OPENVAULT_LOG_LEVEL` | `info` | no | `error`, `warn`, `info`, or `debug` |
+| `OPENVAULT_TRUST_PROXY` | `true` | no | Trust forwarded headers only from peers in `OPENVAULT_PROXY_CIDRS` |
+| `OPENVAULT_PROXY_CIDRS` | `172.16.0.0/12` | no | Comma-separated IPv4/IPv6 CIDRs; canonical network addresses only |
+
+`OPENVAULT_ADMIN_PORT` wins over `PORT`. If both are set and differ, startup fails with a
+keyed error. The agent port must differ from the resolved admin port.
+
+## Body limits
+
+The transport boundary is fixed at 64 KiB for `/v1/secrets*` and 128 KiB for
+`/v1/certificates*` and other JSON under `/v1`. `OPENVAULT_SECRET_MAX_BYTES` and
+`OPENVAULT_CERT_MAX_BYTES` are product-value limits enforced by the secret and certificate
+secret and certificate routes; they do not widen or narrow the HTTP parser.
+
+Requests with a non-JSON body under `/v1` are rejected with `415`.
 
 ## Keyring
 
@@ -41,10 +59,39 @@ The keyring is a JSON file outside PostgreSQL:
 }
 ```
 
-Mode `0600`. Optionally age-encrypted with a passphrase supplied through
-`OPENVAULT_KEYRING_PASSPHRASE_FILE`.
+The path is required and must be an absolute path to a regular file with exact mode
+`0600`. Group- or world-readable files stop startup.
+
+Age-encrypted keyrings are deferred to a later release. Setting
+`OPENVAULT_KEYRING_PASSPHRASE_FILE` fails closed with an unsupported-feature error; there is
+no plaintext fallback. The reference stack is not bootable until the `ov init` provisioner
+CLI and backup/rotation releases create the keyring file.
+
+## Readiness
+
+| Endpoint | Semantics |
+|---|---|
+| `GET /health` | Liveness only; remains 200 during a dependency outage |
+| `GET /ready` | PostgreSQL, keyring, TLS/CA, and audit-table probes; 200 or 503 `not_ready` |
+
+`/v1/ready` is not part of the contract. The readiness database probe uses a 2-second
+connection timeout and a bounded outer timeout.
 
 ## Proxy trust
 
 Only set `OPENVAULT_TRUST_PROXY=true` when the server is reachable exclusively through the
-proxy. Otherwise a client can spoof `X-Forwarded-For` and defeat rate limiting.
+proxy. The reference Compose stack uses a dedicated `admin_net` and a single pinned proxy
+address:
+
+```text
+OPENVAULT_PROXY_CIDRS=172.30.0.2/32
+```
+
+Forwarded headers from any other source are ignored. Loopback peers may call only `/health`
+and `/ready` so container health checks work.
+
+## TLS and headers
+
+The admin listener is HTTPS only and uses TLS 1.2 or newer. The agent listener requires a
+client certificate chained to `OPENVAULT_INTERNAL_CA`. The server does not own the public
+HSTS contract; Caddy sets HSTS and the public client/upstream timeouts.
