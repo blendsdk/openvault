@@ -3,7 +3,11 @@ import { PostgreSQLDatabase } from "blendsdk/postgresql";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { z } from "zod";
 import { createTestApplication } from "../src/app.js";
-import { createLoggerProvider } from "../src/observability/logger.js";
+import {
+  createLoggerProvider,
+  sanitizeLogArgs,
+  sanitizeLogMessage,
+} from "../src/observability/logger.js";
 import { KeyringProvider } from "../src/security/keyring.js";
 import { TlsMaterial } from "../src/transport/tls.js";
 import { testRequest } from "./integration/helpers/https.js";
@@ -52,12 +56,33 @@ describe("log redaction", () => {
         token: "secret-token",
         value: "secret-value",
         password: "secret-password",
+        currentPassword: "secret-current-password",
+        newPassword: "secret-new-password",
+        csrfToken: "secret-csrf-token",
+        codeVerifier: "secret-code-verifier",
+        nonce: "secret-nonce",
+        idToken: "secret-id-token",
+        accessToken: "secret-access-token",
+        refreshToken: "secret-refresh-token",
+        secretId: "secret-session-id",
+        sessionSecret: "secret-session-secret",
         privateKey: "secret-private-key",
         authorization: "Bearer secret-authorization",
         cookie: "session=secret-cookie",
         "set-cookie": "session=secret-set-cookie",
-        req: { body: { token: "secret-body-token" } },
+        req: {
+          body: { token: "secret-body-token", csrfToken: "secret-body-csrf" },
+          headers: { "x-csrf-token": "secret-header-csrf" },
+          cookies: { "__Host-ov_session": "secret-cookie-value" },
+          url: "/v1/auth/callback?code=secret-url-code&state=secret-url-state",
+          originalUrl: "/v1/auth/callback?code=secret-original-code&state=secret-original-state",
+          query: { code: "secret-query-code", state: "secret-query-state" },
+        },
         nested: { token: "secret-nested-token" },
+      });
+      await provider.info("error probe", {
+        code: "invalid_credentials",
+        statusCode: 401,
       });
       await provider.shutdown();
 
@@ -66,16 +91,59 @@ describe("log redaction", () => {
         "secret-token",
         "secret-value",
         "secret-password",
+        "secret-current-password",
+        "secret-new-password",
+        "secret-csrf-token",
+        "secret-code-verifier",
+        "secret-nonce",
+        "secret-id-token",
+        "secret-access-token",
+        "secret-refresh-token",
+        "secret-session-id",
+        "secret-session-secret",
         "secret-private-key",
         "secret-authorization",
         "secret-cookie",
         "secret-set-cookie",
         "secret-body-token",
+        "secret-body-csrf",
+        "secret-header-csrf",
+        "secret-cookie-value",
+        "secret-url-code",
+        "secret-url-state",
+        "secret-original-code",
+        "secret-original-state",
+        "secret-query-code",
+        "secret-query-state",
         "secret-nested-token",
       ]) {
         expect(output).not.toContain(secret);
       }
       expect(output).toContain("[Redacted]");
+      expect(output).toContain("invalid_credentials");
+    } finally {
+      environment.cleanup();
+    }
+  });
+});
+
+describe("request log sanitization", () => {
+  it("should strip callback query secrets through the real pino provider", async () => {
+    const environment = createServerEnvironment();
+    const destination = new MemoryDestination();
+    const provider = createLoggerProvider(environment.config, destination);
+    try {
+      await provider.info("GET /v1/auth/callback?code=abc&state=xyz 200 4ms", {
+        url: "/v1/auth/callback?code=abc&state=xyz",
+      });
+      await provider.shutdown();
+
+      expect(destination.entries()).toContainEqual(
+        expect.objectContaining({
+          msg: "GET /v1/auth/callback 200 4ms",
+          url: "/v1/auth/callback",
+        }),
+      );
     } finally {
       environment.cleanup();
     }
@@ -174,4 +242,51 @@ describe("request correlation", () => {
       }
     },
   );
+});
+
+describe("log sanitization", () => {
+  it("should strip the query string from a request-log message and keep the path", () => {
+    const message = sanitizeLogMessage("GET /v1/auth/callback?code=abc&state=xyz 200 4ms");
+
+    expect(message).not.toContain("abc");
+    expect(message).not.toContain("xyz");
+    expect(message).toBe("GET /v1/auth/callback 200 4ms");
+  });
+
+  it("should leave messages without the request-log shape unchanged", () => {
+    for (const message of [
+      "authentication failed",
+      "GET /ready 200 6ms",
+      "/v1/auth/callback?code=abc",
+    ]) {
+      expect(sanitizeLogMessage(message)).toBe(message);
+    }
+  });
+
+  it("should strip the query string from an object argument with a string url", () => {
+    const args = [{ url: "/v1/auth/callback?code=abc&state=xyz" }];
+    const sanitized = sanitizeLogArgs(args);
+
+    expect(sanitized).toEqual([{ url: "/v1/auth/callback" }]);
+    expect(args).toEqual([{ url: "/v1/auth/callback?code=abc&state=xyz" }]);
+  });
+
+  it("should sanitize string arguments and keep non-string arguments", () => {
+    const sanitized = sanitizeLogArgs([
+      "GET /v1/auth/callback?code=abc&state=xyz 200 4ms",
+      42,
+      null,
+      true,
+    ]);
+
+    expect(sanitized[0]).toBe("GET /v1/auth/callback 200 4ms");
+    expect(sanitized.slice(1)).toEqual([42, null, true]);
+  });
+
+  it("should not recurse into nested objects", () => {
+    const args = [{ inner: { url: "/v1/auth/callback?code=abc" } }];
+    const sanitized = sanitizeLogArgs(args);
+
+    expect(sanitized).toEqual([{ inner: { url: "/v1/auth/callback?code=abc" } }]);
+  });
 });

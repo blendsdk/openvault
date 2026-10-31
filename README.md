@@ -17,7 +17,7 @@ OpenVault is in early development. The current repository contains:
 
 - the pnpm/TypeScript 7 workspace and Biome toolchain
 - the envelope-encryption core with tests
-- a WebAFX server skeleton with a readiness endpoint
+- a WebAFX server with the transport boundary, readiness, and human authentication
 - a React 19 + Fluent UI v9 web shell
 - the VitePress documentation site and GitHub Actions workflows
 
@@ -51,7 +51,7 @@ service gets its own agent and its own tmpfs directory.
 
 ## Developer preview
 
-Requirements: Node.js 22.23+, pnpm 12.11.2.
+Requirements: Node.js 24.7+, pnpm 12.11.2.
 
 ```bash
 git clone https://github.com/blendsdk/openvault.git

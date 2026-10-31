@@ -1,1 +1,21 @@
+export {
+  type AuthMethod,
+  type AuthUser,
+  authMethodSchema,
+  authUserSchema,
+  type LoginRequest,
+  loginRequestSchema,
+  type MetaAuth,
+  metaAuthSchema,
+  type PasswordChangeRequest,
+  passwordChangeRequestSchema,
+  type RefreshResponse,
+  refreshResponseSchema,
+  type SessionEntry,
+  type SessionList,
+  type SessionResponse,
+  sessionEntrySchema,
+  sessionListSchema,
+  sessionResponseSchema,
+} from "./auth.js";
 export { projectNameSchema, secretNameSchema, ulidSchema } from "./ids.js";

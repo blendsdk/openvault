@@ -5,7 +5,7 @@ matter more than speed.
 
 ## Prerequisites
 
-- Node.js 22.23 or newer
+- Node.js 24.7 or newer
 - pnpm 12.11.2 (`corepack enable` is the simplest way to match it)
 - OpenSSL 1.1.1 or newer, for the ephemeral TLS/mTLS transport fixtures
 - Docker, for integration tests and the reference stack
@@ -80,7 +80,7 @@ request with a linear history.
 
 ## Code expectations
 
-- TypeScript strict mode, ESM, Node.js 22.
+- TypeScript strict mode, ESM, Node.js 24.7+.
 - Public APIs have documentation comments that explain behavior and edge cases.
 - No `any`, no unsafe casts, no string-concatenated SQL.
 - No secret values in logs, errors, tests, fixtures, screenshots, or documentation.

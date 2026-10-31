@@ -9,7 +9,7 @@ today.
 
 | Component | Version |
 |---|---|
-| Node.js | 22.23 or newer |
+| Node.js | 24.7 or newer |
 | pnpm | 12.11.2 |
 | Docker | Current stable |
 | Docker Compose | v2 |
@@ -57,7 +57,9 @@ This creates:
 - the server certificate signed by the internal CA
 - the JWT signing key, wrapped by the KEK
 
-The bootstrap password is printed once. The first login forces a change.
+The bootstrap password is written once to a file with mode `0600`; it is never printed to
+stdout, stderr, or container logs. The first login forces a change; delete the file after the
+change.
 
 `ov init` and the reference image are v0.1 deliverables. Until the provisioner lands, the
 reference stack cannot create the required keyring or TLS material; use fixtures for local

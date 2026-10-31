@@ -1,6 +1,10 @@
 import { PostgreSQLDatabase } from "blendsdk/postgresql";
 import { createLoggerPlugin } from "blendsdk/webafx-pino";
+import { createAuthPlugin } from "./auth/plugin.js";
 import type { OpenVaultConfig } from "./config/index.js";
+import { AuthController } from "./controllers/auth.js";
+import { MetaController } from "./controllers/meta.js";
+import { OidcController } from "./controllers/oidc.js";
 import { ReadyController } from "./controllers/ready.js";
 import { createLoggerProvider } from "./observability/logger.js";
 import { createProductionProbes, ReadinessService } from "./readiness/service.js";
@@ -64,7 +68,19 @@ export function createApplication(
     factory: () =>
       new ReadinessService(dependencies.readinessProbes ?? createProductionProbes(dependencies)),
   });
+  app.use(
+    createAuthPlugin({
+      config,
+      database: dependencies.database,
+      ...(dependencies.authOverrides === undefined
+        ? {}
+        : { overrides: dependencies.authOverrides }),
+    }),
+  );
   app.registerController("", ReadyController);
+  app.registerController("/v1/auth", AuthController);
+  app.registerController("/v1/auth", OidcController);
+  app.registerController("/v1/meta", MetaController);
   app.use(createLoggerPlugin(provider));
 
   return app;
