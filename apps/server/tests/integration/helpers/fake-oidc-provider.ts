@@ -423,9 +423,12 @@ export class FakeOidcProvider {
     if (header === undefined) {
       return false;
     }
-    const match = /^Basic\s+(.+)$/i.exec(header);
-    const encoded = match?.[1];
-    if (encoded === undefined) {
+    const prefix = "basic ";
+    if (!header.toLowerCase().startsWith(prefix)) {
+      return false;
+    }
+    const encoded = header.slice(prefix.length).trim();
+    if (encoded.length === 0) {
       return false;
     }
     const decoded = Buffer.from(encoded, "base64").toString("utf8");

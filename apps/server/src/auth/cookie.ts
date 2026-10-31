@@ -50,6 +50,12 @@ export function readOidcBindingCookie(req: Request): string | undefined {
   return readCookie(req, OIDC_BINDING_COOKIE_NAME);
 }
 
+/*
+ * The value is an opaque session or OIDC binding token, not a password. A
+ * host-only HttpOnly/Secure/SameSite cookie is the intended transport; the
+ * raw value is never written to logs or the database. CodeQL's generic
+ * clear-text-storage query is a false positive for this sink.
+ */
 function setHostCookie(res: Response, name: string, value: string, maxAgeSeconds: number): void {
   res.cookie(name, value, {
     httpOnly: true,
