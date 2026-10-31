@@ -21,6 +21,7 @@ The `ov` binary is part of v0.1.
 | `ov init` | Create the organization, admin, keyring, and CA |
 | `ov login` / `ov logout` | Manage CLI credentials |
 | `ov whoami` | Show the current principal |
+| `ov auth sessions` | List and revoke CLI token families |
 | `ov project list/create/delete` | Manage projects |
 | `ov secret set/get/list/versions/delete` | Manage secrets |
 | `ov cert import/generate/get/delete` | Manage certificates |
@@ -36,8 +37,16 @@ The `ov` binary is part of v0.1.
 
 ## Credentials
 
-The CLI stores tokens in `~/.config/openvault/credentials.json`, mode `0600`. `ov logout`
-removes them.
+The CLI stores tokens in an OS-specific config directory: `$XDG_CONFIG_HOME/openvault/` or
+`~/.config/openvault/` on Linux, `~/Library/Application Support/openvault/` on macOS, and
+`%APPDATA%\openvault\` on Windows. The directory is mode `0700` and the file is mode `0600` on
+POSIX; Windows restricts both to the current user or fails closed. Writes are atomic, symlinks
+are rejected, and concurrent processes are serialized by a lock file.
+
+`ov logout` calls the server to revoke the refresh family, then removes the credential and lock
+files. If the network call fails, it still removes the local files and reports that the
+server-side family may remain until expiry. Tokens never appear in argv, environment
+variables, shell history, diagnostics, or logs.
 
 ## Exit codes
 

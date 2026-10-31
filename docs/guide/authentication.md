@@ -81,9 +81,14 @@ returns `400 oidc_callback_failed`; a denied identity returns `403 access_denied
 ## CLI tokens
 
 `POST /v1/auth/cli/login` returns a short-lived Ed25519 JWT and an opaque refresh token.
-Refresh tokens rotate on use and are stored hashed. Reuse revokes the family.
+Refresh tokens rotate on use and are stored hashed. A family has an absolute 12-hour lifetime
+from login; rotation does not extend it. Reuse, logout, password change, or principal disable
+revokes the family. Every access-token request checks the principal status and a live family
+row.
 
-The CLI stores credentials in `~/.config/openvault/credentials.json`, mode `0600`.
+The CLI stores credentials in an OS-specific config directory with a `0700` directory and
+`0600` file on POSIX, or a current-user ACL on Windows. Writes are atomic, symlinks are
+rejected, and concurrent processes are serialized. Tokens never appear in argv or logs.
 
 ## Agent certificates
 
