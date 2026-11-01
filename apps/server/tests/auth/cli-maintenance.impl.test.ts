@@ -111,6 +111,30 @@ describe("CLI session maintenance", () => {
     service.stop();
   });
 
+  it("should clear a timer created before an in-flight initial cleanup", async () => {
+    let release!: (value: number) => void;
+    const repository = {
+      cleanup: (): Promise<number> =>
+        new Promise<number>((resolve) => {
+          release = resolve;
+        }),
+    };
+    const clear = vi.spyOn(globalThis, "clearInterval");
+    const service = new CliSessionMaintenanceService({
+      repository,
+      logger: logger([]),
+      intervalMs: 1_000,
+    });
+
+    const starting = service.start();
+    service.stop();
+    expect(clear).toHaveBeenCalledTimes(1);
+    release(0);
+    await starting;
+    service.stop();
+    expect(clear).toHaveBeenCalledTimes(1);
+  });
+
   it("should make stop idempotent and allow a later restart", async () => {
     const repository = new FakeRepository();
     const clear = vi.spyOn(globalThis, "clearInterval");

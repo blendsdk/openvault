@@ -477,11 +477,12 @@ export class CliSessionRepository {
   }
 
   /**
-   * Revokes every live row in one owned family.
+   * Revokes the unexpired live rows of one owned family and reports whether
+   * anything changed.
    *
    * The principal lock serializes this with rotation and login. A family that
    * is unknown, foreign, expired, or already revoked returns false and is not
-   * disclosed.
+   * disclosed. Expired rows are left for the retention cleanup.
    *
    * @param familyId - Public family identifier.
    * @param principalId - Owner principal.
@@ -520,7 +521,8 @@ export class CliSessionRepository {
       `UPDATE cli_sessions
           SET revoked_at = now()
         WHERE principal_id = :principalId
-          AND revoked_at IS NULL`,
+          AND revoked_at IS NULL
+          AND expires_at > now()`,
       { principalId },
     );
   }
@@ -547,6 +549,8 @@ export class CliSessionRepository {
            ORDER BY GREATEST(expires_at, COALESCE(revoked_at, expires_at))
            LIMIT :limit
         )
+          AND GREATEST(expires_at, COALESCE(revoked_at, expires_at))
+              < now() - interval '30 days'
         RETURNING id`,
       { limit },
     );
@@ -554,12 +558,13 @@ export class CliSessionRepository {
   }
 
   /**
-   * Revokes every live row in one owned family.
+   * Compensates a failed issuance by revoking every unrevoked, unexpired row in
+   * one family.
    *
-   * Used as the compensation path after token issuance fails and as the
-   * unique-race backstop. The principal lock makes the revocation safe even if
-   * a competing rotation is active. The operation is idempotent and does not
-   * reveal whether the family existed.
+   * This is the internal compensation and unique-race backstop, not the
+   * management-route revocation. It does not report whether anything changed;
+   * expired rows are left for retention cleanup. The principal lock makes the
+   * revocation safe if a competing rotation is active.
    *
    * @param familyId - Public family identifier.
    * @param principalId - Owner principal.
@@ -583,7 +588,8 @@ export class CliSessionRepository {
           SET revoked_at = now()
         WHERE family_id = :familyId
           AND principal_id = :principalId
-          AND revoked_at IS NULL`,
+          AND revoked_at IS NULL
+          AND expires_at > now()`,
       { familyId, principalId },
     );
   }

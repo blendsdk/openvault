@@ -149,9 +149,11 @@ UPDATE cli_sessions
    SET revoked_at = now()
  WHERE principal_id = :principalId
    AND revoked_at IS NULL
+   AND expires_at > now()
 ```
 
-The update is part of the password transaction, so it rolls back with a failed password update.
+Expired rows are left to retention cleanup; they cannot authenticate. The update is part of the
+password transaction, so it rolls back with a failed password update.
 Because every bearer request checks a live family row, old access tokens fail immediately after
 commit. A concurrent refresh either waits for the password lock and then sees revoked rows, or
 commits first and is revoked by this update. CLI login takes the same principal lock through
@@ -171,10 +173,14 @@ DELETE FROM cli_sessions
     ORDER BY GREATEST(expires_at, COALESCE(revoked_at, expires_at))
     LIMIT :batchSize
  )
+   AND GREATEST(expires_at, COALESCE(revoked_at, expires_at))
+       < now() - interval '30 days'
 RETURNING id
 ```
 
 - A row is retained for 30 days after the later of expiry and revocation.
+- The predicate is repeated on the outer DELETE so a row revoked after the subquery snapshot
+  is rechecked against its new `revoked_at`; it is kept for another 30 days.
 - The predicate requires the row to be expired for more than 30 days, so a usable live row is
   never selected.
 - The `cli_sessions_cleanup_idx` expression index supports the predicate.
@@ -196,10 +202,12 @@ export class CliSessionMaintenanceService {
 }
 ```
 
-`start()` is idempotent. The timer is `unref()`ed. The service is registered with a dispose hook
-that calls `stop()`. The initial cleanup failure is logged and does not prevent the server from
-starting; a signing-key ensure failure still fails startup. This keeps a transient cleanup
-problem from taking the auth service offline while preserving the startup attempt.
+`start()` is idempotent. It creates and `unref()`s the timer before awaiting the first cleanup,
+so a concurrent `stop()` can always clear it. The service is registered with a dispose hook that
+calls `stop()`. The initial cleanup failure is logged through the application pino logger and does
+not prevent the server from starting; a signing-key ensure failure still fails startup. This keeps
+a transient cleanup problem from taking the auth service offline while preserving the startup
+attempt.
 
 ### Production bootstrap
 

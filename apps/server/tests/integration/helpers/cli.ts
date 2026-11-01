@@ -305,12 +305,13 @@ export class PrincipalLock {
   }
 
   /**
-   * Waits for ungranted locks in the disposable test database.
+   * Waits for sessions in the lock chain rooted at this transaction.
    *
-   * The harness is the only workload in this database, so every ungranted lock
-   * belongs to one of the racing requests. Counting `pg_locks` directly is
-   * more reliable than counting wait events, which can miss a waiter while it
-   * is between lock requests.
+   * The recursive query follows `pg_blocking_pids` from the external lock
+   * holder through direct and chained waiters. It therefore proves that both
+   * racing requests reached the serialization point, including a second
+   * request queued behind the first app transaction, without counting unrelated
+   * locks on a shared server.
    *
    * @param expected - Number of blocked sessions to wait for.
    * @param timeoutMs - Maximum time to wait.
@@ -321,9 +322,16 @@ export class PrincipalLock {
     let observed = 0;
     while (Date.now() < deadline) {
       const result = await this.#client.query<{ waiting: number }>(
-        `SELECT count(*)::int AS waiting
-           FROM pg_locks
-          WHERE NOT granted`,
+        `WITH RECURSIVE waiters(pid) AS (
+           SELECT pid
+             FROM pg_stat_activity
+            WHERE pg_backend_pid() = ANY(pg_blocking_pids(pid))
+           UNION
+           SELECT a.pid
+             FROM pg_stat_activity a
+             JOIN waiters w ON w.pid = ANY(pg_blocking_pids(a.pid))
+         )
+         SELECT count(*)::int AS waiting FROM waiters`,
       );
       observed = Math.max(observed, result.rows[0]?.waiting ?? 0);
       if (observed >= expected) {

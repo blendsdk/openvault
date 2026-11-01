@@ -74,6 +74,7 @@ export function createApplication(
       config,
       database: dependencies.database,
       keyring: dependencies.keyring,
+      logger: provider,
       ...(dependencies.authOverrides === undefined
         ? {}
         : { overrides: dependencies.authOverrides }),

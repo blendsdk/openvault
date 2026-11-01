@@ -58,16 +58,19 @@ export class CliSessionMaintenanceService {
       return;
     }
     this.#started = true;
+    // Create the timer before awaiting cleanup so a concurrent stop() can
+    // always clear it. Creating it afterwards would leak the timer when stop()
+    // interleaves with the initial cleanup.
+    this.#timer = setInterval(() => {
+      void this.#runScheduled();
+    }, this.#intervalMs);
+    this.#timer.unref?.();
+
     try {
       await this.runOnce();
     } catch {
       await this.#logFailure();
     }
-
-    this.#timer = setInterval(() => {
-      void this.#runScheduled();
-    }, this.#intervalMs);
-    this.#timer.unref?.();
   }
 
   /**

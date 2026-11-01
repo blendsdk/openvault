@@ -1,5 +1,5 @@
 import type { PostgreSQLDatabase } from "blendsdk/postgresql";
-import type { PluginDefinition } from "blendsdk/webafx";
+import type { Logger, PluginDefinition } from "blendsdk/webafx";
 import type { CacheProvider } from "blendsdk/webafx-cache";
 import { MemoryCacheProvider } from "blendsdk/webafx-cache/memory";
 import type { OpenVaultConfig } from "../config/index.js";
@@ -27,6 +27,8 @@ export interface AuthPluginOptions {
   readonly database: PostgreSQLDatabase;
   /** Loaded KEK provider used by the JWT signer. */
   readonly keyring: KeyringProvider;
+  /** Application logger shared with the request pipeline. */
+  readonly logger: Logger;
   /** Test-only collaboration seams. Production leaves this empty. */
   readonly overrides?: AuthOverrides;
 }
@@ -36,9 +38,10 @@ export interface AuthPluginOptions {
  *
  * The plugin installs after WebAFX core middleware (so cookies and JSON bodies
  * are parsed) and before controllers. It registers session, credential, local
- * login, shared rate-limit, CLI session, signing-key, CLI auth, and optional
- * OIDC services, then wires CLI bearer resolution, browser session resolution,
- * the forced-change gate, the origin guard, and the session-scoped CSRF check.
+ * login, shared rate-limit, CLI session, signing-key, CLI auth, CLI maintenance,
+ * and optional OIDC services, then wires CLI bearer resolution, browser session
+ * resolution, the forced-change gate, the origin guard, and the session-scoped
+ * CSRF check.
  *
  * @param options - Configuration, database, keyring, and test overrides.
  * @returns A WebAFX plugin definition.
@@ -47,7 +50,7 @@ export function createAuthPlugin(options: AuthPluginOptions): PluginDefinition {
   return {
     name: "openvault-auth",
     priority: 15,
-    factory: async ({ app, express, logger }) => {
+    factory: async ({ app, express }) => {
       const cache: CacheProvider =
         options.overrides?.cache ??
         new MemoryCacheProvider({
@@ -75,7 +78,7 @@ export function createAuthPlugin(options: AuthPluginOptions): PluginDefinition {
       const cliAuth = new CliAuthService({ sessions: cliSessions, signingKeys });
       const cliMaintenance = new CliSessionMaintenanceService({
         repository: cliSessions,
-        logger,
+        logger: options.logger,
       });
 
       app.registerService({

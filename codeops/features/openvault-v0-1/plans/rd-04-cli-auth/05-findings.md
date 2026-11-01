@@ -20,7 +20,6 @@
 | RV-003/P2 | 2 | MINOR | sign-failure test coverage | fixed |
 | RV-004/P2 | 2 | MINOR | controller documentation | fixed |
 | RV-005/P2 | 2 | MINOR | plugin documentation | fixed |
-
 | RV-001/P3 | 3 | CRITICAL | spec oracle fixture | fixed |
 | RV-002/P3 | 3 | MAJOR | tampered-token helper | fixed |
 | SA-001/P3 | 3 | MINOR | browser refresh + bearer header | fixed |
@@ -29,8 +28,18 @@
 | SA-002/P3 | 3 | MINOR | logout rate limit | accepted |
 | CON-R1/P3 | 3 | MINOR | revoke backstop lock | fixed |
 | CON-R4/P3 | 3 | MINOR | logout/refresh test gap | accepted |
+| RV-001/P4 | 4 | MINOR | maintenance logger wiring | fixed |
+| RV-002/P4 | 4 | MINOR | race-helper database scope | fixed |
+| RV-003/P4 | 4 | MINOR | revocation documentation | fixed |
+| RV-004/P4 | 4 | MINOR | plugin service documentation | fixed |
+| RV-005/P4 | 4 | MINOR | test harness size | deferred |
+| CA-1/P4 | 4 | MINOR | cleanup snapshot drift | fixed |
+| CA-2/P4 | 4 | MINOR | cleanup/revocation lock overlap | fixed |
+| CA-3/P4 | 4 | MINOR | maintenance timer race | fixed |
 
 Phase 2 security audit: no findings. Phase 2 concurrency audit: no findings.
 Phase 3 concurrency audit: no findings beyond the two accepted residual notes.
+Phase 4 security audit: no findings. Phase 4 concurrency audit: three minor
+items fixed; one test-only harness size follow-up deferred.
 The Phase 4 password-change task now explicitly requires the principal lock
 before revocation.
