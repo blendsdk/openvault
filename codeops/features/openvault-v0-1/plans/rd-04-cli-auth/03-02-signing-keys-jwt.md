@@ -78,17 +78,22 @@ string.
 
 ### Repository and service
 
-`SigningKeyRepository` owns the SQL and uses `PostgreSQLDatabase.withTransaction`:
+`SigningKeyRepository` owns the SQL and the transaction-scoped advisory lock:
 
-- `findCurrent(): Promise<SigningKeyRow | undefined>`
-- `findPrevious(): Promise<SigningKeyRow | undefined>`
-- `ensureCurrent(now): Promise<SigningKeyRow>` — advisory lock, select current, generate and
-  insert only when absent
-- `rotate(now): Promise<{ current: SigningKeyRow; previous: SigningKeyRow }>` — advisory lock,
-  guard, retire old previous, demote current, insert new current
-- `retireDue(now): Promise<number>` — mark a due previous `retired`
+- `withLock(action): Promise<T>` — run work under `pg_advisory_xact_lock`
+- `findCurrent(database?): Promise<SigningKeyRow | undefined>`
+- `findPrevious(database?): Promise<SigningKeyRow | undefined>`
+- `insertCurrent(database, input): Promise<SigningKeyRow>`
+- `promoteCurrentToPrevious(database, kid): Promise<void>`
+- `retirePrevious(database, kid, retiredAt): Promise<void>`
 
-`SigningKeyService` owns key material and presents these methods:
+`SigningKeyService` owns key material and the lifecycle decisions:
+
+- `ensure()` — under the lock, load or generate the current key
+- `rotate()` — under the lock, guard, retire old previous, demote current, insert new current
+- `retireDue()` — under the lock, retire a due previous key
+
+The service presents these methods:
 
 ```ts
 ensure(): Promise<void>;

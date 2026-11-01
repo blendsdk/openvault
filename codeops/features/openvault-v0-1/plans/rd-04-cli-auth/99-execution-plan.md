@@ -2,8 +2,8 @@
 
 > **Document**: 99-execution-plan.md
 > **Parent**: [Index](00-index.md)
-> **Last Updated**: 2026-11-01 01:08
-> **Progress**: 11/69 tasks (16%)
+> **Last Updated**: 2026-11-01 01:09
+> **Progress**: 12/69 tasks (17%)
 > **CodeOps Artifact Schema**: 1
 
 ## Overview
@@ -79,7 +79,7 @@ spec tests, red result, implementation, green result, implementation tests, full
 - [x] 1.2.4 Regenerate and commit database row types and CType constants — `apps/server/src/database/generated-types.ts`, `apps/server/src/database/ctypes.ts` ✅ (completed: 2026-11-01 01:06)
 - [x] 1.2.5 Add scoped current/named KEK callbacks to the server keyring provider — `apps/server/src/security/keyring.ts` ✅ (completed: 2026-11-01 01:07)
 - [x] 1.2.6 Add Ed25519 key generation, AES-256-GCM seed wrap/unwrap, and the signing-key error types — `apps/server/src/security/signing-keys.ts` ✅ (completed: 2026-11-01 01:08)
-- [ ] 1.2.7 Add the signing-key repository with advisory-locked ensure, rotate, and retire-due — `apps/server/src/security/signing-keys.ts`
+- [x] 1.2.7 Add the signing-key repository primitives for advisory-locked ensure, rotate, and retire-due — `apps/server/src/security/signing-keys.ts` ✅ (completed: 2026-11-01 01:09)
 - [ ] 1.2.8 Add pure `jose` access-token sign/verify helpers matching the fixed claim set — `apps/server/src/auth/cli-jwt.ts`
 - [ ] 1.2.9 Add the signing-key service cache and access-token sign/verify methods — `apps/server/src/security/signing-keys.ts`
 - [ ] 1.2.10 Run the Phase 1 spec tests and verify green

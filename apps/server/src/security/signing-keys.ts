@@ -1,5 +1,6 @@
 import { createCipheriv, createDecipheriv, generateKeyPairSync, randomBytes } from "node:crypto";
 import { newUlid } from "@openvault/core";
+import type { PostgreSQLDatabase } from "blendsdk/postgresql";
 import type { KeyringProvider } from "./keyring.js";
 
 /** Status of one JWT signing key. */
@@ -73,11 +74,15 @@ export class SigningKeyRotationError extends Error {
   }
 }
 
+/** How long a previous key may verify tokens after it stopped being current. */
+export const SIGNING_KEY_OVERLAP_MS = (15 * 60 + 30) * 1_000;
+
 const SEED_BYTES = 32;
 const PUBLIC_KEY_BYTES = 32;
 const WRAP_NONCE_BYTES = 12;
 const WRAP_TAG_BYTES = 16;
 const WRAP_ALGORITHM = "aes-256-gcm";
+const SIGNING_KEY_LOCK = "openvault:signing_keys";
 
 /**
  * Builds the authentication context for one wrapped seed.
@@ -212,5 +217,210 @@ export function unwrapSigningSeed(keyring: KeyringProvider, row: SigningKeyRow):
       throw error;
     }
     throw new SigningKeyUnavailableError();
+  }
+}
+
+/** Minimal query surface used by the signing-key repository and its transactions. */
+export interface SigningKeyQuery {
+  /** Executes a parameterized query and returns its records. */
+  executeQuery<T>(
+    query: string,
+    params?: Record<string, unknown>,
+  ): Promise<{ readonly records: readonly T[] }>;
+}
+
+interface SigningKeyDbRow {
+  readonly kid: string;
+  readonly public_key: Buffer;
+  readonly wrapped_seed: Buffer;
+  readonly wrap_nonce: Buffer;
+  readonly wrap_tag: Buffer;
+  readonly kek_id: string;
+  readonly status: string;
+  readonly created_at: Date;
+  readonly activated_at: Date;
+  readonly retired_at: Date | null;
+}
+
+/** Input used to insert a current signing key. */
+export interface InsertSigningKeyInput {
+  /** Key identifier. */
+  readonly kid: string;
+  /** 32-byte public key. */
+  readonly publicKey: Buffer;
+  /** 32-byte wrapped seed. */
+  readonly wrappedSeed: Buffer;
+  /** AES-GCM nonce. */
+  readonly wrapNonce: Buffer;
+  /** AES-GCM authentication tag. */
+  readonly wrapTag: Buffer;
+  /** KEK identifier. */
+  readonly kekId: string;
+  /** Activation time. */
+  readonly activatedAt: Date;
+}
+
+function toSigningKeyStatus(value: string): SigningKeyStatus {
+  if (value === "current" || value === "previous" || value === "retired") {
+    return value;
+  }
+  throw new SigningKeyUnavailableError();
+}
+
+function toSigningKeyRow(row: SigningKeyDbRow): SigningKeyRow {
+  return {
+    kid: row.kid,
+    publicKey: row.public_key,
+    wrappedSeed: row.wrapped_seed,
+    wrapNonce: row.wrap_nonce,
+    wrapTag: row.wrap_tag,
+    kekId: row.kek_id,
+    status: toSigningKeyStatus(row.status),
+    createdAt: row.created_at,
+    activatedAt: row.activated_at,
+    retiredAt: row.retired_at,
+  };
+}
+
+/**
+ * Stores and transitions signing-key rows.
+ *
+ * Lifecycle mutations run under one transaction-scoped advisory lock. The lock
+ * is deliberately database-wide, so two server processes cannot both create a
+ * current key or rotate at the same time.
+ */
+export class SigningKeyRepository {
+  readonly #database: PostgreSQLDatabase;
+
+  /**
+   * @param database - Connected PostgreSQL database.
+   */
+  public constructor(database: PostgreSQLDatabase) {
+    this.#database = database;
+  }
+
+  /**
+   * Runs an action inside the signing-key advisory lock.
+   *
+   * @param action - Work that must observe a stable key lifecycle.
+   * @returns The action result.
+   */
+  public withLock<T>(action: (database: SigningKeyQuery) => Promise<T>): Promise<T> {
+    return this.#database.withTransaction(async (tx) => {
+      await tx.executeQuery("SELECT pg_advisory_xact_lock(hashtext(:lockName))", {
+        lockName: SIGNING_KEY_LOCK,
+      });
+      return action(tx);
+    });
+  }
+
+  /**
+   * Loads the current key.
+   *
+   * @param database - Transaction or pool handle. Defaults to the pool.
+   * @returns The current row, or `undefined`.
+   */
+  public async findCurrent(
+    database: SigningKeyQuery = this.#database,
+  ): Promise<SigningKeyRow | undefined> {
+    return this.#findByStatus(database, "current");
+  }
+
+  /**
+   * Loads the previous key.
+   *
+   * @param database - Transaction or pool handle. Defaults to the pool.
+   * @returns The previous row, or `undefined`.
+   */
+  public async findPrevious(
+    database: SigningKeyQuery = this.#database,
+  ): Promise<SigningKeyRow | undefined> {
+    return this.#findByStatus(database, "previous");
+  }
+
+  /**
+   * Inserts a current key row.
+   *
+   * @param database - Transaction or pool handle.
+   * @param input - Wrapped key material and activation time.
+   * @returns The inserted row.
+   */
+  public async insertCurrent(
+    database: SigningKeyQuery,
+    input: InsertSigningKeyInput,
+  ): Promise<SigningKeyRow> {
+    const result = await database.executeQuery<SigningKeyDbRow>(
+      `INSERT INTO signing_keys
+         (kid, public_key, wrapped_seed, wrap_nonce, wrap_tag, kek_id, status, activated_at)
+       VALUES
+         (:kid, :publicKey, :wrappedSeed, :wrapNonce, :wrapTag, :kekId, 'current', :activatedAt)
+       RETURNING kid, public_key, wrapped_seed, wrap_nonce, wrap_tag, kek_id, status,
+                 created_at, activated_at, retired_at`,
+      {
+        kid: input.kid,
+        publicKey: input.publicKey,
+        wrappedSeed: input.wrappedSeed,
+        wrapNonce: input.wrapNonce,
+        wrapTag: input.wrapTag,
+        kekId: input.kekId,
+        activatedAt: input.activatedAt,
+      },
+    );
+    const row = result.records[0];
+    if (row === undefined) {
+      throw new SigningKeyUnavailableError();
+    }
+    return toSigningKeyRow(row);
+  }
+
+  /**
+   * Moves the current key to the previous slot.
+   *
+   * @param database - Transaction handle.
+   * @param kid - Current key identifier.
+   */
+  public async promoteCurrentToPrevious(database: SigningKeyQuery, kid: string): Promise<void> {
+    await database.executeQuery(
+      `UPDATE signing_keys
+          SET status = 'previous'
+        WHERE kid = :kid AND status = 'current'`,
+      { kid },
+    );
+  }
+
+  /**
+   * Marks a previous key retired.
+   *
+   * @param database - Transaction handle.
+   * @param kid - Previous key identifier.
+   * @param retiredAt - Retirement time.
+   */
+  public async retirePrevious(
+    database: SigningKeyQuery,
+    kid: string,
+    retiredAt: Date,
+  ): Promise<void> {
+    await database.executeQuery(
+      `UPDATE signing_keys
+          SET status = 'retired', retired_at = :retiredAt
+        WHERE kid = :kid AND status = 'previous'`,
+      { kid, retiredAt },
+    );
+  }
+
+  async #findByStatus(
+    database: SigningKeyQuery,
+    status: SigningKeyStatus,
+  ): Promise<SigningKeyRow | undefined> {
+    const result = await database.executeQuery<SigningKeyDbRow>(
+      `SELECT kid, public_key, wrapped_seed, wrap_nonce, wrap_tag, kek_id, status,
+              created_at, activated_at, retired_at
+         FROM signing_keys
+        WHERE status = :status
+        LIMIT 1`,
+      { status },
+    );
+    const row = result.records[0];
+    return row === undefined ? undefined : toSigningKeyRow(row);
   }
 }
