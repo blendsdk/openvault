@@ -2,8 +2,8 @@
 
 > **Document**: 99-execution-plan.md
 > **Parent**: [Index](00-index.md)
-> **Last Updated**: 2026-11-01 01:06
-> **Progress**: 8/69 tasks (12%)
+> **Last Updated**: 2026-11-01 01:07
+> **Progress**: 9/69 tasks (13%)
 > **CodeOps Artifact Schema**: 1
 
 ## Overview
@@ -76,7 +76,7 @@ spec tests, red result, implementation, green result, implementation tests, full
 - [x] 1.2.1 Add the strict CLI schemas, inferred types, and package exports — `packages/api-contract/src/cli-auth.ts`, `packages/api-contract/src/index.ts` ✅ (completed: 2026-11-01 01:03)
 - [x] 1.2.2 Add `signing_keys`, the live-family unique index, and the cleanup expression index to the desired schema — `apps/server/src/database/schema.ts` ✅ (completed: 2026-11-01 01:04)
 - [x] 1.2.3 Generate and review the additive `cli-auth` migration and snapshot — `apps/server/migrations/` ✅ (completed: 2026-11-01 01:06)
-- [ ] 1.2.4 Regenerate and commit database row types and CType constants — `apps/server/src/database/generated-types.ts`, `apps/server/src/database/ctypes.ts`
+- [x] 1.2.4 Regenerate and commit database row types and CType constants — `apps/server/src/database/generated-types.ts`, `apps/server/src/database/ctypes.ts` ✅ (completed: 2026-11-01 01:06)
 - [ ] 1.2.5 Add scoped current/named KEK callbacks to the server keyring provider — `apps/server/src/security/keyring.ts`
 - [ ] 1.2.6 Add Ed25519 key generation, AES-256-GCM seed wrap/unwrap, and the signing-key error types — `apps/server/src/security/signing-keys.ts`
 - [ ] 1.2.7 Add the signing-key repository with advisory-locked ensure, rotate, and retire-due — `apps/server/src/security/signing-keys.ts`
