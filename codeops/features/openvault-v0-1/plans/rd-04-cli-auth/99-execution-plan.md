@@ -2,7 +2,7 @@
 
 > **Document**: 99-execution-plan.md
 > **Parent**: [Index](00-index.md)
-> **Last Updated**: 2026-11-01 02:17
+> **Last Updated**: 2026-11-01 02:28
 > **Progress**: 47/69 tasks (68%)
 > **CodeOps Artifact Schema**: 1
 
@@ -183,7 +183,7 @@ spec tests, red result, implementation, green result, implementation tests, full
 
 ### Step 3.3: Implementation Tests and Hardening
 
-- [x] 3.3.1 Write implementation tests for the context union, bearer parsing, no-fallback rule, and browser-only guards; update existing contexts — `apps/server/tests/auth/middleware.impl.test.ts`, `apps/server/tests/auth/csrf.impl.test.ts`, `apps/server/tests/auth/csrf.spec.test.ts` ✅ (completed: 2026-11-01 02:17)
+- [x] 3.3.1 Write implementation tests for the context union, bearer parsing, no-fallback rule, and browser-only guards; update existing contexts (CSRF spec fixture-only discriminator, assertions unchanged) — `apps/server/tests/auth/middleware.impl.test.ts`, `apps/server/tests/auth/csrf.impl.test.ts`, `apps/server/tests/auth/csrf.spec.test.ts` ✅ (completed: 2026-11-01 02:17)
 - [x] 3.3.2 Run the CLI refresh integration suite against PostgreSQL 16 and 17 — `apps/server/tests/integration/auth.cli-refresh.spec.test.ts` ✅ (completed: 2026-11-01 02:17)
 - [x] 3.3.3 Run full verification — `pnpm verify` ✅ (completed: 2026-11-01 02:17)
 

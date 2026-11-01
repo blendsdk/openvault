@@ -32,9 +32,11 @@ export interface PrincipalLookup {
 /**
  * Resolves a browser session and attaches the authenticated context.
  *
- * Requests without a session cookie pass through unauthenticated. A stale,
- * expired, or disabled-principal session clears the cookie and, for a disabled
- * principal, revokes the stored session.
+ * Requests without a session cookie pass through unauthenticated. Any
+ * Authorization header also suppresses cookie resolution, so an invalid CLI
+ * bearer can never fall back to a browser session. A stale, expired, or
+ * disabled-principal session clears the cookie and, for a disabled principal,
+ * revokes the stored session.
  *
  * @param sessions - Session store.
  * @param credentials - Principal status repository.

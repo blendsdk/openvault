@@ -21,6 +21,16 @@
 | RV-004/P2 | 2 | MINOR | controller documentation | fixed |
 | RV-005/P2 | 2 | MINOR | plugin documentation | fixed |
 
+| RV-001/P3 | 3 | CRITICAL | spec oracle fixture | fixed |
+| RV-002/P3 | 3 | MAJOR | tampered-token helper | fixed |
+| SA-001/P3 | 3 | MINOR | browser refresh + bearer header | fixed |
+| RV-003/P3 | 3 | MINOR | refresh sign-failure test | fixed |
+| RV-004/P3 | 3 | MINOR | middleware documentation | fixed |
+| SA-002/P3 | 3 | MINOR | logout rate limit | accepted |
+| CON-R1/P3 | 3 | MINOR | revoke backstop lock | fixed |
+| CON-R4/P3 | 3 | MINOR | logout/refresh test gap | accepted |
+
 Phase 2 security audit: no findings. Phase 2 concurrency audit: no findings.
+Phase 3 concurrency audit: no findings beyond the two accepted residual notes.
 The Phase 4 password-change task now explicitly requires the principal lock
 before revocation.

@@ -21,7 +21,7 @@ decisions that are local to this plan.
   the existing runtime dependencies. [AR-8, AR-13, AR-22, AR-26]
 - Plan-local server mechanics: generated migration and types, module split, shared rate-limit
   service, startup bootstrap, key overlap rules, malformed family-id handling, and test
-  strategy. [AR-13–AR-38]
+  strategy. [AR-13–AR-39]
 
 ### Deferred / out of this plan
 

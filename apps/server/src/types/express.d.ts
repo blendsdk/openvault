@@ -6,7 +6,7 @@ declare global {
     interface Request {
       /** Request-scoped logger installed by the pino plugin. */
       log: Logger;
-      /** Authenticated session context; absent for public or machine requests. */
+      /** Browser or CLI authentication context; absent for public requests. */
       auth?: AuthContext;
       /** CLI family id used only by the post-lookup refresh limiter. */
       cliRefreshFamilyId?: string;

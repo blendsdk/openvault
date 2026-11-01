@@ -430,14 +430,21 @@ export class CliSessionRepository {
   /**
    * Revokes every live row in one owned family.
    *
-   * Used when token issuance fails after the family was inserted. The
-   * operation is idempotent and does not reveal whether the family existed.
+   * Used as the compensation path after token issuance fails and as the
+   * unique-race backstop. The principal lock makes the revocation safe even if
+   * a competing rotation is active. The operation is idempotent and does not
+   * reveal whether the family existed.
    *
    * @param familyId - Public family identifier.
    * @param principalId - Owner principal.
    */
   public async revokeFamily(familyId: string, principalId: string): Promise<void> {
-    await this.#revokeFamilyInTransaction(this.#database, familyId, principalId);
+    await this.#database.withTransaction(async (tx) => {
+      await tx.executeQuery("SELECT id FROM principals WHERE id = :principalId FOR UPDATE", {
+        principalId,
+      });
+      await this.#revokeFamilyInTransaction(tx, familyId, principalId);
+    });
   }
 
   async #revokeFamilyInTransaction(

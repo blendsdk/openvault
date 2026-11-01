@@ -190,6 +190,13 @@ export class AuthController extends BaseController {
       this.route()
         .post("/refresh")
         .handle(async (req: Request, res: Response) => {
+          if (req.headers.authorization !== undefined) {
+            // The middleware deliberately skips cookie resolution when a
+            // bearer header is present. This browser-only route must not
+            // rotate a cookie without the browser context and its guards.
+            throw new ApiError(401, "authentication_required", "Authentication required");
+          }
+
           const sessions = await this.services.get<SessionService>("sessions");
           const secretId = readSessionCookie(req);
           if (secretId === undefined) {

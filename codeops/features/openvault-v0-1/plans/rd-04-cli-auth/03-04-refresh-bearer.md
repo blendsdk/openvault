@@ -200,6 +200,9 @@ session normally when no Authorization header exists.
 - Only a browser context is checked.
 - A CLI context or no context passes to route authentication.
 - The session liveness check runs only for browser contexts.
+- The browser-only `/v1/auth/refresh` handler rejects any request with an Authorization
+  header before reading the cookie, because the middleware no longer resolves the cookie and the
+  browser guards would otherwise be bypassed.
 
 `passwordChangeGate`:
 

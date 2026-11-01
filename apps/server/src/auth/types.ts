@@ -59,8 +59,8 @@ export interface BrowserAuthContext {
  * Authenticated CLI request context.
  *
  * `familyId` is the JWT `sid`; every request rechecks a live family row so a
- * logout, password change, or reuse detection takes effect on the next call.
- * Browser CSRF and Origin checks never apply to this variant.
+ * logout or family revocation takes effect on the next call. Browser CSRF and
+ * Origin checks never apply to this variant.
  */
 export interface CliAuthContext {
   /** Discriminator used by guards and route helpers. */

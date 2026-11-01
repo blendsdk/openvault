@@ -8,6 +8,7 @@ import type {
   CliRequestContext,
   CreatedCliFamily,
   CreateFamilyResult,
+  RotateResult,
 } from "../../src/auth/cli-sessions.js";
 import type { LocalLoginSuccess } from "../../src/auth/local-login.js";
 import { SigningKeyUnavailableError } from "../../src/security/signing-keys.js";
@@ -43,6 +44,7 @@ function createdFamily(): CreatedCliFamily {
 class RecordingFamilyStore implements CliFamilyStore {
   public readonly revoked: Array<readonly [string, string]> = [];
   public result: CreateFamilyResult = { kind: "created", family: createdFamily() };
+  public rotateResult: RotateResult = { kind: "invalid" };
 
   public async createFamilyForLogin(
     _principalId: string,
@@ -52,8 +54,8 @@ class RecordingFamilyStore implements CliFamilyStore {
     return this.result;
   }
 
-  public async rotateRefresh(): Promise<{ kind: "invalid" }> {
-    return { kind: "invalid" };
+  public async rotateRefresh(): Promise<RotateResult> {
+    return this.rotateResult;
   }
 
   public async logoutByHash(): Promise<void> {
@@ -125,6 +127,43 @@ describe("CLI login issuance", () => {
     await expect(service.login(credential, { ip: null, userAgent: null })).rejects.toBeInstanceOf(
       SigningKeyUnavailableError,
     );
+    expect(store.revoked).toEqual([[FAMILY_ID, PRINCIPAL_ID]]);
+  });
+});
+
+describe("CLI refresh issuance", () => {
+  const context = { ip: null, userAgent: null };
+
+  it("should pass through a non-rotated result without revoking", async () => {
+    const store = new RecordingFamilyStore();
+    store.rotateResult = { kind: "expired" };
+    const service = new CliAuthService({ sessions: store, signingKeys: new FixedSigner() });
+
+    await expect(
+      service.refresh(Buffer.alloc(32), PRINCIPAL_ID, FAMILY_ID, context),
+    ).resolves.toEqual({ kind: "expired" });
+    expect(store.revoked).toEqual([]);
+  });
+
+  it("should revoke the rotated family and rethrow when signing fails", async () => {
+    const store = new RecordingFamilyStore();
+    store.rotateResult = {
+      kind: "rotated",
+      row: createdFamily().row,
+      principal: {
+        principalId: PRINCIPAL_ID,
+        name: "CLI User",
+        email: "cli@example.test",
+        status: "active",
+        mustChange: false,
+      },
+      refreshToken: "B".repeat(43),
+    };
+    const service = new CliAuthService({ sessions: store, signingKeys: new FailingSigner() });
+
+    await expect(
+      service.refresh(Buffer.alloc(32), PRINCIPAL_ID, FAMILY_ID, context),
+    ).rejects.toBeInstanceOf(SigningKeyUnavailableError);
     expect(store.revoked).toEqual([[FAMILY_ID, PRINCIPAL_ID]]);
   });
 });

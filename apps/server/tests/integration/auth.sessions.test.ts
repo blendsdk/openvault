@@ -333,6 +333,24 @@ describe.skipIf(trustedHost === undefined)("session routes", () => {
     expect(requireCookieValue(late, SESSION_COOKIE)).toBe(rotatedSecret);
   });
 
+  it("should not rotate a browser session when an Authorization header is present", async () => {
+    const user = await insertUser({ mustChange: false });
+    const created = await createSession(user.id);
+
+    const response = await send({
+      path: "/v1/auth/refresh",
+      method: "POST",
+      headers: {
+        ...browserHeaders(created.secretId, created.record.csrfToken),
+        authorization: "Bearer invalid",
+      },
+    });
+
+    expect(response.status).toBe(401);
+    expect(errorEnvelope.parse(response.json).error.code).toBe("authentication_required");
+    await expect(sessions.get(created.secretId)).resolves.toEqual(created.record);
+  });
+
   it("should log out, clear the cookie, and invalidate the old secret", async () => {
     const user = await insertUser({ mustChange: false });
     const created = await createSession(user.id);

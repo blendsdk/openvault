@@ -1,7 +1,7 @@
 ## Ambiguity Register: RD-04 CLI Authentication Plan
 
-> **Status**: ✅ GATE PASSED — all 38 items resolved (3 added during execution)
-> **Execution note**: AR-36, AR-37, and AR-38 were added during Phase 1 review; they carry `(runtime)` authority.
+> **Status**: ✅ GATE PASSED — all 39 items resolved (4 added during execution)
+> **Execution note**: AR-36, AR-37, and AR-38 were added during Phase 1 review; AR-39 was added during Phase 3 review. They carry `(runtime)` authority.
 > **Last Updated**: 2026-11-01 00:38
 > **Mode**: make-plan with `--auto-design`
 > **Root invocation ID**: `mp-rd04-20261101-0038`
@@ -52,6 +52,7 @@ provenance or imported product/security decisions already approved by the user.
 | AR-36 | Standards (runtime) | Whether the post-red column-order assertion correction is valid and whether the frozen spec files may change again | A: record the correction, accept sorted physical column order, freeze spec files for later phases / B: revert to the original order assertion and make the generator preserve it / C: leave the edit undocumented | AI — delegated by `--auto-design` (see AR-36 note) | ✅ Resolved |
 | AR-37 | Security (runtime) | How quickly a signing-key rotation or retirement reaches a process with a warm cache | A: refresh the cache when older than 30 seconds and clear it on reload failure / B: refresh on every sign/verify / C: leave the cache until restart | AI — delegated by `--auto-design` (see AR-37 note) | ✅ Resolved |
 | AR-38 | Standards (runtime) | Whether the second post-red spec edit that strengthens the due/retired tests is authorized | A: record the test-assurance correction, keep the stronger time-valid cases, and re-freeze / B: revert to the original weak tests / C: leave the edit undocumented | AI — delegated by `--auto-design` (see AR-38 note) | ✅ Resolved |
+| AR-39 | Standards (runtime) | Whether the fixture-only `kind: "browser"` addition to the existing CSRF spec oracle is authorized | A: record the type-only fixture update, keep every assertion unchanged, and re-freeze / B: revert and loosen the guard type / C: leave the edit undocumented | AI — delegated by `--auto-design` (see AR-39 note) | ✅ Resolved |
 
 ## Resolution Notes
 
@@ -207,7 +208,7 @@ login, refresh, and error paths.
 - **Authority:** AI — delegated by `--auto-design`
 - **Eligibility:** Security mechanism within the approved bearer-only policy.
 - **Objective:** Prevent an invalid bearer token from silently becoming a browser session.
-- **Decision:** Any `Authorization` header marks bearer intent and disables cookie fallback. A valid Bearer token attaches a CLI context. A malformed, invalid, or non-Bearer value leaves the request unauthenticated; protected routes return 401 through `requirePrincipal`, and public login/refresh/logout routes still work. The scheme is matched case-insensitively.
+- **Decision:** Any `Authorization` header marks bearer intent and disables cookie fallback. A valid Bearer token attaches a CLI context. A malformed, invalid, or non-Bearer value leaves the request unauthenticated; protected routes return 401 through `requirePrincipal`, and public login/refresh/logout routes still work. The scheme is matched case-insensitively. The browser-only `/v1/auth/refresh` handler rejects a request that carries any Authorization header, because the middleware no longer resolves the cookie and the browser CSRF/Origin guards would not run.
 - **Evidence:** RD-04 lines 188-201; `sessionMiddleware` currently reads only the cookie (`middleware.ts:34-77`); CSRF and Origin guards assume browser contexts (`csrf.ts:43-46,79-94`).
 - **Rejected alternatives:** Immediate 401 for every Authorization header (breaks harmless proxy headers and public routes); ignore non-Bearer (allows cookie fallback and violates the requirement).
 - **Strongest counterargument:** A proxy that injects Basic auth will stop cookie authentication for those requests.
@@ -607,8 +608,32 @@ auth-method fields describe a different credential.
 - **Policy version:** 1
 - **Root invocation ID:** `mp-rd04-20261101-0038`
 
+### AR-39 — CSRF spec fixture update (runtime)
+
+- **Authority:** AI — delegated by `--auto-design`
+- **Eligibility:** Test-fixture type update; no assertion, behavior, or acceptance criterion
+  changed.
+- **Objective:** Keep the existing browser CSRF spec suite valid after `AuthContext` became a
+  discriminated union, without weakening the oracle.
+- **Decision:** `csrf.spec.test.ts` gains `kind: "browser"` in its fixture. Every assertion and
+  request expectation is unchanged. The plan's Phase 3 implementation task explicitly listed
+  this spec file, and no other frozen spec assertion was edited. The spec files are frozen
+  again after this fixture-only change.
+- **Evidence:** The union requires a `kind` discriminator; the fixture is a typed browser
+  context. The failing build was a type error, not a behavior change. Review RV-001/P3 requested
+  an explicit record.
+- **Rejected alternatives:** Revert and loosen the guard type (weakens the discriminant); leave
+  undocumented (violates the oracle audit trail); change an assertion (forbidden).
+- **Strongest counterargument:** Any post-freeze spec edit needs scrutiny; this one changes only
+  fixture construction.
+- **Confidence:** High — assertions are byte-for-byte unchanged.
+- **Hardening:** Independent correctness review confirmed the assertion text is unchanged.
+- **Reopen triggers:** A later edit changes an assertion or expected status.
+- **Policy version:** 1
+- **Root invocation ID:** `mp-rd04-20261101-0038`
+
 ## Gate Result
 
-All 38 entries are resolved. The imported PF-001 through PF-012 decisions retain their original
+All 39 entries are resolved. The imported PF-001 through PF-012 decisions retain their original
 user decisions. Every new plan-local technical decision carries delegated auto-design provenance;
 no reserved product, scope, retention, or security-policy decision was decided by the AI.

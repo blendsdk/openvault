@@ -78,10 +78,11 @@ export async function createForgedAccessToken(
 }
 
 /**
- * Changes one character of a signed token's signature.
+ * Flips one byte of a signed token's signature.
  *
- * The header and payload stay valid, so the request fails only because the
- * signature no longer matches the signed bytes.
+ * Changing the signature bytes, rather than a trailing base64url character
+ * whose low bits may be discarded, guarantees the signed bytes no longer
+ * match. The header and payload stay valid.
  *
  * @param token - Complete compact JWT.
  * @returns The token with a broken signature.
@@ -99,6 +100,10 @@ export function tamperAccessToken(token: string): string {
   ) {
     throw new Error("expected a three-part JWT");
   }
-  const replacement = signature.endsWith("A") ? "B" : "A";
-  return `${header}.${payload}.${signature.slice(0, -1)}${replacement}`;
+  const signatureBytes = Buffer.from(signature, "base64url");
+  if (signatureBytes.length === 0) {
+    throw new Error("expected a non-empty signature");
+  }
+  signatureBytes[0] = (signatureBytes[0] ?? 0) ^ 0x01;
+  return `${header}.${payload}.${signatureBytes.toString("base64url")}`;
 }
