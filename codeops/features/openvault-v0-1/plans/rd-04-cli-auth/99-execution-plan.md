@@ -2,8 +2,8 @@
 
 > **Document**: 99-execution-plan.md
 > **Parent**: [Index](00-index.md)
-> **Last Updated**: 2026-11-01 01:11
-> **Progress**: 15/69 tasks (22%)
+> **Last Updated**: 2026-11-01 01:12
+> **Progress**: 17/69 tasks (25%)
 > **CodeOps Artifact Schema**: 1
 
 ## Overview
@@ -86,8 +86,8 @@ spec tests, red result, implementation, green result, implementation tests, full
 
 ### Step 1.3: Implementation Tests and Hardening
 
-- [ ] 1.3.1 Write implementation tests for keyring callbacks, wrap AAD/tamper, seed lengths, and key-generation errors — `apps/server/tests/auth/signing-keys.impl.test.ts`
-- [ ] 1.3.2 Write implementation tests for JWT claim edges, clock tolerance, due-previous rejection, and cache reload — `apps/server/tests/auth/cli-jwt.impl.test.ts`
+- [x] 1.3.1 Write implementation tests for keyring callbacks, wrap AAD/tamper, seed lengths, key-generation errors, cache reload, and due-previous rejection — `apps/server/tests/auth/signing-keys.impl.test.ts` ✅ (completed: 2026-11-01 01:12)
+- [x] 1.3.2 Write implementation tests for JWT claim edges and clock tolerance — `apps/server/tests/auth/cli-jwt.impl.test.ts` ✅ (completed: 2026-11-01 01:12)
 - [ ] 1.3.3 Run full verification — `pnpm verify`
 
 **Deliverables**:

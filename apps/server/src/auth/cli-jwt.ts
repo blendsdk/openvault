@@ -139,7 +139,9 @@ export async function verifyCliAccessToken(
       algorithms: ["EdDSA"],
       issuer: CLI_JWT_ISSUER,
       audience: CLI_JWT_AUDIENCE,
-      clockTolerance: CLOCK_SKEW_SECONDS,
+      // `jose` treats the tolerance boundary as exclusive. Allow one extra
+      // second here, then apply the shared inclusive boundary below.
+      clockTolerance: CLOCK_SKEW_SECONDS + 1,
       currentDate: new Date(nowMs),
     });
     payload = verified.payload;
@@ -154,7 +156,11 @@ export async function verifyCliAccessToken(
 
   const claims = parsed.data;
   const nowSeconds = Math.floor(nowMs / 1_000);
-  if (claims.iat > nowSeconds + CLOCK_SKEW_SECONDS || claims.exp <= claims.iat) {
+  if (
+    claims.iat > nowSeconds + CLOCK_SKEW_SECONDS ||
+    claims.exp < nowSeconds - CLOCK_SKEW_SECONDS ||
+    claims.exp <= claims.iat
+  ) {
     throw new CliTokenError();
   }
 
