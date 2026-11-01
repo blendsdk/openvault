@@ -53,13 +53,14 @@ This creates:
 
 - the organization and bootstrap administrator
 - the KEK keyring file
-- the internal CA for workload certificates
+- the internal CA for workload certificates: the public certificate at
+  `OPENVAULT_INTERNAL_CA` and the private key wrapped in `ca_keys`
 - the server certificate signed by the internal CA
 - the JWT signing key, wrapped by the KEK
 
-The bootstrap password is written once to a file with mode `0600`; it is never printed to
-stdout, stderr, or container logs. The first login forces a change; delete the file after the
-change.
+Re-running `ov init` does not rotate an existing CA. The bootstrap password is written once
+to a file with mode `0600`; it is never printed to stdout, stderr, or container logs. The first
+login forces a change; delete the file after the change.
 
 `ov init` and the reference image are v0.1 deliverables. Until the provisioner lands, the
 reference stack cannot create the required keyring or TLS material; use fixtures for local
@@ -80,11 +81,12 @@ Age-encrypted keyrings are not supported in the current release. Setting
 | 80 | Caddy HTTP redirect / ACME | Host |
 | 443 | Caddy public TLS | Host |
 | 8443 | Admin HTTPS | `admin_net` only; not published |
-| 8444 | Agent mTLS | `vault_net` only; not published |
+| 8444 | Agent TLS (token join + mTLS) | `vault_net` only; not published |
 | 5432 | PostgreSQL | `db_net` only |
 
-The proxy reaches the admin listener on `admin_net`. Agents use the separate mTLS listener
-on `vault_net`; they never use the admin port. Application containers must not join
+The proxy reaches the admin listener on `admin_net`. Agents use the separate listener on
+`vault_net`; the first join is token-authenticated, and every later agent request uses mTLS.
+Agents never use the admin port. Application containers must not join
 `admin_net`, `vault_net`, or `db_net`.
 
 ## Next

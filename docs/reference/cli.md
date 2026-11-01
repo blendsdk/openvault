@@ -18,19 +18,19 @@ The `ov` binary is part of v0.1.
 
 | Command | Purpose |
 |---|---|
-| `ov init` | Create the organization, admin, keyring, and CA |
+| `ov init` | Create the organization, admin, keyring, and CA (public certificate + wrapped `ca_keys`; re-running does not rotate) |
 | `ov login` / `ov logout` | Manage CLI credentials |
 | `ov whoami` | Show the current principal |
 | `ov auth sessions` | List and revoke CLI token families |
 | `ov project list/create/delete` | Manage projects |
 | `ov secret set/get/list/versions/delete` | Manage secrets |
 | `ov cert import/generate/get/delete` | Manage certificates |
-| `ov identity create/revoke` | Manage service identities |
-| `ov identity join-token` | Issue a single-use join token |
+| `ov identity create/revoke` | Manage service identities; revoke disables the principal and revokes all certificates and unused tokens |
+| `ov identity join-token` | Issue a single-use join token, shown once |
 | `ov role grant/revoke` | Manage assignments |
 | `ov access explain` | Explain effective access and consumers |
 | `ov audit` | Query, verify, and export audit events |
-| `ov docker scaffold` | Add an agent to a Compose service |
+| `ov docker scaffold` | Add an agent to a Compose service; grants object-scope reader for manifest entries |
 | `ov run -- <cmd>` | Run a command with injected secrets |
 | `ov backup` / `ov restore` | Back up and restore |
 | `ov kek rotate` | Rotate the KEK |

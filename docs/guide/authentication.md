@@ -6,7 +6,7 @@ OpenVault has three credential types:
 |---|---|---|
 | Browser | Opaque BFF session cookie | 8 hours by default |
 | CLI | Ed25519 JWT + rotating refresh token | 15 minutes / 12 hours |
-| Agent | mTLS client certificate | 30 days, renewed |
+| Agent | One-time join token, then mTLS | `OPENVAULT_CERT_TTL_DAYS`, default 30, renewed |
 
 ## Browser sessions
 
@@ -110,14 +110,29 @@ rejected, and concurrent processes are serialized. Tokens never appear in argv o
 
 ## Agent certificates
 
-1. An administrator creates a service identity and a single-use join token.
-2. The agent generates an EC P-256 key and CSR.
-3. `POST /v1/agent/join` validates the token, signs the certificate, and stores the
-   fingerprint.
-4. The agent connects with mTLS.
-5. Renewal is allowed after two thirds of the 30-day lifetime.
+1. An administrator creates a service identity owned by a project and issues a single-use
+   join token. The token is shown once, stored only as a SHA-256 hash, and expires after 15
+   minutes by default (maximum 24 hours).
+2. The agent generates an EC P-256 key and PKCS#10 CSR with consumer metadata.
+3. `POST /v1/agent/join` is the only agent route that does not require a client certificate.
+   It validates the CSR, claims the token atomically, derives the certificate identity from
+   the token, signs the certificate, and stores the principal id, serial, SHA-256
+   fingerprint, validity window, and revocation state.
+4. The certificate has CN = principal id, exactly one SAN URI
+   `openvault://identity/<id>`, `CA:FALSE`, `digitalSignature`, and `clientAuth`. Its lifetime
+   is `OPENVAULT_CERT_TTL_DAYS` (default 30, range 1–90).
+5. The agent connects with mTLS. Every other agent request checks the chain, fingerprint,
+   expiry, revocation, principal status, and project status, with a cache bounded to 5
+   seconds.
+6. Renewal is allowed after two thirds of the certificate's actual lifetime and requires a
+   fresh P-256 key and CSR. Only the newest certificate may renew; the old certificate stays
+   valid for data until expiry. An expired certificate requires a new join token.
 
-Revocation is checked on every connection. A revoked agent removes its files and exits.
+Join is limited to 10/minute per source IP; renew is limited to 10/minute per principal and
+60/minute per source IP. A revoked identity's certificates and unused join tokens are
+revoked in one transaction. No request succeeds more than 5 seconds after revocation; a
+revoked agent removes its files and exits. Service identities cannot have a password, OIDC
+identity, browser session, or CLI family.
 
 ## Next
 

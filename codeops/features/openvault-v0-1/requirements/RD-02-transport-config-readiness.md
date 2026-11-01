@@ -21,8 +21,8 @@ serves plain HTTP, which is not safe for a secrets product.
 - [ ] A typed configuration loader that reads `process.env`, validates every documented
   variable with Zod, and refuses to start on missing or malformed required values.
 - [ ] A TLS admin listener reachable only from the reverse proxy.
-- [ ] A separate mTLS agent listener that requires a client certificate signed by the
-  internal CA.
+- [ ] A separate agent listener that serves the token-authenticated join route and requires
+  a verified client certificate signed by the internal CA on every other agent route.
 - [ ] No plaintext HTTP listener and no published `8443` port.
 - [ ] Proxy trust limited to configured proxy CIDRs; forwarded headers from any other source
   are ignored.
@@ -76,7 +76,7 @@ serves plain HTTP, which is not safe for a secrets product.
 | `OPENVAULT_KEYRING_PASSPHRASE_FILE` | no | — | absolute path, file mode `0600` |
 | `OPENVAULT_TLS_CERT` | yes | — | readable PEM certificate |
 | `OPENVAULT_TLS_KEY` | yes | — | readable PKCS#8 key |
-| `OPENVAULT_INTERNAL_CA` | yes | — | readable PEM CA |
+| `OPENVAULT_INTERNAL_CA` | yes | — | readable PEM CA certificate (public only; private key in `ca_keys`) |
 | `OPENVAULT_OIDC_ISSUER` | no | — | HTTPS URL |
 | `OPENVAULT_OIDC_CLIENT_ID` | with OIDC | — | non-empty |
 | `OPENVAULT_OIDC_CLIENT_SECRET` | with OIDC | — | non-empty |
@@ -97,13 +97,21 @@ serves plain HTTP, which is not safe for a secrets product.
 
 ```text
 proxy (TLS) ──▶ admin listener (TLS, proxy CIDR only) ──▶ API + UI
-agent ── mTLS ──▶ agent listener (client cert required) ──▶ join/renew/fetch
+agent ── TLS/token join + mTLS ──▶ agent listener (client cert required except token join)
+  ──▶ join/renew/fetch
 ```
 
 - Admin listener serves `/v1/*` and the static UI. It is reachable only from the proxy
   network.
-- Agent listener serves `/v1/agent/*` and secret fetch endpoints. It requires a valid client
-  certificate and checks fingerprint, expiry, and revocation.
+- Agent listener serves `/v1/agent/*` and the agent-scoped
+  `GET /v1/data/:project/secrets/:name` route. `POST /v1/agent/join` is token-authenticated
+  and allowed without a client certificate. Every other agent route requires a valid client
+  certificate and checks fingerprint, expiry, revocation, principal status, and project
+  status on every request. The data route requires the certificate principal's
+  `owner_project_id` to equal the id of the project named by `:project`.
+- The agent listener sets `requestCert: true` and `rejectUnauthorized: false` so the
+  token-authenticated join can complete before a client certificate exists. A default-deny
+  agent middleware is the certificate boundary for every protected route.
 - Both listeners validate the same principal, policy, and audit rules for their routes.
 - `OPENVAULT_TRUST_PROXY=true` means trust the immediately connected proxy only when its
   source address is in `OPENVAULT_PROXY_CIDRS`; otherwise ignore forwarded headers.
@@ -114,9 +122,11 @@ agent ── mTLS ──▶ agent listener (client cert required) ──▶ join
 
 1. PostgreSQL responds to `SELECT 1`.
 2. The keyring is loaded and the current key is present.
-3. The server TLS material and internal CA parsed successfully.
+3. The server TLS certificate and private key parse and match each other; the internal CA
+   certificate parses.
 4. The audit table is writable (a read-only check is allowed; no event is written).
-5. The configured internal CA trusts the expected agent chain.
+5. The configured CA key can sign a test certificate that verifies against the internal CA.
+6. The wrapped CA signing key is present, unwraps, and matches the public certificate.
 
 Otherwise return 503 with `{ success: false, error: { code: "not_ready", ... } }` and no
 internal details.
@@ -147,7 +157,8 @@ internal details.
 - **Authentication & authorization:** both listeners enforce their own credential type;
   route-level policy is applied later.
 - **Injection risks:** no SQL from config; logs use structured fields.
-- **Encryption needs:** TLS 1.2+ on both listeners; mTLS for agents.
+- **Encryption needs:** TLS 1.2+ on both listeners; mTLS for every agent route except the
+  token-authenticated join.
 - **Rate limiting:** listener-level connection limits and route-level limits later.
 - **Infrastructure:** non-root, read-only rootfs, no published admin port, proxy CIDR
   enforcement.
@@ -160,12 +171,14 @@ internal details.
    non-zero before serving traffic.
 3. [ ] A keyring file with mode `0644` causes startup to fail with a permission error.
 4. [ ] The admin listener rejects a direct connection from outside the proxy CIDR.
-5. [ ] The agent listener rejects a connection without a client certificate and one signed by
-   an unknown CA.
+5. [ ] The agent listener allows a token-authenticated join without a client certificate, and
+   rejects a protected agent request without a client certificate or with one signed by an
+   unknown CA. The agent-scoped data route rejects a certificate from another project.
 6. [ ] A request with a spoofed `X-Forwarded-For` from a non-proxy source is attributed to the
    socket address, not the header.
-7. [ ] `GET /ready` returns 503 when PostgreSQL is stopped or the keyring is missing, and 200
-   when both are available.
+7. [ ] `GET /ready` returns 503 when PostgreSQL is stopped, the keyring is missing, or the
+   wrapped CA signing key is missing, mismatched, or cannot sign a test certificate, and 200
+   when all are available.
 8. [ ] A 64 KiB + 1 byte secret body returns 413; a 128 KiB + 1 byte certificate body returns
    413.
 9. [ ] Responses include CSP, `X-Content-Type-Options`, `Referrer-Policy`, and no
@@ -176,4 +189,5 @@ internal details.
 13. [ ] A token or certificate with more than 30 seconds of clock skew is rejected.
 14. [ ] `JSON.stringify(keyring)` and `util.inspect(keyring)` contain no key bytes; a rotation
     or shutdown zeroizes the old key buffers.
-15. [ ] Security requirements verified: TLS, mTLS, proxy trust, limits, redaction.
+15. [ ] Security requirements verified: TLS, mTLS with the token-authenticated join
+    exception, proxy trust, limits, and redaction.
