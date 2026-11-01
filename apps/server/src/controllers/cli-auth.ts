@@ -1,15 +1,46 @@
-import { cliLoginRequestSchema, cliTokenResponseSchema } from "@openvault/api-contract";
+import {
+  cliLoginRequestSchema,
+  cliLogoutRequestSchema,
+  cliMeResponseSchema,
+  cliRefreshRequestSchema,
+  cliTokenResponseSchema,
+} from "@openvault/api-contract";
 import type { RouteDefinition } from "blendsdk/webafx";
 import { ApiError, BaseController } from "blendsdk/webafx";
 import type { Request, Response } from "express";
 import type { CliAuthService } from "../auth/cli-auth-service.js";
-import { normalizeUserAgent } from "../auth/cli-sessions.js";
+import {
+  type CliRequestContext,
+  type CliSessionRepository,
+  hashRefreshToken,
+  normalizeUserAgent,
+} from "../auth/cli-sessions.js";
 import type { LocalLoginService } from "../auth/local-login.js";
-import { loginAccountLimit, loginIpLimit } from "../auth/login-rate-limits.js";
+import {
+  type AuthRateLimitService,
+  loginAccountLimit,
+  loginIpLimit,
+  refreshIpLimit,
+} from "../auth/login-rate-limits.js";
+import { requireCli } from "../auth/middleware.js";
 
 /** Builds the one generic local-credential failure. */
 function invalidCredentials(): ApiError {
   return new ApiError(401, "invalid_credentials", "Invalid credentials");
+}
+
+/** Builds the one generic refresh-token failure. */
+function invalidRefreshToken(): ApiError {
+  return new ApiError(401, "invalid_refresh_token", "Invalid refresh token");
+}
+
+/** Reads the login context stored on a new refresh row. */
+function requestContext(req: Request): CliRequestContext {
+  const header = req.headers["user-agent"];
+  return {
+    ip: req.ip ?? null,
+    userAgent: normalizeUserAgent(typeof header === "string" ? header : undefined),
+  };
 }
 
 /**
@@ -40,18 +71,68 @@ export class CliAuthController extends BaseController {
             throw invalidCredentials();
           }
 
-          const userAgentHeader = req.headers["user-agent"];
-          const issued = await cliAuth.login(result.credential, {
-            ip: req.ip ?? null,
-            userAgent: normalizeUserAgent(
-              typeof userAgentHeader === "string" ? userAgentHeader : undefined,
-            ),
-          });
+          const issued = await cliAuth.login(result.credential, requestContext(req));
           if (issued.kind === "credential_changed") {
             throw invalidCredentials();
           }
 
           this.ok(res, cliTokenResponseSchema.parse(issued.response));
+        }),
+      this.route()
+        .post("/refresh")
+        .middleware(refreshIpLimit())
+        .handle(async (req: Request, res: Response) => {
+          const parsed = cliRefreshRequestSchema.safeParse(req.body);
+          if (!parsed.success) {
+            throw new ApiError(400, "validation_error", "Validation failed");
+          }
+
+          const refreshHash = hashRefreshToken(parsed.data.refreshToken);
+          const sessions = await this.services.get<CliSessionRepository>("cliSessions");
+          const family = await sessions.findFamilyByHash(refreshHash);
+          if (family === undefined) {
+            throw invalidRefreshToken();
+          }
+
+          const limits = await this.services.get<AuthRateLimitService>("authRateLimits");
+          await limits.consumeRefreshFamily(family.familyId, req, res);
+
+          const cliAuth = await this.services.get<CliAuthService>("cliAuth");
+          const result = await cliAuth.refresh(
+            refreshHash,
+            family.principalId,
+            family.familyId,
+            requestContext(req),
+          );
+          if (result.kind !== "issued") {
+            throw invalidRefreshToken();
+          }
+
+          this.ok(res, cliTokenResponseSchema.parse(result.response));
+        }),
+      this.route()
+        .post("/logout")
+        .handle(async (req: Request, res: Response) => {
+          const parsed = cliLogoutRequestSchema.safeParse(req.body);
+          if (!parsed.success) {
+            throw new ApiError(400, "validation_error", "Validation failed");
+          }
+
+          const cliAuth = await this.services.get<CliAuthService>("cliAuth");
+          await cliAuth.logout(hashRefreshToken(parsed.data.refreshToken));
+          this.noContent(res);
+        }),
+      this.route()
+        .get("/me")
+        .handle(async (req: Request, res: Response) => {
+          const auth = requireCli(req);
+          this.ok(
+            res,
+            cliMeResponseSchema.parse({
+              user: auth.user,
+              mustChangePassword: auth.mustChangePassword,
+            }),
+          );
         }),
     ];
   }

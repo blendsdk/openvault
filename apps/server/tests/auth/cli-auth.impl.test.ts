@@ -52,6 +52,14 @@ class RecordingFamilyStore implements CliFamilyStore {
     return this.result;
   }
 
+  public async rotateRefresh(): Promise<{ kind: "invalid" }> {
+    return { kind: "invalid" };
+  }
+
+  public async logoutByHash(): Promise<void> {
+    return undefined;
+  }
+
   public async revokeFamily(familyId: string, principalId: string): Promise<void> {
     this.revoked.push([familyId, principalId]);
   }

@@ -4,10 +4,12 @@ import request from "supertest";
 import { describe, expect, it } from "vitest";
 import {
   passwordChangeGate,
+  requireCli,
+  requirePrincipal,
   requireSession,
   sessionMiddleware,
 } from "../../src/auth/middleware.js";
-import type { AuthContext, PrincipalStatus } from "../../src/auth/types.js";
+import type { AuthContext, CliAuthContext, PrincipalStatus } from "../../src/auth/types.js";
 
 function errorHandler(error: unknown, _req: Request, res: Response, next: NextFunction): void {
   if (error instanceof ApiError) {
@@ -28,6 +30,7 @@ function attach(auth: AuthContext | undefined): express.RequestHandler {
 
 function context(mustChangePassword: boolean): AuthContext {
   return {
+    kind: "browser",
     session: {
       publicId: "01ARZ3NDEKTSV4RRFFQ69G5FAV",
       principalId: "01ARZ3NDEKTSV4RRFFQ69G5FAW",
@@ -40,6 +43,23 @@ function context(mustChangePassword: boolean): AuthContext {
       id: "01ARZ3NDEKTSV4RRFFQ69G5FAW",
       name: "Test User",
       email: "test@example.test",
+      authMethod: "local",
+    },
+    mustChangePassword,
+  };
+}
+
+function cliContext(mustChangePassword: boolean): CliAuthContext {
+  return {
+    kind: "cli",
+    principalId: "01ARZ3NDEKTSV4RRFFQ69G5FAW",
+    familyId: "01ARZ3NDEKTSV4RRFFQ69G5FAX",
+    jti: "01ARZ3NDEKTSV4RRFFQ69G5FAY",
+    expiresAt: 1_700_000_900_000,
+    user: {
+      id: "01ARZ3NDEKTSV4RRFFQ69G5FAW",
+      name: "CLI User",
+      email: "cli@example.test",
       authMethod: "local",
     },
     mustChangePassword,
@@ -139,5 +159,82 @@ describe("auth middleware implementation", () => {
 
     const response = await request(app).get("/probe");
     expect(response.body).toEqual({ hasAuth: false });
+  });
+
+  it("should never fall back to a cookie when any Authorization header is present", async () => {
+    const app = express();
+    let lookups = 0;
+    const sessions = {
+      get: async (): Promise<undefined> => {
+        lookups += 1;
+        return undefined;
+      },
+      revoke: async (): Promise<boolean> => false,
+    };
+    const credentials = {
+      findStatus: async (): Promise<PrincipalStatus | undefined> => undefined,
+    };
+    app.use(sessionMiddleware(sessions, credentials));
+    app.get("/probe", (req, res) => res.json({ hasAuth: req.auth !== undefined }));
+    app.use(errorHandler);
+
+    const response = await request(app)
+      .get("/probe")
+      .set("authorization", "Basic dXNlcjpwYXNz")
+      .set("cookie", "__Host-ov_session=stale");
+    expect(response.body).toEqual({ hasAuth: false });
+    expect(lookups).toBe(0);
+  });
+
+  it("should keep requireSession browser-only and requirePrincipal open to both contexts", async () => {
+    const browserApp = express();
+    browserApp.use(attach(cliContext(false)));
+    browserApp.get("/probe", (req, res, next) => {
+      try {
+        requireSession(req);
+        res.status(204).end();
+      } catch (error) {
+        next(error);
+      }
+    });
+    browserApp.use(errorHandler);
+
+    const browserResponse = await request(browserApp).get("/probe");
+    expect(browserResponse.status).toBe(401);
+
+    const cliApp = express();
+    cliApp.use(attach(cliContext(false)));
+    cliApp.get("/cli", (req, res, next) => {
+      try {
+        requireCli(req);
+        requirePrincipal(req);
+        res.status(204).end();
+      } catch (error) {
+        next(error);
+      }
+    });
+    cliApp.use(errorHandler);
+
+    const cliResponse = await request(cliApp).get("/cli");
+    expect(cliResponse.status).toBe(204);
+  });
+
+  it("should allow only /cli/me and logout for a forced-change CLI context", async () => {
+    const app = express();
+    app.use(attach(cliContext(true)));
+    app.use(passwordChangeGate());
+    app.get("/v1/auth/cli/me", (_req, res) => res.status(204).end());
+    app.post("/v1/auth/cli/logout", (_req, res) => res.status(204).end());
+    app.get("/v1/auth/cli/sessions", (_req, res) => res.status(204).end());
+    app.use(errorHandler);
+
+    await expect(request(app).get("/v1/auth/cli/me")).resolves.toMatchObject({ status: 204 });
+    await expect(request(app).post("/v1/auth/cli/logout")).resolves.toMatchObject({ status: 204 });
+    const blocked = await request(app).get("/v1/auth/cli/sessions");
+    expect(blocked.status).toBe(403);
+    expect(blocked.body).toEqual({
+      success: false,
+      error: { code: "password_change_required" },
+    });
   });
 });

@@ -44,6 +44,10 @@ export function originGuard(config: OpenVaultConfig): RequestHandler {
       next();
       return;
     }
+    if (req.auth !== undefined && req.auth.kind !== "browser") {
+      next();
+      return;
+    }
 
     const origin = req.headers.origin;
     if (typeof origin === "string") {
@@ -78,11 +82,11 @@ export function originGuard(config: OpenVaultConfig): RequestHandler {
  */
 export function csrfGuard(sessions: SessionService): RequestHandler {
   const check = csrfMiddleware({
-    expectedToken: (req) => req.auth?.session.csrfToken,
+    expectedToken: (req) => (req.auth?.kind === "browser" ? req.auth.session.csrfToken : undefined),
   });
 
   return async (req: Request, res: Response, next: NextFunction) => {
-    if (req.auth === undefined) {
+    if (req.auth?.kind !== "browser") {
       next();
       return;
     }

@@ -2,8 +2,8 @@
 
 > **Document**: 99-execution-plan.md
 > **Parent**: [Index](00-index.md)
-> **Last Updated**: 2026-11-01 02:04
-> **Progress**: 32/69 tasks (46%)
+> **Last Updated**: 2026-11-01 02:17
+> **Progress**: 47/69 tasks (68%)
 > **CodeOps Artifact Schema**: 1
 
 ## Overview
@@ -151,6 +151,9 @@ spec tests, red result, implementation, green result, implementation tests, full
 
 ## Phase 3: Refresh, logout, and bearer authentication
 
+> **Phase baseline tree**: 88301a2028a88ce3f4f915786750e737bc670bb1
+> **Modification set**: `apps/server/src/auth/types.ts`, `middleware.ts`, `csrf.ts`, `plugin.ts`, `cli-sessions.ts`, `cli-auth-service.ts`, `controllers/cli-auth.ts`, request typing, and the Phase 3 tests/helpers
+> **Scope mode**: strict
 > **Lenses**: security, concurrency, api-surface
 > **Reasoning**: max — rotation locking, reuse detection, bearer precedence, and the auth
 > context split are security- and concurrency-critical
@@ -160,29 +163,29 @@ spec tests, red result, implementation, green result, implementation tests, full
 **Reference**: [03-04](03-04-refresh-bearer.md) · [07](07-testing-strategy.md) ST-25–ST-37, ST-49–ST-50 · AR-2, AR-4, AR-6, AR-18, AR-21, AR-22, AR-23, AR-35
 **Objective**: Define rotation, reuse, logout, bearer precedence, browser rejection, and refresh limits.
 
-- [ ] 3.1.1 [spec-author] Write the refresh, logout, and bearer integration tests for ST-25–ST-37 and ST-49–ST-50 — `apps/server/tests/integration/auth.cli-refresh.spec.test.ts`
-- [ ] 3.1.2 Run the Phase 3 spec tests and record the red result
+- [x] 3.1.1 [spec-author] Write the refresh, logout, and bearer integration tests for ST-25–ST-37 and ST-49–ST-50 — `apps/server/tests/integration/auth.cli-refresh.spec.test.ts` ✅ (completed: 2026-11-01 02:15)
+- [x] 3.1.2 Run the Phase 3 spec tests and record the red result ✅ (completed: 2026-11-01 02:15)
 
 ### Step 3.2: Implementation
 
 **Reference**: [03-04](03-04-refresh-bearer.md) §Implementation Details · AR-4, AR-6, AR-18, AR-21, AR-22, AR-23
 
-- [ ] 3.2.1 Split `AuthContext` into browser/CLI variants, add `requireSession`/`requireCli`/`requirePrincipal`, and narrow existing `req.auth` callers — `apps/server/src/auth/types.ts`, `apps/server/src/auth/middleware.ts`, `apps/server/src/controllers/auth.ts`
-- [ ] 3.2.2 Add the bearer middleware and the no-cookie-fallback rule — `apps/server/src/auth/middleware.ts`
-- [ ] 3.2.3 Make Origin and CSRF guards browser-only — `apps/server/src/auth/csrf.ts`
-- [ ] 3.2.4 Extend the forced-change gate with the CLI `/cli/me` and logout allowlist — `apps/server/src/auth/middleware.ts`
-- [ ] 3.2.5 Add refresh lookup and the one-query active principal/family check — `apps/server/src/auth/cli-sessions.ts`
-- [ ] 3.2.6 Add the locked rotation and logout transactions, including reuse and unique-race handling — `apps/server/src/auth/cli-sessions.ts`
-- [ ] 3.2.7 Add CLI refresh/logout orchestration and token assembly — `apps/server/src/auth/cli-auth-service.ts`
-- [ ] 3.2.8 Add refresh, logout, and `/cli/me` routes — `apps/server/src/controllers/cli-auth.ts`
-- [ ] 3.2.9 Install the CLI middleware before the session middleware and update request typing — `apps/server/src/auth/plugin.ts`, `apps/server/src/types/express.d.ts`
-- [ ] 3.2.10 Run the Phase 3 spec tests and verify green
+- [x] 3.2.1 Split `AuthContext` into browser/CLI variants, add `requireSession`/`requireCli`/`requirePrincipal`, and narrow existing `req.auth` callers — `apps/server/src/auth/types.ts`, `apps/server/src/auth/middleware.ts`, `apps/server/src/controllers/auth.ts` ✅ (completed: 2026-11-01 02:15)
+- [x] 3.2.2 Add the bearer middleware and the no-cookie-fallback rule — `apps/server/src/auth/middleware.ts` ✅ (completed: 2026-11-01 02:15)
+- [x] 3.2.3 Make Origin and CSRF guards browser-only — `apps/server/src/auth/csrf.ts` ✅ (completed: 2026-11-01 02:15)
+- [x] 3.2.4 Extend the forced-change gate with the CLI `/cli/me` and logout allowlist — `apps/server/src/auth/middleware.ts` ✅ (completed: 2026-11-01 02:15)
+- [x] 3.2.5 Add refresh lookup and the one-query active principal/family check — `apps/server/src/auth/cli-sessions.ts` ✅ (completed: 2026-11-01 02:15)
+- [x] 3.2.6 Add the locked rotation and logout transactions, including reuse and unique-race handling — `apps/server/src/auth/cli-sessions.ts` ✅ (completed: 2026-11-01 02:15)
+- [x] 3.2.7 Add CLI refresh/logout orchestration and token assembly — `apps/server/src/auth/cli-auth-service.ts` ✅ (completed: 2026-11-01 02:15)
+- [x] 3.2.8 Add refresh, logout, and `/cli/me` routes — `apps/server/src/controllers/cli-auth.ts` ✅ (completed: 2026-11-01 02:15)
+- [x] 3.2.9 Install the CLI middleware before the session middleware and update request typing — `apps/server/src/auth/plugin.ts`, `apps/server/src/types/express.d.ts` ✅ (completed: 2026-11-01 02:15)
+- [x] 3.2.10 Run the Phase 3 spec tests and verify green ✅ (completed: 2026-11-01 02:15)
 
 ### Step 3.3: Implementation Tests and Hardening
 
-- [ ] 3.3.1 Write implementation tests for the context union, bearer parsing, no-fallback rule, and browser-only guards; update existing contexts — `apps/server/tests/auth/middleware.impl.test.ts`, `apps/server/tests/auth/csrf.impl.test.ts`, `apps/server/tests/auth/csrf.spec.test.ts`
-- [ ] 3.3.2 Run the CLI refresh integration suite against PostgreSQL 16 and 17 — `apps/server/tests/integration/auth.cli-refresh.spec.test.ts`
-- [ ] 3.3.3 Run full verification — `pnpm verify`
+- [x] 3.3.1 Write implementation tests for the context union, bearer parsing, no-fallback rule, and browser-only guards; update existing contexts — `apps/server/tests/auth/middleware.impl.test.ts`, `apps/server/tests/auth/csrf.impl.test.ts`, `apps/server/tests/auth/csrf.spec.test.ts` ✅ (completed: 2026-11-01 02:17)
+- [x] 3.3.2 Run the CLI refresh integration suite against PostgreSQL 16 and 17 — `apps/server/tests/integration/auth.cli-refresh.spec.test.ts` ✅ (completed: 2026-11-01 02:17)
+- [x] 3.3.3 Run full verification — `pnpm verify` ✅ (completed: 2026-11-01 02:17)
 
 **Deliverables**:
 - Atomic refresh rotation with absolute family expiry and reuse detection.

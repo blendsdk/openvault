@@ -39,8 +39,23 @@ const CSRF_HEADER = "x-csrf-token";
 /** Route that signs a local credential in for the command line. */
 const CLI_LOGIN_PATH = "/v1/auth/cli/login";
 
+/** Route that rotates a command-line refresh token. */
+const CLI_REFRESH_PATH = "/v1/auth/cli/refresh";
+
+/** Route that revokes a command-line refresh family. */
+const CLI_LOGOUT_PATH = "/v1/auth/cli/logout";
+
+/** Route that returns the command-line caller. */
+const CLI_ME_PATH = "/v1/auth/cli/me";
+
+/** Route that lists the command-line caller's refresh families. */
+const CLI_SESSIONS_PATH = "/v1/auth/cli/sessions";
+
 /** Route that signs a local credential in for the browser. */
 const BROWSER_LOGIN_PATH = "/v1/auth/local/login";
+
+/** Route that reads the browser session user. */
+const BROWSER_ME_PATH = "/v1/auth/me";
 
 /** Route that changes a browser-authenticated password. */
 const PASSWORD_CHANGE_PATH = "/v1/auth/password";
@@ -98,14 +113,13 @@ const JWT_PATTERN = /^[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+$/;
 const REFRESH_TOKEN_PATTERN = /^[A-Za-z0-9_-]{43}$/;
 
 /**
- * Token response returned by a successful command-line sign-in.
+ * Token payload returned by a successful command-line sign-in or rotation.
  *
  * The schema is defined by the test suite rather than imported from the
  * production contract, so the assertions stay an independent oracle.
  */
-export const cliTokenResponseSchema = z.object({
-  success: z.literal(true),
-  data: z.object({
+export const cliTokenDataSchema = z
+  .object({
     tokenType: z.literal("Bearer"),
     accessToken: z.string().regex(JWT_PATTERN),
     accessExpiresAt: z.iso.datetime(),
@@ -113,8 +127,37 @@ export const cliTokenResponseSchema = z.object({
     refreshExpiresAt: z.iso.datetime(),
     user: cliUserSchema,
     mustChangePassword: z.boolean(),
-  }),
-});
+  })
+  .strict();
+
+/** Token response returned by a successful command-line sign-in. */
+export const cliTokenResponseSchema = z
+  .object({
+    success: z.literal(true),
+    data: cliTokenDataSchema,
+  })
+  .strict();
+
+/** Token response returned by a successful command-line refresh. */
+export const cliRefreshResponseSchema = z
+  .object({
+    success: z.literal(true),
+    data: cliTokenDataSchema,
+  })
+  .strict();
+
+/** Response returned by the command-line profile route. */
+export const cliMeResponseSchema = z
+  .object({
+    success: z.literal(true),
+    data: z
+      .object({
+        user: cliUserSchema,
+        mustChangePassword: z.boolean(),
+      })
+      .strict(),
+  })
+  .strict();
 
 /** A local user fixture inserted directly into the test database. */
 export interface CliTestUser {
@@ -152,6 +195,26 @@ export interface IssuedBrowserSession {
 
 /** Options accepted by {@link CliAuthTestHarness.send}. */
 export type CliSendOptions = Omit<TestRequestOptions, "port" | "host" | "ca" | "servername">;
+
+/** Options for a command-line profile request. */
+export interface CliMeOptions {
+  /** Access token placed in a `Bearer` authorization header. */
+  readonly bearer?: string;
+  /** Raw authorization header value, used for malformed-header cases. */
+  readonly authorization?: string;
+  /** Browser session cookie value, used for no-fallback cases. */
+  readonly cookie?: string;
+  /** Client address observed by the server. */
+  readonly forwardedFor?: string;
+}
+
+/** Options for a command-line logout request. */
+export interface CliLogoutOptions {
+  /** Raw authorization header value, used for forced-change cases. */
+  readonly authorization?: string;
+  /** Client address observed by the server. */
+  readonly forwardedFor?: string;
+}
 
 /**
  * A running server with a disposable database for command-line auth tests.
@@ -371,12 +434,14 @@ export class CliAuthTestHarness {
    * @param identifier - Email address supplied by the caller.
    * @param password - Candidate password.
    * @param forwardedFor - Client address observed by the rate limiter.
+   * @param extraHeaders - Additional headers such as a stale authorization value.
    * @returns The captured response.
    */
   cliLogin(
     identifier: string,
     password: string,
     forwardedFor: string = this.uniqueAddress(),
+    extraHeaders: Record<string, string> = {},
   ): Promise<TestResponse> {
     return this.send({
       path: CLI_LOGIN_PATH,
@@ -384,9 +449,154 @@ export class CliAuthTestHarness {
       headers: {
         "content-type": "application/json",
         "x-forwarded-for": forwardedFor,
+        ...extraHeaders,
       },
       body: JSON.stringify({ identifier, password }),
     });
+  }
+
+  /**
+   * Rotates a command-line refresh token.
+   *
+   * The request deliberately sends no Origin or CSRF header: command-line
+   * requests authenticate with their own credential rather than a cookie.
+   *
+   * @param refreshToken - Opaque refresh token to rotate.
+   * @param forwardedFor - Client address observed by the rate limiter.
+   * @returns The captured response.
+   */
+  cliRefresh(
+    refreshToken: string,
+    forwardedFor: string = this.uniqueAddress(),
+  ): Promise<TestResponse> {
+    return this.send({
+      path: CLI_REFRESH_PATH,
+      method: "POST",
+      headers: {
+        "content-type": "application/json",
+        "x-forwarded-for": forwardedFor,
+      },
+      body: JSON.stringify({ refreshToken }),
+    });
+  }
+
+  /**
+   * Revokes a command-line refresh family.
+   *
+   * @param refreshToken - Opaque refresh token that names the family.
+   * @param options - Optional authorization header and client address.
+   * @returns The captured response.
+   */
+  cliLogout(refreshToken: string, options: CliLogoutOptions = {}): Promise<TestResponse> {
+    const headers: Record<string, string> = {
+      "content-type": "application/json",
+      "x-forwarded-for": options.forwardedFor ?? this.uniqueAddress(),
+    };
+    if (options.authorization !== undefined) {
+      headers.authorization = options.authorization;
+    }
+    return this.send({
+      path: CLI_LOGOUT_PATH,
+      method: "POST",
+      headers,
+      body: JSON.stringify({ refreshToken }),
+    });
+  }
+
+  /**
+   * Reads the current command-line user.
+   *
+   * Authorization may come from a bearer token, a raw header, a browser
+   * cookie, or any combination. This lets tests prove that a cookie never
+   * authorizes a command-line route and that an invalid bearer never falls
+   * back to a cookie.
+   *
+   * @param options - Authorization material and client address.
+   * @returns The captured response.
+   */
+  cliMe(options: CliMeOptions = {}): Promise<TestResponse> {
+    const headers: Record<string, string> = {
+      "x-forwarded-for": options.forwardedFor ?? this.uniqueAddress(),
+    };
+    if (options.authorization !== undefined) {
+      headers.authorization = options.authorization;
+    } else if (options.bearer !== undefined) {
+      headers.authorization = `Bearer ${options.bearer}`;
+    }
+    if (options.cookie !== undefined) {
+      headers.cookie = options.cookie;
+    }
+    return this.send({ path: CLI_ME_PATH, method: "GET", headers });
+  }
+
+  /**
+   * Lists the command-line caller's refresh families.
+   *
+   * @param accessToken - Bearer access token for the caller.
+   * @param forwardedFor - Client address observed by the server.
+   * @returns The captured response.
+   */
+  cliSessions(
+    accessToken: string,
+    forwardedFor: string = this.uniqueAddress(),
+  ): Promise<TestResponse> {
+    return this.send({
+      path: CLI_SESSIONS_PATH,
+      method: "GET",
+      headers: {
+        authorization: `Bearer ${accessToken}`,
+        "x-forwarded-for": forwardedFor,
+      },
+    });
+  }
+
+  /**
+   * Reads the browser session user.
+   *
+   * This is used to prove that a cookie presented to a command-line route was
+   * a valid browser credential, so a rejection is caused by the route rather
+   * than by an expired session.
+   *
+   * @param session - Browser session to present.
+   * @param forwardedFor - Client address observed by the server.
+   * @returns The captured response.
+   */
+  browserMe(
+    session: IssuedBrowserSession,
+    forwardedFor: string = this.uniqueAddress(),
+  ): Promise<TestResponse> {
+    return this.send({
+      path: BROWSER_ME_PATH,
+      method: "GET",
+      headers: {
+        cookie: this.browserCookie(session),
+        "x-forwarded-for": forwardedFor,
+      },
+    });
+  }
+
+  /**
+   * Formats a browser session as a cookie header value.
+   *
+   * @param session - Browser session to serialize.
+   * @returns The `name=value` cookie pair.
+   */
+  browserCookie(session: IssuedBrowserSession): string {
+    return `${SESSION_COOKIE_NAME}=${session.secretId}`;
+  }
+
+  /**
+   * Marks a principal as disabled without deleting its credentials.
+   *
+   * @param principalId - Principal to disable.
+   */
+  async disableUser(principalId: string): Promise<void> {
+    await this.db.db.executeQuery(
+      `UPDATE principals
+          SET status = 'disabled', disabled_at = COALESCE(disabled_at, now())
+        WHERE id = :principalId`,
+      { principalId },
+    );
   }
 
   /**
@@ -463,7 +673,34 @@ export class CliAuthTestHarness {
    * @param principalId - Principal that owns the rows.
    * @returns Rows ordered by creation time.
    */
-  async cliSessionRows(principalId: string): Promise<CliSessionRow[]> {
+  cliSessionRows(principalId: string): Promise<CliSessionRow[]> {
+    return this.readCliSessionRows("principal_id", principalId);
+  }
+
+  /**
+   * Reads the stored command-line refresh rows for one family.
+   *
+   * Every rotation adds a row to the same family, so these rows show both the
+   * absolute family expiry and which tokens have been revoked.
+   *
+   * @param familyId - Family whose rows should be read.
+   * @returns Rows ordered by creation time.
+   */
+  cliFamilyRows(familyId: string): Promise<CliSessionRow[]> {
+    return this.readCliSessionRows("family_id", familyId);
+  }
+
+  /**
+   * Reads command-line refresh rows selected by one indexed column.
+   *
+   * @param column - Internal column name; never supplied by request data.
+   * @param value - Column value to match.
+   * @returns Rows ordered by creation time.
+   */
+  private async readCliSessionRows(
+    column: "principal_id" | "family_id",
+    value: string,
+  ): Promise<CliSessionRow[]> {
     const result = await this.db.db.executeQuery<{
       id: string;
       principal_id: string;
@@ -478,9 +715,9 @@ export class CliAuthTestHarness {
       `SELECT id, principal_id, refresh_hash, family_id, expires_at, revoked_at,
               ip, user_agent, created_at
          FROM cli_sessions
-        WHERE principal_id = :principalId
+        WHERE ${column} = :value
         ORDER BY created_at, id`,
-      { principalId },
+      { value },
     );
 
     return result.records.map((row) => ({

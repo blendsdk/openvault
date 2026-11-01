@@ -20,7 +20,7 @@ const PASSWORD_WINDOW_MS = 60_000;
 
 /** Uses the public session id as the password-change rate-limit key. */
 function sessionRateKey(req: Request): string {
-  const publicId = req.auth?.session.publicId;
+  const publicId = req.auth?.kind === "browser" ? req.auth.session.publicId : undefined;
   return publicId === undefined ? "session:anonymous" : `session:${publicId}`;
 }
 

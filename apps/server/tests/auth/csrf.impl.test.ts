@@ -22,6 +22,7 @@ function errorHandler(error: unknown, _req: Request, res: Response, next: NextFu
 function attach(record: SessionRecord): express.RequestHandler {
   return (req, _res, next) => {
     req.auth = {
+      kind: "browser",
       session: record,
       user: {
         id: record.principalId,

@@ -11,7 +11,7 @@ import { CredentialsRepository } from "./credentials.js";
 import { csrfGuard, originGuard } from "./csrf.js";
 import { LocalLoginService } from "./local-login.js";
 import { createAuthRateLimitService } from "./login-rate-limits.js";
-import { passwordChangeGate, sessionMiddleware } from "./middleware.js";
+import { cliAuthMiddleware, passwordChangeGate, sessionMiddleware } from "./middleware.js";
 import { OidcClient } from "./oidc/client.js";
 import { OidcIdentityService } from "./oidc/identity.js";
 import { OidcStateStore } from "./oidc/state.js";
@@ -140,6 +140,7 @@ export function createAuthPlugin(options: AuthPluginOptions): PluginDefinition {
         });
       }
 
+      express.use(cliAuthMiddleware(signingKeys, cliSessions));
       express.use(sessionMiddleware(sessions, credentials));
       express.use(passwordChangeGate());
       express.use(originGuard(options.config));

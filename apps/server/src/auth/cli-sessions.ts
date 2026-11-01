@@ -46,6 +46,33 @@ export type CreateFamilyResult =
   | { readonly kind: "created"; readonly family: CreatedCliFamily }
   | { readonly kind: "credential_changed" };
 
+/** A principal loaded for bearer or rotation handling. */
+export interface CliPrincipal {
+  /** Principal identifier. */
+  readonly principalId: string;
+  /** Display name. */
+  readonly name: string;
+  /** Email address, or null. */
+  readonly email: string | null;
+  /** Whether the principal may authenticate. */
+  readonly status: "active" | "disabled";
+  /** True while a password change is required. */
+  readonly mustChange: boolean;
+}
+
+/** Result of one refresh rotation attempt. */
+export type RotateResult =
+  | {
+      readonly kind: "rotated";
+      readonly row: CliRefreshRow;
+      readonly principal: CliPrincipal;
+      readonly refreshToken: string;
+    }
+  | { readonly kind: "invalid" }
+  | { readonly kind: "expired" }
+  | { readonly kind: "reuse" }
+  | { readonly kind: "disabled" };
+
 interface CliRefreshDbRow {
   readonly id: string;
   readonly principal_id: string;
@@ -55,6 +82,17 @@ interface CliRefreshDbRow {
   readonly created_at: Date;
   readonly ip: string | null;
   readonly user_agent: string | null;
+}
+
+interface CliRefreshLockDbRow extends CliRefreshDbRow {
+  readonly expired: boolean;
+}
+
+interface CliQuery {
+  executeQuery<T>(
+    query: string,
+    params?: Record<string, unknown>,
+  ): Promise<{ readonly records: readonly T[] }>;
 }
 
 /**
@@ -93,6 +131,14 @@ function newRefreshToken(): string {
   return randomBytes(REFRESH_TOKEN_BYTES).toString("base64url");
 }
 
+interface CliPrincipalDbRow {
+  readonly principal_id: string;
+  readonly name: string;
+  readonly email: string | null;
+  readonly status: string;
+  readonly must_change: boolean;
+}
+
 function toRefreshRow(row: CliRefreshDbRow): CliRefreshRow {
   return {
     rowId: row.id,
@@ -104,6 +150,20 @@ function toRefreshRow(row: CliRefreshDbRow): CliRefreshRow {
     ip: row.ip,
     userAgent: row.user_agent,
   };
+}
+
+function toPrincipal(row: CliPrincipalDbRow): CliPrincipal {
+  return {
+    principalId: row.principal_id,
+    name: row.name,
+    email: row.email,
+    status: row.status === "active" ? "active" : "disabled",
+    mustChange: row.must_change,
+  };
+}
+
+function isUniqueViolation(error: unknown): boolean {
+  return typeof error === "object" && error !== null && Reflect.get(error, "code") === "23505";
 }
 
 /**
@@ -187,6 +247,187 @@ export class CliSessionRepository {
   }
 
   /**
+   * Looks up a family by refresh-token hash without taking a lock.
+   *
+   * The lookup is used for the post-lookup family rate limit and to discover
+   * the owner before the rotation transaction takes the principal lock.
+   *
+   * @param refreshHash - SHA-256 of the canonical refresh token.
+   * @returns The live or retained row, or undefined.
+   */
+  public async findFamilyByHash(refreshHash: Buffer): Promise<CliRefreshRow | undefined> {
+    const result = await this.#database.executeQuery<CliRefreshDbRow>(
+      `SELECT id, principal_id, family_id, expires_at, revoked_at, created_at, ip, user_agent
+         FROM cli_sessions
+        WHERE refresh_hash = :refreshHash`,
+      { refreshHash },
+    );
+    const row = result.records[0];
+    return row === undefined ? undefined : toRefreshRow(row);
+  }
+
+  /**
+   * Loads the principal and family state for one bearer request.
+   *
+   * The single query requires an active principal and a non-revoked, unexpired
+   * family row. It is the authoritative liveness check for every CLI request.
+   *
+   * @param principalId - JWT `sub`.
+   * @param familyId - JWT `sid`.
+   * @returns The active principal, or undefined.
+   */
+  public async findActiveContext(
+    principalId: string,
+    familyId: string,
+  ): Promise<CliPrincipal | undefined> {
+    const result = await this.#database.executeQuery<CliPrincipalDbRow>(
+      `SELECT p.id AS principal_id, p.name, p.email, p.status,
+              COALESCE(c.must_change, false) AS must_change
+         FROM principals p
+         JOIN cli_sessions s
+           ON s.principal_id = p.id AND s.family_id = :familyId
+         LEFT JOIN local_credentials c ON c.principal_id = p.id
+        WHERE p.id = :principalId
+          AND p.status = 'active'
+          AND s.revoked_at IS NULL
+          AND s.expires_at > now()
+        LIMIT 1`,
+      { principalId, familyId },
+    );
+    const row = result.records[0];
+    return row === undefined ? undefined : toPrincipal(row);
+  }
+
+  /**
+   * Rotates one refresh token inside the principal and row locks.
+   *
+   * A revoked row is reuse: every live row in the family is revoked and the
+   * caller receives 401. An expired family returns expired without extending
+   * its life. A disabled principal revokes the family. The replacement row
+   * inherits the family's original absolute expiry.
+   *
+   * @param refreshHash - SHA-256 of the presented token.
+   * @param principalId - Owner discovered by the non-locking lookup.
+   * @param familyId - Family discovered by the non-locking lookup.
+   * @param context - Current request address and user agent.
+   * @returns A discriminated rotation result.
+   */
+  public async rotateRefresh(
+    refreshHash: Buffer,
+    principalId: string,
+    familyId: string,
+    context: CliRequestContext,
+  ): Promise<RotateResult> {
+    try {
+      return await this.#database.withTransaction(async (tx) => {
+        const principalResult = await tx.executeQuery<CliPrincipalDbRow>(
+          `SELECT p.id AS principal_id, p.name, p.email, p.status,
+                  COALESCE(c.must_change, false) AS must_change
+             FROM principals p
+             LEFT JOIN local_credentials c ON c.principal_id = p.id
+            WHERE p.id = :principalId
+            FOR UPDATE OF p`,
+          { principalId },
+        );
+        const principalRow = principalResult.records[0];
+        if (principalRow === undefined) {
+          return { kind: "invalid" };
+        }
+
+        const rowResult = await tx.executeQuery<CliRefreshLockDbRow>(
+          `SELECT id, principal_id, family_id, expires_at, revoked_at, created_at,
+                  ip, user_agent, expires_at <= now() AS expired
+             FROM cli_sessions
+            WHERE refresh_hash = :refreshHash
+            FOR UPDATE`,
+          { refreshHash },
+        );
+        const row = rowResult.records[0];
+        if (row === undefined || row.principal_id !== principalId || row.family_id !== familyId) {
+          return { kind: "invalid" };
+        }
+        if (row.revoked_at !== null) {
+          await this.#revokeFamilyInTransaction(tx, familyId, principalId);
+          return { kind: "reuse" };
+        }
+        if (row.expired) {
+          return { kind: "expired" };
+        }
+        if (principalRow.status !== "active") {
+          await this.#revokeFamilyInTransaction(tx, familyId, principalId);
+          return { kind: "disabled" };
+        }
+
+        const refreshToken = newRefreshToken();
+        const newRowId = newUlid();
+        await tx.executeQuery(
+          `UPDATE cli_sessions
+              SET revoked_at = now()
+            WHERE id = :rowId AND revoked_at IS NULL`,
+          { rowId: row.id },
+        );
+        const inserted = await tx.executeQuery<CliRefreshDbRow>(
+          `INSERT INTO cli_sessions
+             (id, principal_id, refresh_hash, family_id, expires_at, ip, user_agent)
+           VALUES
+             (:rowId, :principalId, :refreshHash, :familyId, :expiresAt, :ip, :userAgent)
+           RETURNING id, principal_id, family_id, expires_at, revoked_at, created_at,
+                     ip, user_agent`,
+          {
+            rowId: newRowId,
+            principalId,
+            refreshHash: hashRefreshToken(refreshToken),
+            familyId,
+            expiresAt: row.expires_at,
+            ip: context.ip,
+            userAgent: context.userAgent,
+          },
+        );
+        const newRow = inserted.records[0];
+        if (newRow === undefined) {
+          throw new Error("CLI refresh insert did not return a row");
+        }
+
+        return {
+          kind: "rotated",
+          row: toRefreshRow(newRow),
+          principal: toPrincipal(principalRow),
+          refreshToken,
+        };
+      });
+    } catch (error) {
+      if (isUniqueViolation(error)) {
+        await this.revokeFamily(familyId, principalId);
+        return { kind: "reuse" };
+      }
+      throw error;
+    }
+  }
+
+  /**
+   * Revokes the family for a known refresh-token hash.
+   *
+   * An unknown or already-cleaned token is a no-op. The principal lock
+   * serializes logout with an in-flight refresh so no replacement row can be
+   * inserted after the logout update.
+   *
+   * @param refreshHash - SHA-256 of the presented token.
+   */
+  public async logoutByHash(refreshHash: Buffer): Promise<void> {
+    const family = await this.findFamilyByHash(refreshHash);
+    if (family === undefined) {
+      return;
+    }
+
+    await this.#database.withTransaction(async (tx) => {
+      await tx.executeQuery("SELECT id FROM principals WHERE id = :principalId FOR UPDATE", {
+        principalId: family.principalId,
+      });
+      await this.#revokeFamilyInTransaction(tx, family.familyId, family.principalId);
+    });
+  }
+
+  /**
    * Revokes every live row in one owned family.
    *
    * Used when token issuance fails after the family was inserted. The
@@ -196,7 +437,15 @@ export class CliSessionRepository {
    * @param principalId - Owner principal.
    */
   public async revokeFamily(familyId: string, principalId: string): Promise<void> {
-    await this.#database.executeQuery(
+    await this.#revokeFamilyInTransaction(this.#database, familyId, principalId);
+  }
+
+  async #revokeFamilyInTransaction(
+    database: CliQuery,
+    familyId: string,
+    principalId: string,
+  ): Promise<void> {
+    await database.executeQuery(
       `UPDATE cli_sessions
           SET revoked_at = now()
         WHERE family_id = :familyId
