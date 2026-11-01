@@ -124,9 +124,9 @@
 | `apps/server/tests/integration/schema.spec.test.ts` | ST-6–ST-8 | Schema/migration |
 | `apps/server/tests/integration/auth/signing-keys.spec.test.ts` | ST-9–ST-14, ST-52 | Key lifecycle |
 | `apps/server/tests/auth/cli-jwt.spec.test.ts` | ST-12–ST-15 | JWT |
-| `apps/server/tests/integration/auth.cli-login.spec.test.ts` | ST-16–ST-24 | Login and shared limits |
+| `apps/server/tests/integration/auth.cli-login.spec.test.ts` | ST-16–ST-23 | Login and shared limits |
 | `apps/server/tests/integration/auth.cli-refresh.spec.test.ts` | ST-25–ST-37, ST-49–ST-50 | Refresh, logout, bearer, limits |
-| `apps/server/tests/integration/auth.cli-sessions.spec.test.ts` | ST-38–ST-44, ST-51 | Sessions, password, retention |
+| `apps/server/tests/integration/auth.cli-sessions.spec.test.ts` | ST-24, ST-38–ST-44, ST-51 | Sessions, password, login race, retention |
 | `apps/server/tests/integration/auth.cli-logging.spec.test.ts` | ST-45–ST-46 | Redaction |
 | `apps/server/tests/startup.spec.test.ts` / docs build | ST-47–ST-48 | Release verification |
 

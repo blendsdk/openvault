@@ -8,6 +8,8 @@ declare global {
       log: Logger;
       /** Authenticated session context; absent for public or machine requests. */
       auth?: AuthContext;
+      /** CLI family id used only by the post-lookup refresh limiter. */
+      cliRefreshFamilyId?: string;
     }
   }
 }

@@ -1,4 +1,3 @@
-import { createHash } from "node:crypto";
 import {
   loginRequestSchema,
   passwordChangeRequestSchema,
@@ -11,30 +10,13 @@ import { ApiError, BaseController, NotFoundError, rateLimitMiddleware } from "bl
 import type { Request, Response } from "express";
 import { clearSessionCookie, readSessionCookie, setSessionCookie } from "../auth/cookie.js";
 import type { CredentialsRepository } from "../auth/credentials.js";
+import type { LocalLoginService } from "../auth/local-login.js";
+import { loginAccountLimit, loginIpLimit } from "../auth/login-rate-limits.js";
 import { requireSession } from "../auth/middleware.js";
-import {
-  dummyVerify,
-  hashPassword,
-  isPolicyHash,
-  validateNewPassword,
-  verifyPassword,
-} from "../auth/password.js";
+import { hashPassword, validateNewPassword, verifyPassword } from "../auth/password.js";
 import type { SessionRecord, SessionService } from "../auth/sessions.js";
 
-const LOGIN_WINDOW_MS = 60_000;
-const ACCOUNT_WINDOW_MS = 3_600_000;
 const PASSWORD_WINDOW_MS = 60_000;
-
-/** Normalizes a login identifier before lookup and rate-limit keying. */
-function normalizeIdentifier(value: string): string {
-  return value.trim().toLowerCase();
-}
-
-/** Hashes the normalized identifier so the limiter never stores an email. */
-function accountRateKey(value: unknown): string {
-  const identifier = typeof value === "string" ? normalizeIdentifier(value) : "";
-  return `account:${createHash("sha256").update(identifier, "utf8").digest("hex")}`;
-}
 
 /** Uses the public session id as the password-change rate-limit key. */
 function sessionRateKey(req: Request): string {
@@ -45,11 +27,6 @@ function sessionRateKey(req: Request): string {
 /** Builds the one generic local-credential failure. */
 function invalidCredentials(): ApiError {
   return new ApiError(401, "invalid_credentials", "Invalid credentials");
-}
-
-/** Reports whether a credential's lock is still active. */
-function isLocked(lockedUntil: Date | null, now: number): boolean {
-  return lockedUntil !== null && lockedUntil.getTime() > now;
 }
 
 /** Renders one session as the public list entry. */
@@ -74,15 +51,6 @@ function toSessionEntry(record: SessionRecord, currentPublicId: string) {
 export class AuthController extends BaseController {
   /** @inheritDoc */
   public routes(): RouteDefinition[] {
-    const loginIpLimit = rateLimitMiddleware({
-      maxRequests: 5,
-      windowMs: LOGIN_WINDOW_MS,
-    });
-    const loginAccountLimit = rateLimitMiddleware({
-      maxRequests: 10,
-      windowMs: ACCOUNT_WINDOW_MS,
-      keyExtractor: (req) => accountRateKey(req.body?.identifier),
-    });
     const passwordIpLimit = rateLimitMiddleware({
       maxRequests: 10,
       windowMs: PASSWORD_WINDOW_MS,
@@ -96,58 +64,27 @@ export class AuthController extends BaseController {
     return [
       this.route()
         .post("/local/login")
-        .middleware(loginIpLimit)
-        .middleware(loginAccountLimit)
+        .middleware(loginIpLimit())
+        .middleware(loginAccountLimit())
         .handle(async (req: Request, res: Response) => {
           const parsed = loginRequestSchema.safeParse(req.body);
           if (!parsed.success) {
             throw new ApiError(400, "validation_error", "Validation failed");
           }
-          const input = parsed.data;
-          const identifier = normalizeIdentifier(input.identifier);
-          const credentials = await this.services.get<CredentialsRepository>("credentials");
+
+          const localLogin = await this.services.get<LocalLoginService>("localLogin");
           const sessions = await this.services.get<SessionService>("sessions");
-          const credential = await credentials.findByIdentifier(identifier);
-          const now = Date.now();
-
-          if (credential === undefined) {
-            await dummyVerify(input.password);
+          const result = await localLogin.login(parsed.data, req.log);
+          if (!result.ok) {
             throw invalidCredentials();
           }
-          if (credential.status !== "active") {
-            await dummyVerify(input.password);
-            throw invalidCredentials();
-          }
-          if (isLocked(credential.lockedUntil, now)) {
-            await dummyVerify(input.password);
-            throw invalidCredentials();
-          }
-          if (!isPolicyHash(credential.passwordHash)) {
-            await req.log?.warn("stored password hash rejected", {
-              principalId: credential.principalId,
-            });
-            await dummyVerify(input.password);
-            throw invalidCredentials();
-          }
-          if (!(await verifyPassword(input.password, credential.passwordHash))) {
-            await credentials.recordFailure(credential.principalId, credential.passwordHash);
-            throw invalidCredentials();
-          }
-
-          const reset = await credentials.recordSuccess(
-            credential.principalId,
-            credential.passwordHash,
-          );
-          if (!reset) {
-            throw invalidCredentials();
-          }
+          const credential = result.credential;
 
           const issued = await sessions.create({
             principalId: credential.principalId,
             authMethod: "local",
           });
-          const latest = await credentials.findByPrincipalId(credential.principalId);
-          if (latest === undefined || latest.passwordHash !== credential.passwordHash) {
+          if (!(await localLogin.revalidate(credential.principalId, credential.passwordHash))) {
             await sessions.revoke(issued.record.publicId, credential.principalId);
             throw invalidCredentials();
           }

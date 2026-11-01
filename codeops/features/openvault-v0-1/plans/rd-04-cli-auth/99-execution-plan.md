@@ -2,8 +2,8 @@
 
 > **Document**: 99-execution-plan.md
 > **Parent**: [Index](00-index.md)
-> **Last Updated**: 2026-11-01 01:36
-> **Progress**: 18/69 tasks (26%)
+> **Last Updated**: 2026-11-01 01:48
+> **Progress**: 29/69 tasks (42%)
 > **CodeOps Artifact Schema**: 1
 
 ## Overview
@@ -103,31 +103,34 @@ spec tests, red result, implementation, green result, implementation tests, full
 
 ## Phase 2: Shared local login and CLI login
 
+> **Phase baseline tree**: e6f6cb56ecb8ee7d1a4e783470c3e407c7c8c5f8
+> **Modification set**: `apps/server/src/auth/local-login.ts`, `apps/server/src/auth/login-rate-limits.ts`, `apps/server/src/auth/cli-sessions.ts`, `apps/server/src/auth/cli-auth-service.ts`, `apps/server/src/controllers/cli-auth.ts`, `apps/server/src/auth/plugin.ts`, `apps/server/src/app.ts`, `apps/server/src/controllers/auth.ts`, `apps/server/src/auth/bootstrap.ts`, `apps/server/src/main.ts`, request typing, and the Phase 2 tests/helpers
+> **Scope mode**: strict
 > **Lenses**: security, api-surface
 > **Reasoning**: max — shared lockout and rate-limit buckets are security-critical and the
 > login path issues the first credential
 
 ### Step 2.1: Specification Tests
 
-**Reference**: [03-03](03-03-local-login-rate-limits.md) · [07](07-testing-strategy.md) ST-16–ST-24 · AR-5, AR-8, AR-15, AR-33
+**Reference**: [03-03](03-03-local-login-rate-limits.md) · [07](07-testing-strategy.md) ST-16–ST-23 · AR-5, AR-8, AR-15, AR-33
 **Objective**: Define CLI login, generic failure, shared lockout, shared buckets, and forced-change login.
 
-- [ ] 2.1.1 [spec-author] Write the CLI login and shared-limit integration tests for ST-16–ST-24 — `apps/server/tests/integration/auth.cli-login.spec.test.ts`
-- [ ] 2.1.2 Run the Phase 2 spec tests and record the red result
+- [x] 2.1.1 [spec-author] Write the CLI login and shared-limit integration tests for ST-16–ST-23 — `apps/server/tests/integration/auth.cli-login.spec.test.ts` ✅ (completed: 2026-11-01 01:48)
+- [x] 2.1.2 Run the Phase 2 spec tests and record the red result ✅ (completed: 2026-11-01 01:48)
 
 ### Step 2.2: Implementation
 
-**Reference**: [03-03](03-03-local-login-rate-limits.md) §Local login service, §Shared rate limits, §CLI login route · AR-5, AR-8, AR-15
+**Reference**: [03-03](03-03-local-login-rate-limits.md) §Local login service, §Shared rate limits, §CLI login route · AR-5, AR-8, AR-15, AR-33
 
-- [ ] 2.2.1 Extract `LocalLoginService`, normalization, generic failure, and the post-success recheck — `apps/server/src/auth/local-login.ts`
-- [ ] 2.2.2 Add the per-app limiter service, account hash, async route wrappers, and refresh-family request field — `apps/server/src/auth/login-rate-limits.ts`, `apps/server/src/types/express.d.ts`
-- [ ] 2.2.3 Refactor browser login to use the shared service and limiter wrappers — `apps/server/src/controllers/auth.ts`
-- [ ] 2.2.4 Add raw-token generation, hashing, and lock-through-insert family creation with the hash recheck — `apps/server/src/auth/cli-sessions.ts`
-- [ ] 2.2.5 Add CLI login token assembly, family issuance, revalidation, and signing — `apps/server/src/auth/cli-auth-service.ts`
-- [ ] 2.2.6 Add the CLI login route and controller shell — `apps/server/src/controllers/cli-auth.ts`
-- [ ] 2.2.7 Register the login, limiter, CLI-session, signing, and CLI-auth services; register the controller — `apps/server/src/auth/plugin.ts`, `apps/server/src/app.ts`
-- [ ] 2.2.8 Add the idempotent auth bootstrap for signing-key ensure; call it from `main.ts` and CLI integration setup — `apps/server/src/auth/bootstrap.ts`, `apps/server/src/main.ts`
-- [ ] 2.2.9 Run the Phase 2 spec tests and verify green
+- [x] 2.2.1 Extract `LocalLoginService`, normalization, generic failure, and the post-success recheck — `apps/server/src/auth/local-login.ts` ✅ (completed: 2026-11-01 01:48)
+- [x] 2.2.2 Add the per-app limiter service, account hash, async route wrappers, and refresh-family request field — `apps/server/src/auth/login-rate-limits.ts`, `apps/server/src/types/express.d.ts` ✅ (completed: 2026-11-01 01:48)
+- [x] 2.2.3 Refactor browser login to use the shared service and limiter wrappers — `apps/server/src/controllers/auth.ts` ✅ (completed: 2026-11-01 01:48)
+- [x] 2.2.4 Add raw-token generation, hashing, and lock-through-insert family creation with the hash recheck — `apps/server/src/auth/cli-sessions.ts` ✅ (completed: 2026-11-01 01:48)
+- [x] 2.2.5 Add CLI login token assembly, family issuance, revalidation, and signing — `apps/server/src/auth/cli-auth-service.ts` ✅ (completed: 2026-11-01 01:48)
+- [x] 2.2.6 Add the CLI login route and controller shell — `apps/server/src/controllers/cli-auth.ts` ✅ (completed: 2026-11-01 01:48)
+- [x] 2.2.7 Register the login, limiter, CLI-session, signing, and CLI-auth services; register the controller — `apps/server/src/auth/plugin.ts`, `apps/server/src/app.ts` ✅ (completed: 2026-11-01 01:48)
+- [x] 2.2.8 Add the idempotent auth bootstrap for signing-key ensure; call it from `main.ts` and CLI integration setup — `apps/server/src/auth/bootstrap.ts`, `apps/server/src/main.ts` ✅ (completed: 2026-11-01 01:48)
+- [x] 2.2.9 Run the Phase 2 spec tests and verify green ✅ (completed: 2026-11-01 01:48)
 
 ### Step 2.3: Implementation Tests and Hardening
 
@@ -201,10 +204,10 @@ spec tests, red result, implementation, green result, implementation tests, full
 
 ### Step 4.1: Specification Tests
 
-**Reference**: [03-05](03-05-sessions-retention.md) · [07](07-testing-strategy.md) ST-38–ST-44, ST-51 · AR-7, AR-9, AR-11, AR-16, AR-19, AR-20, AR-24, AR-31, AR-32, AR-33, AR-34
+**Reference**: [03-05](03-05-sessions-retention.md) · [07](07-testing-strategy.md) ST-24, ST-38–ST-44, ST-51 · AR-7, AR-9, AR-11, AR-16, AR-19, AR-20, AR-24, AR-31, AR-32, AR-33, AR-34
 **Objective**: Define family management, password-change revocation, cleanup, and bootstrap.
 
-- [ ] 4.1.1 [spec-author] Write the session, password-change, cleanup, and bootstrap integration tests for ST-38–ST-44 and ST-51 — `apps/server/tests/integration/auth.cli-sessions.spec.test.ts`
+- [ ] 4.1.1 [spec-author] Write the session, password-change, login-race, cleanup, and bootstrap integration tests for ST-24, ST-38–ST-44, and ST-51 — `apps/server/tests/integration/auth.cli-sessions.spec.test.ts`
 - [ ] 4.1.2 Run the Phase 4 spec tests and record the red result
 
 ### Step 4.2: Implementation

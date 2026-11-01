@@ -3,6 +3,7 @@ import { createLoggerPlugin } from "blendsdk/webafx-pino";
 import { createAuthPlugin } from "./auth/plugin.js";
 import type { OpenVaultConfig } from "./config/index.js";
 import { AuthController } from "./controllers/auth.js";
+import { CliAuthController } from "./controllers/cli-auth.js";
 import { MetaController } from "./controllers/meta.js";
 import { OidcController } from "./controllers/oidc.js";
 import { ReadyController } from "./controllers/ready.js";
@@ -72,6 +73,7 @@ export function createApplication(
     createAuthPlugin({
       config,
       database: dependencies.database,
+      keyring: dependencies.keyring,
       ...(dependencies.authOverrides === undefined
         ? {}
         : { overrides: dependencies.authOverrides }),
@@ -79,6 +81,7 @@ export function createApplication(
   );
   app.registerController("", ReadyController);
   app.registerController("/v1/auth", AuthController);
+  app.registerController("/v1/auth/cli", CliAuthController);
   app.registerController("/v1/auth", OidcController);
   app.registerController("/v1/meta", MetaController);
   app.use(createLoggerPlugin(provider));
