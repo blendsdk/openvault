@@ -14,6 +14,7 @@ import { fileURLToPath } from "node:url";
 import { getMigrationStatus, runMigrations, validateMigrations } from "blendsdk/codegen";
 import { Client } from "pg";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import type { SigningKeys } from "../../src/database/index.js";
 import { createServerEnvironment } from "./helpers/server-environment.js";
 import {
   applyMigrations,
@@ -74,6 +75,24 @@ describe("test database guard", () => {
   });
 });
 
+describe("generated database artifacts", () => {
+  it("should expose the signing_keys table constants and generated row type", async () => {
+    const database = await import("../../src/database/index.js");
+    const signingKeys = database.eSigningKeys;
+
+    expect(signingKeys?.$TABLE).toBe("signing_keys");
+    expect(signingKeys?.KID).toBe("kid");
+    expect(signingKeys?.PUBLIC_KEY).toBe("public_key");
+    expect(signingKeys?.WRAPPED_SEED).toBe("wrapped_seed");
+    expect(signingKeys?.STATUS).toBe("status");
+
+    const kid: SigningKeys["kid"] = "01ARZ3NDEKTSV4RRFFQ69G5FAV";
+    const status: SigningKeys["status"] = "current";
+    expect(kid).toHaveLength(26);
+    expect(status).toBe("current");
+  });
+});
+
 describe("codegen migration integration", () => {
   let testDb: TestDatabase;
 
@@ -85,21 +104,21 @@ describe("codegen migration integration", () => {
     await testDb.cleanup();
   });
 
-  it("should apply the generated baseline and manual trigger migration", async () => {
+  it("should apply the baseline, manual trigger, and CLI authentication migrations", async () => {
     const result = await applyMigrations(testDb);
 
     expect(result.status).toBe("UP_TO_DATE");
-    expect(result.migrations).toHaveLength(2);
+    expect(result.migrations).toHaveLength(3);
     const tables = await testDb.db.executeQuery<{ count: number }>(
       `SELECT count(*)::int AS count
          FROM information_schema.tables
         WHERE table_schema = 'public'`,
     );
-    expect(tables.records[0]?.count).toBe(19);
+    expect(tables.records[0]?.count).toBe(20);
     const ledger = await testDb.db.executeQuery<{ count: number }>(
       "SELECT count(*)::int AS count FROM blendsdk_migrations",
     );
-    expect(ledger.records[0]?.count).toBe(2);
+    expect(ledger.records[0]?.count).toBe(3);
     const org = await testDb.db.executeQuery<{ id: number; name: string }>(
       "SELECT id, name FROM org",
     );
@@ -114,7 +133,7 @@ describe("codegen migration integration", () => {
     const ledger = await testDb.db.executeQuery<{ count: number }>(
       "SELECT count(*)::int AS count FROM blendsdk_migrations",
     );
-    expect(ledger.records[0]?.count).toBe(2);
+    expect(ledger.records[0]?.count).toBe(3);
   });
 
   it("should report status and validate the applied history", async () => {
@@ -141,7 +160,7 @@ describe("codegen migration integration", () => {
     );
 
     expect(result.status).toBe("PENDING");
-    expect(result.migrations).toHaveLength(2);
+    expect(result.migrations).toHaveLength(3);
     expect(await tableExists(testDb, "org")).toBe(false);
     expect(await tableExists(testDb, "blendsdk_migrations")).toBe(false);
   });

@@ -2,8 +2,8 @@
 
 > **Document**: 99-execution-plan.md
 > **Parent**: [Index](00-index.md)
-> **Last Updated**: 2026-11-01 00:38
-> **Progress**: 0/69 tasks (0%)
+> **Last Updated**: 2026-11-01 01:02
+> **Progress**: 5/69 tasks (7%)
 > **CodeOps Artifact Schema**: 1
 
 ## Overview
@@ -51,6 +51,9 @@ spec tests, red result, implementation, green result, implementation tests, full
 
 ## Phase 1: Contracts, schema, signing keys, and JWT
 
+> **Phase baseline tree**: 40d0fa7d5504404fe0b77d2584327e49945b6920
+> **Modification set**: `packages/api-contract/src/cli-auth.ts`, `packages/api-contract/src/index.ts`, `apps/server/src/database/schema.ts`, generated migration/snapshot/types, `apps/server/src/security/keyring.ts`, `apps/server/src/security/signing-keys.ts`, `apps/server/src/auth/cli-jwt.ts`, and the Phase 1 tests
+> **Scope mode**: strict
 > **Lenses**: security, api-surface, migration
 > **Reasoning**: max — key wrapping, signing, and JWT verification are security-critical and
 > the schema change is the foundation for every later phase
@@ -60,11 +63,11 @@ spec tests, red result, implementation, green result, implementation tests, full
 **Reference**: [03-01](03-01-contracts-schema.md), [03-02](03-02-signing-keys-jwt.md) · [07](07-testing-strategy.md) ST-1–ST-15 · AR-2, AR-3, AR-8, AR-13, AR-17, AR-22, AR-28
 **Objective**: Freeze the contracts, schema, key lifecycle, and JWT expectations before code.
 
-- [ ] 1.1.1 [spec-author] Write contract tests for ST-1–ST-5 — `packages/api-contract/tests/cli-auth.spec.test.ts`
-- [ ] 1.1.2 [spec-author] Write signing-key lifecycle tests for ST-9–ST-14 — `apps/server/tests/auth/signing-keys.spec.test.ts`
-- [ ] 1.1.3 [spec-author] Write pure JWT verification tests for ST-12–ST-15 — `apps/server/tests/auth/cli-jwt.spec.test.ts`
-- [ ] 1.1.4 [spec-author] Extend schema and migration tests for ST-6–ST-8 — `apps/server/tests/integration/schema.spec.test.ts`, `apps/server/tests/integration/migrations.spec.test.ts`
-- [ ] 1.1.5 Run the Phase 1 spec tests and record the red result
+- [x] 1.1.1 [spec-author] Write contract tests for ST-1–ST-5 — `packages/api-contract/tests/cli-auth.spec.test.ts` ✅ (completed: 2026-11-01 01:02)
+- [x] 1.1.2 [spec-author] Write signing-key lifecycle tests for ST-9–ST-14 — `apps/server/tests/auth/signing-keys.spec.test.ts` ✅ (completed: 2026-11-01 01:02)
+- [x] 1.1.3 [spec-author] Write pure JWT verification tests for ST-12–ST-15 — `apps/server/tests/auth/cli-jwt.spec.test.ts` ✅ (completed: 2026-11-01 01:02)
+- [x] 1.1.4 [spec-author] Extend schema and migration tests for ST-6–ST-8 — `apps/server/tests/integration/schema.spec.test.ts`, `apps/server/tests/integration/migrations.spec.test.ts` ✅ (completed: 2026-11-01 01:02)
+- [x] 1.1.5 Run the Phase 1 spec tests and record the red result ✅ (completed: 2026-11-01 01:02)
 
 ### Step 1.2: Implementation
 

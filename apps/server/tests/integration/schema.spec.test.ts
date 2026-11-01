@@ -82,6 +82,7 @@ describe("schema inventory", () => {
       "role_assignments",
       "secret_versions",
       "secrets",
+      "signing_keys",
       "workload_certs",
     ]);
   });
@@ -193,6 +194,255 @@ describe("schema inventory", () => {
       "SELECT id, count(*)::int AS count FROM org GROUP BY id",
     );
     expect(result.records).toEqual([{ id: 1, count: 1 }]);
+  });
+});
+
+interface SigningKeyInsert {
+  readonly kid: string;
+  readonly status?: string;
+  readonly publicKey?: Buffer;
+  readonly wrappedSeed?: Buffer;
+  readonly wrapNonce?: Buffer;
+  readonly wrapTag?: Buffer;
+  readonly kekId?: string;
+  readonly activatedAt?: string;
+  readonly retiredAt?: string | null;
+}
+
+/** Inserts one signing-key row with valid values unless an override is supplied. */
+async function insertSigningKey(input: SigningKeyInsert): Promise<void> {
+  const status = input.status ?? "retired";
+  const retiredAt =
+    input.retiredAt !== undefined
+      ? input.retiredAt
+      : status === "retired"
+        ? "2026-10-30T12:00:00Z"
+        : null;
+
+  await testDb.db.executeQuery(
+    `INSERT INTO signing_keys
+       (kid, public_key, wrapped_seed, wrap_nonce, wrap_tag, kek_id, status, activated_at, retired_at)
+     VALUES
+       (:kid, :publicKey, :wrappedSeed, :wrapNonce, :wrapTag, :kekId, :status, :activatedAt, :retiredAt)`,
+    {
+      kid: input.kid,
+      publicKey: input.publicKey ?? bytes32(1),
+      wrappedSeed: input.wrappedSeed ?? bytes32(2),
+      wrapNonce: input.wrapNonce ?? nonce(3),
+      wrapTag: input.wrapTag ?? tag(4),
+      kekId: input.kekId ?? "kek-1",
+      status,
+      activatedAt: input.activatedAt ?? "2026-10-30T12:00:00Z",
+      retiredAt,
+    },
+  );
+}
+
+describe("signing key schema", () => {
+  it("should create the signing_keys table with the documented columns", async () => {
+    const result = await testDb.db.executeQuery<{
+      column_name: string;
+      data_type: string;
+      is_nullable: string;
+      column_default: string | null;
+    }>(
+      `SELECT column_name, data_type, is_nullable, column_default
+         FROM information_schema.columns
+        WHERE table_schema = 'public' AND table_name = 'signing_keys'
+        ORDER BY ordinal_position`,
+    );
+
+    expect(result.records.map((row) => row.column_name)).toEqual([
+      "kid",
+      "public_key",
+      "wrapped_seed",
+      "wrap_nonce",
+      "wrap_tag",
+      "kek_id",
+      "status",
+      "created_at",
+      "activated_at",
+      "retired_at",
+    ]);
+
+    const columns = new Map(result.records.map((row) => [row.column_name, row]));
+    expect(columns.get("kid")?.data_type).toBe("text");
+    expect(columns.get("kid")?.is_nullable).toBe("NO");
+    expect(columns.get("public_key")?.data_type).toBe("bytea");
+    expect(columns.get("public_key")?.is_nullable).toBe("NO");
+    expect(columns.get("wrapped_seed")?.data_type).toBe("bytea");
+    expect(columns.get("wrapped_seed")?.is_nullable).toBe("NO");
+    expect(columns.get("wrap_nonce")?.data_type).toBe("bytea");
+    expect(columns.get("wrap_tag")?.data_type).toBe("bytea");
+    expect(columns.get("kek_id")?.data_type).toBe("text");
+    expect(columns.get("status")?.data_type).toBe("text");
+    expect(columns.get("created_at")?.data_type).toBe("timestamp with time zone");
+    expect(columns.get("created_at")?.column_default).toMatch(/now\(\)|CURRENT_TIMESTAMP/i);
+    expect(columns.get("activated_at")?.data_type).toBe("timestamp with time zone");
+    expect(columns.get("activated_at")?.is_nullable).toBe("NO");
+    expect(columns.get("retired_at")?.data_type).toBe("timestamp with time zone");
+    expect(columns.get("retired_at")?.is_nullable).toBe("YES");
+    for (const forbidden of ["seed", "raw_seed", "private_key", "private_key_seed"]) {
+      expect(result.records.map((row) => row.column_name)).not.toContain(forbidden);
+    }
+
+    const primaryKey = await testDb.db.executeQuery<{ definition: string }>(
+      `SELECT pg_get_constraintdef(oid) AS definition
+         FROM pg_constraint
+        WHERE contype = 'p' AND conrelid = 'signing_keys'::regclass`,
+    );
+    expect(primaryKey.records.map((row) => row.definition)).toEqual(["PRIMARY KEY (kid)"]);
+  });
+
+  it("should create partial unique indexes for one current and one previous key", async () => {
+    const result = await testDb.db.executeQuery<{ indexname: string; indexdef: string }>(
+      `SELECT indexname, indexdef
+         FROM pg_indexes
+        WHERE schemaname = 'public'
+          AND indexname IN (
+            'signing_keys_current_idx',
+            'signing_keys_previous_idx',
+            'cli_sessions_family_live_idx',
+            'cli_sessions_cleanup_idx',
+            'cli_sessions_principal_idx',
+            'cli_sessions_family_idx',
+            'cli_sessions_refresh_hash_key'
+          )
+        ORDER BY indexname`,
+    );
+    const indexes = new Map(result.records.map((row) => [row.indexname, row.indexdef]));
+
+    const current = indexes.get("signing_keys_current_idx") ?? "";
+    expect(current).toContain("CREATE UNIQUE INDEX");
+    expect(current).toContain("(status)");
+    expect(current).toContain("WHERE (status = 'current'::text)");
+
+    const previous = indexes.get("signing_keys_previous_idx") ?? "";
+    expect(previous).toContain("CREATE UNIQUE INDEX");
+    expect(previous).toContain("(status)");
+    expect(previous).toContain("WHERE (status = 'previous'::text)");
+
+    const liveFamily = indexes.get("cli_sessions_family_live_idx") ?? "";
+    expect(liveFamily).toContain("CREATE UNIQUE INDEX");
+    expect(liveFamily).toContain("(family_id)");
+    expect(liveFamily).toContain("WHERE (revoked_at IS NULL)");
+
+    const cleanup = indexes.get("cli_sessions_cleanup_idx") ?? "";
+    expect(cleanup).toContain("CREATE INDEX");
+    expect(cleanup).not.toContain("CREATE UNIQUE INDEX");
+    expect(cleanup).toContain("GREATEST(expires_at, COALESCE(revoked_at, expires_at))");
+
+    expect(indexes.get("cli_sessions_principal_idx")).toContain("(principal_id)");
+    expect(indexes.get("cli_sessions_family_idx")).toContain("(family_id)");
+    expect(indexes.get("cli_sessions_refresh_hash_key")).toContain("CREATE UNIQUE INDEX");
+  });
+
+  it("should allow at most one current and one previous signing key", async () => {
+    await testDb.db.executeQuery("DELETE FROM signing_keys");
+
+    await insertSigningKey({ kid: testUlid(110), status: "current" });
+    await expect(insertSigningKey({ kid: testUlid(111), status: "current" })).rejects.toThrow(
+      /duplicate key|unique/i,
+    );
+
+    await insertSigningKey({ kid: testUlid(112), status: "previous" });
+    await expect(insertSigningKey({ kid: testUlid(113), status: "previous" })).rejects.toThrow(
+      /duplicate key|unique/i,
+    );
+
+    await insertSigningKey({ kid: testUlid(114), status: "retired" });
+    await insertSigningKey({ kid: testUlid(115), status: "retired" });
+
+    await testDb.db.executeQuery("DELETE FROM signing_keys");
+  });
+
+  it("should enforce the documented key lengths, statuses, and retirement consistency", async () => {
+    await testDb.db.executeQuery("DELETE FROM signing_keys");
+    await insertSigningKey({ kid: testUlid(120), status: "current" });
+
+    const invalid: ReadonlyArray<readonly [string, SigningKeyInsert]> = [
+      ["a 31-byte public key", { kid: testUlid(121), publicKey: Buffer.alloc(31) }],
+      ["a 33-byte public key", { kid: testUlid(122), publicKey: Buffer.alloc(33) }],
+      ["a 31-byte wrapped seed", { kid: testUlid(123), wrappedSeed: Buffer.alloc(31) }],
+      ["a 33-byte wrapped seed", { kid: testUlid(124), wrappedSeed: Buffer.alloc(33) }],
+      ["an 11-byte nonce", { kid: testUlid(125), wrapNonce: Buffer.alloc(11) }],
+      ["a 13-byte nonce", { kid: testUlid(126), wrapNonce: Buffer.alloc(13) }],
+      ["a 15-byte tag", { kid: testUlid(127), wrapTag: Buffer.alloc(15) }],
+      ["a 17-byte tag", { kid: testUlid(128), wrapTag: Buffer.alloc(17) }],
+      ["an empty key id", { kid: testUlid(129), kekId: "" }],
+      ["a 65-character key id", { kid: testUlid(130), kekId: "k".repeat(65) }],
+      ["an unknown status", { kid: testUlid(131), status: "active" }],
+      [
+        "a retired row without retired_at",
+        { kid: testUlid(132), status: "retired", retiredAt: null },
+      ],
+      [
+        "a non-retired row with retired_at",
+        { kid: testUlid(133), status: "previous", retiredAt: "2026-10-30T12:00:00Z" },
+      ],
+      ["a non-ULID kid", { kid: "not-a-ulid" }],
+    ];
+
+    for (const [label, input] of invalid) {
+      await expect(insertSigningKey(input), label).rejects.toThrow(/check constraint|violates/i);
+    }
+
+    await testDb.db.executeQuery("DELETE FROM signing_keys");
+  });
+
+  it("should allow only one live refresh row per CLI family", async () => {
+    const familyId = testUlid(140);
+    const firstId = testUlid(141);
+
+    try {
+      await testDb.db.executeQuery(
+        `INSERT INTO cli_sessions (id, principal_id, refresh_hash, family_id, expires_at)
+         VALUES (:id, :principalId, :refreshHash, :familyId, :expiresAt)`,
+        {
+          id: firstId,
+          principalId: base.userId,
+          refreshHash: bytes32(140),
+          familyId,
+          expiresAt: "2027-01-01T00:00:00Z",
+        },
+      );
+
+      await expect(
+        testDb.db.executeQuery(
+          `INSERT INTO cli_sessions (id, principal_id, refresh_hash, family_id, expires_at)
+           VALUES (:id, :principalId, :refreshHash, :familyId, :expiresAt)`,
+          {
+            id: testUlid(142),
+            principalId: base.userId,
+            refreshHash: bytes32(142),
+            familyId,
+            expiresAt: "2027-01-01T00:00:00Z",
+          },
+        ),
+      ).rejects.toThrow(/duplicate key|unique/i);
+
+      await testDb.db.executeQuery("UPDATE cli_sessions SET revoked_at = now() WHERE id = :id", {
+        id: firstId,
+      });
+
+      await expect(
+        testDb.db.executeQuery(
+          `INSERT INTO cli_sessions (id, principal_id, refresh_hash, family_id, expires_at)
+           VALUES (:id, :principalId, :refreshHash, :familyId, :expiresAt)`,
+          {
+            id: testUlid(143),
+            principalId: base.userId,
+            refreshHash: bytes32(143),
+            familyId,
+            expiresAt: "2027-01-01T00:00:00Z",
+          },
+        ),
+      ).resolves.toBeDefined();
+    } finally {
+      await testDb.db.executeQuery("DELETE FROM cli_sessions WHERE family_id = :familyId", {
+        familyId,
+      });
+    }
   });
 });
 
