@@ -86,6 +86,24 @@ from login; rotation does not extend it. Reuse, logout, password change, or prin
 revokes the family. Every access-token request checks the principal status and a live family
 row.
 
+- `POST /v1/auth/cli/refresh` rotates both tokens. The old refresh token fails, and a reused
+  token revokes the whole family.
+- `POST /v1/auth/cli/logout` revokes the family and returns `204` for any well-formed token,
+  including one that was already used or cleaned up.
+- `GET /v1/auth/cli/me` returns the public user and the forced-change flag.
+- `GET /v1/auth/cli/sessions` lists only the caller's live families, newest first, with the
+  original login time and a `current` flag. It never returns a hash or row id.
+- `DELETE /v1/auth/cli/sessions/:familyId` revokes an owned live family and returns
+  `404 session_not_found` for an unknown, foreign, expired, or already-revoked family.
+- Refresh is limited to 60/minute per IP and 30/minute per family. The family bucket is keyed
+  by the family id, so rotation does not reset it.
+- While a password change is required, a CLI caller may use only `GET /v1/auth/cli/me` and
+  logout. Other CLI data routes return `403 password_change_required`.
+
+CLI routes authorize on a bearer or refresh token, never on the browser cookie. A valid bearer
+takes precedence over a cookie; an invalid bearer does not fall back to one. CLI refresh and
+logout never set a cookie.
+
 The CLI stores credentials in an OS-specific config directory with a `0700` directory and
 `0600` file on POSIX, or a current-user ACL on Windows. Writes are atomic, symlinks are
 rejected, and concurrent processes are serialized. Tokens never appear in argv or logs.

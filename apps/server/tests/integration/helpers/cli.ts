@@ -16,6 +16,7 @@ import type {
 import { TlsMaterial } from "../../../src/transport/tls.js";
 import { testUlid } from "./fixtures.js";
 import { type TestRequestOptions, type TestResponse, testRequest } from "./https.js";
+import { MemoryDestination } from "./memory-destination.js";
 import { createServerEnvironment, type ServerEnvironment } from "./server-environment.js";
 import { applyMigrations, createTestDatabase, type TestDatabase } from "./test-database.js";
 
@@ -344,6 +345,20 @@ export class PrincipalLock {
 }
 
 /**
+ * Options accepted by {@link CliAuthTestHarness.start}.
+ */
+export interface CliAuthHarnessOptions {
+  /**
+   * Writable sink that receives structured server logs.
+   *
+   * Supply a shared sink when a test needs to read the captured output. When it
+   * is omitted the harness creates its own sink, so every suite can assert on
+   * real logger output without extra setup.
+   */
+  readonly loggerDestination?: MemoryDestination;
+}
+
+/**
  * A running server with a disposable database for command-line auth tests.
  *
  * The harness owns the database, TLS material, server environment, and the
@@ -355,6 +370,8 @@ export class CliAuthTestHarness {
   readonly environment: ServerEnvironment;
   readonly app: SecureWebApplication;
   readonly handle: TransportHandle;
+  /** Captured structured log output, including startup log entries. */
+  readonly logs: MemoryDestination;
 
   private readonly sessions: SessionService;
   private nextFixtureSeed = 100;
@@ -366,12 +383,14 @@ export class CliAuthTestHarness {
     app: SecureWebApplication,
     handle: TransportHandle,
     sessions: SessionService,
+    logs: MemoryDestination,
   ) {
     this.db = db;
     this.environment = environment;
     this.app = app;
     this.handle = handle;
     this.sessions = sessions;
+    this.logs = logs;
   }
 
   /**
@@ -381,9 +400,11 @@ export class CliAuthTestHarness {
    * The bootstrap path is exercised here because a production start must not
    * depend on the first request to create its signing key or retire a due key.
    *
+   * @param options - Optional log capture sink.
    * @returns A ready harness.
    */
-  static async start(): Promise<CliAuthTestHarness> {
+  static async start(options: CliAuthHarnessOptions = {}): Promise<CliAuthTestHarness> {
+    const logs = options.loggerDestination ?? new MemoryDestination();
     const testDb = await createTestDatabase();
     await applyMigrations(testDb);
     const environment = createServerEnvironment({
@@ -401,11 +422,16 @@ export class CliAuthTestHarness {
         poolConfig: { connectionTimeoutMillis: 2_000 },
         enableGracefulShutdown: false,
       });
-      const app = await createTestApplication(environment.config, { database, tls, keyring });
+      const app = await createTestApplication(environment.config, {
+        database,
+        tls,
+        keyring,
+        loggerDestination: logs,
+      });
       await bootstrapAuthRuntime(app);
       const handle = await app.startTransport({ adminPort: 0, agentPort: 0 });
       const sessions = await app.getService<SessionService>("sessions");
-      return new CliAuthTestHarness(testDb, environment, app, handle, sessions);
+      return new CliAuthTestHarness(testDb, environment, app, handle, sessions, logs);
     } catch (error) {
       if (database !== undefined) {
         await database.disconnect().catch(() => undefined);
@@ -429,6 +455,18 @@ export class CliAuthTestHarness {
       this.environment.cleanup();
       await this.db.cleanup();
     }
+  }
+
+  /**
+   * Returns every captured log line as one string.
+   *
+   * Reading one complete snapshot keeps assertions simple and lets a failure
+   * message show the whole capture.
+   *
+   * @returns Newline-separated log output.
+   */
+  logText(): string {
+    return this.logs.lines().join("\n");
   }
 
   /**

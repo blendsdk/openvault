@@ -25,17 +25,27 @@ These are accepted for v0.1. They are documented so reviewers do not mistake the
 14. **Audit pruning.** Pruning with off-box checkpoints is a manual maintenance command.
 15. **TypeScript 7.** The stack is verified in this repository, but the ecosystem around
     the native compiler is still maturing. Biome replaces typescript-eslint.
-16. **Single-instance sessions.** Browser sessions, OIDC transient state, and login
-    rate-limit counters are process-local. Lockout state is stored in PostgreSQL and is shared
-    across instances. A multi-instance deployment would need a shared session/state store; the
-    reference stack runs one server. A restart signs users out.
+16. **Single-instance sessions.** Browser sessions, OIDC transient state, and login/refresh
+    rate-limit counters are process-local. CLI refresh families and signing keys are stored in
+    PostgreSQL and are shared across instances. Lockout state is stored in PostgreSQL and is
+    shared. A multi-instance deployment would need a shared session/state store; the reference
+    stack runs one server. A restart signs browser users out but does not erase CLI families.
 17. **OIDC state locality.** The callback must reach the process that handled the login
     redirect. A load-balanced deployment without shared state cannot complete the flow.
 18. **Lockout denial of service.** Anyone who knows an account email can lock it with five
     bad guesses. v0.1 has no administrator unlock endpoint; the lock expires after 15 minutes.
+    The per-account login bucket can also deny the identifier for up to one hour after ten
+    attempts, even after the 15-minute lockout expires.
 19. **Forced-change reuse.** The forced-change flow accepts the current password as the new
     password. The policy enforces a 12–1024 character length range, not a difference from the
     current password; a future policy can add one.
 20. **Password-hash queue.** Argon2 derivations run on the Node threadpool with no
     application-level admission queue. The per-IP and per-account limits bound the login
     surface, but a distributed flood can still queue work behind legitimate logins.
+21. **Signing-key cache freshness.** A process refreshes the current/previous signing-key
+    snapshot when it is older than 30 seconds. A key retired elsewhere can therefore verify on
+    a warm process for less than that bound; a due previous key is still rejected at the
+    overlap boundary. There is no operator-facing signing-key rotation command in this release;
+    KEK re-wrap and operational rotation are planned for a later release.
+22. **CLI refresh counters.** Refresh IP and family buckets are in memory. A restart clears
+    them, and a multi-instance deployment does not share them.

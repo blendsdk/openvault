@@ -18,6 +18,8 @@ file instead of falling back to plaintext.
 The JWT signing key is stored in `signing_keys`. The current key signs; the previous key
 remains valid for verification until the maximum access-token lifetime plus 30 seconds of
 clock skew have passed, then it is retired. At most one current and one previous key exist.
+Each process refreshes its current/previous snapshot when it is older than 30 seconds; a due
+previous key is rejected even if its row has not yet been retired.
 
 ## Envelope encryption
 

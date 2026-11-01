@@ -58,6 +58,8 @@ export const REDACT_PATHS: readonly string[] = [
   "req.body.currentPassword",
   "req.body.newPassword",
   "req.body.token",
+  "req.body.accessToken",
+  "req.body.refreshToken",
   "req.body.value",
   "req.body.privateKey",
 ];

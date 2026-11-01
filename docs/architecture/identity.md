@@ -36,8 +36,8 @@ Sessions live in memory in v0.1. A server restart signs users out.
 - Refresh token 12 hours absolute per family, stored hashed, rotates on use.
 - Reuse, logout, or password change revokes the family.
 - Every access-token request checks the principal status and a live family row.
-- Credentials in `~/.config/openvault/credentials.json`, mode `0600`; RD-11 owns the file,
-  atomic write, OS-specific paths, and concurrent-process locking.
+- Credentials in `~/.config/openvault/credentials.json`, mode `0600`; the `ov` CLI owns the
+  file, atomic write, OS-specific paths, and concurrent-process locking.
 
 ## Agent: mTLS
 

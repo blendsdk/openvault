@@ -2,8 +2,8 @@
 
 > **Document**: 99-execution-plan.md
 > **Parent**: [Index](00-index.md)
-> **Last Updated**: 2026-11-01 03:12
-> **Progress**: 61/69 tasks (88%)
+> **Last Updated**: 2026-11-01 03:21
+> **Progress**: 69/69 tasks (100%)
 > **CodeOps Artifact Schema**: 1
 
 ## Overview
@@ -249,6 +249,9 @@ spec tests, red result, implementation, green result, implementation tests, full
 
 ## Phase 5: Redaction, documentation, and release verification
 
+> **Phase baseline tree**: 310e23d4689a89ca630affcd4265e58b0c624567
+> **Modification set**: `apps/server/src/observability/logger.ts`, `docs/guide/authentication.md`, `docs/security/limitations.md`, reference-doc drift only if found, and the Phase 5 tests
+> **Scope mode**: strict
 > **Lenses**: security, maintainability
 > **Reasoning**: high — the final log and documentation checks are security-facing release gates
 
@@ -257,22 +260,22 @@ spec tests, red result, implementation, green result, implementation tests, full
 **Reference**: [03-02](03-02-signing-keys-jwt.md) §Error handling · [07](07-testing-strategy.md) ST-45–ST-46 · AR-12, AR-28, AR-29
 **Objective**: Define nested redaction and captured-log behavior before the final hardening.
 
-- [ ] 5.1.1 [spec-author] Write the captured-log and nested-redaction tests for ST-45–ST-46 — `apps/server/tests/integration/auth.cli-logging.spec.test.ts`
-- [ ] 5.1.2 Run the Phase 5 spec tests and record the red result
+- [x] 5.1.1 [spec-author] Write the captured-log and nested-redaction tests for ST-45–ST-46 — `apps/server/tests/integration/auth.cli-logging.spec.test.ts` ✅ (completed: 2026-11-01 03:21)
+- [x] 5.1.2 Run the Phase 5 spec tests and record the red result ✅ (completed: 2026-11-01 03:21)
 
 ### Step 5.2: Implementation
 
 **Reference**: [03-02](03-02-signing-keys-jwt.md) §Error handling · AR-12, AR-29
 
-- [ ] 5.2.1 Add nested access/refresh token redaction paths — `apps/server/src/observability/logger.ts`
-- [ ] 5.2.2 Update the authentication guide and known limitations, including the one-hour account bucket — `docs/guide/authentication.md`, `docs/security/limitations.md`
-- [ ] 5.2.3 Run the Phase 5 spec tests and verify green
+- [x] 5.2.1 Add nested access/refresh token redaction paths — `apps/server/src/observability/logger.ts` ✅ (completed: 2026-11-01 03:21)
+- [x] 5.2.2 Update the authentication guide and known limitations, including the one-hour account bucket — `docs/guide/authentication.md`, `docs/security/limitations.md` ✅ (completed: 2026-11-01 03:21)
+- [x] 5.2.3 Run the Phase 5 spec tests and verify green ✅ (completed: 2026-11-01 03:21)
 
 ### Step 5.3: Implementation Tests and Hardening
 
-- [ ] 5.3.1 Write implementation tests for redaction path boundaries and stable error bodies — `apps/server/tests/logging.impl.test.ts`
-- [ ] 5.3.2 Run the full release verification and generated-type check — `pnpm verify`, `pnpm db:types:check`
-- [ ] 5.3.3 Cross-check the public API, identity, and crypto docs against the implemented fields and update drift only — `docs/reference/api.md`, `docs/architecture/identity.md`, `docs/architecture/crypto.md`
+- [x] 5.3.1 Write implementation tests for redaction path boundaries and stable error bodies — `apps/server/tests/logging.impl.test.ts` ✅ (completed: 2026-11-01 03:21)
+- [x] 5.3.2 Run the full release verification and generated-type check — `pnpm verify`, `pnpm db:types:check` ✅ (completed: 2026-11-01 03:21)
+- [x] 5.3.3 Cross-check the public API, identity, and crypto docs against the implemented fields and update drift only — `docs/reference/api.md`, `docs/architecture/identity.md`, `docs/architecture/crypto.md` ✅ (completed: 2026-11-01 03:21)
 
 **Deliverables**:
 - Nested token redaction with a captured-log proof.

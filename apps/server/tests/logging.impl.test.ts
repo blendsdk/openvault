@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { sanitizeLogArgs, sanitizeLogMessage } from "../src/observability/logger.js";
+import { REDACT_PATHS, sanitizeLogArgs, sanitizeLogMessage } from "../src/observability/logger.js";
 
 describe("log sanitizer implementation", () => {
   it("should strip only the first query segment and preserve the rest", () => {
@@ -52,5 +52,17 @@ describe("log sanitizer implementation", () => {
 
     expect(output).toEqual(args);
     expect(output).not.toBe(args);
+  });
+});
+
+describe("redaction path boundaries", () => {
+  it("should include the nested request body token paths", () => {
+    expect(REDACT_PATHS).toContain("req.body.accessToken");
+    expect(REDACT_PATHS).toContain("req.body.refreshToken");
+  });
+
+  it("should not contain duplicate redaction paths", () => {
+    const duplicates = REDACT_PATHS.filter((path, index) => REDACT_PATHS.indexOf(path) !== index);
+    expect(duplicates).toEqual([]);
   });
 });
