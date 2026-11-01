@@ -17,9 +17,10 @@ file instead of falling back to plaintext.
 
 The JWT signing key is stored in `signing_keys`. The current key signs; the previous key
 remains valid for verification until the maximum access-token lifetime plus 30 seconds of
-clock skew have passed, then it is retired. At most one current and one previous key exist.
-Each process refreshes its current/previous snapshot when it is older than 30 seconds; a due
-previous key is rejected even if its row has not yet been retired.
+clock skew have passed. At that boundary it is no longer accepted even if its row is still
+marked previous; startup and the next rotation retire the row. At most one current and one
+previous key exist. Each process refreshes its current/previous snapshot when it is older than
+30 seconds, so a rotation in another process is observed within that bound.
 
 ## Envelope encryption
 

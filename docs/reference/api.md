@@ -18,15 +18,14 @@ The API is served under `/v1`. Requests and responses use the WebAFX envelopes.
     "message": "Secret not found",
     "statusCode": 404,
     "timestamp": "2026-10-29T12:00:00.000Z",
-    "requestId": "6f1c..."
-  },
-  "requestId": "6f1c...",
-  "path": "/v1/data/demo/secrets/db-password"
+    "requestId": "6f1c...",
+    "path": "/v1/data/demo/secrets/db-password"
+  }
 }
 ```
 
-Request ids use the `X-Request-ID` header. Errors never contain secret values or stack
-traces.
+Request ids use the `X-Request-ID` header. Production errors never contain secret values or
+stack traces.
 
 ## Authentication
 

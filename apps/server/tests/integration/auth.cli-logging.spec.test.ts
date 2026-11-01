@@ -2,11 +2,11 @@ import { createDecipheriv, createHash, randomBytes } from "node:crypto";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { createLoggerProvider, REDACT_PATHS } from "../../src/observability/logger.js";
 import {
-  apiErrorSchema,
   CliAuthTestHarness,
   cliRefreshResponseSchema,
   cliTokenResponseSchema,
   TEST_PASSWORD,
+  TEST_PASSWORD_HASH,
   trustedTestHost,
 } from "./helpers/cli.js";
 import type { TestResponse } from "./helpers/https.js";
@@ -75,7 +75,12 @@ function rememberSecrets(...values: readonly (string | undefined)[]): void {
  */
 function refreshHashForms(refreshToken: string): string[] {
   const digest = createHash("sha256").update(refreshToken, "utf8").digest();
-  return [digest.toString("hex"), digest.toString("base64"), digest.toString("base64url")];
+  return [
+    digest.toString("hex"),
+    digest.toString("base64"),
+    digest.toString("base64url"),
+    JSON.stringify(digest),
+  ];
 }
 
 /** Remembers a refresh token and its at-rest hash forms. */
@@ -105,6 +110,11 @@ function expectRequestCaptured(response: TestResponse, path: string): void {
   );
 }
 
+/** Returns true when a JSON value is a plain object. */
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
 /**
  * Asserts a stable error body and that it carries no credential-shaped field.
  *
@@ -115,11 +125,25 @@ function expectRequestCaptured(response: TestResponse, path: string): void {
  */
 function expectStableError(response: TestResponse, status: number, code: string): void {
   expect(response.status).toBe(status);
-  const parsed = apiErrorSchema.parse(response.json);
-  expect(parsed.error.code).toBe(code);
-  expect(parsed.error.statusCode).toBe(status);
-  expect(parsed.error.message.length).toBeGreaterThan(0);
-  expect(Object.keys(parsed.error).sort()).toEqual(["code", "message", "statusCode"]);
+  if (!isRecord(response.json) || !isRecord(response.json.error)) {
+    throw new Error("expected an error envelope");
+  }
+  const error = response.json.error;
+  expect(response.json.success).toBe(false);
+  expect(error.code).toBe(code);
+  expect(error.statusCode).toBe(status);
+  expect(typeof error.message).toBe("string");
+  expect((error.message as string).length).toBeGreaterThan(0);
+  // The raw envelope, not a lenient parsed projection, must contain exactly the
+  // stable diagnostic fields. An added `details` or `stack` field fails here.
+  expect(Object.keys(error).sort()).toEqual([
+    "code",
+    "message",
+    "path",
+    "requestId",
+    "statusCode",
+    "timestamp",
+  ]);
 
   for (const value of sensitiveValues) {
     expect(response.body, "the error body must not contain a raw credential").not.toContain(value);
@@ -190,6 +214,33 @@ async function captureNestedTokenLog(): Promise<{
   }
 }
 
+/**
+ * Logs one nested header object through the real logger provider.
+ *
+ * @returns Captured output and the raw values that must not appear.
+ */
+async function captureNestedHeaderLog(): Promise<{
+  readonly output: string;
+  readonly authorization: string;
+  readonly cookie: string;
+}> {
+  const environment = createServerEnvironment();
+  const destination = new MemoryDestination();
+  const provider = createLoggerProvider(environment.config, destination);
+  const authorization = "Bearer nested-header-token";
+  const cookie = "__Host-ov_session=nested-cookie";
+
+  try {
+    await provider.info("nested header probe", {
+      headers: { authorization, cookie, "set-cookie": "nested-set-cookie" },
+    });
+    await provider.shutdown();
+    return { output: destination.lines().join("\n"), authorization, cookie };
+  } finally {
+    environment.cleanup();
+  }
+}
+
 beforeAll(async () => {
   harness = await CliAuthTestHarness.start();
   signingSeed = await readCurrentSigningSeed(harness);
@@ -198,6 +249,7 @@ beforeAll(async () => {
     signingSeed.toString("hex"),
     signingSeed.toString("base64"),
     signingSeed.toString("base64url"),
+    JSON.stringify(signingSeed),
   );
 }, 30_000);
 
@@ -211,6 +263,9 @@ describe("nested request-body redaction", () => {
   it("should define redaction paths for nested access and refresh token fields", () => {
     expect(REDACT_PATHS).toContain("req.body.accessToken");
     expect(REDACT_PATHS).toContain("req.body.refreshToken");
+    expect(REDACT_PATHS).toContain("*.authorization");
+    expect(REDACT_PATHS).toContain("*.cookie");
+    expect(REDACT_PATHS).toContain("*.set-cookie");
   });
 
   it("should mask nested access and refresh token values in real logger output", async () => {
@@ -218,6 +273,15 @@ describe("nested request-body redaction", () => {
 
     expect(output).not.toContain(accessValue);
     expect(output).not.toContain(refreshValue);
+    expect(output).toContain("[Redacted]");
+  });
+
+  it("should mask nested header authorization and cookie values", async () => {
+    const { output, authorization, cookie } = await captureNestedHeaderLog();
+
+    expect(output).not.toContain(authorization);
+    expect(output).not.toContain(cookie);
+    expect(output).not.toContain("nested-set-cookie");
     expect(output).toContain("[Redacted]");
   });
 });
@@ -239,7 +303,7 @@ describe.skipIf(trustedTestHost === undefined)("captured credential logs", () =>
 
   it("should keep a rejected login's password out of the logs and return only a stable error", async () => {
     const user = await requireHarness().insertUser();
-    rememberSecrets(REJECTED_PASSWORD);
+    rememberSecrets(REJECTED_PASSWORD, TEST_PASSWORD_HASH);
 
     const response = await requireHarness().cliLogin(user.email, REJECTED_PASSWORD);
 
@@ -274,6 +338,38 @@ describe.skipIf(trustedTestHost === undefined)("captured credential logs", () =>
 
     expectStableError(response, 400, "validation_error");
     expectRequestCaptured(response, CLI_REFRESH_PATH);
+    expectCapturedLogsToBeClean();
+  });
+
+  it("should keep an unknown refresh token out of the logs and return a stable error", async () => {
+    const unknown = randomBytes(32).toString("base64url");
+    expect(unknown).toHaveLength(43);
+    rememberRefreshToken(unknown);
+
+    const response = await requireHarness().cliRefresh(unknown);
+
+    expectStableError(response, 401, "invalid_refresh_token");
+    expectRequestCaptured(response, CLI_REFRESH_PATH);
+    expectCapturedLogsToBeClean();
+  });
+
+  it("should keep a reused refresh token and the rotated token out of the logs", async () => {
+    const user = await requireHarness().insertUser();
+    const login = await requireHarness().cliLogin(user.email, TEST_PASSWORD);
+    expect(login.status).toBe(200);
+    const loginData = cliTokenResponseSchema.parse(login.json).data;
+    rememberSecrets(loginData.accessToken, TEST_PASSWORD);
+    rememberRefreshToken(loginData.refreshToken);
+
+    const rotated = await requireHarness().cliRefresh(loginData.refreshToken);
+    expect(rotated.status).toBe(200);
+    const rotatedData = cliRefreshResponseSchema.parse(rotated.json).data;
+    rememberSecrets(rotatedData.accessToken);
+    rememberRefreshToken(rotatedData.refreshToken);
+
+    const reused = await requireHarness().cliRefresh(loginData.refreshToken);
+    expectStableError(reused, 401, "invalid_refresh_token");
+    expectRequestCaptured(reused, CLI_REFRESH_PATH);
     expectCapturedLogsToBeClean();
   });
 

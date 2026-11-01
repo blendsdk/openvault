@@ -43,9 +43,9 @@ These are accepted for v0.1. They are documented so reviewers do not mistake the
     application-level admission queue. The per-IP and per-account limits bound the login
     surface, but a distributed flood can still queue work behind legitimate logins.
 21. **Signing-key cache freshness.** A process refreshes the current/previous signing-key
-    snapshot when it is older than 30 seconds. A key retired elsewhere can therefore verify on
-    a warm process for less than that bound; a due previous key is still rejected at the
-    overlap boundary. There is no operator-facing signing-key rotation command in this release;
-    KEK re-wrap and operational rotation are planned for a later release.
+    snapshot when it is older than 30 seconds. A rotation in another process is observed within
+    that bound; a due previous key is rejected at the overlap boundary even while the cached
+    snapshot still lists it. There is no operator-facing signing-key rotation command in this
+    release; KEK re-wrap and operational rotation are planned for a later release.
 22. **CLI refresh counters.** Refresh IP and family buckets are in memory. A restart clears
     them, and a multi-instance deployment does not share them.

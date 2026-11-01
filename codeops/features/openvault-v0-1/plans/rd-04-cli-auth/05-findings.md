@@ -36,10 +36,16 @@
 | CA-1/P4 | 4 | MINOR | cleanup snapshot drift | fixed |
 | CA-2/P4 | 4 | MINOR | cleanup/revocation lock overlap | fixed |
 | CA-3/P4 | 4 | MINOR | maintenance timer race | fixed |
+| RV-001/SA-001/P5 | 5 | MINOR | error-shape assertion | fixed |
+| RV-002/SA-003/P5 | 5 | MINOR | binary log forms | fixed |
+| SA-002/P5 | 5 | MINOR | refresh-error log coverage | fixed |
+| SA-004/P5 | 5 | MINOR | nested header redaction | fixed |
+| SA-005/P5 | 5 | MINOR | signing-key retirement docs | fixed |
 
 Phase 2 security audit: no findings. Phase 2 concurrency audit: no findings.
 Phase 3 concurrency audit: no findings beyond the two accepted residual notes.
 Phase 4 security audit: no findings. Phase 4 concurrency audit: three minor
 items fixed; one test-only harness size follow-up deferred.
+Phase 5 security audit: no critical/major findings; all five minor items fixed.
 The Phase 4 password-change task now explicitly requires the principal lock
 before revocation.
