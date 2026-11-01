@@ -1,5 +1,5 @@
 import type { Logger } from "blendsdk/webafx";
-import type { CredentialsRepository } from "./credentials.js";
+import type { LocalCredential } from "./credentials.js";
 import { dummyVerify, isPolicyHash, verifyPassword } from "./password.js";
 
 /** Credentials supplied to a local login. */
@@ -54,6 +54,21 @@ export function isLocked(lockedUntil: Date | null, now: number): boolean {
   return lockedUntil !== null && lockedUntil.getTime() > now;
 }
 
+/** The credential operations the shared login service depends on. */
+export interface LocalLoginCredentials {
+  /** Loads a credential by normalized email. */
+  findByIdentifier(identifier: string): Promise<LocalCredential | undefined>;
+  /** Loads a credential by principal id. */
+  findByPrincipalId(principalId: string): Promise<LocalCredential | undefined>;
+  /** Records one failed login atomically. */
+  recordFailure(
+    principalId: string,
+    expectedHash: string,
+  ): Promise<{ failedCount: number; lockedUntil: Date | null }>;
+  /** Resets the failure counter after a successful login. */
+  recordSuccess(principalId: string, expectedHash: string): Promise<boolean>;
+}
+
 /**
  * Runs the shared local credential verification flow.
  *
@@ -64,12 +79,12 @@ export function isLocked(lockedUntil: Date | null, now: number): boolean {
  * increments the lockout counter.
  */
 export class LocalLoginService {
-  readonly #credentials: CredentialsRepository;
+  readonly #credentials: LocalLoginCredentials;
 
   /**
    * @param options - Credential repository used for lookup and counters.
    */
-  public constructor(options: { readonly credentials: CredentialsRepository }) {
+  public constructor(options: { readonly credentials: LocalLoginCredentials }) {
     this.#credentials = options.credentials;
   }
 

@@ -2,8 +2,8 @@
 
 > **Document**: 99-execution-plan.md
 > **Parent**: [Index](00-index.md)
-> **Last Updated**: 2026-11-01 01:48
-> **Progress**: 29/69 tasks (42%)
+> **Last Updated**: 2026-11-01 01:49
+> **Progress**: 32/69 tasks (46%)
 > **CodeOps Artifact Schema**: 1
 
 ## Overview
@@ -134,9 +134,9 @@ spec tests, red result, implementation, green result, implementation tests, full
 
 ### Step 2.3: Implementation Tests and Hardening
 
-- [ ] 2.3.1 Write implementation tests for local-login branches, CAS loss, revalidation, and account keying — `apps/server/tests/auth/local-login.impl.test.ts`, `apps/server/tests/auth/login-rate-limits.impl.test.ts`
-- [ ] 2.3.2 Run the browser login regression integration tests against PostgreSQL — `apps/server/tests/integration/auth.local.test.ts`
-- [ ] 2.3.3 Run full verification — `pnpm verify`
+- [x] 2.3.1 Write implementation tests for local-login branches, CAS loss, revalidation, and account keying — `apps/server/tests/auth/local-login.impl.test.ts`, `apps/server/tests/auth/login-rate-limits.impl.test.ts` ✅ (completed: 2026-11-01 01:49)
+- [x] 2.3.2 Run the browser login regression integration tests against PostgreSQL — `apps/server/tests/integration/auth.local.test.ts` ✅ (completed: 2026-11-01 01:49)
+- [x] 2.3.3 Run full verification — `pnpm verify` ✅ (completed: 2026-11-01 01:49)
 
 **Deliverables**:
 - One local-login service shared by browser and CLI.
