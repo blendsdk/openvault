@@ -15,3 +15,12 @@
 | RV-008 | 1 | MINOR | helper naming | fixed |
 | RV-010 | 1 | CRITICAL | spec oracle | fixed |
 | RV-011 | 1 | MINOR | cache documentation | fixed |
+| RV-001/P2 | 2 | MINOR | login lock documentation | fixed |
+| RV-002/P2 | 2 | MINOR | bootstrap test coverage | fixed |
+| RV-003/P2 | 2 | MINOR | sign-failure test coverage | fixed |
+| RV-004/P2 | 2 | MINOR | controller documentation | fixed |
+| RV-005/P2 | 2 | MINOR | plugin documentation | fixed |
+
+Phase 2 security audit: no findings. Phase 2 concurrency audit: no findings.
+The Phase 4 password-change task now explicitly requires the principal lock
+before revocation.

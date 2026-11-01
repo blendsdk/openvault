@@ -3,6 +3,7 @@ import { networkInterfaces } from "node:os";
 import { PostgreSQLDatabase } from "blendsdk/postgresql";
 import { z } from "zod";
 import { createTestApplication } from "../../../src/app.js";
+import { bootstrapAuthRuntime } from "../../../src/auth/bootstrap.js";
 import { SESSION_COOKIE_NAME } from "../../../src/auth/cookie.js";
 import type { SessionRecord, SessionService } from "../../../src/auth/sessions.js";
 import { KeyringProvider } from "../../../src/security/keyring.js";
@@ -184,11 +185,11 @@ export class CliAuthTestHarness {
   }
 
   /**
-   * Creates a disposable database, applies migrations, and starts the server.
+   * Creates a disposable database, applies migrations, bootstraps auth state,
+   * and starts the server.
    *
-   * Signing-key material is not seeded here. The first token issue ensures the
-   * current key, which also proves that a missed startup step cannot mint an
-   * unsigned credential.
+   * The bootstrap path is exercised here because a production start must not
+   * depend on the first request to create its signing key or retire a due key.
    *
    * @returns A ready harness.
    */
@@ -211,6 +212,7 @@ export class CliAuthTestHarness {
         enableGracefulShutdown: false,
       });
       const app = await createTestApplication(environment.config, { database, tls, keyring });
+      await bootstrapAuthRuntime(app);
       const handle = await app.startTransport({ adminPort: 0, agentPort: 0 });
       const sessions = await app.getService<SessionService>("sessions");
       return new CliAuthTestHarness(testDb, environment, app, handle, sessions);

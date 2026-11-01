@@ -34,11 +34,12 @@ export interface AuthPluginOptions {
  * Builds the WebAFX plugin that owns the session service and auth middleware.
  *
  * The plugin installs after WebAFX core middleware (so cookies and JSON bodies
- * are parsed) and before controllers. It registers the session, credential,
- * and optional OIDC services and wires session resolution, the forced-change
- * gate, the origin guard, and the session-scoped CSRF check.
+ * are parsed) and before controllers. It registers session, credential, local
+ * login, shared rate-limit, CLI session, signing-key, CLI auth, and optional
+ * OIDC services, then wires session resolution, the forced-change gate, the
+ * origin guard, and the session-scoped CSRF check.
  *
- * @param options - Configuration, database, and test overrides.
+ * @param options - Configuration, database, keyring, and test overrides.
  * @returns A WebAFX plugin definition.
  */
 export function createAuthPlugin(options: AuthPluginOptions): PluginDefinition {

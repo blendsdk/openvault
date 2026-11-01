@@ -110,9 +110,9 @@ function toRefreshRow(row: CliRefreshDbRow): CliRefreshRow {
  * Stores and manages CLI refresh families.
  *
  * The repository owns the SQL and transaction boundaries. A login family is
- * inserted while holding the same per-principal row lock that password change
- * takes, so a password change cannot commit between the hash recheck and the
- * insert.
+ * inserted while holding the `principals` row lock and rechecking the verified
+ * password hash, so any writer that must serialize with login has to take the
+ * same lock.
  */
 export class CliSessionRepository {
   readonly #database: PostgreSQLDatabase;

@@ -113,7 +113,8 @@ The service creates four `rateLimitMiddleware` instances exactly once per applic
 
 The account key is computed by a shared exported
 `accountRateKey(identifier: unknown): string`; it hashes the normalized identifier so the
-limiter never stores an email.
+limiter never stores an email. The per-account bucket can deny an identifier for up to one hour
+after ten attempts; the known-limitations page records this alongside the shorter lockout.
 
 Because route definitions are synchronous and `ServiceContainer.get` is asynchronous, the
 controllers use these small wrappers:

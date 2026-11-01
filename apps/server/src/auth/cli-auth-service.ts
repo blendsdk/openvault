@@ -1,7 +1,28 @@
 import type { CliTokenResponse } from "@openvault/api-contract";
-import type { SigningKeyService } from "../security/signing-keys.js";
-import type { CliRequestContext, CliSessionRepository } from "./cli-sessions.js";
+import type { CliRequestContext, CreateFamilyResult } from "./cli-sessions.js";
 import type { LocalLoginSuccess } from "./local-login.js";
+
+/** The family operations needed by CLI login. */
+export interface CliFamilyStore {
+  /** Creates a family under the per-principal login lock. */
+  createFamilyForLogin(
+    principalId: string,
+    expectedHash: string,
+    context: CliRequestContext,
+  ): Promise<CreateFamilyResult>;
+  /** Revokes every live row in one owned family. */
+  revokeFamily(familyId: string, principalId: string): Promise<void>;
+}
+
+/** The signing operation needed by CLI login. */
+export interface CliAccessSigner {
+  /** Signs one access token for a principal/family pair. */
+  signAccessToken(input: {
+    readonly principalId: string;
+    readonly familyId: string;
+    readonly nowMs: number;
+  }): Promise<{ readonly token: string; readonly expiresAt: number }>;
+}
 
 /** Result of issuing a CLI login credential. */
 export type LoginIssueResult =
@@ -16,15 +37,15 @@ export type LoginIssueResult =
  * family if signing fails so a client never receives a half-issued credential.
  */
 export class CliAuthService {
-  readonly #sessions: CliSessionRepository;
-  readonly #signingKeys: SigningKeyService;
+  readonly #sessions: CliFamilyStore;
+  readonly #signingKeys: CliAccessSigner;
 
   /**
    * @param options - Family repository and signing service.
    */
   public constructor(options: {
-    readonly sessions: CliSessionRepository;
-    readonly signingKeys: SigningKeyService;
+    readonly sessions: CliFamilyStore;
+    readonly signingKeys: CliAccessSigner;
   }) {
     this.#sessions = options.sessions;
     this.#signingKeys = options.signingKeys;

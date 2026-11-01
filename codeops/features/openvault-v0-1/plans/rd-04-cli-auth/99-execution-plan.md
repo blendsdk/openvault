@@ -2,7 +2,7 @@
 
 > **Document**: 99-execution-plan.md
 > **Parent**: [Index](00-index.md)
-> **Last Updated**: 2026-11-01 01:49
+> **Last Updated**: 2026-11-01 02:04
 > **Progress**: 32/69 tasks (46%)
 > **CodeOps Artifact Schema**: 1
 
@@ -218,7 +218,7 @@ spec tests, red result, implementation, green result, implementation tests, full
 - [ ] 4.2.2 Add the bounded 30-day cleanup delete — `apps/server/src/auth/cli-sessions.ts`
 - [ ] 4.2.3 Add the CLI session list and delete routes — `apps/server/src/controllers/cli-auth.ts`
 - [ ] 4.2.4 Allow the credential password update to run on a transaction handle — `apps/server/src/auth/credentials.ts`
-- [ ] 4.2.5 Revoke every CLI family inside the browser password-change transaction — `apps/server/src/controllers/auth.ts`
+- [ ] 4.2.5 Lock the principal row first, then revoke every CLI family inside the browser password-change transaction — `apps/server/src/controllers/auth.ts`
 - [ ] 4.2.6 Add the idempotent maintenance service for startup and 24-hour cleanup — `apps/server/src/auth/cli-maintenance.ts`
 - [ ] 4.2.7 Extend the auth bootstrap to retire due keys and start maintenance — `apps/server/src/auth/bootstrap.ts`
 - [ ] 4.2.8 Register the maintenance service with its disposal hook — `apps/server/src/auth/plugin.ts`
@@ -259,7 +259,7 @@ spec tests, red result, implementation, green result, implementation tests, full
 **Reference**: [03-02](03-02-signing-keys-jwt.md) §Error handling · AR-12, AR-29
 
 - [ ] 5.2.1 Add nested access/refresh token redaction paths — `apps/server/src/observability/logger.ts`
-- [ ] 5.2.2 Update the authentication guide and known limitations — `docs/guide/authentication.md`, `docs/security/limitations.md`
+- [ ] 5.2.2 Update the authentication guide and known limitations, including the one-hour account bucket — `docs/guide/authentication.md`, `docs/security/limitations.md`
 - [ ] 5.2.3 Run the Phase 5 spec tests and verify green
 
 ### Step 5.3: Implementation Tests and Hardening

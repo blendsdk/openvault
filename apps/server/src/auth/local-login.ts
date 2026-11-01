@@ -146,9 +146,9 @@ export class LocalLoginService {
   /**
    * Rechecks the credential hash after a credential was issued.
    *
-   * A browser session or CLI family created with the old password must not
-   * survive a concurrent password change. The caller revokes its new
-   * credential when this returns false.
+   * The browser caller revokes its new session when this returns false. The
+   * CLI login uses the family repository's lock-through-insert recheck instead,
+   * because a plain re-read does not block on an uncommitted password update.
    *
    * @param principalId - Principal whose credential should be re-read.
    * @param expectedHash - Hash that was verified for the login.

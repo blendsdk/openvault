@@ -15,9 +15,9 @@ function invalidCredentials(): ApiError {
 /**
  * Command-line authentication routes.
  *
- * Login is public and shares the browser verifier and limiter buckets. The
- * remaining routes are added by the refresh and session phases; they all use a
- * bearer context and never set a browser cookie.
+ * Login is public and shares the browser verifier and limiter buckets. Refresh,
+ * logout, and session-management routes use a bearer or refresh-token context
+ * and never set a browser cookie.
  */
 export class CliAuthController extends BaseController {
   /** @inheritDoc */
