@@ -18,15 +18,14 @@ The API is served under `/v1`. Requests and responses use the WebAFX envelopes.
     "message": "Secret not found",
     "statusCode": 404,
     "timestamp": "2026-10-29T12:00:00.000Z",
-    "requestId": "6f1c..."
-  },
-  "requestId": "6f1c...",
-  "path": "/v1/data/demo/secrets/db-password"
+    "requestId": "6f1c...",
+    "path": "/v1/data/demo/secrets/db-password"
+  }
 }
 ```
 
-Request ids use the `X-Request-ID` header. Errors never contain secret values or stack
-traces.
+Request ids use the `X-Request-ID` header. Production errors never contain secret values or
+stack traces.
 
 ## Authentication
 
@@ -47,8 +46,9 @@ user, a wrong password, a disabled principal, or a locked account. Five failures
 rolling 15-minute window lock the account for 15 minutes. Login is limited to 5/min per IP
 and 10/hour per account; a rejected limit returns `429 RATE_LIMIT_EXCEEDED`.
 
-While `mustChangePassword` is true, only `GET /v1/auth/me`, `POST /v1/auth/password`,
-`POST /v1/auth/logout`, and `GET /v1/meta/*` are allowed. Other authenticated routes return
+While `mustChangePassword` is true, the browser may use only `GET /v1/auth/me`,
+`POST /v1/auth/password`, `POST /v1/auth/logout`, and `GET /v1/meta/*`. The CLI may use only
+`GET /v1/auth/cli/me` and `POST /v1/auth/cli/logout`. Other authenticated routes return
 `403 password_change_required`.
 
 ## Routes
@@ -66,9 +66,12 @@ While `mustChangePassword` is true, only `GET /v1/auth/me`, `POST /v1/auth/passw
 | POST | `/v1/auth/refresh` | Rotates the session secret and CSRF token |
 | GET | `/v1/auth/sessions` | Lists the current principal's sessions |
 | DELETE | `/v1/auth/sessions/:id` | Revokes an owned session by its public id |
-| POST | `/v1/auth/cli/login` | Returns a JWT pair |
-| POST | `/v1/auth/cli/refresh` | Rotates the JWT pair |
-| POST | `/v1/auth/cli/logout` | Revokes the refresh family |
+| POST | `/v1/auth/cli/login` | Returns an access token and rotating refresh token |
+| POST | `/v1/auth/cli/refresh` | Rotates the access and refresh tokens |
+| POST | `/v1/auth/cli/logout` | Revokes the refresh family; idempotent |
+| GET | `/v1/auth/cli/me` | Current CLI user and forced-change flag |
+| GET | `/v1/auth/cli/sessions` | Lists the current principal's CLI families |
+| DELETE | `/v1/auth/cli/sessions/:familyId` | Revokes an owned CLI family |
 | POST | `/v1/agent/join` | Join token plus CSR |
 | POST | `/v1/agent/renew` | mTLS renewal |
 
@@ -84,6 +87,40 @@ verified email that belongs to another principal is rejected rather than auto-li
 access, refresh, and ID tokens are discarded after login and never enter the session cache,
 the database, or request logs. A provider timeout or 5xx returns `503 oidc_unavailable`; a bad
 code, state, nonce, binding, or UserInfo subject returns `400 oidc_callback_failed`.
+
+### CLI authentication
+
+CLI login uses the same local credential verifier, lockout state, generic failure body, and
+per-IP/per-account rate-limit buckets as browser login.
+
+```text
+POST /v1/auth/cli/login
+{ "identifier": "alice@example.com", "password": "..." }
+
+POST /v1/auth/cli/refresh
+{ "refreshToken": "<43-character base64url>" }
+
+POST /v1/auth/cli/logout
+{ "refreshToken": "<43-character base64url>" }
+```
+
+Login and refresh return:
+`{ accessToken, refreshToken, tokenType: "Bearer", accessExpiresAt, refreshExpiresAt, user,
+mustChangePassword }`. The access token is an Ed25519 JWT with a 15-minute lifetime, issuer
+`openvault`, audience `openvault-cli`, and claims `sub`, `sid`, `jti`, `iat`, `exp`, `kind`.
+`sid` is the CLI session family id. The refresh token is 32 random bytes encoded as
+43-character base64url; it is not a JWT. A family has an absolute 12-hour lifetime from login;
+rotation does not extend it. Reuse of a rotated or revoked token, logout, password change, or
+principal disable revokes the family.
+
+CLI requests use `Authorization: Bearer <jwt>` and must not send a browser cookie or CSRF
+token. Every request verifies the signature, algorithm, issuer, audience, `kid`, and expiry,
+then checks that the principal is active and the family has a live row. A revoked family or
+disabled principal returns `401 authentication_required`; a bad login returns
+`401 invalid_credentials`; an unknown, expired, or reused refresh token returns
+`401 invalid_refresh_token`. Refresh is limited to 60/minute per IP and 30/minute per family;
+a rejected limit returns `429 RATE_LIMIT_EXCEEDED`. Logout returns 204 for any well-formed
+token, including an already-revoked one, and 400 `validation_error` for a malformed token.
 
 ### Meta
 

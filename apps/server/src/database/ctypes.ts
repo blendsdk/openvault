@@ -309,6 +309,25 @@ export const eSecrets = {
 };
 
 /**
+ * Constant type for relation signing_keys
+ * @export
+ * @constant
+ */
+export const eSigningKeys = {
+  $TABLE: "signing_keys",
+  ACTIVATED_AT: "activated_at",
+  CREATED_AT: "created_at",
+  KEK_ID: "kek_id",
+  KID: "kid",
+  PUBLIC_KEY: "public_key",
+  RETIRED_AT: "retired_at",
+  STATUS: "status",
+  WRAP_NONCE: "wrap_nonce",
+  WRAP_TAG: "wrap_tag",
+  WRAPPED_SEED: "wrapped_seed",
+};
+
+/**
  * Constant type for relation workload_certs
  * @export
  * @constant

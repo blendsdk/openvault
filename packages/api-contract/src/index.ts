@@ -18,4 +18,21 @@ export {
   sessionListSchema,
   sessionResponseSchema,
 } from "./auth.js";
+export {
+  type CliLoginRequest,
+  type CliLogoutRequest,
+  type CliMeResponse,
+  type CliRefreshRequest,
+  type CliSessionEntry,
+  type CliSessionList,
+  type CliTokenResponse,
+  cliLoginRequestSchema,
+  cliLogoutRequestSchema,
+  cliMeResponseSchema,
+  cliRefreshRequestSchema,
+  cliRefreshTokenSchema,
+  cliSessionEntrySchema,
+  cliSessionListSchema,
+  cliTokenResponseSchema,
+} from "./cli-auth.js";
 export { projectNameSchema, secretNameSchema, ulidSchema } from "./ids.js";

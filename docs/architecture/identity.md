@@ -32,9 +32,12 @@ Sessions live in memory in v0.1. A server restart signs users out.
 ## CLI: JWT
 
 - Ed25519 JWT, 15 minutes, issuer `openvault`, audience `openvault-cli`.
-- Refresh token 12 hours, stored hashed, rotates on use.
-- Reuse revokes the family.
-- Credentials in `~/.config/openvault/credentials.json`, mode `0600`.
+- Claims: `sub`, `sid`, `jti`, `iat`, `exp`, and `kind`. `sid` is the CLI session family id.
+- Refresh token 12 hours absolute per family, stored hashed, rotates on use.
+- Reuse, logout, or password change revokes the family.
+- Every access-token request checks the principal status and a live family row.
+- Credentials in `~/.config/openvault/credentials.json`, mode `0600`; the `ov` CLI owns the
+  file, atomic write, OS-specific paths, and concurrent-process locking.
 
 ## Agent: mTLS
 
@@ -60,18 +63,22 @@ Data routes use `user` so browsers and CLI share handlers. Browser-only routes u
 
 ## Claims
 
+CLI access tokens carry only:
+
 ```json
 {
+  "iss": "openvault",
+  "aud": "openvault-cli",
   "sub": "01J...",
-  "kind": "user",
-  "authMethod": "local",
-  "name": "Alice",
-  "email": "alice@example.com",
-  "roles": ["project.admin"],
-  "permissions": ["secret.read", "secret.write"],
-  "projects": ["01J..."]
+  "sid": "01J...",
+  "jti": "01J...",
+  "iat": 1760000000,
+  "exp": 1760000900,
+  "kind": "user"
 }
 ```
 
-Claims are a UI convenience. The server re-evaluates policy from the database on every
-request.
+Roles, permissions, and project scope are not token claims. The server re-evaluates them from
+the database on every request, so role changes and revocations take effect immediately. A
+browser session returns a public user object with name, email, and auth method; that object is
+not copied into the JWT.

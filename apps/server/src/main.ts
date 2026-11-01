@@ -1,6 +1,7 @@
 import { formatMigrationError, MigrationError, runMigrations } from "blendsdk/codegen";
 import { PostgreSQLDatabase } from "blendsdk/postgresql";
 import { createApplication } from "./app.js";
+import { bootstrapAuthRuntime } from "./auth/bootstrap.js";
 import { ConfigError, loadConfig } from "./config/index.js";
 import { migrationConfigPath } from "./db/config.js";
 import { KeyringProvider } from "./security/keyring.js";
@@ -23,6 +24,7 @@ try {
 
   const app = createApplication(config, { database, tls, keyring });
   await app.prepare();
+  await bootstrapAuthRuntime(app);
   await app.startTransport();
 } catch (error) {
   keyring?.destroy();

@@ -450,6 +450,7 @@ export interface Certificates {
 
 /**
  * @default created_at to now()
+ * @unique family_id
  * @checkContraint family_id CHECK ((family_id ~ '^[0-9A-HJKMNP-TV-Z]{26}$'::text))
  * @primaryKey id
  * @unique id
@@ -471,6 +472,7 @@ export interface CliSessions {
    */
   expires_at: Date;
   /**
+   * @unique
    * @checkContraint CHECK ((family_id ~ '^[0-9A-HJKMNP-TV-Z]{26}$'::text))
    * @memberOf {CliSessions}
    */
@@ -1175,6 +1177,79 @@ export interface Secrets {
    * @memberOf {Secrets}
    */
   updated_at?: Date;
+}
+
+/**
+ * @default created_at to now()
+ * @checkContraint kek_id CHECK (((length(kek_id) >= 1) AND (length(kek_id) <= 64)))
+ * @primaryKey kid
+ * @unique kid
+ * @checkContraint kid CHECK ((kid ~ '^[0-9A-HJKMNP-TV-Z]{26}$'::text))
+ * @checkContraint public_key CHECK ((octet_length(public_key) = 32))
+ * @checkContraint retired_at CHECK ((((status = 'retired'::text) AND (retired_at IS NOT NULL)) OR ((status <> 'retired'::text) AND (retired_at IS NULL))))
+ * @unique status
+ * @checkContraint status CHECK ((status = ANY (ARRAY['current'::text, 'previous'::text, 'retired'::text]))) AND CHECK ((((status = 'retired'::text) AND (retired_at IS NOT NULL)) OR ((status <> 'retired'::text) AND (retired_at IS NULL))))
+ * @checkContraint wrap_nonce CHECK ((octet_length(wrap_nonce) = 12))
+ * @checkContraint wrap_tag CHECK ((octet_length(wrap_tag) = 16))
+ * @checkContraint wrapped_seed CHECK ((octet_length(wrapped_seed) = 32))
+ * @interface
+ */
+export interface SigningKeys {
+  /**
+   * @memberOf {SigningKeys}
+   */
+  activated_at: Date;
+  /**
+   * @default now()
+   * @optional
+   * @memberOf {SigningKeys}
+   */
+  created_at?: Date;
+  /**
+   * @checkContraint CHECK (((length(kek_id) >= 1) AND (length(kek_id) <= 64)))
+   * @memberOf {SigningKeys}
+   */
+  kek_id: string;
+  /**
+   * @primaryKey
+   * @unique
+   * @checkContraint CHECK ((kid ~ '^[0-9A-HJKMNP-TV-Z]{26}$'::text))
+   * @memberOf {SigningKeys}
+   */
+  kid: string;
+  /**
+   * @checkContraint CHECK ((octet_length(public_key) = 32))
+   * @memberOf {SigningKeys}
+   */
+  public_key: Buffer;
+  /**
+   * @checkContraint CHECK ((((status = 'retired'::text) AND (retired_at IS NOT NULL)) OR ((status <> 'retired'::text) AND (retired_at IS NULL))))
+   * @optional
+   * @nullable
+   * @memberOf {SigningKeys}
+   */
+  retired_at?: Date | null;
+  /**
+   * @unique
+   * @checkContraint CHECK ((status = ANY (ARRAY['current'::text, 'previous'::text, 'retired'::text]))) AND CHECK ((((status = 'retired'::text) AND (retired_at IS NOT NULL)) OR ((status <> 'retired'::text) AND (retired_at IS NULL))))
+   * @memberOf {SigningKeys}
+   */
+  status: string;
+  /**
+   * @checkContraint CHECK ((octet_length(wrap_nonce) = 12))
+   * @memberOf {SigningKeys}
+   */
+  wrap_nonce: Buffer;
+  /**
+   * @checkContraint CHECK ((octet_length(wrap_tag) = 16))
+   * @memberOf {SigningKeys}
+   */
+  wrap_tag: Buffer;
+  /**
+   * @checkContraint CHECK ((octet_length(wrapped_seed) = 32))
+   * @memberOf {SigningKeys}
+   */
+  wrapped_seed: Buffer;
 }
 
 /**

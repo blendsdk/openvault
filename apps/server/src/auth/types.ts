@@ -38,19 +38,49 @@ export interface SessionRecord {
 }
 
 /**
- * Authenticated request context attached by the session middleware.
+ * Authenticated browser request context.
  *
  * The user shape is the public contract shared with the web client; internal
- * status and credential fields never enter this object.
+ * status and credential fields never enter this object. CSRF and Origin checks
+ * apply only to this variant.
  */
-export interface AuthContext {
-  /** The live session record. */
+export interface BrowserAuthContext {
+  /** Discriminator used by guards and route helpers. */
+  readonly kind: "browser";
+  /** The live browser session. */
   readonly session: SessionRecord;
   /** Public user fields for the current principal. */
   readonly user: AuthUser;
   /** True while the principal must change a local password. */
   readonly mustChangePassword: boolean;
 }
+
+/**
+ * Authenticated CLI request context.
+ *
+ * `familyId` is the JWT `sid`; every request rechecks a live family row so a
+ * logout or family revocation takes effect on the next call. Browser CSRF and
+ * Origin checks never apply to this variant.
+ */
+export interface CliAuthContext {
+  /** Discriminator used by guards and route helpers. */
+  readonly kind: "cli";
+  /** Principal identifier from the JWT `sub`. */
+  readonly principalId: string;
+  /** CLI session family identifier from the JWT `sid`. */
+  readonly familyId: string;
+  /** Access-token identifier. */
+  readonly jti: string;
+  /** Access-token expiry in milliseconds since the Unix epoch. */
+  readonly expiresAt: number;
+  /** Public user fields loaded from the database. */
+  readonly user: AuthUser;
+  /** True while the principal must change a local password. */
+  readonly mustChangePassword: boolean;
+}
+
+/** Authenticated request context attached by the middleware. */
+export type AuthContext = BrowserAuthContext | CliAuthContext;
 
 /** Principal status returned by the credentials repository. */
 export interface PrincipalStatus {

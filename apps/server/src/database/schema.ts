@@ -117,6 +117,49 @@ cliSessions.text("user_agent").nullable().check("user_agent IS NULL OR length(us
 cliSessions.primaryKey().column("id");
 cliSessions.index().column("principal_id").indexName("cli_sessions_principal_idx");
 cliSessions.index().column("family_id").indexName("cli_sessions_family_idx");
+cliSessions
+  .index()
+  .indexName("cli_sessions_family_live_idx")
+  .unique()
+  .column("family_id")
+  .where("revoked_at IS NULL");
+cliSessions
+  .index()
+  .indexName("cli_sessions_cleanup_idx")
+  .column("expires_at")
+  .expression("GREATEST(expires_at, COALESCE(revoked_at, expires_at))");
+
+// ---------------------------------------------------------------------------
+// JWT signing keys
+// ---------------------------------------------------------------------------
+
+const signingKeys = db.table("signing_keys");
+signingKeys.text("kid").check(ulidExpression("kid"));
+signingKeys.bytea("public_key").check("octet_length(public_key) = 32");
+signingKeys.bytea("wrapped_seed").check("octet_length(wrapped_seed) = 32");
+signingKeys.bytea("wrap_nonce").check("octet_length(wrap_nonce) = 12");
+signingKeys.bytea("wrap_tag").check("octet_length(wrap_tag) = 16");
+signingKeys.text("kek_id").check(lengthBetween("kek_id", 1, 64));
+signingKeys.text("status").check("status IN ('current', 'previous', 'retired')");
+signingKeys.timestamptz("created_at").default("now()");
+signingKeys.timestamptz("activated_at");
+signingKeys.timestamptz("retired_at").nullable();
+signingKeys.primaryKey().column("kid");
+signingKeys.checkConstraint(
+  "(status = 'retired' AND retired_at IS NOT NULL) OR (status <> 'retired' AND retired_at IS NULL)",
+);
+signingKeys
+  .index()
+  .indexName("signing_keys_current_idx")
+  .unique()
+  .column("status")
+  .where("status = 'current'");
+signingKeys
+  .index()
+  .indexName("signing_keys_previous_idx")
+  .unique()
+  .column("status")
+  .where("status = 'previous'");
 
 // ---------------------------------------------------------------------------
 // Workload identity and consumers

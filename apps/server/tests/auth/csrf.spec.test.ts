@@ -47,6 +47,7 @@ function attachAuth(session: SessionRecord): express.RequestHandler {
   return (req, _res, next) => {
     Object.assign(req, {
       auth: {
+        kind: "browser",
         session,
         user: {
           id: session.principalId,

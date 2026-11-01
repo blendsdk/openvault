@@ -230,14 +230,16 @@ export class CredentialsRepository {
    * @param principalId - Principal identifier.
    * @param passwordHash - New Argon2id PHC string.
    * @param expectedHash - Hash that was verified as the current password.
+   * @param database - Transaction handle that already holds the principal lock; defaults to the pool.
    * @returns True when the password was updated.
    */
   public async changePassword(
     principalId: string,
     passwordHash: string,
     expectedHash: string,
+    database: QueryDatabase = this.#database,
   ): Promise<boolean> {
-    const result = await this.#database.executeQuery<{ readonly principal_id: string }>(
+    const result = await database.executeQuery<{ readonly principal_id: string }>(
       `UPDATE local_credentials
           SET password_hash = :passwordHash,
               must_change = false,

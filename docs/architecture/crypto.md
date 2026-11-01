@@ -15,6 +15,13 @@ The KEK is never written to PostgreSQL. The keyring file is mode `0600`. Age enc
 and the passphrase-file flow are deferred to a later release; the server rejects a passphrase
 file instead of falling back to plaintext.
 
+The JWT signing key is stored in `signing_keys`. The current key signs; the previous key
+remains valid for verification until the maximum access-token lifetime plus 30 seconds of
+clock skew have passed. At that boundary it is no longer accepted even if its row is still
+marked previous; startup and the next rotation retire the row. At most one current and one
+previous key exist. Each process refreshes its current/previous snapshot when it is older than
+30 seconds, so a rotation in another process is observed within that bound.
+
 ## Envelope encryption
 
 ```text

@@ -953,11 +953,29 @@
       ],
       "indexes": [
         {
+          "name": "cli_sessions_cleanup_idx",
+          "columns": [
+            "expires_at"
+          ],
+          "unique": false,
+          "concurrent": false,
+          "expression": "GREATEST(expires_at, COALESCE(revoked_at, expires_at))"
+        },
+        {
           "name": "cli_sessions_family_idx",
           "columns": [
             "family_id"
           ],
           "unique": false,
+          "concurrent": false
+        },
+        {
+          "name": "cli_sessions_family_live_idx",
+          "columns": [
+            "family_id"
+          ],
+          "unique": true,
+          "where": "revoked_at IS NULL",
           "concurrent": false
         },
         {
@@ -2222,6 +2240,134 @@
             "project_id"
           ],
           "unique": false,
+          "concurrent": false
+        }
+      ]
+    },
+    {
+      "schema": "public",
+      "name": "signing_keys",
+      "columns": [
+        {
+          "name": "activated_at",
+          "type": "timestamptz",
+          "nullable": false
+        },
+        {
+          "name": "created_at",
+          "type": "timestamptz",
+          "nullable": false,
+          "default": "now()"
+        },
+        {
+          "name": "kek_id",
+          "type": "text",
+          "nullable": false
+        },
+        {
+          "name": "kid",
+          "type": "text",
+          "nullable": false
+        },
+        {
+          "name": "public_key",
+          "type": "bytea",
+          "nullable": false
+        },
+        {
+          "name": "retired_at",
+          "type": "timestamptz",
+          "nullable": true
+        },
+        {
+          "name": "status",
+          "type": "text",
+          "nullable": false
+        },
+        {
+          "name": "wrap_nonce",
+          "type": "bytea",
+          "nullable": false
+        },
+        {
+          "name": "wrap_tag",
+          "type": "bytea",
+          "nullable": false
+        },
+        {
+          "name": "wrapped_seed",
+          "type": "bytea",
+          "nullable": false
+        }
+      ],
+      "primaryKey": {
+        "kind": "primaryKey",
+        "name": "signing_keys_kid_pkey",
+        "columns": [
+          "kid"
+        ]
+      },
+      "uniqueConstraints": [],
+      "checkConstraints": [
+        {
+          "kind": "check",
+          "name": "signing_keys_29581f1676_check",
+          "expression": "octet_length(wrap_nonce) = 12"
+        },
+        {
+          "kind": "check",
+          "name": "signing_keys_3f0173faeb_check",
+          "expression": "kid ~ '^[0-9A-HJKMNP-TV-Z]{26}$'"
+        },
+        {
+          "kind": "check",
+          "name": "signing_keys_635db7c450_check",
+          "expression": "status IN ('current', 'previous', 'retired')"
+        },
+        {
+          "kind": "check",
+          "name": "signing_keys_7967c4a0d1_check",
+          "expression": "(status = 'retired' AND retired_at IS NOT NULL) OR (status <> 'retired' AND retired_at IS NULL)"
+        },
+        {
+          "kind": "check",
+          "name": "signing_keys_9878f8ddc0_check",
+          "expression": "octet_length(wrap_tag) = 16"
+        },
+        {
+          "kind": "check",
+          "name": "signing_keys_9f29a981a8_check",
+          "expression": "octet_length(public_key) = 32"
+        },
+        {
+          "kind": "check",
+          "name": "signing_keys_a9e2e02429_check",
+          "expression": "length(kek_id) BETWEEN 1 AND 64"
+        },
+        {
+          "kind": "check",
+          "name": "signing_keys_e05e560267_check",
+          "expression": "octet_length(wrapped_seed) = 32"
+        }
+      ],
+      "foreignKeys": [],
+      "indexes": [
+        {
+          "name": "signing_keys_current_idx",
+          "columns": [
+            "status"
+          ],
+          "unique": true,
+          "where": "status = 'current'",
+          "concurrent": false
+        },
+        {
+          "name": "signing_keys_previous_idx",
+          "columns": [
+            "status"
+          ],
+          "unique": true,
+          "where": "status = 'previous'",
           "concurrent": false
         }
       ]
