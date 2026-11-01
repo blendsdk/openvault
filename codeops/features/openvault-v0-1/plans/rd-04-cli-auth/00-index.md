@@ -1,7 +1,7 @@
 # RD-04 CLI Authentication Implementation Plan
 
 > **Feature**: Server-side CLI authentication with Ed25519 access tokens, rotating refresh families, signing-key lifecycle, shared lockout, and revocation.
-> **Status**: Planning Complete
+> **Status**: Done
 > **Created**: 2026-11-01 00:38
 > **Preflight**: [00-preflight-report-RD-04.md](../../requirements/00-preflight-report-RD-04.md) — 12 findings resolved
 > **Implements**: openvault-v0-1/RD-04
@@ -59,6 +59,7 @@ or framework is added.
 | 03-03 | [Local Login and Rate Limits](03-03-local-login-rate-limits.md) | Shared verifier, lockout, shared limiter instances, CLI login |
 | 03-04 | [Refresh, Logout, and Bearer Authentication](03-04-refresh-bearer.md) | Rotation transaction, reuse detection, auth context, `/cli/me` |
 | 03-05 | [Sessions, Revocation, and Retention](03-05-sessions-retention.md) | Family list/revoke, password-change revocation, cleanup |
+| 05 | [Findings Ledger](05-findings.md) | Review batch rulings |
 | 07 | [Testing Strategy](07-testing-strategy.md) | Specification test cases and verification |
 | 99 | [Execution Plan](99-execution-plan.md) | Phases, sessions, and task checklist |
 
@@ -193,7 +194,7 @@ no repeated CLI-auth finding pattern exists yet._
 | 6. Disable invalidates refresh and access | `auth.cli-refresh.spec.test.ts`; ST-30 |
 | 7. Password change revokes every CLI family | `auth.cli-sessions.spec.test.ts`; ST-41–ST-42 |
 | 8. Bearer verification and browser rejection | `auth.cli-refresh.spec.test.ts`; `cli-jwt.spec.test.ts`; ST-15, ST-31–ST-34 |
-| 9. First key, rotation, previous, retired, no raw seed | `signing-keys.spec.test.ts`; ST-9–ST-14 |
+| 9. First key, rotation, previous, retired, no raw seed | `signing-keys.spec.test.ts`; ST-9–ST-14, ST-52 |
 | 10. Shared lockout and rate-limit buckets | `auth.cli-login.spec.test.ts`; ST-18–ST-22 |
 | 11. Strict contracts, distinct expiries, logout validation | `cli-auth.spec.test.ts`; ST-1–ST-5, ST-16, ST-29 |
 | 12. CLI family list and revoke | `auth.cli-sessions.spec.test.ts`; ST-38–ST-40, ST-51 |

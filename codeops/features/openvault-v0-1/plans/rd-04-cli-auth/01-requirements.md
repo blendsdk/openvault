@@ -65,14 +65,14 @@ decisions that are local to this plan.
 
 The RD owns the 16 acceptance criteria. This plan adds only these execution criteria:
 
-1. [ ] `pnpm verify` passes under Node 24.21.0.
-2. [ ] The migration ledger applies cleanly and `pnpm db:types:check` reports no drift.
-3. [ ] The CLI integration suite passes against PostgreSQL 16 and 17.
-4. [ ] The captured-log test finds no raw access token, refresh token, password, or signing
+1. [x] `pnpm verify` passes under Node 24.21.0.
+2. [x] The migration ledger applies cleanly and `pnpm db:types:check` reports no drift.
+3. [x] The CLI integration suite passes against PostgreSQL 16 and 17.
+4. [x] The captured-log test finds no raw access token, refresh token, password, or signing
    seed in server logs or error envelopes.
-5. [ ] The existing browser authentication, CSRF, session, transport, and readiness suites
+5. [x] The existing browser authentication, CSRF, session, transport, and readiness suites
    remain green.
-6. [ ] No plan or requirement identifier appears in shipped code or documentation comments.
+6. [x] No plan or requirement identifier appears in shipped code or documentation comments.
 
 > **Traceability:** Every plan-local decision above cites the owning [Ambiguity Register](00-ambiguity-register.md)
 > entry. The RD owns the functional and security acceptance criteria.
