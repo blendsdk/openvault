@@ -95,7 +95,7 @@ Specialist check: security, data integrity, and concurrency are material. The pr
 | **RD-10** | [Agent Delivery and Compose](RD-10-agent-compose.md) | Per-service agent, tmpfs, refresh, local API, scaffold | RD-05, RD-07, RD-08 |
 | **RD-11** | [CLI](RD-11-cli.md) | Command groups, `run --`, JSON, generated client | RD-04, RD-06, RD-08, RD-09, RD-10 |
 | **RD-12** | [Web UI](RD-12-web-ui.md) | Login, projects, secrets, permissions, audit, accessibility | RD-03, RD-06, RD-08, RD-10 |
-| **RD-13** | [Backup, Rotation, and Operations](RD-13-backup-rotation-ops.md) | Encrypted backup, restore, rewrap, deployment, logs | RD-02, RD-08, RD-09 |
+| **RD-13** | [Backup, Rotation, and Operations](RD-13-backup-rotation-ops.md) | Encrypted backup, restore, rewrap, deployment, logs | RD-02, RD-05, RD-08, RD-09 |
 | **RD-14** | [Security Assurance and Release](RD-14-security-release.md) | Threat-model tests, reviews, signed image, SBOM, scan | All |
 
 ## Dependency Graph

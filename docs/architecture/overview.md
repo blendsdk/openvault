@@ -71,9 +71,10 @@ The keyring holds the KEK and older keys. It is never stored in PostgreSQL.
 
 The proxy is not on `vault_net`. Both listeners bind the container interfaces; the admin
 source guard accepts only peers in `OPENVAULT_PROXY_CIDRS` (loopback may call only
-`/health` and `/ready`), so `admin_net` placement is defense in depth. The agent mTLS
-listener on `8444` accepts only client certificates from the internal CA. The application
-has no route to the server or database.
+`/health` and `/ready`), so `admin_net` placement is defense in depth. The agent listener on
+`8444` accepts the token-authenticated `POST /v1/agent/join` without a client certificate and
+requires a client certificate from the internal CA on every other agent route. The
+application has no route to the server or database.
 
 ## Next
 

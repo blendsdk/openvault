@@ -4,7 +4,7 @@
 > **Status**: Draft
 > **Created**: 2026-10-29
 > **Project**: OpenVault
-> **Depends On**: RD-02, RD-08, RD-09
+> **Depends On**: RD-02, RD-05, RD-08, RD-09
 > **CodeOps Artifact Schema**: 1
 
 ## Feature Overview
@@ -19,14 +19,15 @@ break-glass procedure.
 ### Must Have
 
 - [ ] `ov backup --out <path>` creates an encrypted archive containing the PostgreSQL dump,
-  keyring, configuration manifest, and audit checkpoints.
+  keyring, configuration manifest, public internal CA certificate, and audit checkpoints.
 - [ ] The archive is encrypted with age using a passphrase or recipient key.
 - [ ] `ov restore <archive>` verifies the manifest, restores the dump, writes the keyring,
-  runs migrations, and verifies the audit chain.
+  runs migrations, re-materializes `OPENVAULT_INTERNAL_CA` from the restored CA row, and
+  verifies the audit chain and a pre-backup agent certificate.
 - [ ] A restore drill is documented and tested: backup, destroy, restore, verify, read one
   secret per project.
-- [ ] `ov kek rotate` generates a new KEK, re-wraps every DEK, audit key, CA key, and JWT key,
-  updates `kek_id`, and removes the old key only after verification.
+- [ ] `ov kek rotate` generates a new KEK, re-wraps every DEK, audit key, `ca_keys` CA key, and
+  JWT key, updates `kek_id`, and removes the old key only after verification.
 - [ ] Values are never re-encrypted during KEK rotation.
 - [ ] Secret rotation creates a new version; the agent picks it up on refresh.
 - [ ] Certificate renewal creates a new version; expiry warnings fire at 30/14/7 days.
@@ -49,6 +50,9 @@ break-glass procedure.
 - [ ] RPO 24 hours; RTO 1 hour; documented.
 - [ ] Break-glass recovery uses the keyring and an encrypted backup; there is no always-on
   second admin.
+- [ ] The init flow generates the internal CA once, writes the public certificate to
+  `OPENVAULT_INTERNAL_CA`, and stores the private key only as a KEK-wrapped `ca_keys` row.
+  Re-running init does not rotate an existing CA.
 - [ ] The bootstrap password is never printed to logs; it is a one-time `0600` file or an
   operator-supplied file.
 - [ ] Images are pinned by digest in the reference stack once published.
@@ -77,6 +81,7 @@ openvault-backup/
 ├── database.dump          # pg_dump custom format
 ├── keyring.json.age       # encrypted keyring
 ├── config.json            # redacted config
+├── ca.pem                 # public internal CA certificate
 └── checkpoints.ndjson     # audit checkpoints
 ```
 
@@ -90,13 +95,18 @@ separately. The manifest records SHA-256 for every file.
 3. Restore the dump.
 4. Write the keyring with mode `0600`.
 5. Run migrations.
-6. Verify the audit chain.
-7. Read one secret per project.
+6. Re-materialize `OPENVAULT_INTERNAL_CA` from the restored `ca_keys` row and verify it
+   matches `ca.pem`.
+7. Verify the audit chain.
+8. Read one secret per project.
+9. Verify a pre-backup agent certificate still chains to the restored CA and can join the
+   agent listener.
 
 ### KEK rotation
 
 1. Generate a new 32-byte key with the next id; make it current.
-2. In batches, unwrap and rewrap every DEK, audit key, CA key, and JWT key; update `kek_id`.
+2. In batches, unwrap and rewrap every DEK, audit key, `ca_keys` CA key, and JWT key; update
+   `kek_id`.
 3. Record `kek.rotate` start and completion events.
 4. Verify a sample of old and new records.
 5. Remove the old key only after verification.
@@ -113,6 +123,7 @@ separately. The manifest records SHA-256 for every file.
 ## Integration Points
 
 - RD-02 supplies config, TLS, and readiness.
+- RD-05 supplies the `ca_keys` row, CA certificate, and CA profile.
 - RD-08 and RD-09 supply data and envelope fields.
 - RD-10 supplies agent delivery and tmpfs.
 - RD-11 exposes backup/restore/rotate commands.
@@ -128,6 +139,8 @@ separately. The manifest records SHA-256 for every file.
 | HA | v0.1 / later | Later | Scope control | AR-30 |
 | Container security | Default / hardened | Hardened | Secrets product baseline | AR-22 |
 | RPO/RTO | 24h/1h / other | 24h/1h | Documented target | AR-11 |
+| CA key custody | CA file / keyring / `ca_keys` | KEK-wrapped `ca_keys` | Matches RD-05 and the documented key hierarchy | PF-002 |
+| CA restore | regenerate / restore row | Restore `ca_keys` and the public certificate | Existing agent certificates stay valid | PF-002 |
 
 ## Security Considerations
 
@@ -143,19 +156,22 @@ separately. The manifest records SHA-256 for every file.
 ## Acceptance Criteria
 
 1. [ ] `ov backup` produces an archive that decrypts only with the correct passphrase and
-   contains the manifest, dump, keyring, config, and checkpoints.
+   contains the manifest, dump, keyring, config, public CA certificate, and checkpoints.
 2. [ ] `ov restore` into a fresh stack restores every secret and certificate, runs migrations,
-   and verifies the audit chain.
+   re-materializes the public CA, verifies the audit chain, and authenticates a pre-backup
+   agent certificate.
 3. [ ] A corrupted archive fails checksum verification and changes nothing.
-4. [ ] KEK rotation re-wraps all records; old and new records decrypt; value ciphertext is
-   byte-identical before and after.
+4. [ ] KEK rotation re-wraps all records, including `ca_keys`; old and new records decrypt;
+   value ciphertext is byte-identical before and after.
 5. [ ] Removing the old key after rotation makes old `kek_id` records unreadable, as expected.
 6. [ ] Secret rotation creates a new version and the agent refreshes it.
 7. [ ] Certificate renewal creates a new version and expiry warnings fire once per threshold.
 8. [ ] Compose services run as non-root with the specified hardening; no container mounts the
    Docker socket.
-9. [ ] `/ready` fails when PostgreSQL or the keyring is unavailable.
+9. [ ] `/ready` fails when PostgreSQL, the keyring, or the CA signing key is unavailable.
 10. [ ] The restore drill completes within the documented RTO and meets the RPO.
-11. [ ] The bootstrap password is absent from logs and present only in the one-time file.
-12. [ ] Security requirements verified: archive encryption, keyring permissions, container
-    hardening, no secret in env/logs.
+11. [ ] Re-running init does not rotate the CA, and `OPENVAULT_INTERNAL_CA` matches the
+    `ca_keys` row.
+12. [ ] The bootstrap password is absent from logs and present only in the one-time file.
+13. [ ] Security requirements verified: archive encryption, keyring permissions, CA-key
+    wrapping, container hardening, no secret in env/logs.

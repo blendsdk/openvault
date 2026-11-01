@@ -69,11 +69,15 @@ ov docker scaffold payments api
 ```
 
 The command creates the project and service identity if needed, issues a single-use join
-token, and prints the agent snippet. It is idempotent: running it again does not create a
-second identity or service.
+token, grants object-scope `secrets.reader` assignments for the manifest entries, and prints
+the agent snippet. It is idempotent: running it again does not create a second identity or
+service, and it never writes the token into the Compose file.
 
-The agent authenticates with a client certificate chained to the internal CA. It never uses
-the admin listener, and `OPENVAULT_URL` must point at `https://openvaultd:8444`.
+The agent's first request uses the join token on `https://openvaultd:8444`; every later agent
+request uses a client certificate chained to the internal CA. The agent never uses the admin
+listener. On renewal it sends a fresh EC P-256 key and CSR; the old certificate remains valid
+for data until expiry but cannot renew. A revoked or expired certificate causes the agent to
+remove its files and exit.
 
 ## UID and file modes
 

@@ -23,6 +23,8 @@ code, fetches UserInfo, creates a session, and discards the tokens.
 ### Must Have
 
 - [ ] `POST /v1/auth/local/login` authenticates a local user with identifier and password.
+- [ ] Local login, OIDC linking/JIT, and browser session creation reject a principal with
+  `kind = 'service'`; service identities cannot obtain a human session.
 - [ ] `GET /v1/auth/login` starts OIDC authorization-code flow with PKCE `S256`, state, and
   nonce when OIDC is configured.
 - [ ] `GET /v1/auth/callback` validates state and nonce, exchanges the code, verifies the
@@ -188,6 +190,7 @@ POST /v1/auth/password
 
 - RD-02 supplies the admin listener, TLS, config, and WebAFX rate-limit and CSRF primitives.
 - RD-04 reuses the local credential and Argon2id verifier for CLI tokens.
+- RD-05 defines service identities; RD-03's local/OIDC paths reject them.
 - RD-06 uses the session principal and roles for policy. Its admin `identity.create` path also
   owns linking an OIDC identity when JIT provisioning rejects an email collision.
 - RD-07 audits login success/failure, lockout, password change, JIT provisioning, and session
@@ -260,5 +263,9 @@ POST /v1/auth/password
     another principal's session.
 13. [ ] `POST /v1/auth/password` requires the current password, enforces 12–1024 characters,
     clears `must_change`, revokes other sessions, and rotates the current session.
-14. [ ] Security requirements verified: password hashing, rate limits, lockout, CSRF, cookie
-    flags, OIDC state/nonce, log redaction, and token non-persistence.
+14. [ ] A service principal cannot complete local login, OIDC linking/JIT, or browser
+    session creation; the response is the generic authentication failure and no session is
+    created.
+15. [ ] Security requirements verified: password hashing, rate limits, lockout, CSRF, cookie
+    flags, OIDC state/nonce, log redaction, token non-persistence, and service-principal
+    rejection.

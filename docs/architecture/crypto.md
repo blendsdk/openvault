@@ -7,7 +7,7 @@ KEK (32 bytes, keyring file, outside the database)
  ├── wraps per-version DEK (32 bytes, random per version)
  │      └── AES-256-GCM encrypts the value
  ├── wraps audit HMAC key (32 bytes)
- ├── wraps internal CA private key (EC P-256)
+ ├── wraps CA signing key (EC P-256, `ca_keys`)
  └── wraps JWT signing key (Ed25519)
 ```
 
@@ -21,6 +21,14 @@ clock skew have passed. At that boundary it is no longer accepted even if its ro
 marked previous; startup and the next rotation retire the row. At most one current and one
 previous key exist. Each process refreshes its current/previous snapshot when it is older than
 30 seconds, so a rotation in another process is observed within that bound.
+
+The workload CA key is stored in `ca_keys` as a 32-byte P-256 scalar wrapped by the current
+KEK. `OPENVAULT_INTERNAL_CA` is the matching public certificate. The CA profile is EC P-256,
+self-signed, 10 years, `CA:TRUE`, `pathlen:0`, and `keyCertSign`. `ov init` creates it once;
+re-running init does not rotate it. A `CaSigner` is the only component that unwraps the key
+for signing; the KEK-rotation path may unwrap it only to re-wrap it. Startup and `/ready` fail
+closed if the key is missing or does not match the public certificate. RD-13 re-wraps the
+key, backs it up, and re-materializes the public certificate on restore.
 
 ## Envelope encryption
 
@@ -58,7 +66,7 @@ HMAC key itself does not change, so old events remain verifiable.
 ## KEK rotation
 
 1. Generate a new key and make it current.
-2. Re-wrap every data key, the audit key, the CA key, and the JWT key.
+2. Re-wrap every data key, the audit key, the `ca_keys` CA key, and the JWT key.
 3. Update `kek_id` in the same transaction as each re-wrap.
 4. Remove the old key after the job and verification reads succeed.
 

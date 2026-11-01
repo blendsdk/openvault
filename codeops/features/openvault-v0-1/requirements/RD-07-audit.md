@@ -21,7 +21,17 @@ written.
 
 - [ ] Record authentication success/failure, lockout, authorization allow/deny, secret
   read/write/delete/recover/purge, certificate read/private-key read, assignment changes,
-  identity create/revoke, join/renew, KEK rotation, backup/export, and audit verification.
+  identity create/revoke, join-token issuance, agent join/renew, consumer register/update,
+  KEK rotation, backup/export, and audit verification.
+- [ ] A failed join records one event with a system actor and a reason code when the token is
+  unknown or expired or the principal/project is inactive, or the known service actor when
+  the token is used/revoked. The event
+  contains no token, token hash, CSR body, private key, or certificate body.
+- [ ] A `last_seen` heartbeat alone is not an audit event; only a consumer metadata change is
+  audited.
+- [ ] Use these action strings verbatim: `identity.create`, `identity.revoke`,
+  `identity.join_token`, `agent.join`, `agent.renew`, `consumer.register`, and
+  `consumer.update`.
 - [ ] Each event stores `eventId`, `ts`, `requestId`, `actorId`, `actorKind`, `action`,
   `scopeType`, `scopeId`, `objectType`, `objectId`, `result`, `sourceIp`, `userAgent`,
   `details`, `prevHash`, `hash`, `hmac`, `auditKeyId`.
@@ -102,10 +112,11 @@ written.
 ## Integration Points
 
 - RD-02 provides the database and request id.
-- RD-03, RD-04, RD-05 provide principals and auth events.
+- RD-03, RD-04, and RD-05 provide principals and auth events.
 - RD-06 calls the audit writer for every decision.
 - RD-08 and RD-09 call the writer before returning sensitive data.
-- RD-10 records join, renew, and consumer updates.
+- RD-05 supplies identity create/revoke/join-token and agent join/renew events.
+- RD-10 supplies consumer refresh/state changes; `last_seen` heartbeats are not audited.
 - RD-13 exports and restores checkpoints.
 - RD-14 verifies tamper tests and external review.
 
@@ -118,6 +129,7 @@ written.
 | Retention | 30 / 180 / 365 days | 180 days | Balance evidence and storage | AR-10 |
 | Pruning | Automatic / explicit | Explicit with checkpoint | Preserve a trusted anchor | AR-10 |
 | SIEM | v0.1 / later | Later | Scope control | AR-30 |
+| Identity/agent audit | RD-05 writer / RD-07 persistence | RD-07 persistence; RD-05 emits named events | One chain owner; no duplicate writer | PF-011 |
 
 ## Security Considerations
 
@@ -134,6 +146,9 @@ written.
 ## Acceptance Criteria
 
 1. [ ] Every action in RD-06 produces exactly one event per attempt, including denials.
+   The identity/agent actions use the exact strings `identity.create`, `identity.revoke`,
+   `identity.join_token`, `agent.join`, `agent.renew`, `consumer.register`, and
+   `consumer.update`, with one event per attempt and a reason code.
 2. [ ] Editing a row's `details`, `result`, or `hash` makes `verify` fail at that event id.
 3. [ ] Deleting a row in the middle makes `verify` fail at the next event.
 4. [ ] Deleting the tail is detected by the latest checkpoint.
@@ -144,4 +159,10 @@ written.
 9. [ ] Pruning writes a checkpoint before deleting and verification still passes from the
    retained anchor.
 10. [ ] Checkpoints are created every 1,000 events and daily.
-11. [ ] Security requirements verified: tamper detection, redaction, fail-closed, scoping.
+11. [ ] A failed join with an unknown, expired, used, or revoked token, or an inactive
+    principal/project, produces one event with the correct actor and reason; the token, token
+    hash, CSR, and key material are absent from every field.
+12. [ ] `last_seen` heartbeats produce no events; changing compose project, compose service,
+    hostname, or manifest hash produces one event.
+13. [ ] Security requirements verified: tamper detection, redaction, fail-closed, scoping, and
+    identity/agent event coverage.

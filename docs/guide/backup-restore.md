@@ -11,6 +11,7 @@ Backup and restore commands are part of v0.1.
 | PostgreSQL dump | Objects, ciphertext, policy, audit chain |
 | Keyring file | The KEK and older keys needed to decrypt |
 | Configuration snapshot | OIDC issuer, URLs, limits |
+| Public internal CA certificate | Agent mTLS trust anchor; the wrapped private key is in the database dump |
 | Audit checkpoints | Off-box integrity anchor |
 
 The database without the keyring is unreadable. The keyring without the database is
@@ -22,8 +23,8 @@ useless. Back them up together, encrypted.
 ov backup --out /backup/openvault-2026-10-29.age
 ```
 
-The archive contains the database dump, keyring, and configuration manifest. It is
-encrypted with age using a passphrase or recipient key.
+The archive contains the database dump, keyring, configuration manifest, and public internal
+CA certificate. It is encrypted with age using a passphrase or recipient key.
 
 The backup passphrase is a second factor. Age-encrypted keyrings and their passphrase flow
 are deferred to a later release; until then the keyring is plaintext JSON with mode `0600`, and both
@@ -39,8 +40,11 @@ ov restore /backup/openvault-2026-10-29.age
 ```
 
 3. Verify migrations ran.
-4. Run `ov audit verify`.
-5. Read one secret from each project to confirm decryption.
+4. Re-materialize `OPENVAULT_INTERNAL_CA` from the restored `ca_keys` row and verify it
+   matches the public certificate in the archive.
+5. Run `ov audit verify`.
+6. Read one secret from each project to confirm decryption.
+7. Verify a pre-backup agent certificate still chains to the restored CA and can connect.
 
 ## Drill
 

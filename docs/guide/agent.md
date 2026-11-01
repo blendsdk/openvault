@@ -4,8 +4,12 @@
 The agent is part of v0.1 and is not implemented in the current scaffold.
 :::
 
-The agent runs next to an application service. It authenticates with mTLS, fetches the
-manifest's secrets, and writes them atomically to a tmpfs directory.
+The agent runs next to an application service. Its first start joins with a one-time token,
+then it authenticates with mTLS, fetches the manifest's secrets, and writes them atomically
+to a tmpfs directory through `GET /v1/data/:project/secrets/:name` on the agent listener;
+the certificate's owner project must match `:project`. It renews after two thirds of the
+certificate lifetime with a fresh key and CSR; an expired or revoked certificate makes it
+remove its files and exit.
 
 ## Modes
 
@@ -55,7 +59,7 @@ starting without secrets.
 |---|---|
 | Success | Write atomically, update status and consumer `last_seen` |
 | 5xx or network error | Keep last known good, status `degraded`, log |
-| 401/403 | Remove files, status `failed`, exit 1 |
+| 401/403 or TLS certificate rejection | Remove files, status `failed`, exit 1 |
 | 404 on a required entry | Remove files, status `failed`, exit 1 |
 | 404 on an optional entry | Remove that file, status `degraded`, continue |
 
@@ -78,8 +82,10 @@ It never calls the vault on demand. It cannot widen access beyond the manifest.
 
 ## Consumer metadata
 
-The agent registers its Compose project, service, hostname, and manifest hash. The UI and
-`ov access explain` use this for the "used by" view.
+The agent registers its Compose project, service, hostname, and manifest hash on join and
+renew, and updates `last_seen` and `state` on each refresh. The UI and `ov access explain`
+use this for the "used by" view. The metadata is self-reported; a heartbeat is not an audit
+event.
 
 ## Next
 

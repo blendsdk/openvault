@@ -33,7 +33,7 @@ stack traces.
 |---|---|
 | Browser | `__Host-ov_session` cookie plus `X-CSRF-Token` on mutations |
 | CLI | `Authorization: Bearer <jwt>` |
-| Agent | mTLS client certificate |
+| Agent | mTLS client certificate; `/v1/agent/join` uses a single-use join token |
 
 The browser session cookie is `__Host-ov_session`: HttpOnly, Secure, SameSite=Lax, Path=/,
 and no Domain. Session ids are 32 random bytes stored only as a SHA-256 hash. The absolute
@@ -72,8 +72,8 @@ While `mustChangePassword` is true, the browser may use only `GET /v1/auth/me`,
 | GET | `/v1/auth/cli/me` | Current CLI user and forced-change flag |
 | GET | `/v1/auth/cli/sessions` | Lists the current principal's CLI families |
 | DELETE | `/v1/auth/cli/sessions/:familyId` | Revokes an owned CLI family |
-| POST | `/v1/agent/join` | Join token plus CSR |
-| POST | `/v1/agent/renew` | mTLS renewal |
+| POST | `/v1/agent/join` | Token-authenticated bootstrap; no client certificate required |
+| POST | `/v1/agent/renew` | mTLS renewal with the current certificate |
 
 Local login and password change are origin-guarded. The login body is
 `{ "identifier": "...", "password": "..." }`; the password-change body is
@@ -122,6 +122,91 @@ disabled principal returns `401 authentication_required`; a bad login returns
 a rejected limit returns `429 RATE_LIMIT_EXCEEDED`. Logout returns 204 for any well-formed
 token, including an already-revoked one, and 400 `validation_error` for a malformed token.
 
+### Service identities
+
+```text
+POST /v1/admin/identities
+{ "name": "payments-api", "projectId": "01J..." }
+-> 201 { "id", "name", "projectId", "status", "createdAt" }
+
+GET /v1/admin/identities?projectId=01J...
+-> 200 { "identities": [ { "id", "name", "projectId", "status", "createdAt" } ] }
+
+GET /v1/admin/identities/:id
+-> 200 {
+     "id", "name", "projectId", "status", "createdAt",
+     "certificates": [ { "serial", "fingerprint", "notBefore", "notAfter", "revokedAt" } ],
+     "consumer": { "composeProject", "composeService", "hostname", "manifestHash",
+                   "state", "firstSeen", "lastSeen", "selfReported": true } | null
+   }
+
+POST /v1/admin/identities/:id/revoke
+-> 204
+
+POST /v1/admin/identities/:id/join-tokens
+{ "ttlSeconds": 900 }
+-> 201 { "id", "token", "expiresAt" }
+```
+
+The join token is shown once; it is never returned by a read route. `ttlSeconds` defaults to
+`OPENVAULT_JOIN_TOKEN_TTL` (15 minutes) and cannot exceed 24 hours. A create without a project
+returns `422 validation_error`; a duplicate active name returns `409 identity_name_conflict`;
+an unknown or foreign identity returns `404 identity_not_found`. Revoke is idempotent and
+revokes all certificates and unused tokens for the identity. A service identity cannot receive
+a local credential, OIDC identity, browser session, or CLI family. `identity.read` allows an
+auditor; create, revoke, and join-token issuance require an org or owning-project
+administrator.
+
+### Agent authentication
+
+```text
+POST /v1/agent/join
+{ "token": "<43-character base64url>",
+  "csr": "<PEM PKCS#10>",
+  "consumer": { "composeProject": "payments", "composeService": "api",
+                "hostname": "b7c1...", "manifestHash": "sha256:<64 lowercase hex>" } }
+-> 200 { "certificatePem", "chainPem", "identityId", "serial", "notAfter" }
+
+POST /v1/agent/renew
+{ "csr": "<PEM PKCS#10>", "consumer": { ... } }
+-> 200 { "certificatePem", "chainPem", "identityId", "serial", "notAfter" }
+```
+
+`POST /v1/agent/join` is the only agent route that does not require a client certificate. It
+is token-authenticated, rate-limited to 10/minute per source IP, and returns `401 join_failed`
+for an unknown, expired, used, or revoked token. Token failures use one generic body. The
+token is 32 random bytes encoded as 43-character base64url; only a 32-byte SHA-256 hash is
+stored. The server claims the token atomically with certificate and consumer insertion, so a
+concurrent second exchange cannot issue another certificate.
+
+The server derives the certificate CN and SAN from the token identity, not from the CSR. The
+issued certificate has CN = principal id, exactly one SAN URI
+`openvault://identity/<id>`, `CA:FALSE`, `digitalSignature`, and `clientAuth`. The CSR must
+prove possession of an EC P-256 key; non-P-256 keys, invalid signatures, requested SANs,
+`CA:TRUE`, requested key usage/EKU, and unknown critical extensions return
+`422 validation_error` and issue no certificate. An arbitrary or empty CSR subject is
+accepted. The response contains the leaf certificate and CA chain, never a private key.
+
+Every other agent request requires a client certificate chained to
+`OPENVAULT_INTERNAL_CA`, an unexpired certificate, a matching stored SHA-256 fingerprint, no
+revocation, an active principal, and an active project. A failed check returns
+`401 authentication_required`; a database/cache failure returns 503. The check runs on every
+request, not only at the TLS handshake, and the state cache is bounded to 5 seconds.
+
+The agent data-plane fetch uses the existing `GET /v1/data/:project/secrets/:name` route on
+the agent listener. The certificate principal's `owner_project_id` must equal the id of the
+project named by `:project`; a successful fetch updates the consumer's `last_seen` and
+`state`. Revocation removes all
+certificates and unused tokens in one transaction; no request succeeds more than 5 seconds
+after the revocation commits, including on an existing keep-alive connection. Renewal is
+allowed after two thirds of the certificate's actual lifetime and requires a fresh CSR/key.
+Only the newest unexpired, unrevoked certificate may renew; older certificates remain valid
+for data until expiry. Join tokens and workload certificates have bounded retention: tokens
+for 24 hours after expiry/use; certificates for 30 days after expiry or revocation.
+
+`GET /ready` also checks that the wrapped CA signing key is present, matches
+`OPENVAULT_INTERNAL_CA`, and can sign a test certificate that verifies against the CA.
+
 ### Meta
 
 | Method | Path | Notes |
@@ -141,6 +226,7 @@ token, including an already-revoked one, and 400 `validation_error` for a malfor
 | DELETE | `/v1/admin/projects/:project` | `project.delete` |
 | GET | `/v1/admin/identities` | `identity.read` |
 | POST | `/v1/admin/identities` | `identity.create` |
+| GET | `/v1/admin/identities/:id` | `identity.read` |
 | POST | `/v1/admin/identities/:id/revoke` | `identity.revoke` |
 | POST | `/v1/admin/identities/:id/join-tokens` | `identity.join_token` |
 | GET | `/v1/admin/assignments` | `assignment.read` |
@@ -182,19 +268,20 @@ token, including an already-revoked one, and 400 `validation_error` for a malfor
 
 ### Operational
 
-`GET /health` is provided by WebAFX. `GET /ready` checks the database and keyring.
+`GET /health` is provided by WebAFX. `GET /ready` checks the database, keyring, TLS/CA
+material, wrapped CA signing key (including a sign/verify probe), and audit table.
 
 ## Status codes
 
 | Code | Meaning |
 |---|---|
 | 400 | Invalid request body or a failed OIDC callback (`oidc_callback_failed`) |
-| 401 | Missing or invalid credential (`authentication_required` or `invalid_credentials`) |
+| 401 | Missing or invalid credential (`authentication_required`, `invalid_credentials`, or `join_failed`) |
 | 403 | Policy denial, `csrf_invalid`, `password_change_required`, or `access_denied` |
-| 404 | Unknown or hidden object, or `oidc_not_configured` |
-| 409 | Duplicate or last-admin conflict |
+| 404 | Unknown or hidden object, `identity_not_found`, or `oidc_not_configured` |
+| 409 | Duplicate, last-admin, or `renewal_not_due`/`identity_name_conflict` conflict |
 | 413 | Payload too large |
-| 422 | WebAFX route validation failure |
+| 422 | WebAFX route validation failure, including an invalid CSR or consumer metadata |
 | 429 | Rate limited (`RATE_LIMIT_EXCEEDED`) |
 | 500 | Integrity failure or unexpected error |
-| 503 | Database, audit, or identity provider unavailable (`oidc_unavailable`) |
+| 503 | Database, audit, CA signing key, or identity provider unavailable (`oidc_unavailable`) |

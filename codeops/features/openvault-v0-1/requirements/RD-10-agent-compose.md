@@ -26,6 +26,9 @@ snippet.
   configured root), mode `0700`, owned by the service UID.
 - [ ] The agent and application run with the same UID; the application mounts the directory
   read-only.
+- [ ] The agent fetches through `GET /v1/data/:project/secrets/:name` on the agent listener.
+  The certificate principal's `owner_project_id` must equal the id of the project named by
+  `:project`; a successful fetch updates `consumers.last_seen` and an allowlisted `state`.
 - [ ] A manifest maps secret names to output files with an optional mode and `optional` flag.
 - [ ] Startup fetches every required entry; if any required entry fails, write nothing and
   exit non-zero.
@@ -37,10 +40,26 @@ snippet.
   `0660`, serving only manifest entries and never calling the vault on demand.
 - [ ] A status file at `/run/openvault/status.json` and `ov-agent health` report `ok`,
   `degraded`, or `failed` without values.
+- [ ] On first start the agent generates an EC P-256 key and CSR, calls the join endpoint with
+  its one-time token and consumer metadata, and stores the returned certificate and key
+  without ever sending the private key to the server.
 - [ ] The agent registers consumer metadata (Compose project, service, hostname, manifest
-  hash) on join, renew, and refresh.
+  hash) on join and renew, and updates `last_seen` and `state` on each refresh. A `last_seen`
+  heartbeat is not an audit event.
+- [ ] The agent renews after two thirds of the current certificate's actual lifetime with a
+  fresh EC P-256 key and CSR. It retries with jitter and backoff, swaps the certificate and
+  key atomically, and keeps the old certificate usable until expiry. On a retry inside the
+  replay window it reuses the same pending EC P-256 key and CSR; it generates a new key only
+  after a successful response or after the window.
+- [ ] A 401/403 or a TLS certificate rejection removes the delivered files and exits 1; it is
+  not treated as a transient network failure. An expired certificate requires a new join
+  token.
+- [ ] `ov docker scaffold` grants object-scope `secrets.reader` assignments for the manifest
+  entries, or prints the exact `ov role grant` commands; it does not grant project-wide
+  reader access.
 - [ ] Wrapper mode `ov-agent run -- <cmd>` exports only entries with `env:` and is opt-in.
-- [ ] The agent stores its certificate and key in a private volume mode `0600`.
+- [ ] The agent stores its certificate and key in a state directory mode `0700`; the
+  certificate and key files inside are mode `0600`.
 - [ ] The agent never logs values or file contents.
 - [ ] `ov docker scaffold <project> <service>` creates or reuses the project and identity,
   issues a one-time join token, and emits a Compose snippet with the agent service, tmpfs
@@ -98,6 +117,7 @@ Rules:
 | 200 | Atomic write, update status and `last_seen` |
 | 5xx / network | Keep last-known-good, `degraded` |
 | 401 / 403 | Remove files, `failed`, exit 1 |
+| TLS certificate rejection | Treat as a credential failure: remove files, `failed`, exit 1 |
 | Required 404 | Remove files, `failed`, exit 1 |
 | Optional 404 | Remove that file, `degraded` |
 
@@ -123,8 +143,13 @@ The generated snippet includes:
 
 ## Integration Points
 
-- RD-05 supplies the service identity and mTLS certificate.
-- RD-07 records consumer registration and refresh.
+- RD-05 supplies the service identity, join/renew endpoints, certificate profile, and
+  revocation state.
+- RD-08 supplies the data-plane `GET /v1/data/:project/secrets/:name` handler used on the
+  agent listener; the certificate's project is checked by the agent middleware.
+- RD-07 records consumer registration, metadata changes, and renewal events; `last_seen`
+  heartbeats are not audited.
+- RD-06 supplies the object-scope reader action used by the scaffold grant.
 - RD-08 supplies secret values and consumer metadata.
 - RD-11 exposes `ov docker scaffold` and `ov-agent`.
 - RD-12 shows the consumers view.
@@ -140,33 +165,45 @@ The generated snippet includes:
 | Refresh failure | Retain / remove / exit | Retain only on transient failure | Revocation must take effect | AR-27 |
 | Scaffold token | Write to Compose / print once | Print once, operator supplies | No secret at rest | AR-29 |
 | Remote hosts | v0.1 / v0.2 | v0.2 | Scope control | AR-30 |
+| Renewal trigger | Server / agent | Agent at two thirds of the certificate lifetime | The server owns the window; the agent owns scheduling and retry | PF-008 |
+| Agent state permissions | Directory `0600` / directory `0700` + files `0600` | Directory `0700`, files `0600` | A `0600` directory is not traversable | PF-013 |
 
 ## Security Considerations
 
 - **Data sensitivity:** secret values in tmpfs; agent private key; join token.
 - **Input validation:** manifest paths, file names, modes, env names, refresh interval.
-- **Authentication & authorization:** mTLS only; manifest scope equals identity scope.
+- **Authentication & authorization:** mTLS for every route except the token-authenticated
+  join; manifest scope equals identity scope.
 - **Injection risks:** no shell execution with values; `ov-agent run` execs the child without
   a shell by default.
 - **Encryption needs:** TLS/mTLS; tmpfs; no plaintext on disk.
 - **Rate limiting:** refresh interval and server-side data-plane limits.
 - **Infrastructure:** non-root, no Docker socket, read-only app mount, no host paths in
-  metadata, swap risk documented.
+  metadata, swap risk documented; the state directory is `0700` and certificate/key files are
+  `0600`.
 
 ## Acceptance Criteria
 
 1. [ ] A manifest with a `..`, absolute path, or unknown field fails at startup with a clear
    error.
-2. [ ] Startup with one required secret unavailable exits non-zero and writes no files.
-3. [ ] A successful fetch writes each required file with mode `0400`; a kill during write
+2. [ ] First start generates a P-256 key/CSR, joins with the token, stores the certificate and
+   key in a `0700` directory with `0600` files, and never sends the private key to the server.
+3. [ ] Startup with one required secret unavailable exits non-zero and writes no files.
+4. [ ] A successful fetch writes each required file with mode `0400`; a kill during write
    leaves no partial file.
-4. [ ] A transient 5xx keeps the previous file and reports `degraded`.
-5. [ ] A 401/403 removes all files and exits 1.
-6. [ ] The local socket serves only manifest names; another name returns 404.
-7. [ ] Consumer metadata is stored once per identity and updated on refresh.
-8. [ ] A second Compose project's service cannot read the first project's tmpfs directory.
-9. [ ] The scaffold is idempotent and never writes the join token into the Compose file.
-10. [ ] The application does not start before the agent is healthy.
-11. [ ] The agent logs contain no secret value or file content.
-12. [ ] Security requirements verified: mTLS, tmpfs isolation, atomic writes, no logs, no
-    Docker socket.
+5. [ ] A transient 5xx keeps the previous file and reports `degraded`.
+6. [ ] A 401/403 removes all files and exits 1; a TLS certificate rejection follows the same
+   credential-failure path.
+7. [ ] The local socket serves only manifest names; another name returns 404.
+8. [ ] Consumer metadata is stored once per identity; join updates it, renewal updates it, and
+   the agent data-plane fetch updates `last_seen` and `state` without creating a duplicate.
+9. [ ] A second Compose project's service cannot read the first project's tmpfs directory.
+10. [ ] The scaffold is idempotent, grants object-scope reader only for manifest entries, and
+    never writes the join token into the Compose file.
+11. [ ] The application does not start before the agent is healthy.
+12. [ ] The agent logs contain no secret value, private key, certificate body, or file content.
+13. [ ] A renewal response lost after issuance, retried with the same pending key and CSR,
+    returns the same certificate and creates no second `workload_certs` row.
+14. [ ] Security requirements verified: mTLS, token join, two-thirds renewal with a fresh key,
+    replay of the same pending key on retry, revocation handling, tmpfs isolation, atomic
+    writes, no logs, no Docker socket.

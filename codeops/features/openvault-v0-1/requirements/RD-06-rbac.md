@@ -25,7 +25,13 @@ guards, per-object capability flags, and the "who can read this" explanation.
 - [ ] Permissions inherit down org → project → object, never up.
 - [ ] Object-scope assignments are limited to `secrets.reader` and `certificates.reader`.
 - [ ] A service identity cannot hold any control-plane action.
-- [ ] Project administrators can manage only identities owned by their project.
+- [ ] RD-05 uses a narrow identity-authorization helper with the `identity.*` action names and
+  this document's role/scope matrix until the full evaluator lands; the helper is replaced
+  without changing the admin identity API.
+- [ ] The agent scaffold grants object-scope `secrets.reader` assignments for manifest
+  entries, or prints the exact grant command; project-wide reader is not implicit.
+- [ ] A project-scoped project administrator can manage only identities owned by that
+  project; an org-scoped `project.admin` can manage every identity.
 - [ ] A principal can grant only roles whose actions are a subset of its own effective
   actions at that scope, and only at a scope it covers.
 - [ ] Only an org administrator can grant `org.admin`.
@@ -95,14 +101,19 @@ return allow
 
 - Human users are org-level principals; only org-scope `identity.create` creates them.
 - Service identities have `owner_project_id`.
-- Project-scope identity actions apply only to identities owned by that project.
+- Project-scope identity actions apply only to identities owned by that project. An
+  org-scoped assignment for a role eligible at org scope (`org.admin`, `project.admin`, or
+  `auditor`) covers every identity.
 - A join token must target an identity owned by the same project.
+- RD-05's narrow helper must use these identity action names and the public matrix, including
+  `identity.read` for auditors. RD-06 replaces the helper with the full evaluator.
 
 ## Integration Points
 
 - RD-03 supplies the browser principal and session.
 - RD-04 supplies the CLI principal.
-- RD-05 supplies the agent principal and identity ownership.
+- RD-05 supplies the agent principal and identity ownership. It uses the identity action
+  names and the role/scope matrix through a narrow helper until this evaluator lands.
 - RD-07 audits every decision.
 - RD-08 and RD-09 expose capabilities and enforce actions.
 - RD-12 renders capabilities and the access-explain view.
@@ -117,6 +128,7 @@ return allow
 | Object scope | All roles / readers only | Reader roles only | Prevent hidden writers | AR-6 |
 | Revocation latency | Immediate / 5 s / eventual | 5 seconds | Cacheable and bounded | AR-18 |
 | UI authorization | Client math / server flags | Server capability flags | Client is not the authority | AR-24 |
+| Identity admin bridge | Full RBAC first / narrow helper / hardcode | Narrow helper in RD-05, replaced here | Avoids a dependency cycle and keeps one matrix for the final evaluator | PF-010 |
 
 ## Security Considerations
 
@@ -138,8 +150,9 @@ return allow
 3. [ ] An org assignment covers a project and its objects; a project assignment covers its
    objects; an object assignment covers only that object; no upward inheritance.
 4. [ ] A service identity granted a control-plane action is rejected with 422.
-5. [ ] A project administrator cannot grant `auditor` (lacks `audit.read`), `org.admin`, or a
-   role at another project.
+5. [ ] A project-scoped project administrator cannot grant `auditor` (lacks `audit.read`),
+   `org.admin`, or a role at another project. An org-scoped `project.admin` can grant at any
+   project, and an org-scoped `auditor` can read any identity.
 6. [ ] Removing the last org admin returns 409; adding a second then removing succeeds.
 7. [ ] Revoking an assignment causes the next request to deny within 5 seconds.
 8. [ ] Every allow and denial produces exactly one audit event with a reason code.

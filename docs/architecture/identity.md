@@ -41,13 +41,29 @@ Sessions live in memory in v0.1. A server restart signs users out.
 
 ## Agent: mTLS
 
-1. Administrator creates a service identity owned by a project.
-2. Administrator issues a single-use join token.
-3. Agent generates an EC P-256 key and CSR with consumer metadata.
-4. Server signs a 30-day certificate with the internal CA.
-5. Agent connects over mTLS; the server checks fingerprint, expiry, and revocation.
+1. An administrator creates a service identity owned by a project and issues a single-use
+   join token. The token is 32 random bytes, shown once, stored as a SHA-256 hash, and expires
+   after 15 minutes by default (maximum 24 hours).
+2. The agent generates an EC P-256 key and a PKCS#10 CSR with consumer metadata.
+3. `POST /v1/agent/join` is the only agent route reachable without a client certificate. It
+   validates the CSR, claims the token atomically, derives the certificate identity from the
+   token, and signs a certificate with the internal CA.
+4. The certificate has CN = principal id, exactly one SAN URI
+   `openvault://identity/<id>`, `CA:FALSE`, `digitalSignature`, and `clientAuth`. Its lifetime
+   is `OPENVAULT_CERT_TTL_DAYS` (default 30, range 1–90).
+5. The agent connects over mTLS. Every other agent request checks the chain, fingerprint,
+   expiry, revocation, principal status, and project status. The check runs per request with
+   a cache bounded to 5 seconds, so an existing keep-alive connection cannot outlive a
+   revocation.
+6. The agent renews after two thirds of the certificate's actual lifetime with a fresh key and
+   CSR. Only the newest certificate may renew; older certificates remain valid for data until
+   expiry. An expired certificate requires a new join token.
+7. An identity revoke disables the principal and revokes every certificate and unused join
+   token in one transaction. No request succeeds more than 5 seconds after revocation.
 
-Revocation takes effect within 5 seconds. A revoked agent removes its files and exits.
+A service identity cannot have a local password, OIDC identity, browser session, or CLI
+family. It cannot hold a control-plane action. A revoked agent removes its files and exits;
+the secrets already delivered to the application cannot be retracted, so rotate them.
 
 ## WebAFX providers
 
@@ -56,7 +72,7 @@ Revocation takes effect within 5 seconds. A revoked agent removes its files and 
 | `user` | Composite | Browser session, CLI bearer, or agent mTLS |
 | `browser` | Session | `__Host-ov_session` cookie |
 | `cli` | JWT | Ed25519 bearer |
-| `agent` | mTLS | Client certificate fingerprint |
+| `agent` | mTLS | Client certificate fingerprint; join uses a one-time token |
 
 Data routes use `user` so browsers and CLI share handlers. Browser-only routes use
 `browser`; agent routes use `agent`.

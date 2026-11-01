@@ -26,7 +26,8 @@ store a raw refresh token or a raw signing seed.
 
 - [ ] `POST /v1/auth/cli/login` accepts `identifier` and `password` and returns an access
   token, a refresh token, their absolute expiries, the public user, and
-  `mustChangePassword`. It does not set a browser cookie.
+  `mustChangePassword`. It does not set a browser cookie. A service principal is rejected
+  with the generic authentication failure and cannot obtain a CLI family.
 - [ ] The access token is an Ed25519 JWT with a 15-minute lifetime, issuer `openvault`,
   audience `openvault-cli`, and claims `sub`, `sid`, `jti`, `iat`, `exp`, and `kind`.
   `sid` is the CLI session family identifier and `kind` is `user`.
@@ -441,6 +442,7 @@ instances as browser login; separate instances are not acceptable.
     deletes a live family row.
 15. [ ] Tokens never appear in argv, server logs, or error bodies. RD-11 proves the credential
     file, local logs, and argv behavior; RD-04 proves server-side redaction.
-16. [ ] Security requirements verified: token lifetimes, absolute family expiry, rotation,
+16. [ ] A service principal cannot complete CLI login, and no CLI family is created for it.
+17. [ ] Security requirements verified: token lifetimes, absolute family expiry, rotation,
     reuse detection, signing-key rotation, password-change revocation, storage permissions,
-    rate limits, and log redaction.
+    rate limits, log redaction, and service-principal rejection.

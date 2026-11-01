@@ -23,7 +23,7 @@ least-privilege delivery.
 |---|---|
 | Startup, required secret unavailable | Exit non-zero, write nothing |
 | Refresh, 5xx or network error | Keep last known good, mark degraded |
-| Refresh, 401/403 | Remove files, mark failed, exit |
+| Refresh, 401/403 or TLS certificate rejection | Remove files, mark failed, exit |
 | Required entry 404 | Remove files, mark failed, exit |
 | Optional entry 404 | Remove that file, mark degraded |
 
@@ -41,11 +41,22 @@ The agent exposes a read-only unix socket:
 
 It never calls the vault on demand and cannot widen access beyond the manifest.
 
+## Authentication
+
+The first start uses a one-time join token on the agent listener. The agent generates an
+EC P-256 key and CSR; the server derives the certificate identity from the token, signs a
+fixed-profile certificate, and returns the leaf and CA chain. Every later request uses the
+certificate over mTLS. Fetching uses `GET /v1/data/:project/secrets/:name` on the agent
+listener; the certificate's owner project must match `:project`. The agent renews after two thirds of the certificate's lifetime with
+a fresh key and CSR; the old certificate remains valid for data until expiry but cannot
+renew. An expired or revoked certificate causes the agent to remove its files and exit.
+
 ## Consumer metadata
 
-The agent registers Compose project, service, hostname, and manifest hash. The server
-updates `last_seen` on every refresh. The UI and `ov access explain` use it for the "used
-by" view.
+The agent registers Compose project, service, hostname, and manifest hash on join and renew,
+and updates `last_seen` and `state` on every refresh. The UI and `ov access explain` use it
+for the "used by" view. The metadata is self-reported; a `last_seen` heartbeat is not an
+audit event.
 
 ## Environment export
 

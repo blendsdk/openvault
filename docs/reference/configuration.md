@@ -10,13 +10,13 @@ bind. The server requires Node.js 24.7 or newer (the built-in Argon2 API).
 | `OPENVAULT_BASE_URL` | — | yes | Absolute HTTPS URL; no credentials, query, or fragment |
 | `OPENVAULT_ADMIN_PORT` | `8443` | no | Canonical admin HTTPS port |
 | `PORT` | — | no | Compatibility alias for `OPENVAULT_ADMIN_PORT`; a conflict is an error |
-| `OPENVAULT_AGENT_PORT` | `8444` | no | Agent mTLS port; must differ from the admin port |
+| `OPENVAULT_AGENT_PORT` | `8444` | no | Agent TLS port; join is token-authenticated, other routes are mTLS; must differ from the admin port |
 | `OPENVAULT_DB_URL` | — | yes | PostgreSQL connection string |
 | `OPENVAULT_KEYRING` | — | yes | Absolute path to a regular file with mode `0600` |
 | `OPENVAULT_KEYRING_PASSPHRASE_FILE` | none | no | Reserved for age keyrings; setting it fails closed in the current release |
 | `OPENVAULT_TLS_CERT` | — | yes | Readable server certificate PEM |
 | `OPENVAULT_TLS_KEY` | — | yes | Readable private-key PEM that matches the certificate |
-| `OPENVAULT_INTERNAL_CA` | — | yes | Readable CA certificate with `CA:TRUE` and a valid self-signature |
+| `OPENVAULT_INTERNAL_CA` | — | yes | Readable public CA certificate with `CA:TRUE` and a valid self-signature; the private key is wrapped in `ca_keys` |
 | `OPENVAULT_OIDC_ISSUER` | none | no | HTTPS URL; enables OIDC |
 | `OPENVAULT_OIDC_CLIENT_ID` / `_SECRET` | none | with OIDC | Non-empty when an issuer is set |
 | `OPENVAULT_OIDC_REDIRECT_URL` | `${BASE_URL}/v1/auth/callback` | no | HTTPS URL |
@@ -25,8 +25,8 @@ bind. The server requires Node.js 24.7 or newer (the built-in Argon2 API).
 | `OPENVAULT_CERT_MAX_BYTES` | `131072` | no | Product-value limit enforced by the certificate routes |
 | `OPENVAULT_SOFT_DELETE_DAYS` | `30` | no | 7–90 |
 | `OPENVAULT_AUDIT_RETENTION_DAYS` | `180` | no | 30–3650 |
-| `OPENVAULT_JOIN_TOKEN_TTL` | `15m` | no | 1m–24h |
-| `OPENVAULT_CERT_TTL_DAYS` | `30` | no | 1–90 |
+| `OPENVAULT_JOIN_TOKEN_TTL` | `15m` | no | 1m–24h; default join-token lifetime; an admin request may override it up to 24 hours |
+| `OPENVAULT_CERT_TTL_DAYS` | `30` | no | 1–90; workload certificate lifetime; renewal is at two thirds of the issued lifetime |
 | `OPENVAULT_SESSION_TTL_HOURS` | `8` | no | 1–24 |
 | `OPENVAULT_LOG_LEVEL` | `info` | no | `error`, `warn`, `info`, or `debug` |
 | `OPENVAULT_TRUST_PROXY` | `true` | no | Trust forwarded headers only from peers in `OPENVAULT_PROXY_CIDRS` |
@@ -72,12 +72,22 @@ Age-encrypted keyrings are deferred to a later release. Setting
 no plaintext fallback. The reference stack is not bootable until the `ov init` provisioner
 CLI and backup/rotation releases create the keyring file.
 
+## Workload CA
+
+The public CA certificate at `OPENVAULT_INTERNAL_CA` must match the CA key stored in
+`ca_keys`. The key is a P-256 scalar wrapped by the current KEK; it is never a file and is
+never returned. `ov init` generates the CA once. Re-running init does not rotate it.
+Startup and `/ready` fail closed if the row is missing, the KEK cannot unwrap it, or it does
+not match the public certificate. Readiness also signs and verifies a short test certificate.
+KEK rotation re-wraps `ca_keys`; backup and restore include the public certificate and restore
+the wrapped key from the database dump.
+
 ## Readiness
 
 | Endpoint | Semantics |
 |---|---|
 | `GET /health` | Liveness only; remains 200 during a dependency outage |
-| `GET /ready` | PostgreSQL, keyring, TLS/CA, and audit-table probes; 200 or 503 `not_ready` |
+| `GET /ready` | PostgreSQL, keyring, TLS/CA, wrapped CA signing key (including a sign/verify probe), and audit-table probes; 200 or 503 `not_ready` |
 
 `/v1/ready` is not part of the contract. The readiness database probe uses a 2-second
 connection timeout and a bounded outer timeout.
@@ -97,6 +107,7 @@ and `/ready` so container health checks work.
 
 ## TLS and headers
 
-The admin listener is HTTPS only and uses TLS 1.2 or newer. The agent listener requires a
-client certificate chained to `OPENVAULT_INTERNAL_CA`. The server does not own the public
-HSTS contract; Caddy sets HSTS and the public client/upstream timeouts.
+The admin listener is HTTPS only and uses TLS 1.2 or newer. The agent listener accepts a
+client certificate chained to `OPENVAULT_INTERNAL_CA` on every route except
+`POST /v1/agent/join`; join is token-authenticated. The server does not own the public HSTS
+contract; Caddy sets HSTS and the public client/upstream timeouts.

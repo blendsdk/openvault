@@ -26,8 +26,9 @@ These are accepted for v0.1. They are documented so reviewers do not mistake the
 15. **TypeScript 7.** The stack is verified in this repository, but the ecosystem around
     the native compiler is still maturing. Biome replaces typescript-eslint.
 16. **Single-instance sessions.** Browser sessions, OIDC transient state, and login/refresh
-    rate-limit counters are process-local. CLI refresh families and signing keys are stored in
-    PostgreSQL and are shared across instances. Lockout state is stored in PostgreSQL and is
+    rate-limit counters are process-local. CLI refresh families, signing keys,
+    workload certificates, and the CA key are stored in PostgreSQL and are shared across
+    instances. Lockout state is stored in PostgreSQL and is
     shared. A multi-instance deployment would need a shared session/state store; the reference
     stack runs one server. A restart signs browser users out but does not erase CLI families.
 17. **OIDC state locality.** The callback must reach the process that handled the login
@@ -49,3 +50,13 @@ These are accepted for v0.1. They are documented so reviewers do not mistake the
     release; KEK re-wrap and operational rotation are planned for a later release.
 22. **CLI refresh counters.** Refresh IP and family buckets are in memory. A restart clears
     them, and a multi-instance deployment does not share them.
+23. **Agent join and renewal counters.** Join IP and renewal principal/IP buckets are in
+    memory. A restart clears them, and a multi-instance deployment does not share them.
+24. **Workload CA custody.** The CA key is wrapped by the KEK and stored in PostgreSQL, but
+    the KEK and CA key are on the same host. There is no HSM. Per-certificate revocation and
+    identity re-enable are out of scope; identity revoke revokes all credentials. Secrets
+    already delivered to a container cannot be retracted; rotate the values after a
+    compromise.
+25. **Renewal replay cache.** The five-minute renewal replay cache is process-local. A server
+    restart or a retry after five minutes requires a new join token. The old certificate
+    remains valid for data until expiry, but it cannot renew.

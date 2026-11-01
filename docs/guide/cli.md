@@ -52,7 +52,8 @@ the assignment that produces it.
 ov docker scaffold payments api
 ```
 
-Creates or reuses the project and identity, issues a single-use join token, and prints a
+Creates or reuses the project and identity, grants object-scope reader for the manifest
+entries, issues a single-use join token, and prints a
 Compose snippet. It does not write the token into the Compose file.
 
 ## Run a command with injected secrets
