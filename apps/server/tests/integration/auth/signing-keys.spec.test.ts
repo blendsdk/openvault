@@ -5,21 +5,21 @@ import { join } from "node:path";
 import { isUlid } from "@openvault/core";
 import { decodeJwt, decodeProtectedHeader, generateKeyPair, SignJWT } from "jose";
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it } from "vitest";
-import { CliTokenError } from "../../src/auth/cli-jwt.js";
-import { KeyringProvider } from "../../src/security/keyring.js";
+import { CliTokenError } from "../../../src/auth/cli-jwt.js";
+import { KeyringProvider } from "../../../src/security/keyring.js";
 import {
   SigningKeyRepository,
   SigningKeyRotationError,
   SigningKeyService,
   SigningKeyUnavailableError,
-} from "../../src/security/signing-keys.js";
-import { writeFixtureFile } from "../helpers/config-fixture.js";
-import { testUlid } from "../integration/helpers/fixtures.js";
+} from "../../../src/security/signing-keys.js";
+import { writeFixtureFile } from "../../helpers/config-fixture.js";
+import { testUlid } from "../helpers/fixtures.js";
 import {
   applyMigrations,
   createTestDatabase,
   type TestDatabase,
-} from "../integration/helpers/test-database.js";
+} from "../helpers/test-database.js";
 
 const START_MS = Date.parse("2026-10-30T12:00:00.000Z");
 const ACCESS_LIFETIME_MS = 900_000;

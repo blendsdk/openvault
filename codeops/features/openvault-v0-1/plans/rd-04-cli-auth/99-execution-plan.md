@@ -3,7 +3,7 @@
 > **Document**: 99-execution-plan.md
 > **Parent**: [Index](00-index.md)
 > **Last Updated**: 2026-11-01 01:12
-> **Progress**: 17/69 tasks (25%)
+> **Progress**: 18/69 tasks (26%)
 > **CodeOps Artifact Schema**: 1
 
 ## Overview
@@ -64,7 +64,7 @@ spec tests, red result, implementation, green result, implementation tests, full
 **Objective**: Freeze the contracts, schema, key lifecycle, and JWT expectations before code.
 
 - [x] 1.1.1 [spec-author] Write contract tests for ST-1–ST-5 — `packages/api-contract/tests/cli-auth.spec.test.ts` ✅ (completed: 2026-11-01 01:02)
-- [x] 1.1.2 [spec-author] Write signing-key lifecycle tests for ST-9–ST-14 — `apps/server/tests/auth/signing-keys.spec.test.ts` ✅ (completed: 2026-11-01 01:02)
+- [x] 1.1.2 [spec-author] Write signing-key lifecycle tests for ST-9–ST-14 — `apps/server/tests/integration/auth/signing-keys.spec.test.ts` ✅ (completed: 2026-11-01 01:02)
 - [x] 1.1.3 [spec-author] Write pure JWT verification tests for ST-12–ST-15 — `apps/server/tests/auth/cli-jwt.spec.test.ts` ✅ (completed: 2026-11-01 01:02)
 - [x] 1.1.4 [spec-author] Extend schema and migration tests for ST-6–ST-8 — `apps/server/tests/integration/schema.spec.test.ts`, `apps/server/tests/integration/migrations.spec.test.ts` ✅ (completed: 2026-11-01 01:02)
 - [x] 1.1.5 Run the Phase 1 spec tests and record the red result ✅ (completed: 2026-11-01 01:02)
@@ -86,9 +86,9 @@ spec tests, red result, implementation, green result, implementation tests, full
 
 ### Step 1.3: Implementation Tests and Hardening
 
-- [x] 1.3.1 Write implementation tests for keyring callbacks, wrap AAD/tamper, seed lengths, key-generation errors, cache reload, and due-previous rejection — `apps/server/tests/auth/signing-keys.impl.test.ts` ✅ (completed: 2026-11-01 01:12)
+- [x] 1.3.1 Write implementation tests for keyring callbacks, wrap AAD/tamper, seed lengths, key-generation errors, cache reload, and due-previous rejection — `apps/server/tests/integration/auth/signing-keys.impl.test.ts` ✅ (completed: 2026-11-01 01:12)
 - [x] 1.3.2 Write implementation tests for JWT claim edges and clock tolerance — `apps/server/tests/auth/cli-jwt.impl.test.ts` ✅ (completed: 2026-11-01 01:12)
-- [ ] 1.3.3 Run full verification — `pnpm verify`
+- [x] 1.3.3 Run full verification — `pnpm verify` ✅ (completed: 2026-11-01 01:13)
 
 **Deliverables**:
 - Strict CLI contracts exported from `@openvault/api-contract`.

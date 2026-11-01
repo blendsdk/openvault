@@ -4,7 +4,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { isUlid, KeyringError } from "@openvault/core";
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it } from "vitest";
-import { KeyringProvider } from "../../src/security/keyring.js";
+import { KeyringProvider } from "../../../src/security/keyring.js";
 import {
   generateSigningKey,
   SIGNING_KEY_OVERLAP_MS,
@@ -14,13 +14,13 @@ import {
   SigningKeyUnavailableError,
   unwrapSigningSeed,
   wrapSigningSeed,
-} from "../../src/security/signing-keys.js";
-import { writeFixtureFile } from "../helpers/config-fixture.js";
+} from "../../../src/security/signing-keys.js";
+import { writeFixtureFile } from "../../helpers/config-fixture.js";
 import {
   applyMigrations,
   createTestDatabase,
   type TestDatabase,
-} from "../integration/helpers/test-database.js";
+} from "../helpers/test-database.js";
 
 const NOW_MS = Date.parse("2026-10-30T12:00:00.000Z");
 const PRINCIPAL_ID = "01ARZ3NDEKTSV4RRFFQ69G5FAV";

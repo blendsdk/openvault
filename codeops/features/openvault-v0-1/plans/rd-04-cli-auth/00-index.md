@@ -170,7 +170,7 @@ no repeated CLI-auth finding pattern exists yet._
 
 **Tests**
 - `packages/api-contract/tests/cli-auth.spec.test.ts`
-- `apps/server/tests/auth/signing-keys.spec.test.ts`
+- `apps/server/tests/integration/auth/signing-keys.spec.test.ts`
 - `apps/server/tests/auth/cli-jwt.spec.test.ts`
 - `apps/server/tests/auth/local-login.spec.test.ts`
 - `apps/server/tests/auth/login-rate-limits.spec.test.ts`

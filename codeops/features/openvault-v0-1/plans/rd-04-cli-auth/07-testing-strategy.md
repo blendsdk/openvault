@@ -121,7 +121,7 @@
 |---|---|---|
 | `packages/api-contract/tests/cli-auth.spec.test.ts` | ST-1–ST-5 | Contracts |
 | `apps/server/tests/integration/schema.spec.test.ts` | ST-6–ST-8 | Schema/migration |
-| `apps/server/tests/auth/signing-keys.spec.test.ts` | ST-9–ST-14 | Key lifecycle |
+| `apps/server/tests/integration/auth/signing-keys.spec.test.ts` | ST-9–ST-14 | Key lifecycle |
 | `apps/server/tests/auth/cli-jwt.spec.test.ts` | ST-12–ST-15 | JWT |
 | `apps/server/tests/integration/auth.cli-login.spec.test.ts` | ST-16–ST-24 | Login and shared limits |
 | `apps/server/tests/integration/auth.cli-refresh.spec.test.ts` | ST-25–ST-37, ST-49–ST-50 | Refresh, logout, bearer, limits |
@@ -137,7 +137,7 @@
 | `apps/server/tests/auth/login-rate-limits.impl.test.ts` | Account key, shared wrappers, family consume after lookup | High |
 | `apps/server/tests/auth/middleware.impl.test.ts` | Browser/CLI union, require helpers, gate allowlists | High |
 | `apps/server/tests/auth/csrf.impl.test.ts` | Browser-only CSRF/Origin behavior | High |
-| `apps/server/tests/auth/signing-keys.impl.test.ts` | Wrap failures, due predicate, rotation edge, cache reload | High |
+| `apps/server/tests/integration/auth/signing-keys.impl.test.ts` | Wrap failures, due predicate, rotation edge, cache reload | High |
 | `apps/server/tests/auth/cli-sessions.impl.test.ts` | Repository result mapping, unique race, cleanup bound | High |
 | `apps/server/tests/auth/cli-maintenance.impl.test.ts` | Timer idempotence, failure logging, stop | Medium |
 | `apps/server/tests/auth/cli-auth.impl.test.ts` | Token response assembly, sign failure revokes family | High |
