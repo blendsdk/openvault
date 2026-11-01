@@ -2,8 +2,8 @@
 
 > **Document**: 99-execution-plan.md
 > **Parent**: [Index](00-index.md)
-> **Last Updated**: 2026-11-01 01:10
-> **Progress**: 13/69 tasks (19%)
+> **Last Updated**: 2026-11-01 01:11
+> **Progress**: 14/69 tasks (20%)
 > **CodeOps Artifact Schema**: 1
 
 ## Overview
@@ -81,7 +81,7 @@ spec tests, red result, implementation, green result, implementation tests, full
 - [x] 1.2.6 Add Ed25519 key generation, AES-256-GCM seed wrap/unwrap, and the signing-key error types — `apps/server/src/security/signing-keys.ts` ✅ (completed: 2026-11-01 01:08)
 - [x] 1.2.7 Add the signing-key repository primitives for advisory-locked ensure, rotate, and retire-due — `apps/server/src/security/signing-keys.ts` ✅ (completed: 2026-11-01 01:09)
 - [x] 1.2.8 Add pure `jose` access-token sign/verify helpers matching the fixed claim set — `apps/server/src/auth/cli-jwt.ts` ✅ (completed: 2026-11-01 01:09)
-- [ ] 1.2.9 Add the signing-key service cache and access-token sign/verify methods — `apps/server/src/security/signing-keys.ts`
+- [x] 1.2.9 Add the signing-key service cache and access-token sign/verify methods — `apps/server/src/security/signing-keys.ts` ✅ (completed: 2026-11-01 01:10)
 - [ ] 1.2.10 Run the Phase 1 spec tests and verify green
 
 ### Step 1.3: Implementation Tests and Hardening

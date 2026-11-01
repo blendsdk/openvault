@@ -1,6 +1,9 @@
 import { createCipheriv, createDecipheriv, generateKeyPairSync, randomBytes } from "node:crypto";
 import { newUlid } from "@openvault/core";
 import type { PostgreSQLDatabase } from "blendsdk/postgresql";
+import { importJWK } from "jose";
+import type { CliAccessClaims } from "../auth/cli-jwt.js";
+import { signCliAccessToken, verifyCliAccessToken } from "../auth/cli-jwt.js";
 import type { KeyringProvider } from "./keyring.js";
 
 /** Status of one JWT signing key. */
@@ -422,5 +425,275 @@ export class SigningKeyRepository {
     );
     const row = result.records[0];
     return row === undefined ? undefined : toSigningKeyRow(row);
+  }
+}
+
+/** Options required by {@link SigningKeyService}. */
+export interface SigningKeyServiceOptions {
+  /** Database-backed key repository. */
+  readonly repository: SigningKeyRepository;
+  /** Loaded KEK provider. */
+  readonly keyring: KeyringProvider;
+  /** Injectable clock for tests; defaults to `Date.now`. */
+  readonly now?: () => number;
+}
+
+interface CachedCurrentKey {
+  readonly row: SigningKeyRow;
+  readonly privateKey: CryptoKey;
+  readonly publicKey: CryptoKey;
+}
+
+interface CachedPreviousKey {
+  readonly row: SigningKeyRow;
+  readonly publicKey: CryptoKey;
+}
+
+/**
+ * Owns signing-key lifecycle decisions and cached key material.
+ *
+ * The service creates the first key under the repository advisory lock, rotates
+ * only when the previous key is outside its overlap window, retires due keys,
+ * and signs/verifies access tokens. Raw seeds exist only while a row is being
+ * unwrapped and are zeroed immediately after the key is imported.
+ */
+export class SigningKeyService {
+  readonly #repository: SigningKeyRepository;
+  readonly #keyring: KeyringProvider;
+  readonly #now: () => number;
+  #current: CachedCurrentKey | undefined;
+  #previous: CachedPreviousKey | undefined;
+
+  /**
+   * @param options - Repository, keyring, and clock.
+   */
+  public constructor(options: SigningKeyServiceOptions) {
+    this.#repository = options.repository;
+    this.#keyring = options.keyring;
+    this.#now = options.now ?? Date.now;
+  }
+
+  /**
+   * Creates the first current key when absent and loads current/previous state.
+   *
+   * The operation is idempotent and safe across concurrent servers because the
+   * repository holds a database-wide advisory lock and the table enforces one
+   * current row.
+   */
+  public async ensure(): Promise<void> {
+    await this.#repository.withLock(async (database) => {
+      const current = await this.#repository.findCurrent(database);
+      if (current !== undefined) {
+        return;
+      }
+      await this.#createCurrent(database, this.#now());
+    });
+    await this.#reload();
+  }
+
+  /**
+   * Rotates to a new current key.
+   *
+   * A rotation is rejected while a previous key would still be inside its
+   * verification overlap. When no previous key exists, the first rotation is
+   * allowed immediately.
+   *
+   * @returns The new current key identifier.
+   * @throws {SigningKeyRotationError} When retiring the previous key would invalidate live tokens.
+   */
+  public async rotate(): Promise<{ readonly kid: string }> {
+    const now = this.#now();
+    const created = await this.#repository.withLock(async (database) => {
+      const current = await this.#repository.findCurrent(database);
+      if (current === undefined) {
+        return this.#createCurrent(database, now);
+      }
+
+      const previous = await this.#repository.findPrevious(database);
+      if (previous !== undefined && !this.#isDue(current, now)) {
+        throw new SigningKeyRotationError();
+      }
+      if (previous !== undefined) {
+        await this.#repository.retirePrevious(database, previous.kid, new Date(now));
+      }
+      await this.#repository.promoteCurrentToPrevious(database, current.kid);
+      return this.#createCurrent(database, now);
+    });
+    await this.#reload();
+    return { kid: created.kid };
+  }
+
+  /**
+   * Retires a previous key whose overlap window has ended.
+   *
+   * @returns The number of rows retired (0 or 1).
+   */
+  public async retireDue(): Promise<number> {
+    const now = this.#now();
+    const retired = await this.#repository.withLock(async (database) => {
+      const current = await this.#repository.findCurrent(database);
+      const previous = await this.#repository.findPrevious(database);
+      if (current === undefined || previous === undefined || !this.#isDue(current, now)) {
+        return 0;
+      }
+      await this.#repository.retirePrevious(database, previous.kid, new Date(now));
+      return 1;
+    });
+    if (retired > 0) {
+      await this.#reload();
+    }
+    return retired;
+  }
+
+  /**
+   * Signs a CLI access token with the current key.
+   *
+   * @param input - Principal, family, and current time.
+   * @returns The compact JWT and its absolute expiry.
+   * @throws {SigningKeyUnavailableError} When no current key can be loaded.
+   */
+  public async signAccessToken(input: {
+    readonly principalId: string;
+    readonly familyId: string;
+    readonly nowMs: number;
+  }): Promise<{ readonly token: string; readonly expiresAt: number }> {
+    await this.#ensureCurrent();
+    const current = this.#current;
+    if (current === undefined) {
+      throw new SigningKeyUnavailableError();
+    }
+    return signCliAccessToken({
+      privateKey: current.privateKey,
+      kid: current.row.kid,
+      principalId: input.principalId,
+      familyId: input.familyId,
+      nowMs: input.nowMs,
+    });
+  }
+
+  /**
+   * Verifies a CLI access token against the current and previous keys.
+   *
+   * A previous key is accepted only while its overlap window is open, even if
+   * its row has not yet been retired.
+   *
+   * @param token - Compact JWT.
+   * @returns The validated claims.
+   * @throws {CliTokenError} When the token or key is not acceptable.
+   */
+  public async verifyAccessToken(token: string): Promise<CliAccessClaims> {
+    await this.#ensureCurrent();
+    const current = this.#current;
+    if (current === undefined) {
+      throw new SigningKeyUnavailableError();
+    }
+
+    const now = this.#now();
+    return verifyCliAccessToken(
+      token,
+      async (kid) => {
+        if (kid === current.row.kid) {
+          return current.publicKey;
+        }
+        const previous = this.#previous;
+        if (previous === undefined || previous.row.kid !== kid) {
+          return undefined;
+        }
+        return this.#isDue(current.row, now) ? undefined : previous.publicKey;
+      },
+      now,
+    );
+  }
+
+  /** Clears cached key references. The operation is idempotent. */
+  public destroy(): void {
+    this.#current = undefined;
+    this.#previous = undefined;
+  }
+
+  async #ensureCurrent(): Promise<void> {
+    if (this.#current === undefined) {
+      await this.ensure();
+    }
+  }
+
+  async #reload(): Promise<void> {
+    const current = await this.#repository.findCurrent();
+    if (current === undefined) {
+      this.#current = undefined;
+      this.#previous = undefined;
+      return;
+    }
+
+    const previous = await this.#repository.findPrevious();
+    const currentKeys = await this.#importCurrentKeys(current);
+    const previousKey = previous === undefined ? undefined : await this.#importPublicKey(previous);
+    this.#current = { row: current, ...currentKeys };
+    this.#previous =
+      previous === undefined || previousKey === undefined
+        ? undefined
+        : { row: previous, publicKey: previousKey };
+  }
+
+  async #createCurrent(database: SigningKeyQuery, nowMs: number): Promise<SigningKeyRow> {
+    const generated = generateSigningKey(nowMs);
+    try {
+      const wrapped = wrapSigningSeed(this.#keyring, generated.kid, generated.seed);
+      return await this.#repository.insertCurrent(database, {
+        kid: generated.kid,
+        publicKey: generated.publicKey,
+        wrappedSeed: wrapped.wrappedSeed,
+        wrapNonce: wrapped.wrapNonce,
+        wrapTag: wrapped.wrapTag,
+        kekId: wrapped.kekId,
+        activatedAt: new Date(nowMs),
+      });
+    } finally {
+      generated.seed.fill(0);
+    }
+  }
+
+  async #importCurrentKeys(
+    row: SigningKeyRow,
+  ): Promise<{ readonly privateKey: CryptoKey; readonly publicKey: CryptoKey }> {
+    const seed = unwrapSigningSeed(this.#keyring, row);
+    try {
+      const privateKey = await importJWK(
+        {
+          kty: "OKP",
+          crv: "Ed25519",
+          x: row.publicKey.toString("base64url"),
+          d: seed.toString("base64url"),
+        },
+        "EdDSA",
+      );
+      const publicKey = await this.#importPublicKey(row);
+      if (publicKey === undefined) {
+        throw new SigningKeyUnavailableError();
+      }
+      return { privateKey, publicKey };
+    } catch (error) {
+      if (error instanceof SigningKeyUnavailableError) {
+        throw error;
+      }
+      throw new SigningKeyUnavailableError();
+    } finally {
+      seed.fill(0);
+    }
+  }
+
+  async #importPublicKey(row: SigningKeyRow): Promise<CryptoKey | undefined> {
+    try {
+      return await importJWK(
+        { kty: "OKP", crv: "Ed25519", x: row.publicKey.toString("base64url") },
+        "EdDSA",
+      );
+    } catch {
+      return undefined;
+    }
+  }
+
+  #isDue(current: SigningKeyRow, nowMs: number): boolean {
+    return nowMs >= current.activatedAt.getTime() + SIGNING_KEY_OVERLAP_MS;
   }
 }
