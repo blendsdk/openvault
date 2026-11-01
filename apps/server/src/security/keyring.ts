@@ -91,6 +91,46 @@ export class KeyringProvider {
     return { loaded: true, currentId: this.#currentId, keyCount: this.#keyCount };
   }
 
+  /**
+   * Identifier of the KEK that new wrapped values must use.
+   *
+   * @returns The current key id, or `undefined` after destruction.
+   */
+  public get currentId(): string | undefined {
+    return this.#currentId;
+  }
+
+  /**
+   * Runs a synchronous action with the current KEK.
+   *
+   * The callback receives the key bytes only for the duration of the call. It
+   * must not retain or mutate the buffer. This is the only way server services
+   * access key material; controllers never receive a raw KEK.
+   *
+   * @param action - Synchronous operation that needs the current key.
+   * @returns The value returned by the action.
+   * @throws {KeyringError} When the provider is not loaded.
+   */
+  public withCurrentKey<T>(action: (key: Readonly<Buffer>) => T): T {
+    return this.#requireKeyring().withCurrentKey(action);
+  }
+
+  /**
+   * Runs a synchronous action with a named KEK.
+   *
+   * Named access is required to unwrap data that was written under an older
+   * key during rotation. The callback contract is the same as
+   * {@link withCurrentKey}.
+   *
+   * @param id - Key identifier recorded when the value was wrapped.
+   * @param action - Synchronous operation that needs that key.
+   * @returns The value returned by the action.
+   * @throws {KeyringError} When the provider is not loaded or the key is absent.
+   */
+  public withKey<T>(id: string, action: (key: Readonly<Buffer>) => T): T {
+    return this.#requireKeyring().withKey(id, action);
+  }
+
   /** Serializes status only, so `JSON.stringify(provider)` cannot reach key bytes. */
   public toJSON(): KeyringProviderStatus {
     return this.status();
@@ -108,5 +148,12 @@ export class KeyringProvider {
     this.#keyring = undefined;
     this.#currentId = undefined;
     this.#keyCount = 0;
+  }
+
+  #requireKeyring(): Keyring {
+    if (this.#keyring === undefined) {
+      throw new KeyringError("Keyring provider is not loaded");
+    }
+    return this.#keyring;
   }
 }
