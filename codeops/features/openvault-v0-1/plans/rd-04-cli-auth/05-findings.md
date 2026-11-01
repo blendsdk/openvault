@@ -13,3 +13,5 @@
 | RV-006 | 1 | MINOR | dead type | fixed |
 | RV-007 / RV-009 | 1 | MINOR | documentation | fixed |
 | RV-008 | 1 | MINOR | helper naming | fixed |
+| RV-010 | 1 | CRITICAL | spec oracle | fixed |
+| RV-011 | 1 | MINOR | cache documentation | fixed |

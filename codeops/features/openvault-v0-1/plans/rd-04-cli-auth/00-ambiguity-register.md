@@ -1,7 +1,7 @@
 ## Ambiguity Register: RD-04 CLI Authentication Plan
 
-> **Status**: ✅ GATE PASSED — all 37 items resolved (2 added during execution)
-> **Execution note**: AR-36 and AR-37 were added during Phase 1 review; they carry `(runtime)` authority.
+> **Status**: ✅ GATE PASSED — all 38 items resolved (3 added during execution)
+> **Execution note**: AR-36, AR-37, and AR-38 were added during Phase 1 review; they carry `(runtime)` authority.
 > **Last Updated**: 2026-11-01 00:38
 > **Mode**: make-plan with `--auto-design`
 > **Root invocation ID**: `mp-rd04-20261101-0038`
@@ -51,6 +51,7 @@ provenance or imported product/security decisions already approved by the user.
 | AR-35 | Edge cases | Whether a forced-change CLI context may call logout when it sends a bearer token | A: allow `POST /v1/auth/cli/logout` in the CLI gate allowlist / B: block it because only `/cli/me` is listed / C: ignore the context on logout | AI — delegated by `--auto-design` (see AR-35 note) | ✅ Resolved |
 | AR-36 | Standards (runtime) | Whether the post-red column-order assertion correction is valid and whether the frozen spec files may change again | A: record the correction, accept sorted physical column order, freeze spec files for later phases / B: revert to the original order assertion and make the generator preserve it / C: leave the edit undocumented | AI — delegated by `--auto-design` (see AR-36 note) | ✅ Resolved |
 | AR-37 | Security (runtime) | How quickly a signing-key rotation or retirement reaches a process with a warm cache | A: refresh the cache when older than 30 seconds and clear it on reload failure / B: refresh on every sign/verify / C: leave the cache until restart | AI — delegated by `--auto-design` (see AR-37 note) | ✅ Resolved |
+| AR-38 | Standards (runtime) | Whether the second post-red spec edit that strengthens the due/retired tests is authorized | A: record the test-assurance correction, keep the stronger time-valid cases, and re-freeze / B: revert to the original weak tests / C: leave the edit undocumented | AI — delegated by `--auto-design` (see AR-38 note) | ✅ Resolved |
 
 ## Resolution Notes
 
@@ -533,9 +534,10 @@ auth-method fields describe a different credential.
 - **Decision:** The original spec tests asserted a generator-dependent physical column order.
   PostgreSQL column order is not part of the contract, and the generated schema sorts columns.
   The tests now assert the complete column set (and all types, nullability, defaults, and
-  constraints) while accepting the generated order. This is the only post-red edit to the
-  frozen oracle; the spec files are frozen for Phases 2–5. Any later change requires a new
-  runtime AR with the same evidence and review.
+  constraints) while accepting the generated order. This is the first post-red edit to the
+  frozen oracle; AR-38 records the second, test-strengthening edit. The spec files are frozen
+  again for Phases 2–5. Any later change requires a new runtime AR with the same evidence and
+  review.
 - **Evidence:** The migration generator emitted `activated_at, created_at, ...` in sorted order
   (`apps/server/migrations/20261101000455_cli-auth.up.sql:6-17`), while the specification only
   names the fields. The set, not the order, is the durable requirement.
@@ -578,8 +580,35 @@ auth-method fields describe a different credential.
 - **Policy version:** 1
 - **Root invocation ID:** `mp-rd04-20261101-0038`
 
+### AR-38 — Spec-test strengthening (runtime)
+
+- **Authority:** AI — delegated by `--auto-design`
+- **Eligibility:** Test-assurance correction; no product behavior, acceptance criterion, or
+  implementation behavior changed.
+- **Objective:** Fix the RV-002 test blind spot without leaving an undocumented post-red oracle
+  edit.
+- **Decision:** The Phase 1 signing-key spec test now extracts a stored-key signing helper, mints
+  time-valid tokens from the actual previous/retired key material instead of relying on expiry,
+  signs unknown-kid tokens with a key whose signature would otherwise verify, and adds ST-52 for
+  cross-service cache refresh. No expectation was weakened; the behavioral assertions are
+  stronger. The spec files are frozen again after this edit.
+- **Evidence:** The original due/retired tests advanced past the token expiry, so they could pass
+  without the due-key branch; the retired-key test used a random private key, so a resolver bug
+  would not have been caught (review RV-002). The new cases fail if the due predicate, retired
+  rejection, or 30-second cache refresh is removed.
+- **Rejected alternatives:** Revert to the weak tests (leaves the security rule unproven); leave
+  the edit undocumented (violates the oracle audit trail); weaken the expectations (forbidden).
+- **Strongest counterargument:** Any post-red spec edit needs strict scrutiny; the diff changes
+  test construction, not the required behavior.
+- **Confidence:** High — the new tests are time-valid and key-valid by construction.
+- **Hardening:** Independent re-review confirmed the behavioral strengthening and requested only
+  this record.
+- **Reopen triggers:** A later test change weakens the due, retired, or cache-refresh assertions.
+- **Policy version:** 1
+- **Root invocation ID:** `mp-rd04-20261101-0038`
+
 ## Gate Result
 
-All 37 entries are resolved. The imported PF-001 through PF-012 decisions retain their original
+All 38 entries are resolved. The imported PF-001 through PF-012 decisions retain their original
 user decisions. Every new plan-local technical decision carries delegated auto-design provenance;
 no reserved product, scope, retention, or security-policy decision was decided by the AI.

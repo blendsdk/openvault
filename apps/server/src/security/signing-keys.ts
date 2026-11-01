@@ -696,6 +696,15 @@ export class SigningKeyService {
     this.#loadedAt = undefined;
   }
 
+  /**
+   * Ensures the current key is present and the cached snapshot is fresh.
+   *
+   * A missing current key triggers the lazy `ensure()` bootstrap. A warm
+   * snapshot older than {@link SIGNING_KEY_CACHE_TTL_MS} is reloaded through
+   * the serialized reload chain. A reload failure clears the cache before the
+   * error escapes, so the next use retries or fails closed rather than signing
+   * or verifying with a retired key.
+   */
   async #ensureCurrent(): Promise<void> {
     const now = this.#now();
     const stale = this.#loadedAt === undefined || now - this.#loadedAt >= SIGNING_KEY_CACHE_TTL_MS;
