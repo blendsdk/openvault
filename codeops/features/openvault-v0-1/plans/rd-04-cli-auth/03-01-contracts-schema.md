@@ -190,6 +190,7 @@ continuing.
 - Contract tests for each schema: valid shape, unknown field, malformed refresh token,
   distinct expiry fields, and missing required fields.
 - Schema tests for the table inventory, `signing_keys` check constraints, partial unique
-  indexes, and the cleanup expression index.
+  indexes, and the cleanup expression index. Assert the column set, not physical column order:
+  PostgreSQL column order is not part of the contract, and the generator sorts DDL columns.
 - Migration tests updated for one additional migration and one additional table.
 - Generated-type tests must continue to compile and import.

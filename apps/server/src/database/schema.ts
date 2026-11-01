@@ -126,6 +126,7 @@ cliSessions
 cliSessions
   .index()
   .indexName("cli_sessions_cleanup_idx")
+  .column("expires_at")
   .expression("GREATEST(expires_at, COALESCE(revoked_at, expires_at))");
 
 // ---------------------------------------------------------------------------

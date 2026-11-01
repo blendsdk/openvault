@@ -196,17 +196,17 @@ describe("first signing key", () => {
     );
     const columns = result.records.map((row) => row.column_name);
 
-    expect(columns).toEqual([
+    expect([...columns].sort()).toEqual([
+      "activated_at",
+      "created_at",
+      "kek_id",
       "kid",
       "public_key",
-      "wrapped_seed",
+      "retired_at",
+      "status",
       "wrap_nonce",
       "wrap_tag",
-      "kek_id",
-      "status",
-      "created_at",
-      "activated_at",
-      "retired_at",
+      "wrapped_seed",
     ]);
     expect(columns).not.toContain("seed");
     expect(columns).not.toContain("raw_seed");
