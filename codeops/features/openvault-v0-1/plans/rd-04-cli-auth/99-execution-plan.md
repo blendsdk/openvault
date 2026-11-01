@@ -2,8 +2,8 @@
 
 > **Document**: 99-execution-plan.md
 > **Parent**: [Index](00-index.md)
-> **Last Updated**: 2026-11-01 01:02
-> **Progress**: 5/69 tasks (7%)
+> **Last Updated**: 2026-11-01 01:03
+> **Progress**: 6/69 tasks (9%)
 > **CodeOps Artifact Schema**: 1
 
 ## Overview
@@ -73,15 +73,15 @@ spec tests, red result, implementation, green result, implementation tests, full
 
 **Reference**: [03-01](03-01-contracts-schema.md) §New contracts, §Database model · [03-02](03-02-signing-keys-jwt.md) §Implementation Details · AR-3, AR-13, AR-17, AR-22, AR-28
 
-- [ ] 1.2.1 Add the strict CLI schemas, inferred types, and package exports — `packages/api-contract/src/cli-auth.ts`, `packages/api-contract/src/index.ts`
+- [x] 1.2.1 Add the strict CLI schemas, inferred types, and package exports — `packages/api-contract/src/cli-auth.ts`, `packages/api-contract/src/index.ts` ✅ (completed: 2026-11-01 01:03)
 - [ ] 1.2.2 Add `signing_keys`, the live-family unique index, and the cleanup expression index to the desired schema — `apps/server/src/database/schema.ts`
 - [ ] 1.2.3 Generate and review the additive `cli-auth` migration and snapshot — `apps/server/migrations/`
 - [ ] 1.2.4 Regenerate and commit database row types and CType constants — `apps/server/src/database/generated-types.ts`, `apps/server/src/database/ctypes.ts`
 - [ ] 1.2.5 Add scoped current/named KEK callbacks to the server keyring provider — `apps/server/src/security/keyring.ts`
 - [ ] 1.2.6 Add Ed25519 key generation, AES-256-GCM seed wrap/unwrap, and the signing-key error types — `apps/server/src/security/signing-keys.ts`
 - [ ] 1.2.7 Add the signing-key repository with advisory-locked ensure, rotate, and retire-due — `apps/server/src/security/signing-keys.ts`
-- [ ] 1.2.8 Add the signing-key service cache and access-token sign/verify methods — `apps/server/src/security/signing-keys.ts`
-- [ ] 1.2.9 Add pure `jose` access-token sign/verify helpers matching the fixed claim set — `apps/server/src/auth/cli-jwt.ts`
+- [ ] 1.2.8 Add pure `jose` access-token sign/verify helpers matching the fixed claim set — `apps/server/src/auth/cli-jwt.ts`
+- [ ] 1.2.9 Add the signing-key service cache and access-token sign/verify methods — `apps/server/src/security/signing-keys.ts`
 - [ ] 1.2.10 Run the Phase 1 spec tests and verify green
 
 ### Step 1.3: Implementation Tests and Hardening
