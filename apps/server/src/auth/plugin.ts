@@ -6,6 +6,7 @@ import type { OpenVaultConfig } from "../config/index.js";
 import type { KeyringProvider } from "../security/keyring.js";
 import { SigningKeyRepository, SigningKeyService } from "../security/signing-keys.js";
 import { CliAuthService } from "./cli-auth-service.js";
+import { CliSessionMaintenanceService } from "./cli-maintenance.js";
 import { CliSessionRepository } from "./cli-sessions.js";
 import { CredentialsRepository } from "./credentials.js";
 import { csrfGuard, originGuard } from "./csrf.js";
@@ -46,7 +47,7 @@ export function createAuthPlugin(options: AuthPluginOptions): PluginDefinition {
   return {
     name: "openvault-auth",
     priority: 15,
-    factory: async ({ app, express }) => {
+    factory: async ({ app, express, logger }) => {
       const cache: CacheProvider =
         options.overrides?.cache ??
         new MemoryCacheProvider({
@@ -72,6 +73,10 @@ export function createAuthPlugin(options: AuthPluginOptions): PluginDefinition {
         ...(options.overrides?.now === undefined ? {} : { now: options.overrides.now }),
       });
       const cliAuth = new CliAuthService({ sessions: cliSessions, signingKeys });
+      const cliMaintenance = new CliSessionMaintenanceService({
+        repository: cliSessions,
+        logger,
+      });
 
       app.registerService({
         name: "sessions",
@@ -109,6 +114,12 @@ export function createAuthPlugin(options: AuthPluginOptions): PluginDefinition {
         name: "cliAuth",
         type: "singleton",
         factory: () => cliAuth,
+      });
+      app.registerService({
+        name: "cliMaintenance",
+        type: "singleton",
+        factory: () => cliMaintenance,
+        dispose: () => cliMaintenance.stop(),
       });
 
       const oidcConfig = options.config.oidc;

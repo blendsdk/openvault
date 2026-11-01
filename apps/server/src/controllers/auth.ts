@@ -5,9 +5,11 @@ import {
   sessionListSchema,
   sessionResponseSchema,
 } from "@openvault/api-contract";
+import type { PostgreSQLDatabase } from "blendsdk/postgresql";
 import type { RouteDefinition } from "blendsdk/webafx";
 import { ApiError, BaseController, NotFoundError, rateLimitMiddleware } from "blendsdk/webafx";
 import type { Request, Response } from "express";
+import type { CliSessionRepository } from "../auth/cli-sessions.js";
 import { clearSessionCookie, readSessionCookie, setSessionCookie } from "../auth/cookie.js";
 import type { CredentialsRepository } from "../auth/credentials.js";
 import type { LocalLoginService } from "../auth/local-login.js";
@@ -133,11 +135,24 @@ export class AuthController extends BaseController {
           }
 
           const passwordHash = await hashPassword(input.newPassword);
-          const updated = await credentials.changePassword(
-            auth.session.principalId,
-            passwordHash,
-            credential.passwordHash,
-          );
+          const database = await this.services.get<PostgreSQLDatabase>("database");
+          const cliSessions = await this.services.get<CliSessionRepository>("cliSessions");
+          const updated = await database.withTransaction(async (tx) => {
+            await tx.executeQuery("SELECT id FROM principals WHERE id = :principalId FOR UPDATE", {
+              principalId: auth.session.principalId,
+            });
+            const changed = await credentials.changePassword(
+              auth.session.principalId,
+              passwordHash,
+              credential.passwordHash,
+              tx,
+            );
+            if (!changed) {
+              return false;
+            }
+            await cliSessions.revokeAllForPrincipal(tx, auth.session.principalId);
+            return true;
+          });
           if (!updated) {
             throw invalidCredentials();
           }

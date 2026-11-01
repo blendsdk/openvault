@@ -2,8 +2,8 @@
 
 > **Document**: 99-execution-plan.md
 > **Parent**: [Index](00-index.md)
-> **Last Updated**: 2026-11-01 02:28
-> **Progress**: 47/69 tasks (68%)
+> **Last Updated**: 2026-11-01 02:55
+> **Progress**: 61/69 tasks (88%)
 > **CodeOps Artifact Schema**: 1
 
 ## Overview
@@ -201,6 +201,9 @@ spec tests, red result, implementation, green result, implementation tests, full
 
 ## Phase 4: Sessions, password change, and retention
 
+> **Phase baseline tree**: 38fa2a1464d2de90edb30fd049c8a16edb972f3a
+> **Modification set**: `apps/server/src/auth/cli-sessions.ts`, `auth/cli-maintenance.ts`, `auth/bootstrap.ts`, `auth/plugin.ts`, `auth/csrf.ts` (CLI-path guard exemption), `controllers/cli-auth.ts`, `controllers/auth.ts`, `auth/credentials.ts`, `main.ts`, and the Phase 4 tests
+> **Scope mode**: strict
 > **Lenses**: security, concurrency, migration
 > **Reasoning**: max — password-change locking, family revocation, and cleanup can corrupt
 > authentication state if ordered incorrectly
@@ -210,28 +213,28 @@ spec tests, red result, implementation, green result, implementation tests, full
 **Reference**: [03-05](03-05-sessions-retention.md) · [07](07-testing-strategy.md) ST-24, ST-38–ST-44, ST-51 · AR-7, AR-9, AR-11, AR-16, AR-19, AR-20, AR-24, AR-31, AR-32, AR-33, AR-34
 **Objective**: Define family management, password-change revocation, cleanup, and bootstrap.
 
-- [ ] 4.1.1 [spec-author] Write the session, password-change, login-race, cleanup, and bootstrap integration tests for ST-24, ST-38–ST-44, and ST-51 — `apps/server/tests/integration/auth.cli-sessions.spec.test.ts`
-- [ ] 4.1.2 Run the Phase 4 spec tests and record the red result
+- [x] 4.1.1 [spec-author] Write the session, password-change, login-race, cleanup, and bootstrap integration tests for ST-24, ST-38–ST-44, and ST-51 — `apps/server/tests/integration/auth.cli-sessions.spec.test.ts` ✅ (completed: 2026-11-01 02:55)
+- [x] 4.1.2 Run the Phase 4 spec tests and record the red result ✅ (completed: 2026-11-01 02:55)
 
 ### Step 4.2: Implementation
 
 **Reference**: [03-05](03-05-sessions-retention.md) §Implementation Details · AR-7, AR-9, AR-11, AR-16, AR-19, AR-20, AR-24, AR-31, AR-32
 
-- [ ] 4.2.1 Add the family list query and principal-locked owned-family revoke transaction — `apps/server/src/auth/cli-sessions.ts`
-- [ ] 4.2.2 Add the bounded 30-day cleanup delete — `apps/server/src/auth/cli-sessions.ts`
-- [ ] 4.2.3 Add the CLI session list and delete routes — `apps/server/src/controllers/cli-auth.ts`
-- [ ] 4.2.4 Allow the credential password update to run on a transaction handle — `apps/server/src/auth/credentials.ts`
-- [ ] 4.2.5 Lock the principal row first, then revoke every CLI family inside the browser password-change transaction — `apps/server/src/controllers/auth.ts`
-- [ ] 4.2.6 Add the idempotent maintenance service for startup and 24-hour cleanup — `apps/server/src/auth/cli-maintenance.ts`
-- [ ] 4.2.7 Extend the auth bootstrap to retire due keys and start maintenance — `apps/server/src/auth/bootstrap.ts`
-- [ ] 4.2.8 Register the maintenance service with its disposal hook — `apps/server/src/auth/plugin.ts`
-- [ ] 4.2.9 Run the Phase 4 spec tests and verify green
+- [x] 4.2.1 Add the family list query and principal-locked owned-family revoke transaction — `apps/server/src/auth/cli-sessions.ts` ✅ (completed: 2026-11-01 02:55)
+- [x] 4.2.2 Add the bounded 30-day cleanup delete — `apps/server/src/auth/cli-sessions.ts` ✅ (completed: 2026-11-01 02:55)
+- [x] 4.2.3 Add the CLI session list and delete routes — `apps/server/src/controllers/cli-auth.ts` ✅ (completed: 2026-11-01 02:55)
+- [x] 4.2.4 Allow the credential password update to run on a transaction handle — `apps/server/src/auth/credentials.ts` ✅ (completed: 2026-11-01 02:55)
+- [x] 4.2.5 Lock the principal row first, then revoke every CLI family inside the browser password-change transaction — `apps/server/src/controllers/auth.ts` ✅ (completed: 2026-11-01 02:55)
+- [x] 4.2.6 Add the idempotent maintenance service for startup and 24-hour cleanup — `apps/server/src/auth/cli-maintenance.ts` ✅ (completed: 2026-11-01 02:55)
+- [x] 4.2.7 Extend the auth bootstrap to retire due keys and start maintenance — `apps/server/src/auth/bootstrap.ts` ✅ (completed: 2026-11-01 02:55)
+- [x] 4.2.8 Register the maintenance service with its disposal hook — `apps/server/src/auth/plugin.ts` ✅ (completed: 2026-11-01 02:55)
+- [x] 4.2.9 Run the Phase 4 spec tests and verify green ✅ (completed: 2026-11-01 02:55)
 
 ### Step 4.3: Implementation Tests and Hardening
 
-- [ ] 4.3.1 Write implementation tests for repository result mapping, cleanup bounds, timer idempotence, and bootstrap failure handling — `apps/server/tests/auth/cli-sessions.impl.test.ts`, `apps/server/tests/auth/cli-maintenance.impl.test.ts`
-- [ ] 4.3.2 Run the CLI session integration suite against PostgreSQL 16 and 17 — `apps/server/tests/integration/auth.cli-sessions.spec.test.ts`
-- [ ] 4.3.3 Run full verification — `pnpm verify`
+- [x] 4.3.1 Write implementation tests for repository result mapping, cleanup bounds, timer idempotence, and bootstrap failure handling — `apps/server/tests/auth/cli-sessions.impl.test.ts`, `apps/server/tests/auth/cli-maintenance.impl.test.ts` ✅ (completed: 2026-11-01 02:55)
+- [x] 4.3.2 Run the CLI session integration suite against PostgreSQL 16 and 17 — `apps/server/tests/integration/auth.cli-sessions.spec.test.ts` ✅ (completed: 2026-11-01 02:55)
+- [x] 4.3.3 Run full verification — `pnpm verify` ✅ (completed: 2026-11-01 02:55)
 
 **Deliverables**:
 - CLI family list and revoke with stable 404 behavior.

@@ -200,6 +200,9 @@ session normally when no Authorization header exists.
 - Only a browser context is checked.
 - A CLI context or no context passes to route authentication.
 - The session liveness check runs only for browser contexts.
+- Every `/v1/auth/cli` path is exempt from both browser guards, even when a browser cookie is
+  present. CLI handlers never read that cookie; route authentication returns 401 for a
+  browser-only caller, and CLI refresh/logout authorize on their refresh token.
 - The browser-only `/v1/auth/refresh` handler rejects any request with an Authorization
   header before reading the cookie, because the middleware no longer resolves the cookie and the
   browser guards would otherwise be bypassed.

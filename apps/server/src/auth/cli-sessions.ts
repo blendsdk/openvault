@@ -46,6 +46,16 @@ export type CreateFamilyResult =
   | { readonly kind: "created"; readonly family: CreatedCliFamily }
   | { readonly kind: "credential_changed" };
 
+/** One live CLI family in the caller's list. */
+export interface CliFamilyEntry {
+  /** Public family identifier. */
+  readonly familyId: string;
+  /** Original login time. */
+  readonly createdAt: Date;
+  /** Absolute family expiry. */
+  readonly expiresAt: Date;
+}
+
 /** A principal loaded for bearer or rotation handling. */
 export interface CliPrincipal {
   /** Principal identifier. */
@@ -425,6 +435,122 @@ export class CliSessionRepository {
       });
       await this.#revokeFamilyInTransaction(tx, family.familyId, family.principalId);
     });
+  }
+
+  /**
+   * Lists the principal's live CLI families, newest first.
+   *
+   * `createdAt` is the earliest row time in the family, so it stays stable
+   * across refresh rotations. Expired and fully revoked families are omitted.
+   *
+   * @param principalId - Owner principal.
+   * @returns One entry per live family.
+   */
+  public async listFamilies(principalId: string): Promise<CliFamilyEntry[]> {
+    const result = await this.#database.executeQuery<{
+      readonly family_id: string;
+      readonly created_at: Date;
+      readonly expires_at: Date;
+    }>(
+      `SELECT family_id,
+              MIN(created_at) AS created_at,
+              MIN(expires_at) AS expires_at
+         FROM cli_sessions
+        WHERE principal_id = :principalId
+          AND family_id IN (
+            SELECT family_id
+              FROM cli_sessions
+             WHERE principal_id = :principalId
+               AND revoked_at IS NULL
+               AND expires_at > now()
+          )
+        GROUP BY family_id
+        ORDER BY MIN(created_at) DESC`,
+      { principalId },
+    );
+
+    return result.records.map((row) => ({
+      familyId: row.family_id,
+      createdAt: row.created_at,
+      expiresAt: row.expires_at,
+    }));
+  }
+
+  /**
+   * Revokes every live row in one owned family.
+   *
+   * The principal lock serializes this with rotation and login. A family that
+   * is unknown, foreign, expired, or already revoked returns false and is not
+   * disclosed.
+   *
+   * @param familyId - Public family identifier.
+   * @param principalId - Owner principal.
+   * @returns True when at least one live row was revoked.
+   */
+  public async revokeOwnedFamily(familyId: string, principalId: string): Promise<boolean> {
+    return this.#database.withTransaction(async (tx) => {
+      await tx.executeQuery("SELECT id FROM principals WHERE id = :principalId FOR UPDATE", {
+        principalId,
+      });
+      const result = await tx.executeQuery<{ readonly id: string }>(
+        `UPDATE cli_sessions
+            SET revoked_at = now()
+          WHERE family_id = :familyId
+            AND principal_id = :principalId
+            AND revoked_at IS NULL
+            AND expires_at > now()
+          RETURNING id`,
+        { familyId, principalId },
+      );
+      return result.records.length > 0;
+    });
+  }
+
+  /**
+   * Revokes every live family for one principal inside an existing transaction.
+   *
+   * The caller must already hold the principal lock. Password change uses this
+   * so the password update and family revocation commit together.
+   *
+   * @param database - Transaction handle that holds the principal lock.
+   * @param principalId - Owner principal.
+   */
+  public async revokeAllForPrincipal(database: CliQuery, principalId: string): Promise<void> {
+    await database.executeQuery(
+      `UPDATE cli_sessions
+          SET revoked_at = now()
+        WHERE principal_id = :principalId
+          AND revoked_at IS NULL`,
+      { principalId },
+    );
+  }
+
+  /**
+   * Deletes one bounded batch of rows past the retention window.
+   *
+   * A row is eligible only when the later of its expiry and revocation is more
+   * than 30 days old. The batch is capped so a large backlog cannot hold a long
+   * delete lock.
+   *
+   * @param batchSize - Maximum rows to delete.
+   * @returns Number of deleted rows.
+   */
+  public async cleanup(batchSize: number): Promise<number> {
+    const limit = Math.max(1, Math.min(10_000, Math.trunc(batchSize)));
+    const result = await this.#database.executeQuery<{ readonly id: string }>(
+      `DELETE FROM cli_sessions
+        WHERE id IN (
+          SELECT id
+            FROM cli_sessions
+           WHERE GREATEST(expires_at, COALESCE(revoked_at, expires_at))
+                 < now() - interval '30 days'
+           ORDER BY GREATEST(expires_at, COALESCE(revoked_at, expires_at))
+           LIMIT :limit
+        )
+        RETURNING id`,
+      { limit },
+    );
+    return result.records.length;
   }
 
   /**

@@ -1,6 +1,8 @@
-import { argon2Sync, timingSafeEqual } from "node:crypto";
+import { argon2Sync, randomBytes, timingSafeEqual } from "node:crypto";
 import { networkInterfaces } from "node:os";
+import { setTimeout as delay } from "node:timers/promises";
 import { PostgreSQLDatabase } from "blendsdk/postgresql";
+import { Client } from "pg";
 import { z } from "zod";
 import { createTestApplication } from "../../../src/app.js";
 import { bootstrapAuthRuntime } from "../../../src/auth/bootstrap.js";
@@ -159,6 +161,36 @@ export const cliMeResponseSchema = z
   })
   .strict();
 
+const ULID_PATTERN = /^[0-9A-HJKMNP-TV-Z]{26}$/;
+
+/**
+ * One refresh family returned by the command-line session list.
+ *
+ * The schema is intentionally strict: the route must not expose a refresh
+ * hash, a raw token, or an internal row identifier, so any extra field is a
+ * contract failure rather than harmless metadata.
+ */
+export const cliFamilySchema = z
+  .object({
+    id: z.string().regex(ULID_PATTERN),
+    createdAt: z.iso.datetime(),
+    expiresAt: z.iso.datetime(),
+    current: z.boolean(),
+  })
+  .strict();
+
+/** Response returned by the command-line family list route. */
+export const cliSessionListResponseSchema = z
+  .object({
+    success: z.literal(true),
+    data: z
+      .object({
+        sessions: z.array(cliFamilySchema),
+      })
+      .strict(),
+  })
+  .strict();
+
 /** A local user fixture inserted directly into the test database. */
 export interface CliTestUser {
   readonly id: string;
@@ -193,6 +225,47 @@ export interface IssuedBrowserSession {
   readonly record: SessionRecord;
 }
 
+/**
+ * The maintenance operations that the retention behavior requires.
+ *
+ * The production class is not imported here; the test helper describes the
+ * contract so the tests stay an independent oracle.
+ */
+export interface CliMaintenanceServiceLike {
+  /** Runs a cleanup once and then schedules the next run. */
+  start(): Promise<void>;
+  /** Runs one bounded cleanup and returns the number of deleted rows. */
+  runOnce(): Promise<number>;
+  /** Stops the scheduler; calling it twice is safe. */
+  stop(): void;
+}
+
+/** The retention operation used by the cleanup tests. */
+export interface CliSessionRepositoryLike {
+  /** Deletes at most `batchSize` rows that are past retention. */
+  cleanup(batchSize: number): Promise<unknown>;
+}
+
+/** Options for seeding one stored refresh row with chosen timestamps. */
+export interface InsertCliSessionOptions {
+  /** Principal that owns the row. */
+  readonly principalId: string;
+  /** Absolute expiry of the family. */
+  readonly expiresAt: Date;
+  /** Revocation time; `null` leaves the row unrevoked. */
+  readonly revokedAt?: Date | null;
+  /** Creation time; defaults to the current time. */
+  readonly createdAt?: Date;
+  /** Family identifier; defaults to a fresh test identifier. */
+  readonly familyId?: string;
+}
+
+/** The identifiers of one seeded refresh row. */
+export interface InsertedCliSession {
+  readonly id: string;
+  readonly familyId: string;
+}
+
 /** Options accepted by {@link CliAuthTestHarness.send}. */
 export type CliSendOptions = Omit<TestRequestOptions, "port" | "host" | "ca" | "servername">;
 
@@ -214,6 +287,52 @@ export interface CliLogoutOptions {
   readonly authorization?: string;
   /** Client address observed by the server. */
   readonly forwardedFor?: string;
+}
+
+/**
+ * A database transaction that holds one principal row lock.
+ *
+ * Tests use it to create a deterministic interleaving: requests that start
+ * while the lock is held cannot pass the per-principal serialization point,
+ * so the test can observe they are waiting before releasing the lock.
+ */
+export class PrincipalLock {
+  readonly #client: Client;
+
+  /** Creates the handle around an already-open transaction. */
+  constructor(client: Client) {
+    this.#client = client;
+  }
+
+  /**
+   * Waits for ungranted locks in the disposable test database.
+   *
+   * The harness is the only workload in this database, so every ungranted lock
+   * belongs to one of the racing requests. Counting `pg_locks` directly is
+   * more reliable than counting wait events, which can miss a waiter while it
+   * is between lock requests.
+   *
+   * @param expected - Number of blocked sessions to wait for.
+   * @param timeoutMs - Maximum time to wait.
+   * @returns The highest number of blocked sessions observed.
+   */
+  async waitForBlockedTransactions(expected: number, timeoutMs = 10_000): Promise<number> {
+    const deadline = Date.now() + timeoutMs;
+    let observed = 0;
+    while (Date.now() < deadline) {
+      const result = await this.#client.query<{ waiting: number }>(
+        `SELECT count(*)::int AS waiting
+           FROM pg_locks
+          WHERE NOT granted`,
+      );
+      observed = Math.max(observed, result.rows[0]?.waiting ?? 0);
+      if (observed >= expected) {
+        return observed;
+      }
+      await delay(10);
+    }
+    return observed;
+  }
 }
 
 /**
@@ -551,6 +670,29 @@ export class CliAuthTestHarness {
   }
 
   /**
+   * Revokes one command-line refresh family owned by the bearer caller.
+   *
+   * @param accessToken - Bearer access token for the caller.
+   * @param familyId - Family identifier taken from the path.
+   * @param forwardedFor - Client address observed by the server.
+   * @returns The captured response.
+   */
+  cliDeleteSession(
+    accessToken: string,
+    familyId: string,
+    forwardedFor: string = this.uniqueAddress(),
+  ): Promise<TestResponse> {
+    return this.send({
+      path: `${CLI_SESSIONS_PATH}/${encodeURIComponent(familyId)}`,
+      method: "DELETE",
+      headers: {
+        authorization: `Bearer ${accessToken}`,
+        "x-forwarded-for": forwardedFor,
+      },
+    });
+  }
+
+  /**
    * Reads the browser session user.
    *
    * This is used to prove that a cookie presented to a command-line route was
@@ -688,6 +830,160 @@ export class CliAuthTestHarness {
    */
   cliFamilyRows(familyId: string): Promise<CliSessionRow[]> {
     return this.readCliSessionRows("family_id", familyId);
+  }
+
+  /**
+   * Seeds one stored refresh row with explicit timestamps.
+   *
+   * Retention tests need rows whose expiry and revocation times are in the
+   * past; the normal login path can only create current rows.
+   *
+   * @param options - Owner and timestamps for the row.
+   * @returns The generated row and family identifiers.
+   */
+  async insertCliSessionRow(options: InsertCliSessionOptions): Promise<InsertedCliSession> {
+    const id = this.fixtureId();
+    const familyId = options.familyId ?? this.fixtureId();
+    await this.db.db.executeQuery(
+      `INSERT INTO cli_sessions
+         (id, principal_id, refresh_hash, family_id, expires_at, revoked_at, created_at)
+       VALUES
+         (:id, :principalId, :refreshHash, :familyId, :expiresAt, :revokedAt, :createdAt)`,
+      {
+        id,
+        principalId: options.principalId,
+        refreshHash: randomBytes(32),
+        familyId,
+        expiresAt: options.expiresAt.toISOString(),
+        revokedAt: options.revokedAt?.toISOString() ?? null,
+        createdAt: (options.createdAt ?? new Date()).toISOString(),
+      },
+    );
+    return { id, familyId };
+  }
+
+  /**
+   * Moves every row of one family to a past expiry.
+   *
+   * @param familyId - Family to expire.
+   * @param at - Expiry time; defaults to one minute ago.
+   */
+  async expireCliFamilyRows(
+    familyId: string,
+    at: Date = new Date(Date.now() - 60_000),
+  ): Promise<void> {
+    await this.db.db.executeQuery(
+      `UPDATE cli_sessions
+          SET expires_at = :expiresAt
+        WHERE family_id = :familyId`,
+      { familyId, expiresAt: at.toISOString() },
+    );
+  }
+
+  /**
+   * Lists family identifiers that still have a live row.
+   *
+   * @param principalId - Principal that owns the families.
+   * @returns Distinct family identifiers.
+   */
+  async liveCliFamilyIds(principalId: string): Promise<string[]> {
+    const result = await this.db.db.executeQuery<{ family_id: string }>(
+      `SELECT DISTINCT family_id
+         FROM cli_sessions
+        WHERE principal_id = :principalId
+          AND revoked_at IS NULL
+          AND expires_at > now()
+        ORDER BY family_id`,
+      { principalId },
+    );
+    return result.records.map((row) => row.family_id);
+  }
+
+  /**
+   * Returns the retention maintenance service of the running application.
+   *
+   * @returns The service contract used by the cleanup tests.
+   */
+  cliMaintenance(): Promise<CliMaintenanceServiceLike> {
+    return this.app.getService<CliMaintenanceServiceLike>("cliMaintenance");
+  }
+
+  /**
+   * Returns the command-line session repository of the running application.
+   *
+   * @returns The repository contract used by the batch-bound test.
+   */
+  cliSessionRepository(): Promise<CliSessionRepositoryLike> {
+    return this.app.getService<CliSessionRepositoryLike>("cliSessions");
+  }
+
+  /**
+   * Runs the production authentication bootstrap against this application.
+   *
+   * The test harness already runs it once at startup; calling it again lets a
+   * test prove that a repeated start is harmless.
+   *
+   * @returns A promise that settles after the bootstrap completes.
+   */
+  async bootstrapRuntime(): Promise<void> {
+    await bootstrapAuthRuntime(this.app);
+  }
+
+  /**
+   * Counts signing keys in one lifecycle state.
+   *
+   * @param status - Lifecycle state to count.
+   * @returns Number of rows in that state.
+   */
+  async countSigningKeys(status: "current" | "previous" | "retired"): Promise<number> {
+    const result = await this.db.db.executeQuery<{ count: number }>(
+      `SELECT count(*)::int AS count FROM signing_keys WHERE status = :status`,
+      { status },
+    );
+    return result.records[0]?.count ?? 0;
+  }
+
+  /**
+   * Reads the key identifier of the current signing key.
+   *
+   * @returns The current key id, or `undefined` when no current key exists.
+   */
+  async currentSigningKeyKid(): Promise<string | undefined> {
+    const result = await this.db.db.executeQuery<{ kid: string }>(
+      `SELECT kid FROM signing_keys WHERE status = 'current'`,
+    );
+    return result.records[0]?.kid;
+  }
+
+  /**
+   * Runs an action while holding an exclusive lock on one principal row.
+   *
+   * Requests that reach the per-principal serialization point block until the
+   * action returns, which gives concurrency tests a deterministic order.
+   * The transaction is committed on success and rolled back on failure.
+   *
+   * @param principalId - Principal whose row is locked.
+   * @param action - Work to perform while the lock is held.
+   * @returns The action's result.
+   */
+  async withPrincipalLock<T>(
+    principalId: string,
+    action: (lock: PrincipalLock) => Promise<T>,
+  ): Promise<T> {
+    const client = new Client({ connectionString: this.db.url });
+    await client.connect();
+    try {
+      await client.query("BEGIN");
+      await client.query("SELECT id FROM principals WHERE id = $1 FOR UPDATE", [principalId]);
+      const result = await action(new PrincipalLock(client));
+      await client.query("COMMIT");
+      return result;
+    } catch (error) {
+      await client.query("ROLLBACK").catch(() => undefined);
+      throw error;
+    } finally {
+      await client.end().catch(() => undefined);
+    }
   }
 
   /**

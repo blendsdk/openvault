@@ -3,7 +3,9 @@ import {
   cliLogoutRequestSchema,
   cliMeResponseSchema,
   cliRefreshRequestSchema,
+  cliSessionListSchema,
   cliTokenResponseSchema,
+  ulidSchema,
 } from "@openvault/api-contract";
 import type { RouteDefinition } from "blendsdk/webafx";
 import { ApiError, BaseController } from "blendsdk/webafx";
@@ -32,6 +34,11 @@ function invalidCredentials(): ApiError {
 /** Builds the one generic refresh-token failure. */
 function invalidRefreshToken(): ApiError {
   return new ApiError(401, "invalid_refresh_token", "Invalid refresh token");
+}
+
+/** Builds the stable missing-family response. */
+function sessionNotFound(): ApiError {
+  return new ApiError(404, "session_not_found", "Session not found");
 }
 
 /** Reads the login context stored on a new refresh row. */
@@ -133,6 +140,39 @@ export class CliAuthController extends BaseController {
               mustChangePassword: auth.mustChangePassword,
             }),
           );
+        }),
+      this.route()
+        .get("/sessions")
+        .handle(async (req: Request, res: Response) => {
+          const auth = requireCli(req);
+          const sessions = await this.services.get<CliSessionRepository>("cliSessions");
+          const families = await sessions.listFamilies(auth.principalId);
+          this.ok(
+            res,
+            cliSessionListSchema.parse({
+              sessions: families.map((family) => ({
+                id: family.familyId,
+                createdAt: family.createdAt.toISOString(),
+                expiresAt: family.expiresAt.toISOString(),
+                current: family.familyId === auth.familyId,
+              })),
+            }),
+          );
+        }),
+      this.route()
+        .delete("/sessions/:familyId")
+        .handle(async (req: Request, res: Response) => {
+          const auth = requireCli(req);
+          const familyId = req.params.familyId;
+          if (typeof familyId !== "string" || !ulidSchema.safeParse(familyId).success) {
+            throw sessionNotFound();
+          }
+
+          const sessions = await this.services.get<CliSessionRepository>("cliSessions");
+          if (!(await sessions.revokeOwnedFamily(familyId, auth.principalId))) {
+            throw sessionNotFound();
+          }
+          this.noContent(res);
         }),
     ];
   }
