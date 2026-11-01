@@ -3,15 +3,17 @@ import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { isUlid } from "@openvault/core";
-import { decodeJwt, decodeProtectedHeader, generateKeyPair, SignJWT } from "jose";
+import { decodeJwt, decodeProtectedHeader, importJWK, SignJWT } from "jose";
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it } from "vitest";
 import { CliTokenError } from "../../../src/auth/cli-jwt.js";
 import { KeyringProvider } from "../../../src/security/keyring.js";
 import {
   SigningKeyRepository,
   SigningKeyRotationError,
+  type SigningKeyRow,
   SigningKeyService,
   SigningKeyUnavailableError,
+  unwrapSigningSeed,
 } from "../../../src/security/signing-keys.js";
 import { writeFixtureFile } from "../../helpers/config-fixture.js";
 import { testUlid } from "../helpers/fixtures.js";
@@ -161,6 +163,70 @@ function tokenClaims(issuedAtSeconds: number): Record<string, unknown> {
     exp: issuedAtSeconds + 900,
     kind: "user",
   };
+}
+
+/** Reads one complete key row for signing a test token with its stored seed. */
+async function readStoredKey(kid: string): Promise<SigningKeyRow> {
+  const result = await testDb.db.executeQuery<{
+    kid: string;
+    public_key: Buffer;
+    wrapped_seed: Buffer;
+    wrap_nonce: Buffer;
+    wrap_tag: Buffer;
+    kek_id: string;
+    status: string;
+    created_at: Date;
+    activated_at: Date;
+    retired_at: Date | null;
+  }>(
+    `SELECT kid, public_key, wrapped_seed, wrap_nonce, wrap_tag, kek_id, status,
+            created_at, activated_at, retired_at
+       FROM signing_keys
+      WHERE kid = :kid`,
+    { kid },
+  );
+  const row = requireFirst(result.records);
+  if (row.status !== "current" && row.status !== "previous" && row.status !== "retired") {
+    throw new Error("unexpected key status");
+  }
+  return {
+    kid: row.kid,
+    publicKey: row.public_key,
+    wrappedSeed: row.wrapped_seed,
+    wrapNonce: row.wrap_nonce,
+    wrapTag: row.wrap_tag,
+    kekId: row.kek_id,
+    status: row.status,
+    createdAt: row.created_at,
+    activatedAt: row.activated_at,
+    retiredAt: row.retired_at,
+  };
+}
+
+/** Signs a token with the key material stored under one key id. */
+async function tokenFromStoredKey(
+  kid: string,
+  issuedAtSeconds: number,
+  headerKid = kid,
+): Promise<string> {
+  const row = await readStoredKey(kid);
+  const seed = unwrapSigningSeed(requireKeyring(), row);
+  try {
+    const privateKey = await importJWK(
+      {
+        kty: "OKP",
+        crv: "Ed25519",
+        x: row.publicKey.toString("base64url"),
+        d: seed.toString("base64url"),
+      },
+      "EdDSA",
+    );
+    return await new SignJWT(tokenClaims(issuedAtSeconds))
+      .setProtectedHeader({ alg: "EdDSA", kid: headerKid })
+      .sign(privateKey);
+  } finally {
+    seed.fill(0);
+  }
 }
 
 describe("first signing key", () => {
@@ -402,27 +468,28 @@ describe("key rotation and overlap", () => {
     expect(await signingKeyRows()).toHaveLength(2);
   });
 
-  it("should reject a previous token once the overlap window ends even before the row is retired", async () => {
+  it("should reject a time-valid previous token once the overlap window ends", async () => {
     const service = createService();
     await service.ensure();
-    const oldToken = (
-      await service.signAccessToken({ principalId: PRINCIPAL_ID, familyId: FAMILY_ID, nowMs })
-    ).token;
+    const oldKid = requireFirst(await signingKeyRows()).kid;
 
     nowMs = START_MS + 60_000;
     await service.rotate();
+    const previousKid = (await signingKeyRows()).find((row) => row.kid === oldKid)?.kid;
+    if (previousKid === undefined) {
+      throw new Error("expected the old key to remain");
+    }
     nowMs += OVERLAP_MS + 1;
 
-    await expect(service.verifyAccessToken(oldToken)).rejects.toBeInstanceOf(CliTokenError);
+    const previousToken = await tokenFromStoredKey(previousKid, Math.floor(nowMs / 1_000));
+    await expect(service.verifyAccessToken(previousToken)).rejects.toBeInstanceOf(CliTokenError);
     expect((await signingKeyRows()).find((row) => row.status === "previous")?.retiredAt).toBeNull();
   });
 
-  it("should retire the due previous key and reject its token afterwards", async () => {
+  it("should retire the due previous key and reject a time-valid token afterwards", async () => {
     const service = createService();
     await service.ensure();
-    const oldToken = (
-      await service.signAccessToken({ principalId: PRINCIPAL_ID, familyId: FAMILY_ID, nowMs })
-    ).token;
+    const oldKid = requireFirst(await signingKeyRows()).kid;
 
     nowMs = START_MS + 60_000;
     await service.rotate();
@@ -431,7 +498,8 @@ describe("key rotation and overlap", () => {
     await expect(service.retireDue()).resolves.toBe(1);
     const previous = (await signingKeyRows()).find((row) => row.status === "retired");
     expect(previous?.retiredAt).toBeInstanceOf(Date);
-    await expect(service.verifyAccessToken(oldToken)).rejects.toBeInstanceOf(CliTokenError);
+    const retiredToken = await tokenFromStoredKey(oldKid, Math.floor(nowMs / 1_000));
+    await expect(service.verifyAccessToken(retiredToken)).rejects.toBeInstanceOf(CliTokenError);
   });
 
   it("should reject a token whose kid is retired or unknown", async () => {
@@ -443,15 +511,38 @@ describe("key rotation and overlap", () => {
     nowMs += OVERLAP_MS + 1;
     await service.retireDue();
 
-    const { privateKey } = await generateKeyPair("Ed25519");
-    const retiredToken = await new SignJWT(tokenClaims(Math.floor(nowMs / 1000)))
-      .setProtectedHeader({ alg: "EdDSA", kid: oldKid })
-      .sign(privateKey);
-    const unknownToken = await new SignJWT(tokenClaims(Math.floor(nowMs / 1000)))
-      .setProtectedHeader({ alg: "EdDSA", kid: testUlid(904) })
-      .sign(privateKey);
+    const currentKid = (await signingKeyRows()).find((row) => row.status === "current")?.kid;
+    if (currentKid === undefined) {
+      throw new Error("expected a current key");
+    }
+    const retiredToken = await tokenFromStoredKey(currentKid, Math.floor(nowMs / 1_000), oldKid);
+    const unknownToken = await tokenFromStoredKey(
+      currentKid,
+      Math.floor(nowMs / 1_000),
+      testUlid(904),
+    );
 
     await expect(service.verifyAccessToken(retiredToken)).rejects.toBeInstanceOf(CliTokenError);
     await expect(service.verifyAccessToken(unknownToken)).rejects.toBeInstanceOf(CliTokenError);
+  });
+
+  it("should observe another service's retirement after the cache expires", async () => {
+    const first = createService();
+    const second = createService();
+    await first.ensure();
+    const oldKid = requireFirst(await signingKeyRows()).kid;
+
+    nowMs = START_MS + 60_000;
+    await second.rotate();
+    const insideOverlap = await tokenFromStoredKey(oldKid, Math.floor(nowMs / 1_000));
+    await expect(first.verifyAccessToken(insideOverlap)).resolves.toMatchObject({
+      sub: PRINCIPAL_ID,
+    });
+
+    nowMs += OVERLAP_MS + 1;
+    await second.retireDue();
+    const afterRetirement = await tokenFromStoredKey(oldKid, Math.floor(nowMs / 1_000));
+
+    await expect(first.verifyAccessToken(afterRetirement)).rejects.toBeInstanceOf(CliTokenError);
   });
 });

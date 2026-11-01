@@ -95,7 +95,7 @@ curl -sS -X DELETE https://vault.example.com/v1/auth/cli/sessions/$FAMILY_ID \
 | Scope | Server API only; client file and argv behavior remain RD-11 | AR-1 |
 | Access token | Ed25519 JWT, 15 minutes, minimal claims, `sid = family_id` | AR-2 |
 | Refresh token | 32 random bytes as 43-character base64url; SHA-256 at rest; 12-hour absolute family | AR-2, AR-6 |
-| Signing key | Dedicated table; KEK-wrapped seed; current/previous/retired | AR-3, AR-17 |
+| Signing key | Dedicated table; KEK-wrapped seed; current/previous/retired; 30-second warm-cache refresh | AR-3, AR-17, AR-37 |
 | Auth context | Discriminated browser/CLI union; browser-only CSRF and Origin; forced-change logout stays available | AR-4, AR-18, AR-35 |
 | Login | Shared verifier, lockout, generic failure, and limiter buckets; principal lock through CLI family insert | AR-5, AR-15, AR-33 |
 | Refresh concurrency | Principal lock, row lock, partial unique index, family revoke on reuse | AR-6, AR-23 |

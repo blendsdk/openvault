@@ -3,7 +3,12 @@ import { newUlid } from "@openvault/core";
 import type { PostgreSQLDatabase } from "blendsdk/postgresql";
 import { importJWK } from "jose";
 import type { CliAccessClaims } from "../auth/cli-jwt.js";
-import { signCliAccessToken, verifyCliAccessToken } from "../auth/cli-jwt.js";
+import {
+  CLI_ACCESS_TOKEN_TTL_SECONDS,
+  signCliAccessToken,
+  verifyCliAccessToken,
+} from "../auth/cli-jwt.js";
+import { CLOCK_SKEW_SECONDS } from "./clock.js";
 import type { KeyringProvider } from "./keyring.js";
 
 /** Status of one JWT signing key. */
@@ -31,22 +36,6 @@ export interface SigningKeyRow {
   readonly activatedAt: Date;
   /** Time the key was retired, or null while current/previous. */
   readonly retiredAt: Date | null;
-}
-
-/** A newly generated Ed25519 key pair and its wrapped representation. */
-export interface GeneratedSigningKey {
-  /** Key identifier. */
-  readonly kid: string;
-  /** 32-byte public key. */
-  readonly publicKey: Buffer;
-  /** 32-byte wrapped seed. */
-  readonly wrappedSeed: Buffer;
-  /** AES-GCM nonce. */
-  readonly wrapNonce: Buffer;
-  /** AES-GCM authentication tag. */
-  readonly wrapTag: Buffer;
-  /** KEK identifier. */
-  readonly kekId: string;
 }
 
 /** Wrapped seed fields produced for one key identifier. */
@@ -78,7 +67,10 @@ export class SigningKeyRotationError extends Error {
 }
 
 /** How long a previous key may verify tokens after it stopped being current. */
-export const SIGNING_KEY_OVERLAP_MS = (15 * 60 + 30) * 1_000;
+export const SIGNING_KEY_OVERLAP_MS = (CLI_ACCESS_TOKEN_TTL_SECONDS + CLOCK_SKEW_SECONDS) * 1_000;
+
+/** Maximum age of the in-process key snapshot before it is refreshed. */
+export const SIGNING_KEY_CACHE_TTL_MS = CLOCK_SKEW_SECONDS * 1_000;
 
 const SEED_BYTES = 32;
 const PUBLIC_KEY_BYTES = 32;
@@ -86,6 +78,8 @@ const WRAP_NONCE_BYTES = 12;
 const WRAP_TAG_BYTES = 16;
 const WRAP_ALGORITHM = "aes-256-gcm";
 const SIGNING_KEY_LOCK = "openvault:signing_keys";
+const PKCS8_PREFIX = Buffer.from("302e020100300506032b657004220420", "hex");
+const SPKI_PREFIX = Buffer.from("302a300506032b6570032100", "hex");
 
 /**
  * Builds the authentication context for one wrapped seed.
@@ -103,8 +97,9 @@ function seedAad(kid: string): Buffer {
 /**
  * Generates an Ed25519 key pair and returns the seed and public key.
  *
- * The caller owns the returned seed and must zero it after wrapping. The seed
- * is never serialized or logged by this function.
+ * The seed is returned as a mutable Buffer for immediate wrapping. The caller
+ * owns it and must zero it. This function does not convert the seed to JSON,
+ * base64url, or a string, and never logs it.
  *
  * @param nowMs - Time used to create the ULID key identifier.
  * @returns The key identifier and raw key material.
@@ -116,27 +111,27 @@ export function generateSigningKey(nowMs: number = Date.now()): {
   readonly seed: Buffer;
 } {
   const { publicKey, privateKey } = generateKeyPairSync("ed25519");
-  const privateJwk = privateKey.export({ format: "jwk" });
-  const publicJwk = publicKey.export({ format: "jwk" });
-  const encodedSeed = privateJwk.d;
-  const encodedPublic = publicJwk.x;
-  if (typeof encodedSeed !== "string" || typeof encodedPublic !== "string") {
-    throw new Error("Ed25519 key export did not produce the required fields");
-  }
+  const privateDer = privateKey.export({ format: "der", type: "pkcs8" });
+  const publicDer = publicKey.export({ format: "der", type: "spki" });
+  try {
+    if (
+      privateDer.length !== PKCS8_PREFIX.length + SEED_BYTES ||
+      publicDer.length !== SPKI_PREFIX.length + PUBLIC_KEY_BYTES ||
+      !privateDer.subarray(0, PKCS8_PREFIX.length).equals(PKCS8_PREFIX) ||
+      !publicDer.subarray(0, SPKI_PREFIX.length).equals(SPKI_PREFIX)
+    ) {
+      throw new Error("Ed25519 key export produced an unexpected encoding");
+    }
 
-  const seed = Buffer.from(encodedSeed, "base64url");
-  const rawPublic = Buffer.from(encodedPublic, "base64url");
-  if (seed.length !== SEED_BYTES || rawPublic.length !== PUBLIC_KEY_BYTES) {
-    seed.fill(0);
-    rawPublic.fill(0);
-    throw new Error("Ed25519 key export produced an unexpected key length");
+    return {
+      kid: newUlid(nowMs),
+      publicKey: Buffer.from(publicDer.subarray(SPKI_PREFIX.length)),
+      seed: Buffer.from(privateDer.subarray(PKCS8_PREFIX.length)),
+    };
+  } finally {
+    privateDer.fill(0);
+    publicDer.fill(0);
   }
-
-  return {
-    kid: newUlid(nowMs),
-    publicKey: rawPublic,
-    seed,
-  };
 }
 
 /**
@@ -208,12 +203,21 @@ export function unwrapSigningSeed(keyring: KeyringProvider, row: SigningKeyRow):
       const decipher = createDecipheriv(WRAP_ALGORITHM, kek, row.wrapNonce);
       decipher.setAAD(seedAad(row.kid));
       decipher.setAuthTag(row.wrapTag);
-      const seed = Buffer.concat([decipher.update(row.wrappedSeed), decipher.final()]);
-      if (seed.length !== SEED_BYTES) {
-        seed.fill(0);
-        throw new SigningKeyUnavailableError();
+      let head: Buffer | undefined;
+      let tail: Buffer | undefined;
+      try {
+        head = decipher.update(row.wrappedSeed);
+        tail = decipher.final();
+        const seed = Buffer.concat([head, tail]);
+        if (seed.length !== SEED_BYTES) {
+          seed.fill(0);
+          throw new SigningKeyUnavailableError();
+        }
+        return seed;
+      } finally {
+        head?.fill(0);
+        tail?.fill(0);
       }
-      return seed;
     });
   } catch (error) {
     if (error instanceof SigningKeyUnavailableError) {
@@ -232,16 +236,33 @@ export interface SigningKeyQuery {
   ): Promise<{ readonly records: readonly T[] }>;
 }
 
+/**
+ * Raw database row shape for a signing key.
+ *
+ * PostgreSQL returns snake_case column names; the repository maps them to the
+ * public camelCase {@link SigningKeyRow} once so the rest of the server never
+ * depends on the storage spelling.
+ */
 interface SigningKeyDbRow {
+  /** Key identifier. */
   readonly kid: string;
+  /** 32-byte public key. */
   readonly public_key: Buffer;
+  /** 32-byte wrapped seed. */
   readonly wrapped_seed: Buffer;
+  /** AES-GCM nonce. */
   readonly wrap_nonce: Buffer;
+  /** AES-GCM authentication tag. */
   readonly wrap_tag: Buffer;
+  /** KEK identifier. */
   readonly kek_id: string;
+  /** Lifecycle status text from the check constraint. */
   readonly status: string;
+  /** Row creation time. */
   readonly created_at: Date;
+  /** Time the key became current. */
   readonly activated_at: Date;
+  /** Retirement time. */
   readonly retired_at: Date | null;
 }
 
@@ -263,6 +284,13 @@ export interface InsertSigningKeyInput {
   readonly activatedAt: Date;
 }
 
+/**
+ * Narrows a stored status string to the lifecycle union.
+ *
+ * @param value - Raw database status.
+ * @returns The validated status.
+ * @throws {SigningKeyUnavailableError} When the database contains an unknown value.
+ */
 function toSigningKeyStatus(value: string): SigningKeyStatus {
   if (value === "current" || value === "previous" || value === "retired") {
     return value;
@@ -270,6 +298,12 @@ function toSigningKeyStatus(value: string): SigningKeyStatus {
   throw new SigningKeyUnavailableError();
 }
 
+/**
+ * Maps one database row to the server-facing key shape.
+ *
+ * @param row - Raw PostgreSQL row.
+ * @returns The camelCase key row.
+ */
 function toSigningKeyRow(row: SigningKeyDbRow): SigningKeyRow {
   return {
     kid: row.kid,
@@ -339,6 +373,46 @@ export class SigningKeyRepository {
     database: SigningKeyQuery = this.#database,
   ): Promise<SigningKeyRow | undefined> {
     return this.#findByStatus(database, "previous");
+  }
+
+  /**
+   * Loads the current and previous keys from one consistent database snapshot.
+   *
+   * A single statement avoids the torn pair that two independent reads can
+   * produce while another process rotates the keys.
+   *
+   * @param database - Transaction or pool handle. Defaults to the pool.
+   * @returns The current and previous rows, each optional independently.
+   * @throws {SigningKeyUnavailableError} When more than one row has either status.
+   */
+  public async findLifecycle(database: SigningKeyQuery = this.#database): Promise<{
+    readonly current: SigningKeyRow | undefined;
+    readonly previous: SigningKeyRow | undefined;
+  }> {
+    const result = await database.executeQuery<SigningKeyDbRow>(
+      `SELECT kid, public_key, wrapped_seed, wrap_nonce, wrap_tag, kek_id, status,
+              created_at, activated_at, retired_at
+         FROM signing_keys
+        WHERE status IN ('current', 'previous')`,
+    );
+
+    let current: SigningKeyRow | undefined;
+    let previous: SigningKeyRow | undefined;
+    for (const raw of result.records) {
+      const row = toSigningKeyRow(raw);
+      if (row.status === "current") {
+        if (current !== undefined) {
+          throw new SigningKeyUnavailableError();
+        }
+        current = row;
+      } else if (row.status === "previous") {
+        if (previous !== undefined) {
+          throw new SigningKeyUnavailableError();
+        }
+        previous = row;
+      }
+    }
+    return { current, previous };
   }
 
   /**
@@ -454,8 +528,11 @@ interface CachedPreviousKey {
  *
  * The service creates the first key under the repository advisory lock, rotates
  * only when the previous key is outside its overlap window, retires due keys,
- * and signs/verifies access tokens. Raw seeds exist only while a row is being
- * unwrapped and are zeroed immediately after the key is imported.
+ * and signs/verifies access tokens. Raw seeds exist during generation/wrapping
+ * and during unwrapping; they are handled as mutable buffers and zeroed after
+ * the imported key is created. A warm snapshot is refreshed at most every
+ * {@link SIGNING_KEY_CACHE_TTL_MS} so a rotation in another process is observed
+ * without a restart.
  */
 export class SigningKeyService {
   readonly #repository: SigningKeyRepository;
@@ -463,6 +540,8 @@ export class SigningKeyService {
   readonly #now: () => number;
   #current: CachedCurrentKey | undefined;
   #previous: CachedPreviousKey | undefined;
+  #loadedAt: number | undefined;
+  #reloadChain: Promise<void> = Promise.resolve();
 
   /**
    * @param options - Repository, keyring, and clock.
@@ -502,15 +581,15 @@ export class SigningKeyService {
    * @throws {SigningKeyRotationError} When retiring the previous key would invalidate live tokens.
    */
   public async rotate(): Promise<{ readonly kid: string }> {
-    const now = this.#now();
     const created = await this.#repository.withLock(async (database) => {
+      const now = this.#now();
       const current = await this.#repository.findCurrent(database);
       if (current === undefined) {
         return this.#createCurrent(database, now);
       }
 
       const previous = await this.#repository.findPrevious(database);
-      if (previous !== undefined && !this.#isDue(current, now)) {
+      if (previous !== undefined && !this.#isPreviousOverlapElapsed(current, now)) {
         throw new SigningKeyRotationError();
       }
       if (previous !== undefined) {
@@ -529,11 +608,15 @@ export class SigningKeyService {
    * @returns The number of rows retired (0 or 1).
    */
   public async retireDue(): Promise<number> {
-    const now = this.#now();
     const retired = await this.#repository.withLock(async (database) => {
+      const now = this.#now();
       const current = await this.#repository.findCurrent(database);
       const previous = await this.#repository.findPrevious(database);
-      if (current === undefined || previous === undefined || !this.#isDue(current, now)) {
+      if (
+        current === undefined ||
+        previous === undefined ||
+        !this.#isPreviousOverlapElapsed(current, now)
+      ) {
         return 0;
       }
       await this.#repository.retirePrevious(database, previous.kid, new Date(now));
@@ -580,6 +663,7 @@ export class SigningKeyService {
    * @param token - Compact JWT.
    * @returns The validated claims.
    * @throws {CliTokenError} When the token or key is not acceptable.
+   * @throws {SigningKeyUnavailableError} When the current key cannot be loaded.
    */
   public async verifyAccessToken(token: string): Promise<CliAccessClaims> {
     await this.#ensureCurrent();
@@ -589,17 +673,17 @@ export class SigningKeyService {
     }
 
     const now = this.#now();
+    const previous = this.#previous;
     return verifyCliAccessToken(
       token,
       async (kid) => {
         if (kid === current.row.kid) {
           return current.publicKey;
         }
-        const previous = this.#previous;
         if (previous === undefined || previous.row.kid !== kid) {
           return undefined;
         }
-        return this.#isDue(current.row, now) ? undefined : previous.publicKey;
+        return this.#isPreviousOverlapElapsed(current.row, now) ? undefined : previous.publicKey;
       },
       now,
     );
@@ -609,32 +693,83 @@ export class SigningKeyService {
   public destroy(): void {
     this.#current = undefined;
     this.#previous = undefined;
+    this.#loadedAt = undefined;
   }
 
   async #ensureCurrent(): Promise<void> {
+    const now = this.#now();
+    const stale = this.#loadedAt === undefined || now - this.#loadedAt >= SIGNING_KEY_CACHE_TTL_MS;
+    if (this.#current === undefined || stale) {
+      try {
+        await this.#reload();
+      } catch (error) {
+        this.destroy();
+        throw error;
+      }
+    }
     if (this.#current === undefined) {
       await this.ensure();
     }
   }
 
+  /**
+   * Serializes cache refreshes and publishes one consistent key snapshot.
+   *
+   * A caller that starts after a rotation waits for any in-flight refresh and
+   * then reads the committed state. A failed refresh clears the cache so the
+   * next use retries or fails closed rather than trusting a stale key.
+   */
   async #reload(): Promise<void> {
-    const current = await this.#repository.findCurrent();
-    if (current === undefined) {
-      this.#current = undefined;
-      this.#previous = undefined;
-      return;
-    }
-
-    const previous = await this.#repository.findPrevious();
-    const currentKeys = await this.#importCurrentKeys(current);
-    const previousKey = previous === undefined ? undefined : await this.#importPublicKey(previous);
-    this.#current = { row: current, ...currentKeys };
-    this.#previous =
-      previous === undefined || previousKey === undefined
-        ? undefined
-        : { row: previous, publicKey: previousKey };
+    const next = this.#reloadChain.then(() => this.#reloadNow());
+    this.#reloadChain = next.catch(() => undefined);
+    await next;
   }
 
+  /**
+   * Reads one key snapshot and publishes it atomically.
+   *
+   * The snapshot is read in one statement. The cache is updated only after all
+   * imports succeed; any failure clears it so the next use fails closed or
+   * retries rather than trusting a partial state.
+   */
+  async #reloadNow(): Promise<void> {
+    try {
+      const snapshot = await this.#repository.findLifecycle();
+      const current = snapshot.current;
+      if (current === undefined) {
+        this.#current = undefined;
+        this.#previous = undefined;
+        this.#loadedAt = this.#now();
+        return;
+      }
+
+      const currentKeys = await this.#importCurrentKeys(current);
+      const previousKey =
+        snapshot.previous === undefined
+          ? undefined
+          : await this.#importPublicKey(snapshot.previous);
+      this.#current = { row: current, ...currentKeys };
+      this.#previous =
+        snapshot.previous === undefined || previousKey === undefined
+          ? undefined
+          : { row: snapshot.previous, publicKey: previousKey };
+      this.#loadedAt = this.#now();
+    } catch (error) {
+      this.destroy();
+      throw error;
+    }
+  }
+
+  /**
+   * Generates, wraps, and inserts one current key inside an existing lock.
+   *
+   * The caller must already hold the repository advisory lock. The raw seed is
+   * zeroed after wrapping, even when the insert fails.
+   *
+   * @param database - Transaction handle that holds the lifecycle lock.
+   * @param nowMs - Activation time for the new key.
+   * @returns The inserted current row.
+   */
   async #createCurrent(database: SigningKeyQuery, nowMs: number): Promise<SigningKeyRow> {
     const generated = generateSigningKey(nowMs);
     try {
@@ -653,6 +788,18 @@ export class SigningKeyService {
     }
   }
 
+  /**
+   * Imports the current row's private and public keys.
+   *
+   * `jose` requires a JWK, so the seed is converted to a base64url string for
+   * the import. The mutable seed buffer is zeroed afterwards; the transient
+   * immutable string cannot be erased and is treated as best-effort memory
+   * hygiene. A malformed key or import failure is reported as one generic
+   * unavailable error.
+   *
+   * @param row - Current key row.
+   * @returns Imported signing and verification keys.
+   */
   async #importCurrentKeys(
     row: SigningKeyRow,
   ): Promise<{ readonly privateKey: CryptoKey; readonly publicKey: CryptoKey }> {
@@ -682,6 +829,12 @@ export class SigningKeyService {
     }
   }
 
+  /**
+   * Imports a public key for verification.
+   *
+   * @param row - Key row containing the raw 32-byte public key.
+   * @returns The verification key, or `undefined` when the row is malformed.
+   */
   async #importPublicKey(row: SigningKeyRow): Promise<CryptoKey | undefined> {
     try {
       return await importJWK(
@@ -693,7 +846,15 @@ export class SigningKeyService {
     }
   }
 
-  #isDue(current: SigningKeyRow, nowMs: number): boolean {
+  /**
+   * Reports whether the previous key's verification overlap has elapsed.
+   *
+   * The current key's `activatedAt` is the moment the previous key stopped
+   * being current, so it is also the start of the previous key's overlap.
+   * Once this returns true, the previous key must no longer verify and a new
+   * rotation may retire it.
+   */
+  #isPreviousOverlapElapsed(current: SigningKeyRow, nowMs: number): boolean {
     return nowMs >= current.activatedAt.getTime() + SIGNING_KEY_OVERLAP_MS;
   }
 }

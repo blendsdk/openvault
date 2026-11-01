@@ -2,7 +2,7 @@ import { ulidSchema } from "@openvault/api-contract";
 import { newUlid } from "@openvault/core";
 import { decodeProtectedHeader, jwtVerify, SignJWT } from "jose";
 import { z } from "zod";
-import { CLOCK_SKEW_SECONDS } from "../security/clock.js";
+import { CLOCK_SKEW_SECONDS, isWithinClockSkew } from "../security/clock.js";
 
 /** Issuer carried by every CLI access token. */
 export const CLI_JWT_ISSUER = "openvault";
@@ -101,13 +101,15 @@ export async function signCliAccessToken(
  * Verification is deliberately strict: EdDSA is the only accepted algorithm,
  * the key id must be a ULID, the issuer and audience must match exactly, and
  * the payload must contain exactly the documented claims. The resolver is not
- * called for a malformed header or when the key is unknown.
+ * called for a malformed header; a well-formed unknown `kid` is passed to the
+ * resolver once and rejected when no key is returned.
  *
  * @param token - Compact JWT from the Authorization header.
  * @param resolveKey - Resolves the public key for the token's `kid`.
  * @param nowMs - Current time in milliseconds.
  * @returns The validated claims.
  * @throws {CliTokenError} When any header, signature, claim, or time check fails.
+ * @throws When the resolver throws an infrastructure or keyring error.
  */
 export async function verifyCliAccessToken(
   token: string,
@@ -155,10 +157,8 @@ export async function verifyCliAccessToken(
   }
 
   const claims = parsed.data;
-  const nowSeconds = Math.floor(nowMs / 1_000);
   if (
-    claims.iat > nowSeconds + CLOCK_SKEW_SECONDS ||
-    claims.exp < nowSeconds - CLOCK_SKEW_SECONDS ||
+    !isWithinClockSkew(nowMs, claims.iat * 1_000, claims.exp * 1_000) ||
     claims.exp <= claims.iat
   ) {
     throw new CliTokenError();

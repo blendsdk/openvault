@@ -21,7 +21,7 @@ decisions that are local to this plan.
   the existing runtime dependencies. [AR-8, AR-13, AR-22, AR-26]
 - Plan-local server mechanics: generated migration and types, module split, shared rate-limit
   service, startup bootstrap, key overlap rules, malformed family-id handling, and test
-  strategy. [AR-13–AR-35]
+  strategy. [AR-13–AR-37]
 
 ### Deferred / out of this plan
 
@@ -58,6 +58,7 @@ decisions that are local to this plan.
 | Rotation exposure | Internal method only; no HTTP route | AR-25 |
 | Tests | Real PostgreSQL, real crypto, pure unit tests for JWT, no mocks or new harness | AR-26 |
 | Key failure | Generic 500; never issue an unverifiable token | AR-28 |
+| Key cache | Atomic current/previous snapshot; refresh a warm cache after 30 seconds; clear on failure | AR-37 |
 | Docs | Authentication guide and known limitations; references only if drift is found | AR-29 |
 
 ## Acceptance Criteria

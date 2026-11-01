@@ -56,6 +56,7 @@
 | ST-13 | Rotate once, then verify a token signed by the old current key | New key is current, old key is previous, and the old token verifies inside the overlap window | RD-04 acceptance 9; AR-17 |
 | ST-14 | Advance past 15m30s after rotation; call `retireDue()`, then verify the previous token; also verify a retired and an unknown `kid` | Previous token is rejected once due; `retireDue()` marks the row retired; retired and unknown keys are rejected | RD-04 acceptance 9; AR-17 |
 | ST-15 | Verify tokens with HS256, wrong issuer, wrong audience, wrong `kid`, `kind:"service"`, missing `sub`/`sid`/`jti`, future `iat`, and expired `exp` | Each token is rejected with a stable token error; a valid token is accepted | RD-04 acceptance 8; AR-22 |
+| ST-52 | Service A loads a key; service B rotates and then retires the old key; A verifies a time-valid old-key token after its warm cache expires | A refreshes the atomic snapshot and rejects the retired key; it does not keep accepting the old key as current | RD-04 retired-key rule; AR-17, AR-37 |
 
 ### CLI login
 
@@ -121,7 +122,7 @@
 |---|---|---|
 | `packages/api-contract/tests/cli-auth.spec.test.ts` | ST-1–ST-5 | Contracts |
 | `apps/server/tests/integration/schema.spec.test.ts` | ST-6–ST-8 | Schema/migration |
-| `apps/server/tests/integration/auth/signing-keys.spec.test.ts` | ST-9–ST-14 | Key lifecycle |
+| `apps/server/tests/integration/auth/signing-keys.spec.test.ts` | ST-9–ST-14, ST-52 | Key lifecycle |
 | `apps/server/tests/auth/cli-jwt.spec.test.ts` | ST-12–ST-15 | JWT |
 | `apps/server/tests/integration/auth.cli-login.spec.test.ts` | ST-16–ST-24 | Login and shared limits |
 | `apps/server/tests/integration/auth.cli-refresh.spec.test.ts` | ST-25–ST-37, ST-49–ST-50 | Refresh, logout, bearer, limits |

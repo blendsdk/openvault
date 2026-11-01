@@ -1,6 +1,7 @@
 ## Ambiguity Register: RD-04 CLI Authentication Plan
 
-> **Status**: ✅ GATE PASSED — all 35 items resolved
+> **Status**: ✅ GATE PASSED — all 37 items resolved (2 added during execution)
+> **Execution note**: AR-36 and AR-37 were added during Phase 1 review; they carry `(runtime)` authority.
 > **Last Updated**: 2026-11-01 00:38
 > **Mode**: make-plan with `--auto-design`
 > **Root invocation ID**: `mp-rd04-20261101-0038`
@@ -48,6 +49,8 @@ provenance or imported product/security decisions already approved by the user.
 | AR-33 | Concurrency | How CLI login closes the password-change race | A: hold the per-principal lock through family insertion and recheck the verified hash / B: insert then re-read without a lock / C: ignore the race | AI — delegated by `--auto-design` (see AR-33 note) | ✅ Resolved |
 | AR-34 | Concurrency | Whether owned-family delete must serialize with refresh | A: lock the principal row before the family update / B: single update without a principal lock / C: delete only the current row | AI — delegated by `--auto-design` (see AR-34 note) | ✅ Resolved |
 | AR-35 | Edge cases | Whether a forced-change CLI context may call logout when it sends a bearer token | A: allow `POST /v1/auth/cli/logout` in the CLI gate allowlist / B: block it because only `/cli/me` is listed / C: ignore the context on logout | AI — delegated by `--auto-design` (see AR-35 note) | ✅ Resolved |
+| AR-36 | Standards (runtime) | Whether the post-red column-order assertion correction is valid and whether the frozen spec files may change again | A: record the correction, accept sorted physical column order, freeze spec files for later phases / B: revert to the original order assertion and make the generator preserve it / C: leave the edit undocumented | AI — delegated by `--auto-design` (see AR-36 note) | ✅ Resolved |
+| AR-37 | Security (runtime) | How quickly a signing-key rotation or retirement reaches a process with a warm cache | A: refresh the cache when older than 30 seconds and clear it on reload failure / B: refresh on every sign/verify / C: leave the cache until restart | AI — delegated by `--auto-design` (see AR-37 note) | ✅ Resolved |
 
 ## Resolution Notes
 
@@ -521,8 +524,62 @@ auth-method fields describe a different credential.
 - **Policy version:** 1
 - **Root invocation ID:** `mp-rd04-20261101-0038`
 
+### AR-36 — Spec-test oracle correction (runtime)
+
+- **Authority:** AI — delegated by `--auto-design`
+- **Eligibility:** Test-assurance correction; no product behavior or acceptance criterion changed.
+- **Objective:** Correct an over-specified physical-column-order assertion without weakening a
+  behavioral requirement, and freeze the spec files for later phases.
+- **Decision:** The original spec tests asserted a generator-dependent physical column order.
+  PostgreSQL column order is not part of the contract, and the generated schema sorts columns.
+  The tests now assert the complete column set (and all types, nullability, defaults, and
+  constraints) while accepting the generated order. This is the only post-red edit to the
+  frozen oracle; the spec files are frozen for Phases 2–5. Any later change requires a new
+  runtime AR with the same evidence and review.
+- **Evidence:** The migration generator emitted `activated_at, created_at, ...` in sorted order
+  (`apps/server/migrations/20261101000455_cli-auth.up.sql:6-17`), while the specification only
+  names the fields. The set, not the order, is the durable requirement.
+- **Rejected alternatives:** Revert to exact order and make the generator preserve declaration
+  order (fights the codegen contract, no behavioral value); leave the edit undocumented
+  (violates the immutable-oracle audit trail).
+- **Strongest counterargument:** Editing an oracle after red is dangerous; the correction must
+  be narrowly scoped and durably recorded.
+- **Confidence:** High — behavior, types, constraints, and indexes remain asserted.
+- **Hardening:** Independent correctness review identified the issue; the correction is
+  recorded here and the spec files are frozen.
+- **Reopen triggers:** A physical column order becomes a migration compatibility requirement.
+- **Policy version:** 1
+- **Root invocation ID:** `mp-rd04-20261101-0038`
+
+### AR-37 — Signing-key cache refresh (runtime)
+
+- **Authority:** AI — delegated by `--auto-design`
+- **Eligibility:** Security mechanism within the approved key lifecycle.
+- **Objective:** Bound how long a warm process can trust a demoted or retired key.
+- **Decision:** The signing-key service reads current and previous in one snapshot query and
+  refreshes a warm cache when it is older than 30 seconds. A reload failure clears the cache and
+  fails closed. Signing and verification use one captured cache generation per call.
+- **Evidence:** RD-04 requires retired keys to be rejected and previous keys to verify only
+  inside the 15m30s overlap. A warm process otherwise never observes another process's rotation
+  (review findings SA-001/F2). The bearer path already performs a database check per request, so
+  a 30-second signing-cache bound is not the sole freshness control.
+- **Rejected alternatives:** Refresh on every sign/verify (one extra key query per request, no
+  material security gain over 30 seconds given the family/principal check); leave until restart
+  (retired key remains trusted indefinitely); 60 seconds (still bounded, but 30 seconds matches
+  the shared clock skew and is tighter).
+- **Strongest counterargument:** A retired key can still be accepted for up to 30 seconds by a
+  process that has not refreshed.
+- **Confidence:** High — the bound is explicit, tested with two service instances, and fail-closed
+  on reload errors.
+- **Hardening:** Independent security and concurrency review; fix includes atomic snapshot,
+  serialized reloads, and fail-closed cache clearing.
+- **Reopen triggers:** A larger deployment requires immediate cross-instance revocation; the
+  cache bound becomes a stated security guarantee.
+- **Policy version:** 1
+- **Root invocation ID:** `mp-rd04-20261101-0038`
+
 ## Gate Result
 
-All 35 entries are resolved. The imported PF-001 through PF-012 decisions retain their original
+All 37 entries are resolved. The imported PF-001 through PF-012 decisions retain their original
 user decisions. Every new plan-local technical decision carries delegated auto-design provenance;
 no reserved product, scope, retention, or security-policy decision was decided by the AI.

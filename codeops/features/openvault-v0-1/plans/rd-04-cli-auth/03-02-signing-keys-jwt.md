@@ -107,9 +107,16 @@ signAccessToken(input: {
 verifyAccessToken(token: string): Promise<CliAccessClaims>;
 ```
 
-The service caches current and previous metadata and imported `CryptoKey` objects. It reloads
-after ensure, rotate, and retire-due. A first sign/verify lazily calls `ensure()` when no
-current key is loaded, so a missed production bootstrap cannot issue an unsigned token.
+The service caches current and previous metadata and imported `CryptoKey` objects. It reads
+current and previous in one snapshot query, reloads after ensure, rotate, and retire-due, and
+refreshes a warm snapshot when it is older than 30 seconds. A reload failure clears the cache so
+the next use fails closed or retries. A first sign/verify lazily calls `ensure()` when no current
+key is loaded, so a missed production bootstrap cannot issue an unsigned token.
+
+The seed is handled as a mutable buffer and zeroed after the signing key is imported. `jose`
+requires a JWK, so the import necessarily creates a transient base64url string copy that
+JavaScript cannot erase; zeroization is therefore documented as best-effort, while the mutable
+buffers and cipher intermediates are actively cleared.
 
 ### Ensure and rotation rules
 
