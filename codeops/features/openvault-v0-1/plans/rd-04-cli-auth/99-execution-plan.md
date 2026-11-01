@@ -2,8 +2,8 @@
 
 > **Document**: 99-execution-plan.md
 > **Parent**: [Index](00-index.md)
-> **Last Updated**: 2026-11-01 01:03
-> **Progress**: 6/69 tasks (9%)
+> **Last Updated**: 2026-11-01 01:04
+> **Progress**: 7/69 tasks (10%)
 > **CodeOps Artifact Schema**: 1
 
 ## Overview
@@ -74,7 +74,7 @@ spec tests, red result, implementation, green result, implementation tests, full
 **Reference**: [03-01](03-01-contracts-schema.md) §New contracts, §Database model · [03-02](03-02-signing-keys-jwt.md) §Implementation Details · AR-3, AR-13, AR-17, AR-22, AR-28
 
 - [x] 1.2.1 Add the strict CLI schemas, inferred types, and package exports — `packages/api-contract/src/cli-auth.ts`, `packages/api-contract/src/index.ts` ✅ (completed: 2026-11-01 01:03)
-- [ ] 1.2.2 Add `signing_keys`, the live-family unique index, and the cleanup expression index to the desired schema — `apps/server/src/database/schema.ts`
+- [x] 1.2.2 Add `signing_keys`, the live-family unique index, and the cleanup expression index to the desired schema — `apps/server/src/database/schema.ts` ✅ (completed: 2026-11-01 01:04)
 - [ ] 1.2.3 Generate and review the additive `cli-auth` migration and snapshot — `apps/server/migrations/`
 - [ ] 1.2.4 Regenerate and commit database row types and CType constants — `apps/server/src/database/generated-types.ts`, `apps/server/src/database/ctypes.ts`
 - [ ] 1.2.5 Add scoped current/named KEK callbacks to the server keyring provider — `apps/server/src/security/keyring.ts`
