@@ -239,6 +239,85 @@ export interface AuditKeys {
 }
 
 /**
+ * @checkContraint cert_pem CHECK (((length(cert_pem) >= 1) AND (length(cert_pem) <= 16384)))
+ * @default created_at to now()
+ * @primaryKey id
+ * @unique id
+ * @checkContraint id CHECK ((id ~ '^[0-9A-HJKMNP-TV-Z]{26}$'::text))
+ * @checkContraint kek_id CHECK (((length(kek_id) >= 1) AND (length(kek_id) <= 64)))
+ * @checkContraint public_key CHECK ((octet_length(public_key) = 65))
+ * @checkContraint retired_at CHECK ((((status = 'retired'::text) AND (retired_at IS NOT NULL)) OR ((status <> 'retired'::text) AND (retired_at IS NULL))))
+ * @unique status
+ * @checkContraint status CHECK ((status = ANY (ARRAY['current'::text, 'retired'::text]))) AND CHECK ((((status = 'retired'::text) AND (retired_at IS NOT NULL)) OR ((status <> 'retired'::text) AND (retired_at IS NULL))))
+ * @checkContraint wrap_nonce CHECK ((octet_length(wrap_nonce) = 12))
+ * @checkContraint wrap_tag CHECK ((octet_length(wrap_tag) = 16))
+ * @checkContraint wrapped_key CHECK ((octet_length(wrapped_key) = 32))
+ * @interface
+ */
+export interface CaKeys {
+  /**
+   * @memberOf {CaKeys}
+   */
+  activated_at: Date;
+  /**
+   * @checkContraint CHECK (((length(cert_pem) >= 1) AND (length(cert_pem) <= 16384)))
+   * @memberOf {CaKeys}
+   */
+  cert_pem: string;
+  /**
+   * @default now()
+   * @optional
+   * @memberOf {CaKeys}
+   */
+  created_at?: Date;
+  /**
+   * @primaryKey
+   * @unique
+   * @checkContraint CHECK ((id ~ '^[0-9A-HJKMNP-TV-Z]{26}$'::text))
+   * @memberOf {CaKeys}
+   */
+  id: string;
+  /**
+   * @checkContraint CHECK (((length(kek_id) >= 1) AND (length(kek_id) <= 64)))
+   * @memberOf {CaKeys}
+   */
+  kek_id: string;
+  /**
+   * @checkContraint CHECK ((octet_length(public_key) = 65))
+   * @memberOf {CaKeys}
+   */
+  public_key: Buffer;
+  /**
+   * @checkContraint CHECK ((((status = 'retired'::text) AND (retired_at IS NOT NULL)) OR ((status <> 'retired'::text) AND (retired_at IS NULL))))
+   * @optional
+   * @nullable
+   * @memberOf {CaKeys}
+   */
+  retired_at?: Date | null;
+  /**
+   * @unique
+   * @checkContraint CHECK ((status = ANY (ARRAY['current'::text, 'retired'::text]))) AND CHECK ((((status = 'retired'::text) AND (retired_at IS NOT NULL)) OR ((status <> 'retired'::text) AND (retired_at IS NULL))))
+   * @memberOf {CaKeys}
+   */
+  status: string;
+  /**
+   * @checkContraint CHECK ((octet_length(wrap_nonce) = 12))
+   * @memberOf {CaKeys}
+   */
+  wrap_nonce: Buffer;
+  /**
+   * @checkContraint CHECK ((octet_length(wrap_tag) = 16))
+   * @memberOf {CaKeys}
+   */
+  wrap_tag: Buffer;
+  /**
+   * @checkContraint CHECK ((octet_length(wrapped_key) = 32))
+   * @memberOf {CaKeys}
+   */
+  wrapped_key: Buffer;
+}
+
+/**
  * @unique certificate_id
  * @checkContraint chain_pem CHECK ((length(chain_pem) <= 131072))
  * @checkContraint ciphertext CHECK ((octet_length(ciphertext) <= 131072))
@@ -693,6 +772,12 @@ export interface JoinTokens {
    */
   project_id: string;
   /**
+   * @optional
+   * @nullable
+   * @memberOf {JoinTokens}
+   */
+  revoked_at?: Date | null;
+  /**
    * @unique
    * @checkContraint CHECK ((octet_length(token_hash) = 32))
    * @memberOf {JoinTokens}
@@ -831,6 +916,7 @@ export interface Org {
  * @unique id
  * @checkContraint id CHECK ((id ~ '^[0-9A-HJKMNP-TV-Z]{26}$'::text))
  * @checkContraint kind CHECK ((((kind = 'service'::text) AND (owner_project_id IS NOT NULL)) OR ((kind = 'user'::text) AND (owner_project_id IS NULL)))) AND CHECK ((kind = ANY (ARRAY['user'::text, 'service'::text])))
+ * @unique name
  * @checkContraint name CHECK (((length(name) >= 1) AND (length(name) <= 100)))
  * @unique owner_project_id
  * @checkContraint owner_project_id CHECK ((((kind = 'service'::text) AND (owner_project_id IS NOT NULL)) OR ((kind = 'user'::text) AND (owner_project_id IS NULL))))
@@ -871,6 +957,7 @@ export interface Principals {
    */
   kind: string;
   /**
+   * @unique
    * @checkContraint CHECK (((length(name) >= 1) AND (length(name) <= 100)))
    * @memberOf {Principals}
    */

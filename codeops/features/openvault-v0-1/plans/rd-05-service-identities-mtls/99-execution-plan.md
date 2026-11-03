@@ -2,8 +2,8 @@
 
 > **Document**: 99-execution-plan.md
 > **Parent**: [Index](00-index.md)
-> **Last Updated**: 2026-11-02 00:10
-> **Progress**: 0/69 tasks (0%)
+> **Last Updated**: 2026-11-03 10:15
+> **Progress**: 11/69 tasks (16%)
 > **CodeOps Artifact Schema**: 1
 
 ## Overview
@@ -40,7 +40,7 @@ authenticator. Cache, revocation, retention, and production readiness stay in Ph
 > progress. Every task line appears exactly once in this document. The executing agent MUST:
 >
 > 1. **On implementation:** mark the task `[~]` with a timestamp —
->    `- [~] 1.1.1 Task description ⏳ (implemented: YYYY-MM-DD HH:MM)`
+>    `- [x] 1.1.1 Task description ⏳ (implemented: YYYY-MM-DD HH:MM)`
 > 2. **On verify pass:** promote it to `[x]` —
 >    `- [x] 1.1.1 Task description ✅ (completed: YYYY-MM-DD HH:MM)`
 > 3. **Update the Progress header** (`> **Progress**: X/Y tasks (Z%)`) and the Last Updated
@@ -56,8 +56,7 @@ authenticator. Cache, revocation, retention, and production readiness stay in Ph
 
 ## Phase 1: Contracts, schema, dependency, and guards
 
-> **Phase baseline tree**: _(recorded by the exec-plan skill from a temporary-index snapshot of
-> committed, staged, unstaged, and untracked phase-start state)_
+> **Phase baseline tree**: e2bbb4e99d8f8f7b50477c808de97df0d6eb5535
 > **Modification set**: `packages/api-contract/src/identities.ts`, `packages/api-contract/src/agents.ts`, `packages/api-contract/src/index.ts`, `apps/server/src/database/schema.ts`, generated migration/snapshot/types/ctypes, the reviewed manual trigger migration, `apps/server/package.json`, `pnpm-lock.yaml`, and Phase 1 tests
 > **Scope mode**: strict
 > **Lenses**: api-surface, migration, security
@@ -70,22 +69,22 @@ authenticator. Cache, revocation, retention, and production readiness stay in Ph
 **Objective**: Freeze the strict contracts, schema, generated artifacts, and human-credential
 guards before any implementation.
 
-- [ ] 1.1.1 [spec-author] Write identity and agent contract tests for ST-1–ST-8 — `packages/api-contract/tests/identities.spec.test.ts`, `packages/api-contract/tests/agents.spec.test.ts`
-- [ ] 1.1.2 [spec-author] Write schema, migration, generated-type, and service-principal guard tests for ST-9–ST-16 — `apps/server/tests/integration/schema-identity.spec.test.ts`, `apps/server/tests/integration/schema.spec.test.ts`, `apps/server/tests/integration/migrations.spec.test.ts`
-- [ ] 1.1.3 Run the Phase 1 specification tests against one PostgreSQL database and record the red result
+- [x] 1.1.1 [spec-author] Write identity and agent contract tests for ST-1–ST-8 ✅ (completed: 2026-11-03 09:55) — `packages/api-contract/tests/identities.spec.test.ts`, `packages/api-contract/tests/agents.spec.test.ts`
+- [x] 1.1.2 [spec-author] Write schema, migration, generated-type, and service-principal guard tests for ST-9–ST-16 ✅ (completed: 2026-11-03 09:55) — `apps/server/tests/integration/schema-identity.spec.test.ts`, `apps/server/tests/integration/schema.spec.test.ts`, `apps/server/tests/integration/migrations.spec.test.ts`
+- [x] 1.1.3 Run the Phase 1 specification tests against one PostgreSQL database and record the red result ✅ (completed: 2026-11-03 09:55)
 
 ### Step 1.2: Implementation
 
 **Reference**: [03-01](03-01-contracts-schema-authorization.md) §Shared contracts, §Schema and migration · [03-02](03-02-ca-x509-issuance.md) §X.509 dependency boundary · AR-3, AR-9, AR-12, AR-14, AR-17, AR-20, AR-23
 
-- [ ] 1.2.1 Add the approved X.509/ASN.1/Reflect dependencies and exact pins — `apps/server/package.json`, `pnpm-lock.yaml`
-- [ ] 1.2.2 Add strict identity contracts — `packages/api-contract/src/identities.ts`
-- [ ] 1.2.3 Add strict agent contracts and package exports — `packages/api-contract/src/agents.ts`, `packages/api-contract/src/index.ts`
-- [ ] 1.2.4 Add `ca_keys`, `join_tokens.revoked_at`, active-service-name uniqueness, and cleanup indexes to the schema — `apps/server/src/database/schema.ts`
-- [ ] 1.2.5 Generate and review the additive schema migration and snapshot — `apps/server/migrations/`
-- [ ] 1.2.6 Add the reviewed service-principal and principal-kind trigger migration with the BlendSDK header — `apps/server/migrations/`
-- [ ] 1.2.7 Regenerate database row types and CType constants — `apps/server/src/database/generated-types.ts`, `apps/server/src/database/ctypes.ts`
-- [ ] 1.2.8 Run the Phase 1 specification tests and verify green
+- [x] 1.2.1 Add the approved X.509/ASN.1/Reflect dependencies and exact pins ✅ (completed: 2026-11-03 09:58) — `apps/server/package.json`, `pnpm-lock.yaml`
+- [x] 1.2.2 Add strict identity contracts ✅ (completed: 2026-11-03 09:58) — `packages/api-contract/src/identities.ts`
+- [x] 1.2.3 Add strict agent contracts and package exports ✅ (completed: 2026-11-03 09:58) — `packages/api-contract/src/agents.ts`, `packages/api-contract/src/index.ts`
+- [x] 1.2.4 Add `ca_keys`, `join_tokens.revoked_at`, active-service-name uniqueness, and cleanup indexes to the schema ✅ (completed: 2026-11-03 10:10) — `apps/server/src/database/schema.ts`
+- [x] 1.2.5 Generate and review the additive schema migration and snapshot ✅ (completed: 2026-11-03 10:10) — `apps/server/migrations/`
+- [x] 1.2.6 Add the reviewed service-principal and principal-kind trigger migration with the BlendSDK header ✅ (completed: 2026-11-03 10:10) — `apps/server/migrations/`
+- [x] 1.2.7 Regenerate database row types and CType constants ✅ (completed: 2026-11-03 10:10) — `apps/server/src/database/generated-types.ts`, `apps/server/src/database/ctypes.ts`
+- [x] 1.2.8 Run the Phase 1 specification tests and verify green ✅ (completed: 2026-11-03 10:15)
 
 ### Step 1.3: Implementation Tests and Hardening
 

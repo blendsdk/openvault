@@ -60,6 +60,26 @@ export const eAuditKeys = {
 };
 
 /**
+ * Constant type for relation ca_keys
+ * @export
+ * @constant
+ */
+export const eCaKeys = {
+  $TABLE: "ca_keys",
+  ACTIVATED_AT: "activated_at",
+  CERT_PEM: "cert_pem",
+  CREATED_AT: "created_at",
+  ID: "id",
+  KEK_ID: "kek_id",
+  PUBLIC_KEY: "public_key",
+  RETIRED_AT: "retired_at",
+  STATUS: "status",
+  WRAP_NONCE: "wrap_nonce",
+  WRAP_TAG: "wrap_tag",
+  WRAPPED_KEY: "wrapped_key",
+};
+
+/**
  * Constant type for relation certificate_versions
  * @export
  * @constant
@@ -174,6 +194,7 @@ export const eJoinTokens = {
   ID: "id",
   PRINCIPAL_ID: "principal_id",
   PROJECT_ID: "project_id",
+  REVOKED_AT: "revoked_at",
   TOKEN_HASH: "token_hash",
   USED_AT: "used_at",
 };

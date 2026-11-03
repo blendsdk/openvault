@@ -68,6 +68,7 @@ describe("schema inventory", () => {
       "audit_events",
       "audit_keys",
       "blendsdk_migrations",
+      "ca_keys",
       "certificate_versions",
       "certificates",
       "cli_sessions",
@@ -144,6 +145,7 @@ describe("schema inventory", () => {
       expect.arrayContaining([
         "audit_checkpoints_last_event_id_key",
         "audit_events_event_id_key",
+        "ca_keys_current_idx",
         "certificate_versions_certificate_id_id_key",
         "certificates_id_current_version_id_key",
         "certificates_name_active_idx",
@@ -151,6 +153,7 @@ describe("schema inventory", () => {
         "consumers_principal_id_key",
         "join_tokens_token_hash_key",
         "principals_id_owner_project_id_key",
+        "principals_service_name_active_idx",
         "principals_user_email_idx",
         "projects_name_active_idx",
         "role_assignments_principal_id_role_scope_type_scope_id_key",
@@ -187,6 +190,13 @@ describe("schema inventory", () => {
     expect(definitions).toContain("project_id IS NOT NULL");
     expect(definitions).toContain("actor_kind <> 'system'");
     expect(definitions).toContain("octet_length(request_hash) = 32");
+    expect(definitions).toContain("octet_length(public_key) = 65");
+    expect(definitions).toContain("octet_length(wrapped_key) = 32");
+    expect(definitions).toContain("octet_length(wrap_nonce) = 12");
+    expect(definitions).toContain("octet_length(wrap_tag) = 16");
+    expect(definitions).toContain("length(cert_pem) >= 1");
+    expect(definitions).toContain("length(cert_pem) <= 16384");
+    expect(definitions).toContain("status = ANY (ARRAY['current'::text, 'retired'::text])");
   });
 
   it("should seed exactly one organization row", async () => {

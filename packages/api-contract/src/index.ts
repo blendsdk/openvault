@@ -1,4 +1,14 @@
 export {
+  type AgentCertificateResponse,
+  type AgentConsumer,
+  type AgentJoinRequest,
+  type AgentRenewRequest,
+  agentCertificateResponseSchema,
+  agentConsumerSchema,
+  agentJoinRequestSchema,
+  agentRenewRequestSchema,
+} from "./agents.js";
+export {
   type AuthMethod,
   type AuthUser,
   authMethodSchema,
@@ -35,4 +45,25 @@ export {
   cliSessionListSchema,
   cliTokenResponseSchema,
 } from "./cli-auth.js";
+export {
+  type IdentityCertificate,
+  type IdentityConsumer,
+  type IdentityCreateRequest,
+  type IdentityDetail,
+  type IdentityList,
+  type IdentityListQuery,
+  type IdentitySummary,
+  identityCertificateSchema,
+  identityConsumerSchema,
+  identityCreateRequestSchema,
+  identityDetailSchema,
+  identityListQuerySchema,
+  identityListSchema,
+  identityNameSchema,
+  identitySummarySchema,
+  type JoinTokenCreateRequest,
+  type JoinTokenResponse,
+  joinTokenCreateRequestSchema,
+  joinTokenResponseSchema,
+} from "./identities.js";
 export { projectNameSchema, secretNameSchema, ulidSchema } from "./ids.js";
