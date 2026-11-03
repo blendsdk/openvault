@@ -3,7 +3,7 @@
 > **Feature-Set**: OpenVault v0.1
 > **Status**: In Progress
 > **Created**: 2026-10-29
-> **Last Updated**: 2026-11-03 14:05
+> **Last Updated**: 2026-11-03 19:55
 > **Progress**: 5 / 14 (36%)
 > **CodeOps Artifact Schema**: 1
 
@@ -20,7 +20,7 @@
 | RD-03 | Human authentication and sessions | [RD-03](requirements/RD-03-human-auth-sessions.md) | [rd-03-human-auth-sessions](plans/rd-03-human-auth-sessions/00-index.md) | Done | ✅ | 2026-10-31 | depends on RD-02 |
 | RD-04 | CLI authentication | [RD-04](requirements/RD-04-cli-auth.md) | [rd-04-cli-auth](plans/rd-04-cli-auth/00-index.md) | Done | ✅ | 2026-11-01 | depends on RD-03 |
 | RD-05 | Service identities and mTLS | [RD-05](requirements/RD-05-service-identities-mtls.md) | [rd-05-service-identities-mtls](plans/rd-05-service-identities-mtls/00-index.md) | Done | ✅ | 2026-11-03 | server-side scope; residual AC in RD-06, RD-07, RD-08, RD-10, RD-13, RD-14 |
-| RD-06 | RBAC | [RD-06](requirements/RD-06-rbac.md) | — | RD Drafted | ✏️ | 2026-10-29 | depends on RD-03, RD-05 |
+| RD-06 | RBAC | [RD-06](requirements/RD-06-rbac.md) | [rd-06-rbac](plans/rd-06-rbac/00-index.md) | Plan Created | 📋 | 2026-11-03 | depends on RD-03, RD-05 |
 | RD-07 | Audit | [RD-07](requirements/RD-07-audit.md) | — | RD Drafted | ✏️ | 2026-10-29 | depends on RD-02, RD-03, RD-06 |
 | RD-08 | Projects and secrets | [RD-08](requirements/RD-08-projects-secrets.md) | — | RD Drafted | ✏️ | 2026-10-29 | depends on RD-06, RD-07 |
 | RD-09 | Certificates | [RD-09](requirements/RD-09-certificates.md) | — | RD Drafted | ✏️ | 2026-10-29 | depends on RD-08 |
