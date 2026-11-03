@@ -3,7 +3,7 @@
 > **Document**: 99-execution-plan.md
 > **Parent**: [Index](00-index.md)
 > **Last Updated**: 2026-11-03 10:25
-> **Progress**: 25/69 tasks (36%)
+> **Progress**: 28/69 tasks (41%)
 > **CodeOps Artifact Schema**: 1
 
 ## Overview
@@ -120,7 +120,7 @@ guards before any implementation.
 **Objective**: Freeze create/list/detail/revoke/token behavior, scope filtering, status codes, and
 service-principal human-credential rejection.
 
-- [ ] 2.1.1 [spec-author] Write authorization, admin lifecycle, and TTL status tests for ST-17–ST-30 and ST-84 — `apps/server/tests/integration/identity-admin.spec.test.ts`
+- [x] 2.1.1 [spec-author] Write authorization, admin lifecycle, and TTL status tests for ST-17–ST-30 and ST-84 ✅ (completed: 2026-11-03 10:58) — `apps/server/tests/integration/identity-admin.spec.test.ts`
 - [x] 2.1.2 [spec-author] Write service-principal login, session, OIDC, CLI, and read-path tests ST-82 ✅ (completed: 2026-11-03 10:58) — `apps/server/tests/integration/service-principals.spec.test.ts`
 - [x] 2.1.3 Run the Phase 2 specification tests and record the red result ✅ (completed: 2026-11-03 10:58)
 
@@ -141,9 +141,9 @@ service-principal human-credential rejection.
 
 **Reference**: [07](07-testing-strategy.md) §Identity administration, §Verification Commands · AR-9, AR-10, AR-14, AR-23
 
-- [ ] 2.3.1 Write authorizer/list/detail/revoke implementation tests for scope combinations, expiry, project-scoped `org.admin`, foreign ids, and empty sets — `apps/server/tests/integration/identity/authorization.impl.test.ts`
-- [ ] 2.3.2 Write token/name/error implementation tests, including disabled identity/project, createdBy, concurrent issue/revoke, idempotent revoke, and kind-change guards — `apps/server/tests/integration/identity-admin.impl.test.ts`
-- [ ] 2.3.3 Run `pnpm verify`, the integration gate, and `pnpm db:types:check` — `pnpm verify`; integration commands from [07](07-testing-strategy.md) §Verification Commands
+- [x] 2.3.1 Write authorizer/list/detail/revoke implementation tests for scope combinations, expiry, project-scoped `org.admin`, foreign ids, and empty sets ✅ (completed: 2026-11-03 11:13) — `apps/server/tests/integration/identity/authorization.impl.test.ts`
+- [x] 2.3.2 Write token/name/error implementation tests, including disabled identity/project, createdBy, concurrent issue/revoke, idempotent revoke, and kind-change guards ✅ (completed: 2026-11-03 11:13) — `apps/server/tests/integration/identity-admin.impl.test.ts`
+- [x] 2.3.3 Run `pnpm verify`, the integration gate, and `pnpm db:types:check` — `pnpm verify`; integration commands from [07](07-testing-strategy.md) §Verification Commands ✅ (completed: 2026-11-03 11:22)
 
 **Deliverables**:
 - Complete admin identity routes and strict responses.
