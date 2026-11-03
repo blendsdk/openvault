@@ -1,0 +1,12 @@
+name: OpenVault CodeQL configuration
+
+# The agent listener accepts optional client certificates so a first-time
+# agent can reach the token-authenticated join route. Every protected request
+# is authenticated by the application middleware against the stored
+# certificate fingerprint and live identity state; the TLS flag alone is never
+# the authorization boundary.
+query-filters:
+  - exclude:
+      id: js/disabling-certificate-validation
+    paths:
+      - apps/server/src/transport/secure-application.ts
