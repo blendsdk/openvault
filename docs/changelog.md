@@ -11,13 +11,16 @@
   `blendsdk/react`.
 - VitePress documentation site with GitHub Pages deployment.
 - CI, CodeQL, dependency review, and secret-scan workflows.
+- Server-side service identities, administrative lifecycle, join-token issuance, CA/X.509
+  agent join and renewal, mTLS agent listener, revocation, bounded retention, and CA
+  readiness.
+- Local and OIDC browser authentication plus CLI bearer authentication.
 
 ### Planned
 
-- Local and OIDC BFF authentication.
 - Secrets and certificates.
 - Scoped RBAC and per-object capabilities.
-- Per-service agent with mTLS and tmpfs delivery.
+- `ov-agent` client with tmpfs delivery and local status socket.
 - CLI and Docker Compose scaffold.
 - Audit chain, verification, and export.
 - Minimal web UI.

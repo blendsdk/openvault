@@ -80,8 +80,8 @@ export function normalizeRequestPath(raw: string | undefined): string {
 /**
  * Applies the default-deny listener scope table.
  *
- * Admin permits liveness, readiness, and the non-agent API. Agent permits
- * liveness and agent routes only.
+ * Admin permits liveness, readiness, the agent API, and the non-agent API.
+ * Agent permits liveness, join/renew, and the data routes.
  */
 export function isAllowedPath(listener: ListenerKind, path: string): boolean {
   if (listener === "admin") {
@@ -90,7 +90,13 @@ export function isAllowedPath(listener: ListenerKind, path: string): boolean {
     }
     return path.startsWith("/v1/") && path !== "/v1/agent" && !path.startsWith("/v1/agent/");
   }
-  return path === "/health" || path === "/v1/agent" || path.startsWith("/v1/agent/");
+  return (
+    path === "/health" ||
+    path === "/v1/agent" ||
+    path.startsWith("/v1/agent/") ||
+    path === "/v1/data" ||
+    path.startsWith("/v1/data/")
+  );
 }
 
 /**

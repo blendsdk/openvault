@@ -1,14 +1,18 @@
+import { createHash, X509Certificate } from "node:crypto";
 import { writeFileSync } from "node:fs";
 import { networkInterfaces } from "node:os";
 import { join } from "node:path";
+import { TLSSocket } from "node:tls";
 import { PostgreSQLDatabase } from "blendsdk/postgresql";
 import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 import { z } from "zod";
+import type { AgentAuthenticator } from "../../src/agent/agent-authenticator.js";
+import type { AgentAuthContext } from "../../src/agent/types.js";
 import { createTestApplication } from "../../src/app.js";
 import type { OpenVaultConfig } from "../../src/config/index.js";
 import { KeyringProvider } from "../../src/security/keyring.js";
 import { CidrMatcher, createTrustProxy, normalizePeerAddress } from "../../src/transport/proxy.js";
-import { isAllowedPath, normalizeRequestPath } from "../../src/transport/scope.js";
+import { isAllowedPath, listenerOf, normalizeRequestPath } from "../../src/transport/scope.js";
 import {
   type SecureWebApplication,
   TRANSPORT_SETTINGS,
@@ -64,6 +68,45 @@ interface RunningApp {
   readonly environment: ServerEnvironment;
 }
 
+/** Accepts only the trusted transport fixture certificate for listener tests. */
+function fixtureAuthenticator(environment: ServerEnvironment): AgentAuthenticator {
+  const trusted = new X509Certificate(environment.tls.clientCertPem);
+  const raw = trusted.raw;
+  const fingerprint = createHash("sha256").update(raw).digest("hex");
+  const publicKeySha256 = createHash("sha256")
+    .update(trusted.publicKey.export({ type: "spki", format: "der" }))
+    .digest("hex");
+  const context: AgentAuthContext = {
+    kind: "agent",
+    principalId: "01ARZ3NDEKTSV4RRFFQ69G5FAV",
+    projectId: "01ARZ3NDEKTSV4RRFFQ69G5FAW",
+    projectName: "fixture",
+    certificateId: "01ARZ3NDEKTSV4RRFFQ69G5FAX",
+    serial: "01",
+    fingerprint,
+    publicKeySha256,
+    notAfter: Date.now() + 86_400_000,
+  };
+  const authenticate = async (req: import("express").Request) => {
+    if (listenerOf(req) !== "agent") {
+      return undefined;
+    }
+    if (!(req.socket instanceof TLSSocket) || req.socket.authorized !== true) {
+      return undefined;
+    }
+    const peer = req.socket.getPeerCertificate();
+    if (!Buffer.isBuffer(peer.raw) || !peer.raw.equals(raw)) {
+      return undefined;
+    }
+    return context;
+  };
+  return {
+    authenticate,
+    revalidate: authenticate,
+    invalidatePrincipal: () => undefined,
+  };
+}
+
 function databaseFor(config: OpenVaultConfig): PostgreSQLDatabase {
   return new PostgreSQLDatabase({
     ...config.database,
@@ -80,6 +123,10 @@ async function startApp(environment: ServerEnvironment): Promise<RunningApp> {
     database,
     tls,
     keyring,
+    agentOverrides: {
+      authenticator: fixtureAuthenticator(environment),
+      projectResolver: { resolveActiveByName: async () => undefined },
+    },
   });
   const handle = await app.startTransport({ adminPort: 0, agentPort: 0 });
   return { app, handle, environment };
@@ -184,14 +231,17 @@ describe("ST-18 agent mTLS listener", () => {
       servername: "localhost",
     };
 
-    await expect(testRequest(base)).rejects.toThrow();
-    await expect(
-      testRequest({
-        ...base,
-        cert: tls.wrongClientCertPem,
-        key: tls.wrongClientKeyPem,
-      }),
-    ).rejects.toThrow();
+    const missing = await testRequest(base);
+    expect(missing.status).toBe(401);
+    expect(envelope(missing).error.code).toBe("authentication_required");
+
+    const untrusted = await testRequest({
+      ...base,
+      cert: tls.wrongClientCertPem,
+      key: tls.wrongClientKeyPem,
+    });
+    expect(untrusted.status).toBe(401);
+    expect(envelope(untrusted).error.code).toBe("authentication_required");
 
     const accepted = await testRequest({
       ...base,

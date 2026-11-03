@@ -1,4 +1,5 @@
 import { randomBytes } from "node:crypto";
+import { setTimeout as delay } from "node:timers/promises";
 import { fileURLToPath } from "node:url";
 import { type MigrationCommandResult, runMigrations } from "blendsdk/codegen";
 import { PostgreSQLDatabase } from "blendsdk/postgresql";
@@ -158,6 +159,29 @@ function quoteIdentifier(identifier: string): string {
 }
 
 /**
+ * Waits until PostgreSQL no longer lists a database in `pg_stat_activity`.
+ *
+ * Pool shutdown resolves when its client list is empty, but the backend socket can
+ * remain visible for a short time. Dropping the database in that window terminates
+ * the closing socket and can surface as an unhandled `57P01` error in the test run.
+ *
+ * @param admin - Maintenance connection used to inspect activity.
+ * @param name - Disposable database name.
+ */
+async function waitForDatabaseIdle(admin: Client, name: string): Promise<void> {
+  for (let attempt = 0; attempt < 40; attempt += 1) {
+    const result = await admin.query<{ count: number }>(
+      "SELECT count(*)::int AS count FROM pg_stat_activity WHERE datname = $1",
+      [name],
+    );
+    if ((result.rows[0]?.count ?? 0) === 0) {
+      return;
+    }
+    await delay(25);
+  }
+}
+
+/**
  * Creates a unique, disposable database for one integration run.
  *
  * The maintenance database is only used to create and drop the unique database. Its schema
@@ -204,10 +228,20 @@ export async function createTestDatabase(
       cleaned = true;
       try {
         await db.disconnect();
+      } catch (error) {
+        // The application shutdown path may have disposed the same pool first.
+        // A second `pg-pool` end is benign for a disposable test database.
+        if (
+          !(error instanceof Error) ||
+          !error.message.includes("Called end on pool more than once")
+        ) {
+          throw error;
+        }
       } finally {
         const dropAdmin = new Client({ connectionString: settings.maintenanceUrl });
         await dropAdmin.connect();
         try {
+          await waitForDatabaseIdle(dropAdmin, name);
           await dropAdmin.query(`DROP DATABASE IF EXISTS ${quoteIdentifier(name)} WITH (FORCE)`);
         } finally {
           await dropAdmin.end();

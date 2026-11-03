@@ -1,7 +1,9 @@
 # Agent
 
-::: warning Target documentation
-The agent is part of v0.1 and is not implemented in the current scaffold.
+::: info Current scope
+The server-side join, renewal, revocation, certificate, and data-route boundary are
+implemented. The `ov-agent` client, tmpfs delivery, and local status socket are delivered in
+a later release.
 :::
 
 The agent runs next to an application service. Its first start joins with a one-time token,

@@ -1,7 +1,7 @@
 import { ApiError } from "blendsdk/webafx";
 import type { NextFunction, Request, RequestHandler, Response } from "express";
 import type { SigningKeyService } from "../security/signing-keys.js";
-import { normalizeRequestPath } from "../transport/scope.js";
+import { listenerOf, normalizeRequestPath } from "../transport/scope.js";
 import { CliTokenError } from "./cli-jwt.js";
 import type { CliSessionRepository } from "./cli-sessions.js";
 import { clearSessionCookie, readSessionCookie } from "./cookie.js";
@@ -48,6 +48,10 @@ export function sessionMiddleware(
 ): RequestHandler {
   return async (req: Request, res: Response, next: NextFunction) => {
     try {
+      if (listenerOf(req) === "agent") {
+        next();
+        return;
+      }
       if (req.auth !== undefined || req.headers.authorization !== undefined) {
         // A CLI context wins. An invalid Authorization header must never fall
         // back to a browser cookie; the protected route returns 401 instead.
@@ -112,6 +116,10 @@ export function cliAuthMiddleware(
   sessions: CliSessionRepository,
 ): RequestHandler {
   return async (req: Request, _res: Response, next: NextFunction) => {
+    if (listenerOf(req) === "agent") {
+      next();
+      return;
+    }
     const header = req.headers.authorization;
     if (typeof header !== "string") {
       next();

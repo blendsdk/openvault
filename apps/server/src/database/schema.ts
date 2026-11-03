@@ -83,6 +83,12 @@ principals
   .column("email")
   .expression("lower(email)")
   .where("kind = 'user' AND email IS NOT NULL");
+principals
+  .index()
+  .indexName("principals_service_name_active_idx")
+  .unique()
+  .column("owner_project_id", "name")
+  .where("kind = 'service' AND status = 'active'");
 
 // ---------------------------------------------------------------------------
 // Credentials and CLI sessions
@@ -162,6 +168,33 @@ signingKeys
   .where("status = 'previous'");
 
 // ---------------------------------------------------------------------------
+// Internal certificate authority
+// ---------------------------------------------------------------------------
+
+const caKeys = db.table("ca_keys");
+caKeys.text("id").check(ulidExpression("id"));
+caKeys.text("cert_pem").check(lengthBetween("cert_pem", 1, 16_384));
+caKeys.bytea("public_key").check("octet_length(public_key) = 65");
+caKeys.bytea("wrapped_key").check("octet_length(wrapped_key) = 32");
+caKeys.bytea("wrap_nonce").check("octet_length(wrap_nonce) = 12");
+caKeys.bytea("wrap_tag").check("octet_length(wrap_tag) = 16");
+caKeys.text("kek_id").check(lengthBetween("kek_id", 1, 64));
+caKeys.text("status").check("status IN ('current', 'retired')");
+caKeys.timestamptz("created_at").default("now()");
+caKeys.timestamptz("activated_at");
+caKeys.timestamptz("retired_at").nullable();
+caKeys.primaryKey().column("id");
+caKeys.checkConstraint(
+  "(status = 'retired' AND retired_at IS NOT NULL) OR (status <> 'retired' AND retired_at IS NULL)",
+);
+caKeys
+  .index()
+  .indexName("ca_keys_current_idx")
+  .unique()
+  .column("status")
+  .where("status = 'current'");
+
+// ---------------------------------------------------------------------------
 // Workload identity and consumers
 // ---------------------------------------------------------------------------
 
@@ -183,6 +216,7 @@ workloadCerts.timestamptz("issued_at").default("now()");
 workloadCerts.primaryKey().column("id");
 workloadCerts.checkConstraint("not_after > not_before");
 workloadCerts.index().column("principal_id").indexName("workload_certs_principal_idx");
+workloadCerts.index().column("not_after").indexName("workload_certs_not_after_idx");
 
 const joinTokens = db.table("join_tokens");
 joinTokens.text("id").check(ulidExpression("id"));
@@ -191,10 +225,12 @@ joinTokens.text("principal_id");
 joinTokens.text("project_id");
 joinTokens.timestamptz("expires_at");
 joinTokens.timestamptz("used_at").nullable();
+joinTokens.timestamptz("revoked_at").nullable();
 joinTokens.text("created_by");
 joinTokens.timestamptz("created_at").default("now()");
 joinTokens.primaryKey().column("id");
 joinTokens.index().column("principal_id").indexName("join_tokens_principal_idx");
+joinTokens.index().column("expires_at").indexName("join_tokens_expires_idx");
 
 const consumers = db.table("consumers");
 consumers.text("id").check(ulidExpression("id"));

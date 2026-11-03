@@ -76,18 +76,18 @@ CLI and backup/rotation releases create the keyring file.
 
 The public CA certificate at `OPENVAULT_INTERNAL_CA` must match the CA key stored in
 `ca_keys`. The key is a P-256 scalar wrapped by the current KEK; it is never a file and is
-never returned. `ov init` generates the CA once. Re-running init does not rotate it.
-Startup and `/ready` fail closed if the row is missing, the KEK cannot unwrap it, or it does
-not match the public certificate. Readiness also signs and verifies a short test certificate.
-KEK rotation re-wraps `ca_keys`; backup and restore include the public certificate and restore
-the wrapped key from the database dump.
+never returned. The deployment provisioner generates the CA once. Re-running the provisioner
+does not rotate it. Startup fails closed if the row is missing, the KEK cannot unwrap it, or it does not match
+the public certificate. `/ready` signs and verifies a short test certificate with the loaded
+key; it does not re-read the row. KEK rotation and backup/restore are later releases; they
+must re-wrap and restore the wrapped `ca_keys` row together with the public certificate.
 
 ## Readiness
 
 | Endpoint | Semantics |
 |---|---|
 | `GET /health` | Liveness only; remains 200 during a dependency outage |
-| `GET /ready` | PostgreSQL, keyring, TLS/CA, wrapped CA signing key (including a sign/verify probe), and audit-table probes; 200 or 503 `not_ready` |
+| `GET /ready` | PostgreSQL, keyring, TLS/CA, CA signing key loaded at startup (including a sign/verify probe), and audit-table probes; 200 or 503 `not_ready` |
 
 `/v1/ready` is not part of the contract. The readiness database probe uses a 2-second
 connection timeout and a bounded outer timeout.

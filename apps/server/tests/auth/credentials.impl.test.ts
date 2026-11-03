@@ -41,7 +41,10 @@ describe("CredentialsRepository SQL shape", () => {
       lockedUntil: null,
     });
 
-    const sql = database.queries[0]?.sql ?? "";
+    const lock = database.queries.find((entry) => entry.sql.includes("FOR KEY SHARE"));
+    const update = database.queries.find((entry) => entry.sql.includes("UPDATE local_credentials"));
+    expect(lock?.sql).toContain("SELECT id FROM principals");
+    const sql = update?.sql ?? "";
     expect(sql).toContain("UPDATE local_credentials");
     expect(sql).toContain("interval '15 minutes'");
     expect(sql).toContain("failed_count + 1");
@@ -49,7 +52,7 @@ describe("CredentialsRepository SQL shape", () => {
     expect(sql).toContain("password_hash = :expectedHash");
     expect(sql).toContain("AND (locked_until IS NULL OR locked_until <= now())");
     expect(sql).toContain("RETURNING failed_count, locked_until");
-    expect(database.queries[0]?.params).toEqual({
+    expect(update?.params).toEqual({
       principalId: "principal-1",
       expectedHash: "hash-1",
     });
@@ -61,7 +64,10 @@ describe("CredentialsRepository SQL shape", () => {
 
     await expect(repository.recordSuccess("principal-1", "hash-1")).resolves.toBe(false);
 
-    const query = database.queries[0];
+    const lock = database.queries.find((entry) => entry.sql.includes("FOR KEY SHARE"));
+    const update = database.queries.find((entry) => entry.sql.includes("UPDATE local_credentials"));
+    expect(lock?.sql).toContain("SELECT id FROM principals");
+    const query = update;
     expect(query?.sql).toContain("failed_count = 0");
     expect(query?.sql).toContain("locked_until = NULL");
     expect(query?.sql).toContain("password_hash = :expectedHash");

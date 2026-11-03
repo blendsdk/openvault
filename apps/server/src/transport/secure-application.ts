@@ -1,9 +1,15 @@
+import { SSL_OP_NO_TICKET } from "node:constants";
 import { createServer, type Server, type ServerOptions } from "node:https";
 import type { Writable } from "node:stream";
 import type { PostgreSQLDatabase } from "blendsdk/postgresql";
 import { WebApplication } from "blendsdk/webafx";
+import type { PinoLoggerProvider } from "blendsdk/webafx-pino";
+import type { AgentAuthenticator } from "../agent/agent-authenticator.js";
+import type { AgentRuntime } from "../agent/agent-runtime.js";
+import type { AgentProjectResolver } from "../agent/project-resolver.js";
 import type { AuthOverrides } from "../auth/types.js";
 import { createWebApplicationConfig, type OpenVaultConfig } from "../config/index.js";
+import type { IdentityRuntime } from "../identity/identity-runtime.js";
 import type { ReadinessProbe } from "../readiness/service.js";
 import type { KeyringProvider } from "../security/keyring.js";
 import { CidrMatcher, createTrustProxy } from "./proxy.js";
@@ -43,6 +49,24 @@ export interface SecureApplicationDependencies {
   readonly loggerDestination?: Writable;
   /** Test-only auth collaboration seams (OIDC fetch, cache, clock). */
   readonly authOverrides?: AuthOverrides;
+  /** Optional composed identity runtime; production creates one when absent. */
+  readonly identityRuntime?: IdentityRuntime;
+  /** Production agent runtime; owns the CA signer and identity runtime. */
+  readonly agentRuntime?: AgentRuntime;
+  /** Test-only agent seams; production never supplies these. */
+  readonly agentOverrides?: AgentTestOverrides;
+  /** Shared logger provider; created by the caller when absent. */
+  readonly logger?: PinoLoggerProvider;
+}
+
+/** Test-only agent collaborations for offline listener tests. */
+export interface AgentTestOverrides {
+  /** Explicit authenticator that takes precedence over the deny-all default. */
+  readonly authenticator?: AgentAuthenticator;
+  /** Project resolver used by the data-route guard. */
+  readonly projectResolver?: AgentProjectResolver;
+  /** Injectable clock. */
+  readonly now?: () => number;
 }
 
 /** Timeouts and connection caps applied to each HTTPS server. */
@@ -177,11 +201,23 @@ export class SecureWebApplication extends WebApplication {
       cert: tls.certPem,
       minVersion: "TLSv1.2",
     };
+    const authenticator =
+      this.#dependencies.agentRuntime?.authenticator ??
+      this.#dependencies.agentOverrides?.authenticator;
+    if (authenticator === undefined) {
+      throw new Error("Agent authenticator is required before binding the agent listener");
+    }
+
     const agentOptions: ServerOptions = {
       ...adminOptions,
       requestCert: true,
-      rejectUnauthorized: true,
+      // First-time join has no client certificate. Every protected agent
+      // request is authenticated by the application middleware against the
+      // stored fingerprint and live identity state.
+      rejectUnauthorized: false,
       ca: [tls.caPem],
+      secureOptions: SSL_OP_NO_TICKET,
+      sessionTimeout: 0,
     };
 
     const admin = createServer(adminOptions, (req, res) => {

@@ -1,5 +1,6 @@
 import type { IncomingHttpHeaders } from "node:http";
 import { request as httpRequest } from "node:http";
+import type { Agent } from "node:https";
 import { request as httpsRequest } from "node:https";
 
 /** Options for one test request against a bound listener. */
@@ -21,6 +22,8 @@ export interface TestRequestOptions {
   readonly plaintext?: boolean;
   /** Send the body without a Content-Length header. */
   readonly chunked?: boolean;
+  /** Optional keep-alive agent for reused-connection tests. */
+  readonly agent?: Agent;
 }
 
 /** A response captured by the test helper. */
@@ -82,6 +85,7 @@ export function testRequest(options: TestRequestOptions): Promise<TestResponse> 
             ...(options.cert === undefined ? {} : { cert: options.cert }),
             ...(options.key === undefined ? {} : { key: options.key }),
             ...(options.servername === undefined ? {} : { servername: options.servername }),
+            ...(options.agent === undefined ? {} : { agent: options.agent }),
           },
           onResponse,
         );

@@ -4,7 +4,7 @@ import { GlobalLoaderProvider } from "blendsdk/react";
 
 /**
  * Minimal shell used to prove the React 19, Fluent UI v9, and BlendSDK integration.
- * The real project and secret screens are added in the UI phase.
+ * The real project and secret screens are not implemented yet.
  */
 export function App() {
   return (

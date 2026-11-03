@@ -4,6 +4,7 @@ import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { z } from "zod";
 import { createTestApplication } from "../../src/app.js";
 import {
+  createProductionProbes,
   ReadinessError,
   type ReadinessProbe,
   type ReadinessProbeName,
@@ -123,7 +124,7 @@ describe("readiness endpoints", () => {
     }
   }, 30_000);
 
-  it.each(["postgresql", "keyring", "tls", "audit"] as const)(
+  it.each(["postgresql", "keyring", "tls", "audit", "ca"] as const)(
     "maps a %s failure to 503 not_ready and logs the fixed probe name",
     async (name) => {
       const destination = new MemoryDestination();
@@ -145,6 +146,45 @@ describe("readiness endpoints", () => {
       }
     },
   );
+
+  it("includes the CA probe only when an agent signer is supplied", async () => {
+    const environment = createServerEnvironment({ OPENVAULT_DB_URL: testDb.url });
+    try {
+      const keyring = await KeyringProvider.load(environment.keyringPath);
+      const tls = TlsMaterial.load(environment.config);
+      const withoutCa = createProductionProbes({
+        database: testDb.db,
+        keyring,
+        tls,
+      });
+      expect(withoutCa.map((probe) => probe.name)).not.toContain("ca");
+
+      const withCa = createProductionProbes({
+        database: testDb.db,
+        keyring,
+        tls,
+        caSigner: { probe: async () => undefined },
+      });
+      expect(withCa.map((probe) => probe.name)).toContain("ca");
+      const probe = withCa.find((candidate) => candidate.name === "ca");
+      await expect(probe?.check()).resolves.toBeUndefined();
+
+      const failing = createProductionProbes({
+        database: testDb.db,
+        keyring,
+        tls,
+        caSigner: {
+          probe: async () => {
+            throw new Error("sign failed");
+          },
+        },
+      });
+      const failingProbe = failing.find((candidate) => candidate.name === "ca");
+      await expect(failingProbe?.check()).rejects.toMatchObject({ probe: "ca" });
+    } finally {
+      environment.cleanup();
+    }
+  }, 30_000);
 
   it("keeps an unexpected probe error as 500", async () => {
     const running = await createApp([

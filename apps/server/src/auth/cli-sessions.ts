@@ -298,6 +298,7 @@ export class CliSessionRepository {
            ON s.principal_id = p.id AND s.family_id = :familyId
          LEFT JOIN local_credentials c ON c.principal_id = p.id
         WHERE p.id = :principalId
+          AND p.kind = 'user'
           AND p.status = 'active'
           AND s.revoked_at IS NULL
           AND s.expires_at > now()
@@ -335,7 +336,7 @@ export class CliSessionRepository {
                   COALESCE(c.must_change, false) AS must_change
              FROM principals p
              LEFT JOIN local_credentials c ON c.principal_id = p.id
-            WHERE p.id = :principalId
+            WHERE p.id = :principalId AND p.kind = 'user'
             FOR UPDATE OF p`,
           { principalId },
         );

@@ -457,6 +457,135 @@
     },
     {
       "schema": "public",
+      "name": "ca_keys",
+      "columns": [
+        {
+          "name": "activated_at",
+          "type": "timestamptz",
+          "nullable": false
+        },
+        {
+          "name": "cert_pem",
+          "type": "text",
+          "nullable": false
+        },
+        {
+          "name": "created_at",
+          "type": "timestamptz",
+          "nullable": false,
+          "default": "now()"
+        },
+        {
+          "name": "id",
+          "type": "text",
+          "nullable": false
+        },
+        {
+          "name": "kek_id",
+          "type": "text",
+          "nullable": false
+        },
+        {
+          "name": "public_key",
+          "type": "bytea",
+          "nullable": false
+        },
+        {
+          "name": "retired_at",
+          "type": "timestamptz",
+          "nullable": true
+        },
+        {
+          "name": "status",
+          "type": "text",
+          "nullable": false
+        },
+        {
+          "name": "wrap_nonce",
+          "type": "bytea",
+          "nullable": false
+        },
+        {
+          "name": "wrap_tag",
+          "type": "bytea",
+          "nullable": false
+        },
+        {
+          "name": "wrapped_key",
+          "type": "bytea",
+          "nullable": false
+        }
+      ],
+      "primaryKey": {
+        "kind": "primaryKey",
+        "name": "ca_keys_id_pkey",
+        "columns": [
+          "id"
+        ]
+      },
+      "uniqueConstraints": [],
+      "checkConstraints": [
+        {
+          "kind": "check",
+          "name": "ca_keys_29581f1676_check",
+          "expression": "octet_length(wrap_nonce) = 12"
+        },
+        {
+          "kind": "check",
+          "name": "ca_keys_2f4050c033_check",
+          "expression": "octet_length(wrapped_key) = 32"
+        },
+        {
+          "kind": "check",
+          "name": "ca_keys_349d6258df_check",
+          "expression": "id ~ '^[0-9A-HJKMNP-TV-Z]{26}$'"
+        },
+        {
+          "kind": "check",
+          "name": "ca_keys_64a83c0a06_check",
+          "expression": "status IN ('current', 'retired')"
+        },
+        {
+          "kind": "check",
+          "name": "ca_keys_7967c4a0d1_check",
+          "expression": "(status = 'retired' AND retired_at IS NOT NULL) OR (status <> 'retired' AND retired_at IS NULL)"
+        },
+        {
+          "kind": "check",
+          "name": "ca_keys_9878f8ddc0_check",
+          "expression": "octet_length(wrap_tag) = 16"
+        },
+        {
+          "kind": "check",
+          "name": "ca_keys_a9e2e02429_check",
+          "expression": "length(kek_id) BETWEEN 1 AND 64"
+        },
+        {
+          "kind": "check",
+          "name": "ca_keys_b173ea2f46_check",
+          "expression": "octet_length(public_key) = 65"
+        },
+        {
+          "kind": "check",
+          "name": "ca_keys_f175e3eb8c_check",
+          "expression": "length(cert_pem) BETWEEN 1 AND 16384"
+        }
+      ],
+      "foreignKeys": [],
+      "indexes": [
+        {
+          "name": "ca_keys_current_idx",
+          "columns": [
+            "status"
+          ],
+          "unique": true,
+          "where": "status = 'current'",
+          "concurrent": false
+        }
+      ]
+    },
+    {
+      "schema": "public",
       "name": "certificate_versions",
       "columns": [
         {
@@ -1287,6 +1416,11 @@
           "nullable": false
         },
         {
+          "name": "revoked_at",
+          "type": "timestamptz",
+          "nullable": true
+        },
+        {
           "name": "token_hash",
           "type": "bytea",
           "nullable": false
@@ -1372,6 +1506,14 @@
         }
       ],
       "indexes": [
+        {
+          "name": "join_tokens_expires_idx",
+          "columns": [
+            "expires_at"
+          ],
+          "unique": false,
+          "concurrent": false
+        },
         {
           "name": "join_tokens_principal_idx",
           "columns": [
@@ -1687,6 +1829,16 @@
             "owner_project_id"
           ],
           "unique": false,
+          "concurrent": false
+        },
+        {
+          "name": "principals_service_name_active_idx",
+          "columns": [
+            "owner_project_id",
+            "name"
+          ],
+          "unique": true,
+          "where": "kind = 'service' AND status = 'active'",
           "concurrent": false
         },
         {
@@ -2480,6 +2632,14 @@
         }
       ],
       "indexes": [
+        {
+          "name": "workload_certs_not_after_idx",
+          "columns": [
+            "not_after"
+          ],
+          "unique": false,
+          "concurrent": false
+        },
         {
           "name": "workload_certs_principal_idx",
           "columns": [

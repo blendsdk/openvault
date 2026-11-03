@@ -1,9 +1,10 @@
 import type { PostgreSQLDatabase } from "blendsdk/postgresql";
+import type { CaSigner } from "../security/ca.js";
 import type { KeyringProvider } from "../security/keyring.js";
 import { type TlsMaterial, TlsMaterialError } from "../transport/tls.js";
 
 /** Dependency probe that contributes to readiness. */
-export type ReadinessProbeName = "postgresql" | "keyring" | "tls" | "audit";
+export type ReadinessProbeName = "postgresql" | "keyring" | "tls" | "audit" | "ca";
 
 /** Failure name, including the overall timeout sentinel. */
 export type ReadinessFailure = ReadinessProbeName | "timeout";
@@ -83,8 +84,10 @@ export function createProductionProbes(dependencies: {
   readonly database: PostgreSQLDatabase;
   readonly keyring: KeyringProvider;
   readonly tls: TlsMaterial;
+  /** Present only when a real agent runtime/CA signer is loaded. */
+  readonly caSigner?: Pick<CaSigner, "probe">;
 }): readonly ReadinessProbe[] {
-  return [
+  const probes: ReadinessProbe[] = [
     {
       name: "postgresql",
       async check(): Promise<void> {
@@ -134,4 +137,19 @@ export function createProductionProbes(dependencies: {
       },
     },
   ];
+
+  if (dependencies.caSigner !== undefined) {
+    const caSigner = dependencies.caSigner;
+    probes.push({
+      name: "ca",
+      async check(): Promise<void> {
+        try {
+          await caSigner.probe();
+        } catch {
+          throw new ReadinessError("ca");
+        }
+      },
+    });
+  }
+  return probes;
 }
