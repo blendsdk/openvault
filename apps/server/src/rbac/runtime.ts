@@ -33,9 +33,11 @@ export interface PolicyRuntime {
 export function createPolicyRuntime(options: {
   readonly database: PostgreSQLDatabase;
   readonly logger?: Logger;
+  /** Reuse an existing engine when the caller already owns one. */
+  readonly service?: PolicyService;
 }): PolicyRuntime {
   const audit = new LoggingPolicyAudit(options.logger ?? silentLogger);
   const repository = new PolicyRepository(options.database);
-  const service = new PolicyService({ repository, audit });
+  const service = options.service ?? new PolicyService({ repository, audit });
   return { repository, audit, service };
 }

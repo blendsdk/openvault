@@ -43,8 +43,8 @@ function identityId(req: Request): string {
 /**
  * Administrative service-identity routes.
  *
- * The narrow identity authorizer enforces the pre-RBAC matrix; the controller
- * only parses requests, maps stable errors, and serializes public responses.
+ * The policy engine enforces the action matrix; the controller only parses
+ * requests, maps stable errors, and serializes public responses.
  */
 export class IdentityController extends BaseController {
   /** @inheritDoc */

@@ -155,6 +155,34 @@ describe("version and list internals", () => {
     expect(after.policyVersion).toBeGreaterThan(before.policyVersion);
   });
 
+  it("should keep an uncommitted version bump out of a concurrent decision", async () => {
+    const user = await insertUser();
+    await assign(user, "org.admin", "org", "org");
+    const before = await policy.authorize(user, "project.read", project(base.projectId));
+
+    let release: () => void = () => undefined;
+    let bumped: () => void = () => undefined;
+    const gate = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    const started = new Promise<void>((resolve) => {
+      bumped = resolve;
+    });
+    const transaction = testDb.db.withTransaction(async (tx) => {
+      await new PolicyRepository(tx).bumpPolicyVersion(tx);
+      bumped();
+      await gate;
+    });
+    await started;
+    const during = await policy.authorize(user, "project.read", project(base.projectId));
+    expect(during.policyVersion).toBe(before.policyVersion);
+    release();
+    await transaction;
+
+    const after = await policy.authorize(user, "project.read", project(base.projectId));
+    expect(after.policyVersion).toBeGreaterThan(before.policyVersion);
+  });
+
   it("should deny a project-only actor at another project in a list decision", async () => {
     const user = await insertUser();
     await assign(user, "auditor", "project", base.projectId);

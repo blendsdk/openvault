@@ -12,3 +12,15 @@
 | SA-003 | 1 | MINOR | list scope allowlist | fixed |
 | SA-cross-1 | 1 | MINOR | mutation actor kind | fixed |
 | SA-cross-2 | 1 | MINOR | first-admin version bump | documented |
+
+## Phase 2
+
+| Finding | Phase | Severity | Area | Ruling |
+|---|---|---|---|---|
+| RV-007 / SA-001 / PE-001 | 2 | MAJOR | any-scope audit scope | fixed |
+| RV-008 | 2 | MINOR | service list projection | fixed |
+| RV-009 | 2 | MINOR | grant guard reasons | fixed |
+| RV-010 | 2 | MINOR | ineligible-scope reason | fixed |
+| PE-002 | 2 | MINOR | version-read concurrency evidence | fixed |
+| PE-003 | 2 | MINOR | single policy runtime ownership | fixed |
+| PE-004 | 2 | MINOR | evaluation-instant consistency | fixed |

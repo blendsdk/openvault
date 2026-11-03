@@ -126,7 +126,7 @@ export async function createAgentRuntime(
   const identityRuntime = createIdentityRuntime({
     database: options.database,
     config: options.config,
-    policyService: policyRuntime.service,
+    policyRuntime,
     onRevoked: (principalId) => {
       authenticator.invalidatePrincipal(principalId);
       renewService.invalidatePrincipal(principalId);

@@ -138,6 +138,9 @@ describe("identity authorizer bridge", () => {
     expect(await authorizer.canReadAll(base.serviceId)).toBe(false);
     expect(await authorizer.hasAny("identity.read", base.serviceId)).toBe(false);
     expect(await authorizer.readableProjectIds(base.serviceId)).toEqual([]);
+
+    await assign(base.serviceId, "auditor", "project", base.projectId);
+    expect(await authorizer.readableProjectIds(base.serviceId)).toEqual([]);
   });
 });
 

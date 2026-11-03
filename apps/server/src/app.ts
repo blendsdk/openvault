@@ -49,6 +49,7 @@ export function createApplication(
     dependencies.logger ?? createLoggerProvider(config, dependencies.loggerDestination);
   const policyRuntime =
     dependencies.agentRuntime?.policyRuntime ??
+    dependencies.identityRuntime?.policyRuntime ??
     createPolicyRuntime({ database: dependencies.database, logger: provider });
   const identityRuntime =
     dependencies.agentRuntime?.identityRuntime ??
@@ -56,7 +57,7 @@ export function createApplication(
     createIdentityRuntime({
       database: dependencies.database,
       config,
-      policyService: policyRuntime.service,
+      policyRuntime,
     });
   const authenticator =
     dependencies.agentRuntime?.authenticator ?? dependencies.agentOverrides?.authenticator;

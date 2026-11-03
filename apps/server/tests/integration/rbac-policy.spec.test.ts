@@ -328,7 +328,7 @@ describe("principal and assignment state", () => {
     await assign(user, "org.admin", "project", fixture.projectA);
     const decision = await policy.authorize(user, "project.read", project(fixture.projectA));
     expect(decision.allowed).toBe(false);
-    expect(decision.reason).toBe("no_assignment");
+    expect(decision.reason).toBe("scope_mismatch");
     const create = await policy.authorize(user, "project.create", org());
     expect(create.allowed).toBe(false);
   });
@@ -457,6 +457,7 @@ describe("decision evidence and capabilities", () => {
     });
     expect(await policy.hasAny(fixture.reader, "identity.read")).toMatchObject({
       allowed: false,
+      scope: { type: "system", id: null },
     });
 
     const all = await policy.authorizeList(fixture.orgAdmin, "assignment.read", org());

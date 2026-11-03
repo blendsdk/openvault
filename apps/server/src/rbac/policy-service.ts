@@ -224,6 +224,7 @@ export class PolicyService {
     options: AuthorizeOptions = {},
   ): Promise<PolicyDecision> {
     const snapshot = await this.#repository.loadActorSnapshot(actorId);
+    const now = this.#now();
     const decision =
       snapshot === undefined
         ? this.#unknownPrincipalDecision(
@@ -232,7 +233,7 @@ export class PolicyService {
             resource,
             await this.#repository.readPolicyVersion(),
           )
-        : this.#evaluate(snapshot, action, resource);
+        : this.#evaluate(snapshot, action, resource, now);
     if (options.audit !== false) {
       await this.recordDecision(decision, context);
     }
@@ -364,14 +365,11 @@ export class PolicyService {
       return this.#deny(snapshot, "assignment.write", resource, "invalid_scope");
     }
 
-    const effective = this.#effectiveActions(snapshot, resource);
+    const now = this.#now();
+    const effective = this.#effectiveActions(snapshot, resource, now);
     const write = effective.get("assignment.write");
     if (write === undefined) {
       return this.#deny(snapshot, "assignment.write", resource, "grant_scope_not_covered", null);
-    }
-    const targetActions = ROLE_DEFINITIONS.get(role)?.actions ?? [];
-    if (targetActions.some((action) => !effective.has(action))) {
-      return this.#deny(snapshot, "assignment.write", resource, "grant_role_not_subset", write);
     }
     if (
       role === "org.admin" &&
@@ -379,10 +377,14 @@ export class PolicyService {
         (assignment) =>
           assignment.role === "org.admin" &&
           assignment.scopeType === "org" &&
-          isActive(assignment, this.#now()),
+          isActive(assignment, now),
       )
     ) {
       return this.#deny(snapshot, "assignment.write", resource, "grant_org_admin_forbidden", write);
+    }
+    const targetActions = ROLE_DEFINITIONS.get(role)?.actions ?? [];
+    if (targetActions.some((action) => !effective.has(action))) {
+      return this.#deny(snapshot, "assignment.write", resource, "grant_role_not_subset", write);
     }
     return this.#allow(snapshot, "assignment.write", resource, write, resourceScope(resource));
   }
@@ -402,38 +404,66 @@ export class PolicyService {
     context?: PolicyAuditContext,
   ): Promise<PolicyDecision> {
     const snapshot = await this.#repository.loadActorSnapshot(actorId);
+    const systemScope = { type: "system", id: null } as const;
     if (snapshot === undefined) {
       const decision = this.#unknownPrincipalDecision(
         actorId,
         action,
         { type: "org", id: "org" },
         await this.#repository.readPolicyVersion(),
+        systemScope,
       );
       await this.recordDecision(decision, context);
       return decision;
     }
+    const now = this.#now();
     let decision: PolicyDecision;
     if (snapshot.status !== "active") {
-      decision = this.#deny(snapshot, action, { type: "org", id: "org" }, "inactive_principal");
+      decision = this.#deny(
+        snapshot,
+        action,
+        { type: "org", id: "org" },
+        "inactive_principal",
+        null,
+        systemScope,
+      );
     } else if (snapshot.kind === "service" && isControlPlaneAction(action)) {
-      decision = this.#deny(snapshot, action, { type: "org", id: "org" }, "service_control_plane");
+      decision = this.#deny(
+        snapshot,
+        action,
+        { type: "org", id: "org" },
+        "service_control_plane",
+        null,
+        systemScope,
+      );
     } else {
-      const now = this.#now();
       const relevant = snapshot.assignments.filter(
         (assignment) =>
           roleEligibleAt(assignment.role, assignment.scopeType) &&
           roleHasAction(assignment.role, action),
       );
       const active = relevant.filter((assignment) => isActive(assignment, now));
-      if (active.length > 0) {
-        decision = this.#allow(snapshot, action, { type: "org", id: "org" }, active[0]!, {
-          type: "system",
-          id: null,
-        });
+      const first = active[0];
+      if (first !== undefined) {
+        decision = this.#allow(snapshot, action, { type: "org", id: "org" }, first, systemScope);
       } else if (relevant.length > 0) {
-        decision = this.#deny(snapshot, action, { type: "org", id: "org" }, "expired_assignment");
+        decision = this.#deny(
+          snapshot,
+          action,
+          { type: "org", id: "org" },
+          "expired_assignment",
+          null,
+          systemScope,
+        );
       } else {
-        decision = this.#deny(snapshot, action, { type: "org", id: "org" }, "no_assignment");
+        decision = this.#deny(
+          snapshot,
+          action,
+          { type: "org", id: "org" },
+          "no_assignment",
+          null,
+          systemScope,
+        );
       }
     }
     await this.recordDecision(decision, context);
@@ -463,12 +493,13 @@ export class PolicyService {
       };
     }
     const mapping = resource.type === "secret" ? SECRET_CAPABILITIES : CERTIFICATE_CAPABILITIES;
+    const now = this.#now();
     return {
-      canRead: this.#evaluate(snapshot, mapping.canRead, resource).allowed,
-      canWrite: this.#evaluate(snapshot, mapping.canWrite, resource).allowed,
-      canDelete: this.#evaluate(snapshot, mapping.canDelete, resource).allowed,
-      canPurge: this.#evaluate(snapshot, mapping.canPurge, resource).allowed,
-      canManage: this.#evaluate(snapshot, mapping.canManage, resource).allowed,
+      canRead: this.#evaluate(snapshot, mapping.canRead, resource, now).allowed,
+      canWrite: this.#evaluate(snapshot, mapping.canWrite, resource, now).allowed,
+      canDelete: this.#evaluate(snapshot, mapping.canDelete, resource, now).allowed,
+      canPurge: this.#evaluate(snapshot, mapping.canPurge, resource, now).allowed,
+      canManage: this.#evaluate(snapshot, mapping.canManage, resource, now).allowed,
     };
   }
 
@@ -484,7 +515,11 @@ export class PolicyService {
    */
   public async readableProjectIds(actorId: string, action: RbacAction): Promise<readonly string[]> {
     const snapshot = await this.#repository.loadActorSnapshot(actorId);
-    if (snapshot === undefined || snapshot.status !== "active") {
+    if (
+      snapshot === undefined ||
+      snapshot.status !== "active" ||
+      (snapshot.kind === "service" && isControlPlaneAction(action))
+    ) {
       return [];
     }
     const now = this.#now();
@@ -545,7 +580,12 @@ export class PolicyService {
   }
 
   /** Evaluates one action against one resource without auditing. */
-  #evaluate(snapshot: ActorSnapshot, action: RbacAction, resource: PolicyResource): PolicyDecision {
+  #evaluate(
+    snapshot: ActorSnapshot,
+    action: RbacAction,
+    resource: PolicyResource,
+    now: number,
+  ): PolicyDecision {
     if (snapshot.status !== "active") {
       return this.#deny(snapshot, action, resource, "inactive_principal");
     }
@@ -553,11 +593,11 @@ export class PolicyService {
       return this.#deny(snapshot, action, resource, "service_control_plane");
     }
 
-    const now = this.#now();
-    const relevant = snapshot.assignments.filter(
-      (assignment) =>
-        roleEligibleAt(assignment.role, assignment.scopeType) &&
-        roleHasAction(assignment.role, action),
+    const actionAssignments = snapshot.assignments.filter((assignment) =>
+      roleHasAction(assignment.role, action),
+    );
+    const relevant = actionAssignments.filter((assignment) =>
+      roleEligibleAt(assignment.role, assignment.scopeType),
     );
     const matching = relevant.filter(
       (assignment) => isActive(assignment, now) && assignmentCovers(assignment, resource),
@@ -572,7 +612,7 @@ export class PolicyService {
     if (expiredMatch) {
       return this.#deny(snapshot, action, resource, "expired_assignment");
     }
-    if (relevant.length > 0) {
+    if (actionAssignments.length > 0) {
       return this.#deny(snapshot, action, resource, "scope_mismatch");
     }
     return this.#deny(snapshot, action, resource, "no_assignment");
@@ -582,8 +622,8 @@ export class PolicyService {
   #effectiveActions(
     snapshot: ActorSnapshot,
     resource: PolicyResource,
+    now: number,
   ): ReadonlyMap<RbacAction, ActorAssignment> {
-    const now = this.#now();
     const effective = new Map<RbacAction, ActorAssignment>();
     for (const action of RBAC_ACTIONS) {
       const matching = snapshot.assignments.filter(
@@ -634,6 +674,9 @@ export class PolicyService {
     resource: PolicyResource,
     reason: DecisionReason,
     assignment: ActorAssignment | null = null,
+    scope: { readonly type: RbacScopeType | "system"; readonly id: string | null } = resourceScope(
+      resource,
+    ),
   ): PolicyDecision {
     return {
       allowed: false,
@@ -643,7 +686,7 @@ export class PolicyService {
       actorKind: snapshot.kind,
       action,
       resource,
-      scope: resourceScope(resource),
+      scope,
       assignment:
         assignment === null
           ? null
@@ -675,6 +718,9 @@ export class PolicyService {
     action: RbacAction,
     resource: PolicyResource,
     policyVersion: number,
+    scope: { readonly type: RbacScopeType | "system"; readonly id: string | null } = resourceScope(
+      resource,
+    ),
   ): PolicyDecision {
     return {
       allowed: false,
@@ -684,7 +730,7 @@ export class PolicyService {
       actorKind: "user",
       action,
       resource,
-      scope: resourceScope(resource),
+      scope,
       assignment: null,
     };
   }

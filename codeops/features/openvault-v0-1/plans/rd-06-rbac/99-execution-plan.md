@@ -96,7 +96,7 @@ implementation.
 
 ## Phase 2: Policy evaluator, capabilities, and identity bridge
 
-> **Phase baseline tree**: _(recorded by the exec-plan skill)_
+> **Phase baseline tree**: 88426fba9f3ccaa71915ad22b0d8d0a4eaf3134a
 > **Modification set**: `apps/server/src/rbac/policy-repository.ts`, `apps/server/src/rbac/policy-service.ts`, `apps/server/src/rbac/runtime.ts`, `apps/server/src/identity/identity-authorizer.ts`, `apps/server/src/identity/identity-runtime.ts`, `apps/server/src/identity/identity-service.ts`, `apps/server/src/controllers/identity.ts`, `apps/server/src/controllers/meta.ts`, `apps/server/src/agent/agent-runtime.ts`, `apps/server/src/app.ts`, and Phase 2 tests
 > **Scope mode**: strict
 > **Lenses**: security, api-surface, concurrency
