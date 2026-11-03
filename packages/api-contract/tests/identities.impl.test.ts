@@ -46,6 +46,13 @@ describe("identity contract internals", () => {
     });
 
     expect(detail.certificates.map((certificate) => certificate.serial)).toEqual(["01", "02"]);
+    expect(identityDetailSchema.safeParse({ ...detail, token: "secret" }).success).toBe(false);
+    expect(
+      identityDetailSchema.safeParse({
+        ...detail,
+        certificates: [{ ...certificates[0], extra: true }],
+      }).success,
+    ).toBe(false);
   });
 
   it("should leave TTL range checks to the service layer", () => {

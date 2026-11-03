@@ -104,7 +104,7 @@ describe("CA key schema", () => {
 
   it("should enforce key lengths, status, and retirement consistency", async () => {
     await testDb.db.executeQuery("DELETE FROM ca_keys");
-    await insertCaKey();
+    await insertCaKey({ status: "retired" });
 
     const invalid: ReadonlyArray<readonly [string, CaKeyInsert]> = [
       ["an empty certificate", { id: testUlid(340), certPem: "" }],
@@ -132,9 +132,7 @@ describe("CA key schema", () => {
     ];
 
     for (const [label, input] of invalid) {
-      await expect(insertCaKey(input), label).rejects.toThrow(
-        /check constraint|violates|duplicate/i,
-      );
+      await expect(insertCaKey(input), label).rejects.toThrow(/check constraint/i);
     }
 
     await testDb.db.executeQuery("DELETE FROM ca_keys");
@@ -219,10 +217,25 @@ describe("workload identity lifecycle schema", () => {
       ),
     ).resolves.toBeDefined();
 
-    await testDb.db.executeQuery("DELETE FROM principals WHERE id IN (:first, :second)", {
+    const secondProject = testUlid(323);
+    const otherProjectService = testUlid(324);
+    await testDb.db.executeQuery("INSERT INTO projects (id, name) VALUES (:id, 'other-project')", {
+      id: secondProject,
+    });
+    await expect(
+      testDb.db.executeQuery(
+        `INSERT INTO principals (id, kind, name, owner_project_id)
+         VALUES (:id, 'service', :name, :projectId)`,
+        { id: otherProjectService, name, projectId: secondProject },
+      ),
+    ).resolves.toBeDefined();
+
+    await testDb.db.executeQuery("DELETE FROM principals WHERE id IN (:first, :second, :third)", {
       first,
       second,
+      third: otherProjectService,
     });
+    await testDb.db.executeQuery("DELETE FROM projects WHERE id = :id", { id: secondProject });
   });
 
   it("should reject a principal kind change", async () => {

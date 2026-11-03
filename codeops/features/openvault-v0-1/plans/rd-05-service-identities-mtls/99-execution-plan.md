@@ -40,7 +40,7 @@ authenticator. Cache, revocation, retention, and production readiness stay in Ph
 > progress. Every task line appears exactly once in this document. The executing agent MUST:
 >
 > 1. **On implementation:** mark the task `[~]` with a timestamp —
->    `- [x] 1.1.1 Task description ⏳ (implemented: YYYY-MM-DD HH:MM)`
+>    `- [~] 1.1.1 Task description ⏳ (implemented: YYYY-MM-DD HH:MM)`
 > 2. **On verify pass:** promote it to `[x]` —
 >    `- [x] 1.1.1 Task description ✅ (completed: YYYY-MM-DD HH:MM)`
 > 3. **Update the Progress header** (`> **Progress**: X/Y tasks (Z%)`) and the Last Updated

@@ -1,5 +1,5 @@
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
-import { type CaKeys, eCaKeys } from "../../src/database/index.js";
+import { type CaKeys, eCaKeys, eJoinTokens, type JoinTokens } from "../../src/database/index.js";
 import { type BaseFixture, seedBase } from "./helpers/fixtures.js";
 import { applyMigrations, createTestDatabase, type TestDatabase } from "./helpers/test-database.js";
 
@@ -38,6 +38,10 @@ describe("service identity generated artifacts", () => {
       wrapped_key: Buffer.alloc(32),
     };
     expect(row.status).toBe("current");
+
+    expect(eJoinTokens.REVOKED_AT).toBe("revoked_at");
+    const revokedAt: JoinTokens["revoked_at"] = null;
+    expect(revokedAt).toBeNull();
   });
 
   it("should record both service identity migrations in the ledger", async () => {
@@ -47,7 +51,7 @@ describe("service identity generated artifacts", () => {
     const ids = result.records.map((row) => row.id);
     expect(ids).toContain("20261103141309_service-identities");
     expect(ids).toContain("20261103141310_identity-guards");
-    expect(ids).toHaveLength(5);
+    expect(ids).toHaveLength(6);
   });
 });
 
@@ -64,8 +68,11 @@ describe("service identity database internals", () => {
       "reject_service_human_credential",
     ]);
 
-    const triggers = await testDb.db.executeQuery<{ tgname: string }>(
-      `SELECT tgname
+    const triggers = await testDb.db.executeQuery<{
+      tgname: string;
+      definition: string;
+    }>(
+      `SELECT tgname, pg_get_triggerdef(oid) AS definition
          FROM pg_trigger
         WHERE NOT tgisinternal
           AND tgrelid IN (
@@ -76,14 +83,17 @@ describe("service identity database internals", () => {
           )
         ORDER BY tgname`,
     );
-    expect(triggers.records.map((row) => row.tgname)).toEqual(
-      expect.arrayContaining([
-        "cli_sessions_service_guard",
-        "local_credentials_service_guard",
-        "oidc_identities_service_guard",
-        "principals_kind_immutable",
-      ]),
-    );
+    const definitions = new Map(triggers.records.map((row) => [row.tgname, row.definition]));
+    for (const trigger of [
+      "cli_sessions_service_guard",
+      "local_credentials_service_guard",
+      "oidc_identities_service_guard",
+    ]) {
+      expect(definitions.get(trigger)).toContain("BEFORE INSERT OR UPDATE");
+      expect(definitions.get(trigger)).toContain("FOR EACH ROW");
+    }
+    expect(definitions.get("principals_kind_immutable")).toContain("BEFORE UPDATE OF kind");
+    expect(definitions.get("principals_kind_immutable")).toContain("FOR EACH ROW");
   });
 
   it("should use the documented index predicates", async () => {
@@ -107,6 +117,7 @@ describe("service identity database internals", () => {
     expect(indexes.get("join_tokens_expires_idx")).not.toContain("CREATE UNIQUE INDEX");
     expect(indexes.get("workload_certs_not_after_idx")).toContain("(not_after)");
     expect(indexes.get("principals_service_name_active_idx")).toContain("CREATE UNIQUE INDEX");
+    expect(indexes.get("principals_service_name_active_idx")).toContain("(owner_project_id, name)");
     expect(indexes.get("principals_service_name_active_idx")).toContain(
       "WHERE ((kind = 'service'::text) AND (status = 'active'::text))",
     );
