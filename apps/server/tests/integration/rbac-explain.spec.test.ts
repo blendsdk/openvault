@@ -131,18 +131,23 @@ afterAll(async () => {
 
 describe("access explanation", () => {
   it("should list every principal with an effective permission", async () => {
+    audit.decisions.length = 0;
     const result = await service.explain(orgAdmin, {
       action: "secret.read",
       scopeType: "object",
       scopeId: base.secretId,
     });
 
+    expect(audit.decisions).toHaveLength(1);
     expect(result.action).toBe("secret.read");
     expect(result.scope).toEqual({ type: "object", id: base.secretId });
-    expect(result.policyVersion).toBeGreaterThan(0);
+    expect(result.policyVersion).toBe(await new PolicyRepository(testDb.db).readPolicyVersion());
     const principalIds = result.principals.map((entry) => entry.principalId);
     expect(principalIds).toEqual(
       expect.arrayContaining([orgAdmin, projectAdmin, objectReader, base.serviceId]),
+    );
+    expect(new Set(principalIds)).toEqual(
+      new Set([orgAdmin, projectAdmin, objectReader, base.serviceId]),
     );
     expect(principalIds).not.toContain(reader);
     expect(principalIds).not.toContain(noAccess);
@@ -206,6 +211,22 @@ describe("access explanation", () => {
         action: "secret.read",
         scopeType: "object",
         scopeId: secretB,
+      }),
+    ).rejects.toMatchObject({ statusCode: 404, code: "resource_not_found" });
+  });
+
+  it("should return 404 for a soft-deleted certificate", async () => {
+    const certificateId = testUlid(8_903);
+    await testDb.db.executeQuery(
+      "INSERT INTO certificates (id, project_id, name, deleted_at) VALUES (:id, :projectId, 'old-cert', now())",
+      { id: certificateId, projectId: base.projectId },
+    );
+    await expect(
+      service.explain(orgAdmin, {
+        action: "certificate.read",
+        scopeType: "object",
+        scopeId: certificateId,
+        objectType: "certificate",
       }),
     ).rejects.toMatchObject({ statusCode: 404, code: "resource_not_found" });
   });

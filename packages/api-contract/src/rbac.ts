@@ -203,15 +203,11 @@ export const accessExplainQuerySchema = z
           message: "project and object scopes require an object identifier",
         });
       }
-    } else if (
-      value.scopeId !== undefined &&
-      value.scopeId !== "org" &&
-      !ulidSchema.safeParse(value.scopeId).success
-    ) {
+    } else if (value.scopeId !== undefined && value.scopeId !== "org") {
       context.addIssue({
         code: "custom",
         path: ["scopeId"],
-        message: "scope id must be org or an object identifier",
+        message: "a scope type is required for a project or object scope id",
       });
     }
 

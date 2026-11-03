@@ -170,6 +170,12 @@ describe("accessExplainQuerySchema", () => {
     ).toBe(false);
     expect(
       accessExplainQuerySchema.safeParse({
+        action: "identity.read",
+        scopeId: OTHER_ULID,
+      }).success,
+    ).toBe(false);
+    expect(
+      accessExplainQuerySchema.safeParse({
         action: "certificate.write",
         scopeType: "org",
         scopeId: "org",

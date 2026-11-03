@@ -242,6 +242,15 @@ describe("assignment creation", () => {
       scopeId: "org",
     });
     expect(created.role).toBe("org.admin");
+
+    const auditorTarget = await insertUser();
+    const auditorGrant = await service.create(orgAdmin, {
+      principalId: auditorTarget,
+      role: "auditor",
+      scopeType: "project",
+      scopeId: base.projectId,
+    });
+    expect(auditorGrant.role).toBe("auditor");
   });
 
   it("should reject a control-plane grant to a service identity", async () => {
@@ -358,11 +367,30 @@ describe("assignment deletion", () => {
       scopeType: "project",
       scopeId: projectB,
     });
+    const beforeVersion = await version();
+    const beforeCount = await assignmentCount();
+    audit.decisions.length = 0;
     await expect(service.delete(auditor, foreign.id)).rejects.toMatchObject({
       statusCode: 404,
       code: "assignment_not_found",
     });
-    expect(await assignmentCount()).toBeGreaterThan(0);
+    expect(await version()).toBe(beforeVersion);
+    expect(await assignmentCount()).toBe(beforeCount);
+    expect(audit.decisions).toHaveLength(1);
+  });
+
+  it("should return 403 for a visible assignment the caller cannot write", async () => {
+    const other = await insertUser();
+    const visible = await service.create(orgAdmin, {
+      principalId: other,
+      role: "secrets.reader",
+      scopeType: "project",
+      scopeId: base.projectId,
+    });
+    await expect(service.delete(auditor, visible.id)).rejects.toMatchObject({
+      statusCode: 403,
+      code: "access_denied",
+    });
   });
 });
 
@@ -487,6 +515,15 @@ describe("assignment HTTP routes", () => {
       expect((listed.json as { data: { assignments: unknown[] } }).data.assignments).toHaveLength(
         1,
       );
+
+      const unauthenticated = await testRequest({
+        port: handle.adminPort,
+        path: `/v1/admin/access-explain?action=secret.read&scopeType=object&scopeId=${base.secretId}`,
+        host: trustedHost ?? "127.0.0.1",
+        ca: environment.tls.caPem,
+        servername: "localhost",
+      });
+      expect(unauthenticated.status).toBe(401);
 
       const explained = await send({
         path: `/v1/admin/access-explain?action=secret.read&scopeType=object&scopeId=${base.secretId}`,

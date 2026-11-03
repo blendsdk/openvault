@@ -95,6 +95,8 @@ export interface AssignmentRecord {
   readonly createdAt: Date;
   /** Expiry, or null. */
   readonly expiresAt: Date | null;
+  /** Target principal kind. */
+  readonly principalKind: "user" | "service";
   /** Target principal status. */
   readonly principalStatus: "active" | "disabled";
 }
@@ -185,6 +187,27 @@ export class PolicyRepository {
     this.#database = database;
   }
 
+  /** Runs a query on the bound database and maps failures to the policy error. */
+  async #query<T>(
+    query: string,
+    params?: Record<string, unknown>,
+  ): Promise<{ readonly records: readonly T[] }> {
+    return this.#execute(this.#database, query, params);
+  }
+
+  /** Runs a query on an executor and maps failures to the policy error. */
+  async #execute<T>(
+    executor: QueryExecutor,
+    query: string,
+    params?: Record<string, unknown>,
+  ): Promise<{ readonly records: readonly T[] }> {
+    try {
+      return await executor.executeQuery<T>(query, params);
+    } catch {
+      throw new PolicyUnavailableError();
+    }
+  }
+
   /**
    * Reads the current policy version.
    *
@@ -194,9 +217,7 @@ export class PolicyRepository {
   public async readPolicyVersion(): Promise<number> {
     let result: { readonly records: readonly VersionRow[] };
     try {
-      result = await this.#database.executeQuery<VersionRow>(
-        "SELECT version FROM policy_state WHERE id = 1",
-      );
+      result = await this.#query<VersionRow>("SELECT version FROM policy_state WHERE id = 1");
     } catch {
       throw new PolicyUnavailableError();
     }
@@ -254,7 +275,7 @@ export class PolicyRepository {
   public async loadActorSnapshot(actorId: string): Promise<ActorSnapshot | undefined> {
     let result: { readonly records: readonly ActorRow[] };
     try {
-      result = await this.#database.executeQuery<ActorRow>(
+      result = await this.#query<ActorRow>(
         `SELECT p.id AS principal_id, p.kind, p.status,
                 (SELECT version FROM policy_state WHERE id = 1) AS policy_version,
                 r.id AS assignment_id, r.role, r.scope_type, r.scope_id, r.expires_at
@@ -318,7 +339,7 @@ export class PolicyRepository {
    * @returns The principal, or undefined.
    */
   public async findPrincipal(principalId: string): Promise<PrincipalRecord | undefined> {
-    const result = await this.#database.executeQuery<{
+    const result = await this.#query<{
       readonly id: string;
       readonly kind: string;
       readonly status: string;
@@ -337,7 +358,7 @@ export class PolicyRepository {
    * @returns The project, or undefined.
    */
   public async findProject(projectId: string): Promise<ProjectRecord | undefined> {
-    const result = await this.#database.executeQuery<{
+    const result = await this.#query<{
       readonly id: string;
       readonly deleted_at: Date | null;
     }>("SELECT id, deleted_at FROM projects WHERE id = :projectId", { projectId });
@@ -360,7 +381,7 @@ export class PolicyRepository {
       type === "secret"
         ? "SELECT id, project_id, deleted_at FROM secrets WHERE id = :objectId"
         : "SELECT id, project_id, deleted_at FROM certificates WHERE id = :objectId";
-    const result = await this.#database.executeQuery<{
+    const result = await this.#query<{
       readonly id: string;
       readonly project_id: string;
       readonly deleted_at: Date | null;
@@ -378,7 +399,7 @@ export class PolicyRepository {
    * @returns The identity, or undefined.
    */
   public async findIdentity(identityId: string): Promise<IdentityRecord | undefined> {
-    const result = await this.#database.executeQuery<{
+    const result = await this.#query<{
       readonly id: string;
       readonly kind: string;
       readonly owner_project_id: string | null;
@@ -413,7 +434,7 @@ export class PolicyRepository {
     executor: QueryExecutor,
     assignmentId: string,
   ): Promise<AssignmentRecord | undefined> {
-    const result = await executor.executeQuery<{
+    const result = await this.#execute<{
       readonly id: string;
       readonly principal_id: string;
       readonly role: string;
@@ -422,10 +443,13 @@ export class PolicyRepository {
       readonly granted_by: string;
       readonly created_at: Date;
       readonly expires_at: Date | null;
+      readonly principal_kind: string;
       readonly principal_status: string;
     }>(
+      executor,
       `SELECT r.id, r.principal_id, r.role, r.scope_type, r.scope_id, r.granted_by,
-              r.created_at, r.expires_at, p.status AS principal_status
+              r.created_at, r.expires_at, p.kind AS principal_kind,
+              p.status AS principal_status
          FROM role_assignments r
          JOIN principals p ON p.id = r.principal_id
         WHERE r.id = :assignmentId`,
@@ -444,6 +468,7 @@ export class PolicyRepository {
       grantedBy: row.granted_by,
       createdAt: row.created_at,
       expiresAt: row.expires_at,
+      principalKind: isPrincipalKind(row.principal_kind) ? row.principal_kind : "user",
       principalStatus: row.principal_status === "active" ? "active" : "disabled",
     };
   }
@@ -465,6 +490,7 @@ export class PolicyRepository {
       readonly scopeId: string;
       readonly grantedBy: string;
       readonly expiresAt: Date | null;
+      readonly principalKind: "user" | "service";
     },
   ): Promise<AssignmentRecord> {
     const result = await executor.executeQuery<{
@@ -497,6 +523,7 @@ export class PolicyRepository {
       grantedBy: row.granted_by,
       createdAt: row.created_at,
       expiresAt: row.expires_at,
+      principalKind: input.principalKind,
       principalStatus: "active",
     };
   }
@@ -508,7 +535,7 @@ export class PolicyRepository {
    * @param assignmentId - Assignment identifier.
    */
   public async deleteAssignment(executor: QueryExecutor, assignmentId: string): Promise<void> {
-    await executor.executeQuery("DELETE FROM role_assignments WHERE id = :assignmentId", {
+    await this.#execute(executor, "DELETE FROM role_assignments WHERE id = :assignmentId", {
       assignmentId,
     });
   }
@@ -523,8 +550,10 @@ export class PolicyRepository {
   public async countActiveOrgAdmins(
     executor: QueryExecutor,
     excludeAssignmentId: string,
+    now: Date,
   ): Promise<number> {
-    const result = await executor.executeQuery<{ readonly count: number }>(
+    const result = await this.#execute<{ readonly count: number }>(
+      executor,
       `SELECT count(*)::int AS count
          FROM role_assignments r
          JOIN principals p ON p.id = r.principal_id
@@ -532,9 +561,10 @@ export class PolicyRepository {
           AND r.scope_type = 'org'
           AND r.scope_id = 'org'
           AND r.id <> :excludeAssignmentId
-          AND (r.expires_at IS NULL OR r.expires_at > now())
-          AND p.status = 'active'`,
-      { excludeAssignmentId },
+          AND (r.expires_at IS NULL OR r.expires_at > :now)
+          AND p.status = 'active'
+          AND p.kind = 'user'`,
+      { excludeAssignmentId, now },
     );
     return result.records[0]?.count ?? 0;
   }
@@ -582,7 +612,7 @@ export class PolicyRepository {
       params.scopeId = filters.scopeId;
     }
     const where = conditions.length === 0 ? "" : `WHERE ${conditions.join(" AND ")}`;
-    const result = await this.#database.executeQuery<{
+    const result = await this.#query<{
       readonly id: string;
       readonly principal_id: string;
       readonly role: string;
@@ -591,10 +621,12 @@ export class PolicyRepository {
       readonly granted_by: string;
       readonly created_at: Date;
       readonly expires_at: Date | null;
+      readonly principal_kind: string;
       readonly principal_status: string;
     }>(
       `SELECT r.id, r.principal_id, r.role, r.scope_type, r.scope_id, r.granted_by,
-              r.created_at, r.expires_at, p.status AS principal_status
+              r.created_at, r.expires_at, p.kind AS principal_kind,
+              p.status AS principal_status
          FROM role_assignments r
          JOIN principals p ON p.id = r.principal_id
          ${where}
@@ -615,6 +647,7 @@ export class PolicyRepository {
         grantedBy: row.granted_by,
         createdAt: row.created_at,
         expiresAt: row.expires_at,
+        principalKind: isPrincipalKind(row.principal_kind) ? row.principal_kind : "user",
         principalStatus: row.principal_status === "active" ? "active" : "disabled",
       });
     }
@@ -626,8 +659,12 @@ export class PolicyRepository {
    *
    * @returns One row per principal/assignment pair.
    */
-  public async listExplainCandidates(): Promise<readonly ExplainCandidateRow[]> {
-    const result = await this.#database.executeQuery<{
+  public async listExplainCandidates(): Promise<{
+    readonly policyVersion: number;
+    readonly rows: readonly ExplainCandidateRow[];
+  }> {
+    const result = await this.#query<{
+      readonly policy_version: string | number | null;
       readonly principal_id: string;
       readonly name: string;
       readonly kind: string;
@@ -643,6 +680,7 @@ export class PolicyRepository {
       readonly last_seen: Date | null;
     }>(
       `SELECT p.id AS principal_id, p.name, p.kind,
+              (SELECT version FROM policy_state WHERE id = 1) AS policy_version,
               r.id AS assignment_id, r.role, r.scope_type, r.scope_id, r.expires_at,
               c.compose_project, c.compose_service, c.hostname, c.state, c.last_seen
          FROM principals p
@@ -651,6 +689,11 @@ export class PolicyRepository {
         WHERE p.status = 'active'
         ORDER BY p.name, p.id, r.id`,
     );
+    const first = result.records[0];
+    const policyVersion = Number(first?.policy_version ?? 0);
+    if (!Number.isSafeInteger(policyVersion) || policyVersion <= 0) {
+      throw new PolicyUnavailableError();
+    }
     const rows: ExplainCandidateRow[] = [];
     for (const row of result.records) {
       if (!isPrincipalKind(row.kind)) {
@@ -672,6 +715,6 @@ export class PolicyRepository {
         lastSeen: row.last_seen,
       });
     }
-    return rows;
+    return { policyVersion, rows };
   }
 }

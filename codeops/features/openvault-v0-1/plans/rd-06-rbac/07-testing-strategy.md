@@ -80,7 +80,7 @@
 |---|---|---|---|
 | ST-31 | Org admin grants org, project, and object assignments | 201 with id, tuple, grantor, creation time, expiry; version +1 per grant; one `assignment.grant` event per success | RD-06 Acceptance 1; AR-6, AR-20 |
 | ST-32 | Project-scoped project admin grants in its project and in another project | Own project 201; other project 403 `access_denied`; no row in the other project | RD-06 Acceptance 5 |
-| ST-33 | Project-scoped project admin grants `auditor`; org-scoped project admin grants `auditor` | Project-scoped → 403 (`audit.read` not held); org-scoped → 201 | RD-06 Acceptance 5; AR-12 |
+| ST-33 | Project-scoped project admin grants `auditor`; org admin grants `auditor` | Project-scoped → 403 (`audit.read` not held); org admin → 201 | RD-06 Acceptance 5; AR-12 |
 | ST-34 | Auditor attempts to grant any role or revoke an assignment | 403 `access_denied`; auditor can still read assignments and explain | RD-06 Must Have; Acceptance 5 |
 | ST-35 | Project admin and non-admin attempt to grant `org.admin` | Only an org-scoped org admin succeeds; all others 403 | RD-06 Must Have; Acceptance 5 |
 | ST-36 | `secrets.manager` grants `project.admin`; `project.admin` grants `secrets.reader`; `project.admin` grants `auditor`; org-scoped `project.admin` grants `org.admin` | Manager → 403 (`grant_scope_not_covered`); project admin → 201; auditor grant → 403 (`grant_role_not_subset`); org-admin grant → 403 (`grant_org_admin_forbidden`) | RD-06 Must Have §Grant guards |

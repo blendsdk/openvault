@@ -552,6 +552,7 @@ export class PolicyService {
     snapshot: ActorSnapshot,
     action: RbacAction,
     resource: PolicyResource,
+    now: number = this.#now(),
   ): readonly PolicyAssignmentMatch[] {
     if (
       snapshot.status !== "active" ||
@@ -559,7 +560,6 @@ export class PolicyService {
     ) {
       return [];
     }
-    const now = this.#now();
     const matching = snapshot.assignments.filter(
       (assignment) =>
         roleEligibleAt(assignment.role, assignment.scopeType) &&

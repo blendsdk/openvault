@@ -269,6 +269,17 @@ describe("grant and catalog internals", () => {
     }
   });
 
+  it("should map repository query failures to the policy error", async () => {
+    const failing = new PolicyRepository({
+      executeQuery: async () => {
+        throw new Error("database down");
+      },
+    });
+    await expect(failing.findPrincipal(testUlid(6_500))).rejects.toBeInstanceOf(
+      PolicyUnavailableError,
+    );
+  });
+
   it("should fail closed when the version row is unavailable", async () => {
     await testDb.db.executeQuery("DELETE FROM policy_state");
     const failing = new PolicyService({

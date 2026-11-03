@@ -161,28 +161,23 @@ export class AssignmentService {
       throw new RbacServiceError(422, "validation_error", "Validation failed");
     }
 
-    const principal = await this.#repository.findPrincipal(input.principalId);
-    if (principal === undefined) {
-      throw new RbacServiceError(422, "validation_error", "Validation failed");
-    }
-    if (!roleEligibleAt(input.role, input.scopeType)) {
-      throw new RbacServiceError(422, "validation_error", "Validation failed");
-    }
-
-    const resource = await this.#resolveCreateResource(input);
-    if (principal.kind === "service" && roleHasControlPlane(input.role)) {
-      throw new RbacServiceError(
-        422,
-        "service_control_plane",
-        "Control-plane roles cannot be granted to service identities",
-      );
-    }
-
     return this.#database.withTransaction(async (tx) => {
       const version = await this.#repository.bumpPolicyVersion(tx);
+      const decisionVersion = version - 1;
+      const principal = await this.#repository.findPrincipal(input.principalId);
+      if (principal === undefined) {
+        throw new RbacServiceError(422, "validation_error", "Validation failed");
+      }
+      const resource = await this.#resolveCreateResource(input);
+      if (principal.kind === "service" && roleHasControlPlane(input.role)) {
+        throw new RbacServiceError(
+          422,
+          "service_control_plane",
+          "Control-plane roles cannot be granted to service identities",
+        );
+      }
       const decision = await this.#policy.authorizeGrant(actorId, input.role, resource, context);
-      const versioned = { ...decision, policyVersion: version };
-      await this.#policy.recordDecision(versioned, context);
+      await this.#policy.recordDecision({ ...decision, policyVersion: decisionVersion }, context);
       if (!decision.allowed) {
         throw this.#grantError(decision.reason);
       }
@@ -197,12 +192,16 @@ export class AssignmentService {
           scopeId: input.scopeId,
           grantedBy: actorId,
           expiresAt,
+          principalKind: principal.kind,
         });
       } catch (error) {
         if (isDuplicateAssignment(error)) {
           throw new RbacServiceError(409, "assignment_conflict", "Assignment conflict");
         }
-        throw error;
+        if (error instanceof PolicyUnavailableError) {
+          throw error;
+        }
+        throw new PolicyUnavailableError();
       }
 
       try {
@@ -273,6 +272,8 @@ export class AssignmentService {
   ): Promise<void> {
     await this.#database.withTransaction(async (tx) => {
       const version = await this.#repository.bumpPolicyVersion(tx);
+      const decisionVersion = version - 1;
+      const now = this.#now();
       const assignment = await this.#repository.findAssignment(tx, assignmentId);
       if (assignment === undefined) {
         throw new RbacServiceError(404, "assignment_not_found", "Assignment not found");
@@ -286,25 +287,35 @@ export class AssignmentService {
         { audit: false },
       );
       if (!decision.allowed) {
-        await this.#policy.recordDecision({ ...decision, policyVersion: version }, context);
-        throw new RbacServiceError(404, "assignment_not_found", "Assignment not found");
+        const visible = await this.#policy.authorize(
+          actorId,
+          "assignment.read",
+          resource,
+          context,
+          { audit: false },
+        );
+        await this.#policy.recordDecision({ ...decision, policyVersion: decisionVersion }, context);
+        throw visible.allowed
+          ? new RbacServiceError(403, "access_denied", "Access denied")
+          : new RbacServiceError(404, "assignment_not_found", "Assignment not found");
       }
 
       const expiresAt = assignment.expiresAt;
       const active =
         assignment.role === "org.admin" &&
         assignment.scopeType === "org" &&
+        assignment.principalKind === "user" &&
         assignment.principalStatus === "active" &&
-        (expiresAt === null || expiresAt.getTime() > this.#now());
+        (expiresAt === null || expiresAt.getTime() > now);
       if (active) {
-        const others = await this.#repository.countActiveOrgAdmins(tx, assignmentId);
+        const others = await this.#repository.countActiveOrgAdmins(tx, assignmentId, new Date(now));
         if (others === 0) {
           await this.#policy.recordDecision(
             {
               ...decision,
               allowed: false,
               reason: "last_org_admin",
-              policyVersion: version,
+              policyVersion: decisionVersion,
             },
             context,
           );
@@ -316,7 +327,7 @@ export class AssignmentService {
         }
       }
 
-      await this.#policy.recordDecision({ ...decision, policyVersion: version }, context);
+      await this.#policy.recordDecision({ ...decision, policyVersion: decisionVersion }, context);
       await this.#repository.deleteAssignment(tx, assignmentId);
       try {
         await this.#audit.recordMutation({
@@ -365,8 +376,9 @@ export class AssignmentService {
     }
 
     const candidates = await this.#repository.listExplainCandidates();
+    const now = this.#now();
     const groups = new Map<string, ExplainCandidateRow[]>();
-    for (const row of candidates) {
+    for (const row of candidates.rows) {
       const group = groups.get(row.principalId) ?? [];
       group.push(row);
       groups.set(row.principalId, group);
@@ -425,7 +437,7 @@ export class AssignmentService {
         left.assignmentId.localeCompare(right.assignmentId),
     );
     return {
-      policyVersion: decision.policyVersion,
+      policyVersion: candidates.policyVersion,
       action: query.action,
       scope: resolved.responseScope,
       principals,

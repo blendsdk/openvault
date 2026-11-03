@@ -24,3 +24,18 @@
 | PE-002 | 2 | MINOR | version-read concurrency evidence | fixed |
 | PE-003 | 2 | MINOR | single policy runtime ownership | fixed |
 | PE-004 | 2 | MINOR | evaluation-instant consistency | fixed |
+
+## Phase 3
+
+| Finding | Phase | Severity | Area | Ruling |
+|---|---|---|---|---|
+| RV-001 | 3 | MAJOR | visible delete denial status | fixed |
+| RV-002 | 3 | MAJOR | decision audit version | fixed |
+| PE-005 | 3 | MAJOR | last-admin clock | fixed |
+| RV-003 / PE-006 / SA-001 | 3 | MINOR | service-admin counting | fixed |
+| RV-004 / SA-003 | 3 | MINOR | repository failure mapping | fixed |
+| RV-005 | 3 | MINOR | explain bare scope id | fixed |
+| RV-006 / PE-007 | 3 | MINOR | explain version consistency | fixed |
+| RV-007 | 3 | MINOR | ineligible-role decision | fixed |
+| SA-002 / PE-008 | 3 | MINOR | create target transaction | fixed |
+| RV-008 / PE-009 | 3 | MINOR | Phase 3 test oracles | fixed |

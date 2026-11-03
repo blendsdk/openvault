@@ -105,6 +105,24 @@ describe("assignment transaction internals", () => {
     expect(afterCount.records[0]?.count).toBe(beforeCount.records[0]?.count);
   });
 
+  it("should not count a service principal as the last organization administrator", async () => {
+    await testDb.db.executeQuery(
+      `INSERT INTO role_assignments (id, principal_id, role, scope_type, scope_id, granted_by)
+       VALUES (:id, :principalId, 'org.admin', 'org', 'org', :principalId)`,
+      { id: testUlid(11_200), principalId: base.serviceId },
+    );
+    const humanAdmin = await testDb.db.executeQuery<{ id: string }>(
+      "SELECT id FROM role_assignments WHERE principal_id = :id AND role = 'org.admin'",
+      { id: orgAdmin },
+    );
+    const humanAdminAssignment = humanAdmin.records[0]?.id;
+    expect(humanAdminAssignment).toBeDefined();
+    await expect(service.delete(orgAdmin, humanAdminAssignment ?? "")).rejects.toMatchObject({
+      statusCode: 409,
+      code: "last_org_admin",
+    });
+  });
+
   it("should let an org admin clean up an assignment whose object row is gone", async () => {
     const assignmentId = testUlid(nextAssignment++);
     await testDb.db.executeQuery(
