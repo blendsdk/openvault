@@ -78,6 +78,7 @@ describe("schema inventory", () => {
       "local_credentials",
       "oidc_identities",
       "org",
+      "policy_state",
       "principals",
       "projects",
       "role_assignments",

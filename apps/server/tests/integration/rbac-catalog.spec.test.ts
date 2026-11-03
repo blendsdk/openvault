@@ -7,9 +7,9 @@ import {
 } from "../../src/rbac/actions.js";
 import {
   RBAC_ROLES,
+  type RbacRole,
   ROLE_DEFINITIONS,
   roleEligibleAt,
-  type RbacRole,
 } from "../../src/rbac/roles.js";
 
 const ALL_ACTIONS: readonly RbacAction[] = [
@@ -101,10 +101,7 @@ const EXPECTED_ACTIONS: Record<RbacRole, readonly RbacAction[]> = {
   reader: ["project.read", "secret.list", "certificate.list"],
 };
 
-const EXPECTED_SCOPES: Record<
-  RbacRole,
-  readonly ("org" | "project" | "object")[]
-> = {
+const EXPECTED_SCOPES: Record<RbacRole, readonly ("org" | "project" | "object")[]> = {
   "org.admin": ["org"],
   "project.admin": ["org", "project"],
   "secrets.manager": ["org", "project"],
@@ -164,7 +161,7 @@ describe("role matrix", () => {
       expect(new Set(definition?.scopes)).toEqual(new Set(EXPECTED_SCOPES[role]));
       for (const scope of ["org", "project", "object"] as const) {
         expect(roleEligibleAt(role, scope), `${role} at ${scope}`).toBe(
-          EXPECTED_SCOPES[role].includes(scope),
+          EXPECTED_SCOPES[role]?.includes(scope) ?? false,
         );
       }
     }

@@ -23,9 +23,7 @@ describe("assignmentCreateRequestSchema", () => {
     };
     expect(assignmentCreateRequestSchema.parse(valid)).toEqual(valid);
 
-    expect(
-      assignmentCreateRequestSchema.safeParse({ ...valid, extra: true }).success,
-    ).toBe(false);
+    expect(assignmentCreateRequestSchema.safeParse({ ...valid, extra: true }).success).toBe(false);
     expect(
       assignmentCreateRequestSchema.safeParse({
         role: "secrets.reader",
@@ -79,9 +77,9 @@ describe("assignmentCreateRequestSchema", () => {
       scopeId: OTHER_ULID,
     };
     expect(assignmentCreateRequestSchema.parse(base).expiresAt).toBeUndefined();
-    expect(
-      assignmentCreateRequestSchema.parse({ ...base, expiresAt: TIMESTAMP }).expiresAt,
-    ).toBe(TIMESTAMP);
+    expect(assignmentCreateRequestSchema.parse({ ...base, expiresAt: TIMESTAMP }).expiresAt).toBe(
+      TIMESTAMP,
+    );
     expect(
       assignmentCreateRequestSchema.safeParse({ ...base, expiresAt: "not-a-timestamp" }).success,
     ).toBe(false);

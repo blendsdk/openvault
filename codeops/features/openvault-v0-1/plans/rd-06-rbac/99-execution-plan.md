@@ -3,7 +3,7 @@
 > **Document**: 99-execution-plan.md
 > **Parent**: [Index](00-index.md)
 > **Last Updated**: 2026-11-03 20:25
-> **Progress**: 4/57 tasks (7%)
+> **Progress**: 16/57 tasks (28%)
 > **CodeOps Artifact Schema**: 1
 
 ## Overview
@@ -72,23 +72,23 @@ implementation.
 
 **Reference**: [03-01](03-01-catalog-schema-audit.md) §Contracts, §Action catalog, §Role matrix, §Policy state, §Reason codes, §Audit port · AR-2, AR-19, AR-21, AR-24
 
-- [ ] 1.2.1 Add the RBAC contracts and export them — `packages/api-contract/src/rbac.ts`, `packages/api-contract/src/index.ts`
-- [ ] 1.2.2 Add the 25-action catalog and descriptions — `apps/server/src/rbac/actions.ts`
-- [ ] 1.2.3 Add the nine-role matrix and scope eligibility — `apps/server/src/rbac/roles.ts`
-- [ ] 1.2.4 Add the reason-code union and error families — `apps/server/src/rbac/reasons.ts`, `apps/server/src/rbac/errors.ts`
-- [ ] 1.2.5 Add the audit port and logger adapter — `apps/server/src/rbac/audit.ts`
-- [ ] 1.2.6 Add `policy_state` to the schema — `apps/server/src/database/schema.ts`
-- [ ] 1.2.7 Generate and review the migration, snapshot, row types, and CType constants — `apps/server/migrations/`, `apps/server/src/database/generated-types.ts`, `apps/server/src/database/ctypes.ts`
-- [ ] 1.2.8 Add the reviewed `policy_state` seed migration — `apps/server/migrations/`
+- [x] 1.2.1 Add the RBAC contracts and export them — `packages/api-contract/src/rbac.ts`, `packages/api-contract/src/index.ts` ✅ (completed: 2026-11-03 20:27)
+- [x] 1.2.2 Add the 25-action catalog and descriptions — `apps/server/src/rbac/actions.ts` ✅ (completed: 2026-11-03 20:27)
+- [x] 1.2.3 Add the nine-role matrix and scope eligibility — `apps/server/src/rbac/roles.ts` ✅ (completed: 2026-11-03 20:27)
+- [x] 1.2.4 Add the reason-code union and error families — `apps/server/src/rbac/reasons.ts`, `apps/server/src/rbac/errors.ts` ✅ (completed: 2026-11-03 20:27)
+- [x] 1.2.5 Add the audit port and logger adapter — `apps/server/src/rbac/audit.ts` ✅ (completed: 2026-11-03 20:27)
+- [x] 1.2.6 Add `policy_state` to the schema — `apps/server/src/database/schema.ts` ✅ (completed: 2026-11-03 20:27)
+- [x] 1.2.7 Generate and review the migration, snapshot, row types, and CType constants — `apps/server/migrations/`, `apps/server/src/database/generated-types.ts`, `apps/server/src/database/ctypes.ts` ✅ (completed: 2026-11-03 20:27)
+- [x] 1.2.8 Add the reviewed `policy_state` seed migration — `apps/server/migrations/` ✅ (completed: 2026-11-03 20:27)
 
 ### Step 1.3: Implementation Tests and Hardening
 
 **Reference**: [03-01](03-01-catalog-schema-audit.md) §Error Handling · [07](07-testing-strategy.md) ST-1–ST-15 · AR-2, AR-19, AR-21
 
-- [ ] 1.3.1 Write contract implementation tests for cross-field and strictness edges — `packages/api-contract/tests/rbac.impl.test.ts`
-- [ ] 1.3.2 Write audit implementation tests for field sets, redaction, and failure propagation — `apps/server/tests/integration/rbac-audit.impl.test.ts`
-- [ ] 1.3.3 Re-run the Phase 1 specification tests and confirm green
-- [ ] 1.3.4 Run `pnpm verify`, the integration gate, and `pnpm db:types:check`
+- [x] 1.3.1 Write contract implementation tests for cross-field and strictness edges — `packages/api-contract/tests/rbac.impl.test.ts` ✅ (completed: 2026-11-03 20:27)
+- [x] 1.3.2 Write audit implementation tests for field sets, redaction, and failure propagation — `apps/server/tests/integration/rbac-audit.impl.test.ts` ✅ (completed: 2026-11-03 20:27)
+- [x] 1.3.3 Re-run the Phase 1 specification tests and confirm green ✅ (completed: 2026-11-03 20:27)
+- [x] 1.3.4 Run `pnpm verify`, the integration gate, and `pnpm db:types:check` ✅ (completed: 2026-11-03 20:34)
 
 **Verify**: `pnpm verify` plus the integration gate in [07](07-testing-strategy.md) §Verification Checklist
 

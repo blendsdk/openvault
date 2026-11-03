@@ -1,12 +1,8 @@
 import { readFileSync } from "node:fs";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
-import { PolicyRepository } from "../../src/rbac/policy-repository.js";
 import { PolicyUnavailableError } from "../../src/rbac/errors.js";
-import {
-  applyMigrations,
-  createTestDatabase,
-  type TestDatabase,
-} from "./helpers/test-database.js";
+import { PolicyRepository } from "../../src/rbac/policy-repository.js";
+import { applyMigrations, createTestDatabase, type TestDatabase } from "./helpers/test-database.js";
 
 let testDb: TestDatabase;
 
@@ -36,9 +32,7 @@ describe("policy_state schema", () => {
 
   it("should reject a second row, a changed id, and a non-positive version", async () => {
     await expect(
-      testDb.db.executeQuery(
-        "INSERT INTO policy_state (id, version) VALUES (2, 1)",
-      ),
+      testDb.db.executeQuery("INSERT INTO policy_state (id, version) VALUES (2, 1)"),
     ).rejects.toThrow();
 
     await expect(
@@ -59,8 +53,8 @@ describe("policy_state schema", () => {
       new URL("../../src/database/ctypes.ts", import.meta.url),
       "utf8",
     );
-    expect(types).toContain("PolicyState");
-    expect(types).toContain("policy_state");
+    expect(types).toContain("export interface PolicyState");
+    expect(types).toContain("version");
     expect(constants).toContain("policy_state");
   });
 });

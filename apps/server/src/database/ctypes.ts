@@ -240,6 +240,18 @@ export const eOrg = {
 };
 
 /**
+ * Constant type for relation policy_state
+ * @export
+ * @constant
+ */
+export const ePolicyState = {
+  $TABLE: "policy_state",
+  ID: "id",
+  UPDATED_AT: "updated_at",
+  VERSION: "version",
+};
+
+/**
  * Constant type for relation principals
  * @export
  * @constant
