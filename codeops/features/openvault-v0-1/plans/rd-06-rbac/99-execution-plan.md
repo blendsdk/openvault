@@ -2,8 +2,8 @@
 
 > **Document**: 99-execution-plan.md
 > **Parent**: [Index](00-index.md)
-> **Last Updated**: 2026-11-03 19:50
-> **Progress**: 0/57 tasks (0%)
+> **Last Updated**: 2026-11-03 20:25
+> **Progress**: 4/57 tasks (7%)
 > **CodeOps Artifact Schema**: 1
 
 ## Overview
@@ -50,7 +50,7 @@ red result, implementation, green result, implementation tests, full verificatio
 
 ## Phase 1: Contracts, catalog, schema, and audit
 
-> **Phase baseline tree**: _(recorded by the exec-plan skill)_
+> **Phase baseline tree**: 4f2da44236d65cf9daf82beab6ded162622c5e62
 > **Modification set**: `packages/api-contract/src/rbac.ts`, `packages/api-contract/src/index.ts`, `apps/server/src/rbac/actions.ts`, `apps/server/src/rbac/roles.ts`, `apps/server/src/rbac/reasons.ts`, `apps/server/src/rbac/errors.ts`, `apps/server/src/rbac/audit.ts`, `apps/server/src/database/schema.ts`, generated migration/snapshot/types/ctypes, the reviewed seed migration, and Phase 1 tests
 > **Scope mode**: strict
 > **Lenses**: api-surface, migration, security
@@ -63,10 +63,10 @@ red result, implementation, green result, implementation tests, full verificatio
 **Objective**: Freeze the public vocabulary, matrix, version row, and audit event shape before
 implementation.
 
-- [ ] 1.1.1 [spec-author] Write contract tests for ST-5–ST-10 — `packages/api-contract/tests/rbac.spec.test.ts`
-- [ ] 1.1.2 [spec-author] Write catalog tests for ST-1–ST-3 — `apps/server/tests/integration/rbac-catalog.spec.test.ts`
-- [ ] 1.1.3 [spec-author] Write schema, seed, and version tests for ST-11–ST-13 and ST-15 — `apps/server/tests/integration/rbac-schema.spec.test.ts`
-- [ ] 1.1.4 Run the Phase 1 specification tests and record the red result
+- [x] 1.1.1 [spec-author] Write contract tests for ST-5–ST-10 — `packages/api-contract/tests/rbac.spec.test.ts` ✅ (completed: 2026-11-03 20:25)
+- [x] 1.1.2 [spec-author] Write catalog tests for ST-1–ST-3 — `apps/server/tests/integration/rbac-catalog.spec.test.ts` ✅ (completed: 2026-11-03 20:25)
+- [x] 1.1.3 [spec-author] Write schema, seed, and version tests for ST-11–ST-13 and ST-15 — `apps/server/tests/integration/rbac-schema.spec.test.ts` ✅ (completed: 2026-11-03 20:25)
+- [x] 1.1.4 Run the Phase 1 specification tests and record the red result ✅ (completed: 2026-11-03 20:25)
 
 ### Step 1.2: Implementation
 
