@@ -3,7 +3,7 @@
 > **Document**: 99-execution-plan.md
 > **Parent**: [Index](00-index.md)
 > **Last Updated**: 2026-11-03 20:25
-> **Progress**: 47/57 tasks (82%)
+> **Progress**: 57/57 tasks (100%)
 > **CodeOps Artifact Schema**: 1
 
 ## Overview
@@ -140,7 +140,7 @@ implementation.
 
 ## Phase 3: Assignment API, access explain, and rate limits
 
-> **Phase baseline tree**: _(recorded by the exec-plan skill)_
+> **Phase baseline tree**: 6be6dc1ba8063da7634331279ff17a860dbafa74
 > **Modification set**: `apps/server/src/rbac/assignment-service.ts`, `apps/server/src/rbac/rate-limits.ts`, `apps/server/src/controllers/assignments.ts`, `packages/api-contract/src/rbac.ts`, `apps/server/src/app.ts`, and Phase 3 tests
 > **Scope mode**: strict
 > **Lenses**: security, concurrency, api-surface
@@ -183,7 +183,7 @@ implementation.
 
 ## Phase 4: Documentation, changeset, and release matrix
 
-> **Phase baseline tree**: _(recorded by the exec-plan skill)_
+> **Phase baseline tree**: f3f44dbef7f5db68321d6a365abe37c0f7a5edf3
 > **Modification set**: `docs/reference/api.md`, `docs/guide/rbac.md`, `docs/changelog.md`, `.changeset/`, `codeops/features/openvault-v0-1/00-roadmap.md`, `codeops/00-roadmap.md`, `codeops/features/openvault-v0-1/plans/rd-06-rbac/99-execution-plan.md`, and Phase 4 tests
 > **Scope mode**: strict
 > **Lenses**: docs, release
@@ -193,26 +193,26 @@ implementation.
 
 **Reference**: [07](07-testing-strategy.md) ST-57–ST-60 · AR-24, AR-25, AR-27
 
-- [ ] 4.1.1 [spec-author] Write release-document tests for ST-57–ST-58 — `apps/server/tests/integration/rbac-release.spec.test.ts`
-- [ ] 4.1.2 Run the release-document tests and record the red result
+- [x] 4.1.1 [spec-author] Write release-document tests for ST-57–ST-58 — `apps/server/tests/integration/rbac-release.spec.test.ts` ✅ (completed: 2026-11-03 22:25)
+- [x] 4.1.2 Run the release-document tests and record the red result ✅ (completed: 2026-11-03 22:25)
 
 ### Step 4.2: Documentation and Changeset
 
 **Reference**: [03-03](03-03-assignments-access.md) §Routes and rate limits, §Code Examples · [03-01](03-01-catalog-schema-audit.md) §Contracts · AR-24, AR-25, AR-27
 
-- [ ] 4.2.1 Add assignment, explain, and meta request/response examples — `docs/reference/api.md`
-- [ ] 4.2.2 Add assignment and explain usage to the RBAC guide — `docs/guide/rbac.md`
-- [ ] 4.2.3 Add the changelog entry and the package changeset — `docs/changelog.md`, `.changeset/`
+- [x] 4.2.1 Add assignment, explain, and meta request/response examples — `docs/reference/api.md` ✅ (completed: 2026-11-03 22:25)
+- [x] 4.2.2 Add assignment and explain usage to the RBAC guide — `docs/guide/rbac.md` ✅ (completed: 2026-11-03 22:25)
+- [x] 4.2.3 Add the changelog entry and the package changeset — `docs/changelog.md`, `.changeset/` ✅ (completed: 2026-11-03 22:25)
 
 ### Step 4.3: Release Verification
 
 **Reference**: [07](07-testing-strategy.md) §Verification Checklist · AR-25, AR-27
 
-- [ ] 4.3.1 Confirm the release-document tests and the documentation build pass
-- [ ] 4.3.2 Run the PostgreSQL 16 migration, integration, and generated-type matrix
-- [ ] 4.3.3 Run the PostgreSQL 17 migration, integration, and generated-type matrix
-- [ ] 4.3.4 Run the full `pnpm verify` gate under Node 24.21.0
-- [ ] 4.3.5 Update the roadmap and record completion
+- [x] 4.3.1 Confirm the release-document tests and the documentation build pass ✅ (completed: 2026-11-03 22:25)
+- [x] 4.3.2 Run the PostgreSQL 16 migration, integration, and generated-type matrix ✅ (completed: 2026-11-03 22:25)
+- [x] 4.3.3 Run the PostgreSQL 17 migration, integration, and generated-type matrix ✅ (completed: 2026-11-03 22:25)
+- [x] 4.3.4 Run the full `pnpm verify` gate under Node 24.21.0 ✅ (completed: 2026-11-03 22:25)
+- [x] 4.3.5 Update the roadmap and record completion ✅ (completed: 2026-11-03 22:25)
 
 **Verify**: `pnpm verify`, PostgreSQL 16 and 17 integration suites, `pnpm db:types:check` on both
 

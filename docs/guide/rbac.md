@@ -49,6 +49,27 @@ ov role grant alice secrets.officer --project payments
 ov role grant dave auditor --org blendsdk
 ```
 
+## Admin API
+
+The admin API manages assignments directly. A grant names the principal, role, scope, and
+optional future expiry.
+
+```bash
+curl -X POST https://vault.example.com/v1/admin/assignments \
+  -H "cookie: __Host-ov_session=$SESSION" \
+  -H "x-csrf-token: $CSRF" \
+  -H "content-type: application/json" \
+  -d '{"principalId":"01J...","role":"secrets.reader",
+       "scopeType":"project","scopeId":"01J..."}'
+```
+
+`GET /v1/admin/assignments` accepts optional `principalId`, `role`, `scopeType`, and `scopeId`
+filters. `DELETE /v1/admin/assignments/:id` removes one assignment.
+
+The API enforces the grant guards. A project-scoped project administrator can manage only
+its own project. Only an organization administrator can grant `org.admin`. Removing the last
+active user organization administrator returns `409 last_org_admin`.
+
 ## No privilege escalation
 
 A principal can grant only roles whose actions are a subset of its own effective actions at
@@ -76,11 +97,14 @@ The UI uses these flags. It never derives permissions from client-side role math
 ## Access explain
 
 ```bash
-ov access explain db-password --project payments
+curl "https://vault.example.com/v1/admin/access-explain?action=secret.read&scopeType=object&scopeId=01J..." \
+  -H "cookie: __Host-ov_session=$SESSION"
 ```
 
-Lists every effective principal, the role, the scope, the assignment, and the consuming
-services.
+Lists every principal with an effective permission on the resource, the role, the assignment,
+the scope, and the consuming service metadata. A project or object outside the caller's scope
+returns `404 resource_not_found`. The response includes the current `policyVersion`; clients
+can use it to detect policy changes.
 
 ## Next
 

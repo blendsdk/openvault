@@ -157,6 +157,69 @@ a local credential, OIDC identity, browser session, or CLI family. `identity.rea
 auditor; create, revoke, and join-token issuance require an org or owning-project
 administrator.
 
+### Role assignments
+
+```text
+GET /v1/admin/assignments?principalId=01J...&role=secrets.reader&scopeType=project&scopeId=01J...
+-> 200 { "assignments": [ {
+     "id": "01J...", "principalId": "01J...", "role": "secrets.reader",
+     "scopeType": "project", "scopeId": "01J...", "grantedBy": "01J...",
+     "createdAt": "2026-11-03T20:00:00.000Z", "expiresAt": null } ] }
+
+POST /v1/admin/assignments
+{ "principalId": "01J...", "role": "secrets.reader",
+  "scopeType": "project", "scopeId": "01J...", "expiresAt": "2027-01-01T00:00:00.000Z" }
+-> 201 { "id": "01J...", "principalId": "01J...", "role": "secrets.reader",
+          "scopeType": "project", "scopeId": "01J...", "grantedBy": "01J...",
+          "createdAt": "...", "expiresAt": "2027-01-01T00:00:00.000Z" }
+
+DELETE /v1/admin/assignments/:id
+-> 204
+```
+
+The assignment create requires `assignment.write` at the target scope or an ancestor.
+`org` scope uses the literal id `org`; project and object scopes use a ULID. Object scope is
+limited to `secrets.reader` and `certificates.reader`. An expiry must be in the future.
+
+A duplicate tuple returns `409 assignment_conflict`. A visible assignment the caller cannot
+write returns `403 access_denied`; an assignment outside the caller's visible scope returns
+`404 assignment_not_found`. Removing the last active user organization administrator returns
+`409 last_org_admin`. A service identity cannot receive a control-plane role; that request
+returns `422 service_control_plane`.
+
+```text
+GET /v1/admin/access-explain?action=secret.read&scopeType=object&scopeId=01J...
+-> 200 {
+     "policyVersion": 8,
+     "action": "secret.read",
+     "scope": { "type": "object", "id": "01J..." },
+     "principals": [ {
+       "principalId": "01J...", "name": "payments-api", "kind": "service",
+       "role": "secrets.reader", "assignmentId": "01J...",
+       "scopeType": "object", "scopeId": "01J...",
+       "consumer": { "composeProject": "payments", "composeService": "api",
+                     "hostname": "api-1", "state": "ok",
+                     "lastSeen": "2026-11-03T19:59:00.000Z" } } ] }
+```
+
+The explanation requires `assignment.read` on the explained resource. A project or object
+that is missing, soft-deleted, or outside the caller's scope returns `404 resource_not_found`.
+The response lists only principals with an effective permission. `policyVersion` is read from
+the same statement as the assignment rows.
+
+`GET /v1/meta/roles` returns the static action catalog, the nine role definitions, and the
+current `policyVersion`. It is public and contains no principals, assignments, or project data.
+
+Per-object responses from the data plane include the current principal's capability flags:
+
+```json
+{ "capabilities": { "canRead": true, "canWrite": false, "canDelete": false,
+                    "canPurge": false, "canManage": false } }
+```
+
+`canManage` is the `assignment.write` action at the object's scope; the other flags map to the
+object's read, write, delete, and purge actions.
+
 ### Agent authentication
 
 ```text
