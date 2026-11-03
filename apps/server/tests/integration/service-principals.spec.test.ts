@@ -1,9 +1,10 @@
+import { createHash } from "node:crypto";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { CliSessionRepository } from "../../src/auth/cli-sessions.js";
 import { CredentialsRepository } from "../../src/auth/credentials.js";
 import { OidcAccessDeniedError } from "../../src/auth/oidc/errors.js";
 import { OidcIdentityService } from "../../src/auth/oidc/identity.js";
-import { type BaseFixture, bytes32, seedBase } from "./helpers/fixtures.js";
+import { type BaseFixture, seedBase } from "./helpers/fixtures.js";
 import { applyMigrations, createTestDatabase, type TestDatabase } from "./helpers/test-database.js";
 
 const HASH =
@@ -80,8 +81,10 @@ describe("service principal read-path rejection", () => {
     ).rejects.toBeInstanceOf(OidcAccessDeniedError);
   });
 
-  it("should not resolve a live CLI family for a service principal", async () => {
+  it("should not resolve a live CLI family or rotate its refresh token for a service principal", async () => {
     const familyId = "01ARZ3NDEKTSV4RRFFQ69G5FAZ";
+    const refreshToken = "s".repeat(43);
+    const refreshHash = createHash("sha256").update(refreshToken).digest();
     await withGuardDisabled("cli_sessions", "cli_sessions_service_guard", async () => {
       await testDb.db.executeQuery(
         `INSERT INTO cli_sessions (id, principal_id, refresh_hash, family_id, expires_at)
@@ -89,7 +92,7 @@ describe("service principal read-path rejection", () => {
         {
           id: "01ARZ3NDEKTSV4RRFFQ69G5FAY",
           principalId: base.serviceId,
-          refreshHash: bytes32(77),
+          refreshHash,
           familyId,
           expiresAt: "2027-10-30T12:00:00.000Z",
         },
@@ -97,5 +100,11 @@ describe("service principal read-path rejection", () => {
     });
 
     await expect(cliSessions.findActiveContext(base.serviceId, familyId)).resolves.toBeUndefined();
+    await expect(
+      cliSessions.rotateRefresh(refreshHash, base.serviceId, familyId, {
+        ip: null,
+        userAgent: null,
+      }),
+    ).resolves.toEqual({ kind: "invalid" });
   });
 });

@@ -336,7 +336,7 @@ export class CliSessionRepository {
                   COALESCE(c.must_change, false) AS must_change
              FROM principals p
              LEFT JOIN local_credentials c ON c.principal_id = p.id
-            WHERE p.id = :principalId
+            WHERE p.id = :principalId AND p.kind = 'user'
             FOR UPDATE OF p`,
           { principalId },
         );

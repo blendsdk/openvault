@@ -110,7 +110,10 @@ describe("identity authorization internals", () => {
     expect(await authorizer.canReadAll(expired)).toBe(false);
     expect(await authorizer.hasAny("identity.read", expired)).toBe(false);
 
+    await assign(base.serviceId, "org.admin", "org", "org");
     expect(await authorizer.can("identity.read", base.serviceId, projectA)).toBe(false);
+    expect(await authorizer.canReadAll(base.serviceId)).toBe(false);
+    expect(await authorizer.hasAny("identity.read", base.serviceId)).toBe(false);
     expect(await authorizer.readableProjectIds(base.serviceId)).toEqual([]);
   });
 

@@ -116,12 +116,23 @@ describe("identity lifecycle internals", () => {
     expect(state.records[0]).toEqual({ status: "disabled", live_tokens: 0 });
   });
 
-  it("should leave no live token when issue races revoke", async () => {
+  it("should leave no live token and preserve the allowed race branches", async () => {
     const serviceId = await createService("race");
-    await Promise.allSettled([
+    const [issueResult, revokeResult] = await Promise.allSettled([
       runtime.service.issueJoinToken(actorId, serviceId, 60),
       runtime.service.revoke(actorId, serviceId),
     ]);
+
+    expect(revokeResult.status).toBe("fulfilled");
+    if (issueResult.status === "fulfilled") {
+      const token = await testDb.db.executeQuery<{ revoked_at: Date | null }>(
+        "SELECT revoked_at FROM join_tokens WHERE id = :id",
+        { id: issueResult.value.id },
+      );
+      expect(token.records[0]?.revoked_at).not.toBeNull();
+    } else {
+      expect(issueResult.reason).toMatchObject({ code: "identity_inactive", statusCode: 409 });
+    }
 
     const live = await testDb.db.executeQuery<{ count: number }>(
       `SELECT count(*)::int AS count

@@ -1,6 +1,7 @@
 import { createHash } from "node:crypto";
 import { networkInterfaces } from "node:os";
 import {
+  cliTokenResponseSchema,
   identityDetailSchema,
   identityListSchema,
   identitySummarySchema,
@@ -28,6 +29,9 @@ const SESSION_COOKIE = SESSION_COOKIE_NAME;
 const CONFIGURED_ORIGIN = "https://vault.example.com";
 const CSRF_HEADER = "x-csrf-token";
 const TIMESTAMP = "2026-10-30T12:00:00.000Z";
+const TEST_PASSWORD = "correct horse battery staple";
+const PHC_HASH =
+  "$argon2id$v=19$m=65536,t=3,p=1$qYb6T7aRMEwwCoMgjHxVyA$lMIQ1sBU1g1jPAxArtXtKhKu6LGUbPvoyvEwXEFNpTc";
 
 const errorEnvelope = z.object({
   success: z.literal(false),
@@ -37,6 +41,7 @@ const summaryEnvelope = z.object({ success: z.literal(true), data: identitySumma
 const listEnvelope = z.object({ success: z.literal(true), data: identityListSchema });
 const detailEnvelope = z.object({ success: z.literal(true), data: identityDetailSchema });
 const tokenEnvelope = z.object({ success: z.literal(true), data: joinTokenResponseSchema });
+const cliLoginEnvelope = z.object({ success: z.literal(true), data: cliTokenResponseSchema });
 
 interface RunningApp {
   readonly app: SecureWebApplication;
@@ -122,7 +127,9 @@ function getErrorCode(response: TestResponse): string {
   return errorEnvelope.parse(response.json).error.code;
 }
 
-async function insertUser(): Promise<FixtureUser> {
+async function insertUser(
+  options: { readonly localPassword?: boolean } = {},
+): Promise<FixtureUser> {
   const id = fixtureId();
   const email = `admin-${id.toLowerCase()}@example.test`;
   await testDb.db.executeQuery(
@@ -130,6 +137,13 @@ async function insertUser(): Promise<FixtureUser> {
      VALUES (:id, 'user', :name, :email, 'active')`,
     { id, name: `Admin ${id}`, email },
   );
+  if (options.localPassword === true) {
+    await testDb.db.executeQuery(
+      `INSERT INTO local_credentials (principal_id, password_hash, must_change)
+       VALUES (:id, :passwordHash, false)`,
+      { id, passwordHash: PHC_HASH },
+    );
+  }
   return { id, email };
 }
 
@@ -177,7 +191,12 @@ async function insertService(
 
 async function insertCertificate(
   principalId: string,
-  options: { serial: string; revokedAt?: string | null; notAfter?: string },
+  options: {
+    serial: string;
+    revokedAt?: string | null;
+    notBefore?: string;
+    notAfter?: string;
+  },
 ): Promise<void> {
   await testDb.db.executeQuery(
     `INSERT INTO workload_certs
@@ -188,7 +207,7 @@ async function insertCertificate(
       principalId,
       serial: options.serial,
       fingerprint: createHash("sha256").update(options.serial).digest("hex"),
-      notBefore: TIMESTAMP,
+      notBefore: options.notBefore ?? TIMESTAMP,
       notAfter: options.notAfter ?? "2027-10-30T12:00:00.000Z",
       revokedAt: options.revokedAt ?? null,
     },
@@ -283,7 +302,7 @@ afterAll(async () => {
   }
 });
 
-describe("identity administration", () => {
+describe.skipIf(trustedHost === undefined)("identity administration", () => {
   it("should create a project-owned service identity for an org admin", async () => {
     const actor = await orgAdmin();
     const project = await insertProject();
@@ -477,6 +496,11 @@ describe("identity administration", () => {
       serial: "02",
       revokedAt: "2026-11-01T12:00:00.000Z",
     });
+    await insertCertificate(serviceId, {
+      serial: "03",
+      notBefore: "2024-01-01T00:00:00.000Z",
+      notAfter: "2025-01-01T00:00:00.000Z",
+    });
     await insertConsumer(serviceId, project.id);
 
     const response = await send({
@@ -486,7 +510,11 @@ describe("identity administration", () => {
     });
     expect(response.status).toBe(200);
     const body = detailEnvelope.parse(response.json);
-    expect(body.data.certificates.map((certificate) => certificate.serial)).toEqual(["02", "01"]);
+    expect(body.data.certificates.map((certificate) => certificate.serial)).toEqual([
+      "03",
+      "02",
+      "01",
+    ]);
     expect(body.data.consumer?.selfReported).toBe(true);
 
     const projectAdmin = await insertUser();
@@ -562,6 +590,29 @@ describe("identity administration", () => {
     const token = tokenEnvelope.parse(response.json).data;
     expect(token.token).toHaveLength(43);
 
+    for (const ttlSeconds of [1, 86_400]) {
+      expect(
+        (
+          await send({
+            method: "POST",
+            path: `/v1/admin/identities/${serviceId}/join-tokens`,
+            headers,
+            body: { ttlSeconds },
+          })
+        ).status,
+      ).toBe(201);
+    }
+    expect(
+      (
+        await send({
+          method: "POST",
+          path: `/v1/admin/identities/${serviceId}/join-tokens`,
+          headers,
+          body: {},
+        })
+      ).status,
+    ).toBe(201);
+
     const detail = detailEnvelope.parse(
       (
         await send({
@@ -595,6 +646,112 @@ describe("identity administration", () => {
     });
     expect(inactive.status).toBe(409);
     expect(getErrorCode(inactive)).toBe("identity_inactive");
+
+    const deletedProject = await insertProject();
+    const deletedService = await insertService(deletedProject, "deleted-token");
+    await testDb.db.executeQuery("UPDATE projects SET deleted_at = now() WHERE id = :id", {
+      id: deletedProject.id,
+    });
+    const deleted = await send({
+      method: "POST",
+      path: `/v1/admin/identities/${deletedService}/join-tokens`,
+      headers,
+      body: {},
+    });
+    expect(deleted.status).toBe(409);
+  });
+
+  it("should not reveal or mutate a foreign identity", async () => {
+    const owner = await orgAdmin();
+    const project = await insertProject();
+    const serviceId = await insertService(project, "foreign-service");
+    const foreignAdmin = await insertUser();
+    const otherProject = await insertProject();
+    await assignRole(foreignAdmin, "project.admin", "project", otherProject.id);
+    const headers = await adminHeaders(foreignAdmin);
+
+    for (const path of [
+      `/v1/admin/identities/${serviceId}/revoke`,
+      `/v1/admin/identities/${serviceId}/join-tokens`,
+    ]) {
+      const response = await send({ method: "POST", path, headers, body: {} });
+      expect(response.status).toBe(404);
+    }
+
+    const state = await testDb.db.executeQuery<{ status: string }>(
+      "SELECT status FROM principals WHERE id = :id",
+      { id: serviceId },
+    );
+    expect(state.records[0]?.status).toBe("active");
+    expect(
+      (
+        await send({
+          method: "GET",
+          path: `/v1/admin/identities/${serviceId}`,
+          headers: await adminHeaders(owner),
+        })
+      ).status,
+    ).toBe(200);
+  });
+
+  it("should return 403 for a signed-in caller with no identity role", async () => {
+    const owner = await orgAdmin();
+    const project = await insertProject();
+    const serviceId = await insertService(project, "no-role-target");
+    const noRole = await insertUser();
+    const response = await send({
+      method: "GET",
+      path: `/v1/admin/identities/${serviceId}`,
+      headers: await adminHeaders(noRole),
+    });
+    expect(response.status).toBe(403);
+    expect(getErrorCode(response)).toBe("access_denied");
+    expect(
+      (
+        await send({
+          method: "GET",
+          path: `/v1/admin/identities/${serviceId}`,
+          headers: await adminHeaders(owner),
+        })
+      ).status,
+    ).toBe(200);
+  });
+
+  it("should accept a CLI bearer on the admin identity surface", async () => {
+    const actor = await insertUser({ localPassword: true });
+    await assignRole(actor, "org.admin", "org", "org");
+    const login = await send({
+      method: "POST",
+      path: "/v1/auth/cli/login",
+      headers: { "content-type": "application/json" },
+      body: { identifier: actor.email, password: TEST_PASSWORD },
+    });
+    expect(login.status).toBe(200);
+    const accessToken = cliLoginEnvelope.parse(login.json).data.accessToken;
+    const response = await send({
+      method: "GET",
+      path: "/v1/admin/identities",
+      headers: { authorization: `Bearer ${accessToken}` },
+    });
+    expect(response.status).toBe(200);
+  });
+
+  it("should require authentication on every admin identity route", async () => {
+    const serviceId = await insertService(await insertProject(), "auth-target");
+    const requests = [
+      { method: "GET" as const, path: "/v1/admin/identities" },
+      { method: "GET" as const, path: `/v1/admin/identities/${serviceId}` },
+      { method: "POST" as const, path: "/v1/admin/identities", body: { name: "x" } },
+      { method: "POST" as const, path: `/v1/admin/identities/${serviceId}/revoke` },
+      { method: "POST" as const, path: `/v1/admin/identities/${serviceId}/join-tokens`, body: {} },
+    ];
+    for (const request of requests) {
+      const response = await send({
+        ...request,
+        headers: { "content-type": "application/json" },
+      });
+      expect(response.status).toBe(401);
+    }
   });
 
   it("should return 404 for a malformed path id", async () => {

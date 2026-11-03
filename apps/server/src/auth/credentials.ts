@@ -7,6 +7,8 @@ export interface QueryDatabase {
     query: string,
     params?: Record<string, unknown>,
   ): Promise<{ readonly records: readonly T[] }>;
+  /** Optional transaction runner used to keep credential locks ordered. */
+  withTransaction?<T>(fn: (database: QueryDatabase) => Promise<T>): Promise<T>;
 }
 
 /** One local credential joined with its principal. */
@@ -171,8 +173,9 @@ export class CredentialsRepository {
     principalId: string,
     expectedHash: string,
   ): Promise<{ failedCount: number; lockedUntil: Date | null }> {
-    const result = await this.#database.executeQuery<FailureRow>(
-      `UPDATE local_credentials
+    const result = await this.#withPrincipalLock(principalId, (database) =>
+      database.executeQuery<FailureRow>(
+        `UPDATE local_credentials
           SET failed_count = CASE
                 WHEN updated_at < now() - interval '15 minutes' THEN 1
                 ELSE failed_count + 1
@@ -187,7 +190,8 @@ export class CredentialsRepository {
           AND password_hash = :expectedHash
           AND (locked_until IS NULL OR locked_until <= now())
         RETURNING failed_count, locked_until`,
-      { principalId, expectedHash },
+        { principalId, expectedHash },
+      ),
     );
 
     const row = result.records[0];
@@ -208,14 +212,16 @@ export class CredentialsRepository {
    * @returns True when the counter was reset.
    */
   public async recordSuccess(principalId: string, expectedHash: string): Promise<boolean> {
-    const result = await this.#database.executeQuery<{ readonly principal_id: string }>(
-      `UPDATE local_credentials
+    const result = await this.#withPrincipalLock(principalId, (database) =>
+      database.executeQuery<{ readonly principal_id: string }>(
+        `UPDATE local_credentials
           SET failed_count = 0, locked_until = NULL, updated_at = now()
         WHERE principal_id = :principalId
           AND password_hash = :expectedHash
           AND (locked_until IS NULL OR locked_until <= now())
         RETURNING principal_id`,
-      { principalId, expectedHash },
+        { principalId, expectedHash },
+      ),
     );
     return result.records.length > 0;
   }
@@ -260,5 +266,36 @@ export class CredentialsRepository {
     const result = await this.#database.executeQuery<CredentialRow>(sql, params);
     const row = result.records[0];
     return row === undefined ? undefined : toCredential(row);
+  }
+
+  /**
+   * Runs a credential update after locking its principal first.
+   *
+   * Password change and CLI/session writers also take the principal first.
+   * Keeping this order prevents a cycle with the credential-table trigger,
+   * which takes a key-share lock on the principal after a credential row is
+   * already locked.
+   *
+   * @param principalId - Principal whose credential is updated.
+   * @param action - Credential update to run with the lock held.
+   * @returns The action result.
+   */
+  async #withPrincipalLock<T>(
+    principalId: string,
+    action: (database: QueryDatabase) => Promise<T>,
+  ): Promise<T> {
+    const lock = (database: QueryDatabase): Promise<unknown> =>
+      database.executeQuery("SELECT id FROM principals WHERE id = :principalId FOR KEY SHARE", {
+        principalId,
+      });
+
+    if (this.#database.withTransaction === undefined) {
+      await lock(this.#database);
+      return action(this.#database);
+    }
+    return this.#database.withTransaction(async (tx) => {
+      await lock(tx);
+      return action(tx);
+    });
   }
 }

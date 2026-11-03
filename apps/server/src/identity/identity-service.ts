@@ -106,21 +106,23 @@ export class IdentityService {
     actorId: string,
     input: { readonly name: string; readonly projectId?: string | undefined },
   ): Promise<IdentitySummary> {
-    if (input.projectId === undefined) {
+    const projectId = input.projectId;
+    if (projectId === undefined) {
       throw new IdentityServiceError(422, "validation_error", "Validation failed");
     }
-    const project = await this.#repository.findProject(input.projectId);
-    if (project === undefined || project.deletedAt !== null) {
-      throw new IdentityServiceError(422, "validation_error", "Validation failed");
-    }
-    await this.#assert("identity.create", actorId, project.id);
+    await this.#assert("identity.create", actorId, projectId);
 
     const name = input.name.trim();
     try {
-      const identity = await this.#repository.insertServiceIdentity({
-        id: newUlid(),
-        name,
-        projectId: project.id,
+      const identity = await this.#database.withTransaction(async (tx) => {
+        const project = await this.#repository.lockProject(tx, projectId);
+        if (project === undefined || project.deletedAt !== null) {
+          throw new IdentityServiceError(422, "validation_error", "Validation failed");
+        }
+        return this.#repository.insertServiceIdentity(
+          { id: newUlid(), name, projectId: project.id },
+          tx,
+        );
       });
       return toSummary(identity);
     } catch (error) {
@@ -172,6 +174,9 @@ export class IdentityService {
       throw new IdentityServiceError(404, "identity_not_found", "Identity not found");
     }
     if (!(await this.#authorizer.can("identity.read", actorId, identity.projectId))) {
+      if (!(await this.#authorizer.hasAny("identity.read", actorId))) {
+        throw new IdentityServiceError(403, "access_denied", "Access denied");
+      }
       throw new IdentityServiceError(404, "identity_not_found", "Identity not found");
     }
 
@@ -194,14 +199,14 @@ export class IdentityService {
    * @param id - Service principal identifier.
    */
   public async revoke(actorId: string, id: string): Promise<void> {
+    if (!(await this.#authorizer.hasAny("identity.revoke", actorId))) {
+      throw new IdentityServiceError(403, "access_denied", "Access denied");
+    }
     const identity = await this.#repository.findIdentity(id);
     if (identity === undefined || identity.projectDeletedAt !== null) {
       throw new IdentityServiceError(404, "identity_not_found", "Identity not found");
     }
     if (!(await this.#authorizer.can("identity.revoke", actorId, identity.projectId))) {
-      if (!(await this.#authorizer.hasAny("identity.revoke", actorId))) {
-        throw new IdentityServiceError(403, "access_denied", "Access denied");
-      }
       throw new IdentityServiceError(404, "identity_not_found", "Identity not found");
     }
 
@@ -229,14 +234,14 @@ export class IdentityService {
     id: string,
     ttlSeconds: number | undefined,
   ): Promise<JoinTokenResponse> {
+    if (!(await this.#authorizer.hasAny("identity.join_token", actorId))) {
+      throw new IdentityServiceError(403, "access_denied", "Access denied");
+    }
     const identity = await this.#repository.findIdentity(id);
     if (identity === undefined) {
       throw new IdentityServiceError(404, "identity_not_found", "Identity not found");
     }
     if (!(await this.#authorizer.can("identity.join_token", actorId, identity.projectId))) {
-      if (!(await this.#authorizer.hasAny("identity.join_token", actorId))) {
-        throw new IdentityServiceError(403, "access_denied", "Access denied");
-      }
       throw new IdentityServiceError(404, "identity_not_found", "Identity not found");
     }
     if (identity.status !== "active" || identity.projectDeletedAt !== null) {

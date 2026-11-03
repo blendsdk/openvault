@@ -174,6 +174,27 @@ export class IdentityRepository {
   }
 
   /**
+   * Locks a project and returns its deletion state.
+   *
+   * Callers use this before creating an identity or issuing a token so a
+   * concurrent soft-delete serializes with the write.
+   *
+   * @param tx - Transaction executor.
+   * @param id - Project identifier.
+   * @returns The locked project, or undefined.
+   */
+  public async lockProject(tx: QueryExecutor, id: string): Promise<ProjectRecord | undefined> {
+    const result = await tx.executeQuery<ProjectRow>(
+      "SELECT id, name, deleted_at FROM projects WHERE id = :id FOR SHARE",
+      { id },
+    );
+    const row = result.records[0];
+    return row === undefined
+      ? undefined
+      : { id: row.id, name: row.name, deletedAt: row.deleted_at };
+  }
+
+  /**
    * Loads one service identity and its owner-project deletion state.
    *
    * @param id - Principal identifier.
@@ -198,12 +219,15 @@ export class IdentityRepository {
    * @param input - Identifier, trimmed name, and owner project.
    * @returns The inserted identity.
    */
-  public async insertServiceIdentity(input: {
-    readonly id: string;
-    readonly name: string;
-    readonly projectId: string;
-  }): Promise<IdentityRecord> {
-    const result = await this.#database.executeQuery<IdentityRow>(
+  public async insertServiceIdentity(
+    input: {
+      readonly id: string;
+      readonly name: string;
+      readonly projectId: string;
+    },
+    executor: QueryExecutor = this.#database,
+  ): Promise<IdentityRecord> {
+    const result = await executor.executeQuery<IdentityRow>(
       `INSERT INTO principals (id, kind, name, owner_project_id, status)
        VALUES (:id, 'service', :name, :projectId, 'active')
        RETURNING id, name, owner_project_id, status, created_at,
@@ -232,7 +256,7 @@ export class IdentityRepository {
       return [];
     }
 
-    const conditions = ["p.kind = 'service'"];
+    const conditions = ["p.kind = 'service'", "pr.deleted_at IS NULL"];
     const params: Record<string, unknown> = {};
     if (projectId !== undefined) {
       conditions.push("p.owner_project_id = :projectId");

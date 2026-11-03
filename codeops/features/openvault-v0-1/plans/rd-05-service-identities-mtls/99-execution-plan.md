@@ -107,7 +107,7 @@ guards before any implementation.
 
 ## Phase 2: Identity administration and authorization
 
-> **Phase baseline tree**: _(recorded by the exec-plan skill)_
+> **Phase baseline tree**: 9db17a1375f89604034a5e7b79f41737c3f92c40
 > **Modification set**: `apps/server/src/identity/`, `apps/server/src/agent/agent-token-service.ts`, `apps/server/src/controllers/identity.ts`, `apps/server/src/app.ts`, `apps/server/src/main.ts`, `apps/server/src/auth/oidc/identity.ts`, `apps/server/src/auth/credentials.ts`, `apps/server/src/auth/cli-sessions.ts`, `apps/server/src/auth/middleware.ts`, Phase 2 tests/helpers
 > **Scope mode**: strict
 > **Lenses**: web application, security, data

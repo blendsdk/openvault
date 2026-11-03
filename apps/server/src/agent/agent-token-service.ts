@@ -28,7 +28,11 @@ export interface IssuedJoinToken {
 
 interface LockedTokenIdentity {
   readonly status: string;
-  readonly project_deleted_at: Date | null;
+  readonly owner_project_id: string;
+}
+
+interface LockedProject {
+  readonly deleted_at: Date | null;
 }
 
 /**
@@ -82,9 +86,8 @@ export class AgentTokenService {
 
     await this.#database.withTransaction(async (tx) => {
       const locked = await tx.executeQuery<LockedTokenIdentity>(
-        `SELECT p.status, pr.deleted_at AS project_deleted_at
+        `SELECT p.status, p.owner_project_id
            FROM principals p
-           JOIN projects pr ON pr.id = p.owner_project_id
           WHERE p.id = :id AND p.kind = 'service'
           FOR UPDATE OF p`,
         { id: identity.id },
@@ -94,11 +97,13 @@ export class AgentTokenService {
         throw new IdentityServiceError(404, "identity_not_found", "Identity not found");
       }
 
-      await tx.executeQuery("SELECT id FROM projects WHERE id = :projectId FOR SHARE", {
-        projectId: identity.projectId,
-      });
+      const project = await tx.executeQuery<LockedProject>(
+        "SELECT deleted_at FROM projects WHERE id = :projectId FOR SHARE",
+        { projectId: row.owner_project_id },
+      );
+      const projectRow = project.records[0];
 
-      if (row.status !== "active" || row.project_deleted_at !== null) {
+      if (row.status !== "active" || projectRow === undefined || projectRow.deleted_at !== null) {
         throw new IdentityServiceError(409, "identity_inactive", "Identity is inactive");
       }
 
@@ -111,7 +116,7 @@ export class AgentTokenService {
           id,
           tokenHash,
           principalId: identity.id,
-          projectId: identity.projectId,
+          projectId: row.owner_project_id,
           expiresAt,
           createdBy,
         },
