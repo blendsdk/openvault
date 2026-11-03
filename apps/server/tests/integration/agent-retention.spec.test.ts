@@ -11,6 +11,7 @@ import {
 } from "../../src/agent/agent-maintenance.js";
 import type { AgentRuntime } from "../../src/agent/agent-runtime.js";
 import { createAgentRuntime } from "../../src/agent/agent-runtime.js";
+import { bootstrapAgentRuntime } from "../../src/agent/bootstrap.js";
 import { CaSignerUnavailableError } from "../../src/security/ca.js";
 import { KeyringProvider } from "../../src/security/keyring.js";
 import { TlsMaterial } from "../../src/transport/tls.js";
@@ -158,35 +159,38 @@ afterAll(async () => {
 
 describe("bounded retention cleanup", () => {
   it("should delete tokens and certificates at the documented boundaries", async () => {
+    const now = Date.now();
+    const day = 86_400_000;
+    const iso = (offsetMs: number): string => new Date(now + offsetMs).toISOString();
     const tokenDelete = await insertToken({
-      expiresAt: "2026-11-01T00:00:00.000Z",
-      usedAt: "2026-11-01T00:00:00.000Z",
-      revokedAt: "2026-11-01T00:00:00.000Z",
+      expiresAt: iso(-3 * day),
+      usedAt: iso(-3 * day),
+      revokedAt: iso(-3 * day),
     });
     const tokenUsed = await insertToken({
-      expiresAt: "2026-11-01T00:00:00.000Z",
-      usedAt: "2026-11-03T00:00:00.000Z",
+      expiresAt: iso(-3 * day),
+      usedAt: iso(-3_600_000),
     });
-    const tokenFresh = await insertToken({ expiresAt: "2099-01-01T00:00:00.000Z" });
+    const tokenFresh = await insertToken({ expiresAt: iso(100 * day) });
     const tokenRevoked = await insertToken({
-      expiresAt: "2026-11-01T00:00:00.000Z",
-      revokedAt: "2026-11-01T00:00:00.000Z",
+      expiresAt: iso(-3 * day),
+      revokedAt: iso(-3 * day),
     });
 
     const certificateDelete = await insertCertificate({
-      notAfter: "2026-10-01T00:00:00.000Z",
+      notAfter: iso(-40 * day),
     });
     const certificatePostExpiryRevoke = await insertCertificate({
-      notAfter: "2026-10-01T00:00:00.000Z",
-      revokedAt: "2026-11-02T00:00:00.000Z",
+      notAfter: iso(-40 * day),
+      revokedAt: iso(-2 * day),
     });
     const certificateRecentExpiry = await insertCertificate({
-      notAfter: "2026-11-02T00:00:00.000Z",
-      revokedAt: "2026-10-01T00:00:00.000Z",
+      notAfter: iso(-2 * day),
+      revokedAt: iso(-40 * day),
     });
     const certificateRevokedLongAgo = await insertCertificate({
-      notAfter: "2026-10-01T00:00:00.000Z",
-      revokedAt: "2026-10-01T00:00:00.000Z",
+      notAfter: iso(-40 * day),
+      revokedAt: iso(-40 * day),
     });
 
     const result = await runtime.maintenance.runOnce();
@@ -205,12 +209,10 @@ describe("bounded retention cleanup", () => {
   });
 
   it("should bound one cleanup run to the configured batch size", async () => {
+    const now = Date.now();
+    const old = new Date(now - 3 * 86_400_000).toISOString();
     for (let index = 0; index < 3; index += 1) {
-      await insertToken({
-        expiresAt: "2026-11-01T00:00:00.000Z",
-        usedAt: "2026-11-01T00:00:00.000Z",
-        revokedAt: "2026-11-01T00:00:00.000Z",
-      });
+      await insertToken({ expiresAt: old, usedAt: old, revokedAt: old });
     }
     const service = new AgentMaintenanceService({
       repository: new DatabaseAgentMaintenanceRepository(testDb.db),
@@ -234,7 +236,7 @@ describe("bounded retention cleanup", () => {
     };
     const service = new AgentMaintenanceService({ repository, logger, intervalMs: 60_000 });
     await service.start();
-    service.stop();
+    await service.stop();
     expect(entries).toHaveLength(1);
     expect(entries[0]?.message).toBe("Agent cleanup failed");
     expect(entries[0]?.data).toEqual({ code: "agent_cleanup_failed" });
@@ -243,14 +245,32 @@ describe("bounded retention cleanup", () => {
 
 describe("readiness and startup", () => {
   it("should include the CA probe for a production agent runtime", async () => {
-    const response = await testRequest({
+    const healthy = await testRequest({
       port: server.handle.adminPort,
       path: "/ready",
       host: "127.0.0.1",
       ca: environment.tls.caPem,
       servername: "localhost",
     });
-    expect(response.status).toBe(200);
+    expect(healthy.status).toBe(200);
+
+    const original = runtime.caSigner.probe.bind(runtime.caSigner);
+    runtime.caSigner.probe = async () => {
+      throw new Error("ca probe failed");
+    };
+    try {
+      const failing = await testRequest({
+        port: server.handle.adminPort,
+        path: "/ready",
+        host: "127.0.0.1",
+        ca: environment.tls.caPem,
+        servername: "localhost",
+      });
+      expect(failing.status).toBe(503);
+      expect(errorEnvelope.parse(failing.json).error.code).toBe("not_ready");
+    } finally {
+      runtime.caSigner.probe = original;
+    }
   });
 
   it("should abort runtime creation when the CA row is missing or mismatched", async () => {
@@ -321,13 +341,18 @@ describe("admission-time delivery bound", () => {
       poolConfig: { connectionTimeoutMillis: 2_000 },
       enableGracefulShutdown: false,
     });
+    let enteredResolve: (() => void) | undefined;
+    const entered = new Promise<void>((resolve) => {
+      enteredResolve = resolve;
+    });
     const limited = await startAgentTestServer({
       testDb,
       environment,
       ca,
       seedCa: false,
       database: limitedDatabase,
-      configure: (app) => registerAgentDataProbe(app, { delayMs: 5_500 }),
+      configure: (app) =>
+        registerAgentDataProbe(app, { delayMs: 5_500, onEnter: () => enteredResolve?.() }),
     });
     try {
       const pending = testRequest({
@@ -339,7 +364,7 @@ describe("admission-time delivery bound", () => {
         cert: client.certPem,
         key: client.keyPem,
       });
-      await delay(200);
+      await entered;
       await limited.runtime.identityRuntime.service.revoke(actorId, service);
       const response = await pending;
       expect(response.status).toBe(401);
@@ -348,6 +373,21 @@ describe("admission-time delivery bound", () => {
     } finally {
       await limited.stop();
     }
+  }, 30_000);
+});
+
+describe("runtime lifecycle", () => {
+  it("should start maintenance and dispose the runtime after the listeners stop", async () => {
+    await bootstrapAgentRuntime(server.app);
+    expect(runtime.maintenance.started).toBe(true);
+    runtime.authenticator.clear();
+    runtime.renewalCache.clear();
+
+    await server.stop();
+    expect(runtime.maintenance.started).toBe(false);
+    expect(runtime.authenticator.size).toBe(0);
+    expect(runtime.renewalCache.size).toBe(0);
+    await expect(runtime.caSigner.probe()).rejects.toBeInstanceOf(CaSignerUnavailableError);
   }, 30_000);
 });
 

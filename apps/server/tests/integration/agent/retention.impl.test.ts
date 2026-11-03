@@ -108,17 +108,12 @@ async function exists(table: "join_tokens" | "workload_certs", id: string): Prom
 
 describe("retention repository boundaries", () => {
   it("should keep tokens inside 24 hours and delete older ones in batches", async () => {
-    const fresh = await insertToken("2099-01-01T00:00:00.000Z");
-    const oldOne = await insertToken(
-      "2026-11-01T00:00:00.000Z",
-      "2026-11-01T00:00:00.000Z",
-      "2026-11-01T00:00:00.000Z",
-    );
-    const oldTwo = await insertToken(
-      "2026-11-01T00:00:00.000Z",
-      "2026-11-01T00:00:00.000Z",
-      "2026-11-01T00:00:00.000Z",
-    );
+    const now = Date.now();
+    const day = 86_400_000;
+    const fresh = await insertToken(new Date(now + 100 * day).toISOString());
+    const old = new Date(now - 3 * day).toISOString();
+    const oldOne = await insertToken(old, old, old);
+    const oldTwo = await insertToken(old, old, old);
     const repository = new DatabaseAgentMaintenanceRepository(testDb.db);
     expect(await repository.cleanupTokens(1)).toBe(1);
     expect(await repository.cleanupTokens(1)).toBe(1);
@@ -128,14 +123,16 @@ describe("retention repository boundaries", () => {
   });
 
   it("should retain a live certificate and a recent post-expiry revocation", async () => {
-    const live = await insertCertificate("2099-01-01T00:00:00.000Z", null);
+    const now = Date.now();
+    const day = 86_400_000;
+    const live = await insertCertificate(new Date(now + 100 * day).toISOString(), null);
     const recentRevoke = await insertCertificate(
-      "2026-10-01T00:00:00.000Z",
-      "2026-11-02T00:00:00.000Z",
+      new Date(now - 40 * day).toISOString(),
+      new Date(now - 2 * day).toISOString(),
     );
     const oldRevoke = await insertCertificate(
-      "2026-10-01T00:00:00.000Z",
-      "2026-10-01T00:00:00.000Z",
+      new Date(now - 40 * day).toISOString(),
+      new Date(now - 40 * day).toISOString(),
     );
     const repository = new DatabaseAgentMaintenanceRepository(testDb.db);
     expect(await repository.cleanupCertificates(1_000)).toBeGreaterThanOrEqual(1);

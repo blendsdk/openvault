@@ -1,5 +1,9 @@
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import type { AgentRuntime } from "../../src/agent/agent-runtime.js";
+import { AgentTokenService } from "../../src/agent/agent-token-service.js";
+import { IdentityAuthorizer } from "../../src/identity/identity-authorizer.js";
+import { IdentityRepository } from "../../src/identity/identity-repository.js";
+import { IdentityService } from "../../src/identity/identity-service.js";
 import { type AgentTestServer, startAgentTestServer } from "./helpers/agent-app.js";
 import {
   type AgentCaFixture,
@@ -153,6 +157,62 @@ describe("revocation internals", () => {
     expect(state.records[0]?.status).toBe("disabled");
     expect(state.records[0]?.cert_revoked).not.toBeNull();
     expect(state.records[0]?.consumer_state).toBe("failed");
+  });
+
+  it("should roll back the whole revoke when token revocation fails", async () => {
+    const { projectId, serviceId } = await createIdentity();
+    const certificateId = await insertCertificate(
+      serviceId,
+      "c".repeat(64),
+      new Date(Date.now() + 86_400_000),
+    );
+    await testDb.db.executeQuery(
+      `INSERT INTO consumers
+         (id, principal_id, project_id, compose_project, compose_service, hostname,
+          manifest_hash, state, first_seen, last_seen)
+       VALUES
+         (:id, :principalId, :projectId, 'payments', 'api', 'api-1', :manifestHash,
+          'ok', now(), now())`,
+      { id: id(), principalId: serviceId, projectId, manifestHash: `sha256:${"b".repeat(64)}` },
+    );
+
+    class FailingTokens extends AgentTokenService {
+      public override async revokeUnused(): Promise<void> {
+        throw new Error("token revocation failed");
+      }
+    }
+    let invalidated = false;
+    const service = new IdentityService({
+      repository: new IdentityRepository(testDb.db),
+      authorizer: new IdentityAuthorizer(testDb.db),
+      tokens: new FailingTokens({
+        database: testDb.db,
+        config: { joinTokenTtlMs: 900_000 },
+      }),
+      database: testDb.db,
+      onRevoked: () => {
+        invalidated = true;
+      },
+    });
+
+    await expect(service.revoke(actorId, serviceId)).rejects.toThrow("token revocation failed");
+    expect(invalidated).toBe(false);
+
+    const state = await testDb.db.executeQuery<{
+      status: string;
+      cert_revoked: Date | null;
+      consumer_state: string;
+    }>(
+      `SELECT p.status, c.revoked_at AS cert_revoked, u.state AS consumer_state
+         FROM principals p
+         JOIN workload_certs c ON c.principal_id = p.id
+         JOIN consumers u ON u.principal_id = p.id
+        WHERE c.id = :id`,
+      { id: certificateId },
+    );
+    expect(state.records[0]?.status).toBe("active");
+    expect(state.records[0]?.cert_revoked).toBeNull();
+    expect(state.records[0]?.consumer_state).toBe("ok");
   });
 
   it("should disable a principal without rewriting an already expired certificate", async () => {

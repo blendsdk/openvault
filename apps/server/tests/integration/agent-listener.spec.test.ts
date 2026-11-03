@@ -285,6 +285,10 @@ describe("authenticator cache and revocation", () => {
     const certificateId = await insertCertificate(serviceId, client);
     await insertConsumer(serviceId, project.id);
 
+    let connections = 0;
+    server.handle.agentServer.on("secureConnection", () => {
+      connections += 1;
+    });
     const agent = new HttpsAgent({
       keepAlive: true,
       ca: environment.tls.caPem,
@@ -294,8 +298,10 @@ describe("authenticator cache and revocation", () => {
     });
     try {
       expect((await send({ path: "/health", cert: client, agent })).status).toBe(200);
+      expect(connections).toBe(1);
       await runtime.identityRuntime.service.revoke(await ensureActor(), serviceId);
       expect((await send({ path: "/health", cert: client, agent })).status).toBe(401);
+      expect(connections).toBe(1);
     } finally {
       agent.destroy();
     }

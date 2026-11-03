@@ -70,6 +70,9 @@ export async function startAgentTestServer(options: {
   });
   options.configure?.(app);
   await app.prepare();
+  // Resolve the runtime so WebAFX disposal owns it; integration tests need the
+  // same dispose path as production.
+  await app.getService<AgentRuntime>("agentRuntime");
   const handle = await app.startTransport({ adminPort: 0, agentPort: 0 });
   return {
     app,

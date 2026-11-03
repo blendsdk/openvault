@@ -154,7 +154,7 @@ export async function createAgentRuntime(
     renewalCache,
     maintenance,
     async dispose(): Promise<void> {
-      maintenance.stop();
+      await maintenance.stop();
       authenticator.clear();
       renewService.clear();
       caSigner.destroy();

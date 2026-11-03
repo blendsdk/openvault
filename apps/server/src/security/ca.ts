@@ -371,7 +371,7 @@ export class CaSigner {
       throw new CaSignerUnavailableError();
     }
     try {
-      return await issueAgentCertificate({
+      const issued = await issueAgentCertificate({
         publicKey: csr.publicKey,
         principalId,
         caCertificate,
@@ -380,6 +380,10 @@ export class CaSigner {
         now: this.#now(),
         ...(this.#serialSource === undefined ? {} : { serialSource: this.#serialSource }),
       });
+      if (this.#destroyed) {
+        throw new CaSignerUnavailableError();
+      }
+      return issued;
     } catch {
       throw new CaSignerUnavailableError();
     }
@@ -412,7 +416,7 @@ export class CaSigner {
         now: this.#now(),
       });
       await verifyAgentCertificateProfile(issued.certificatePem, caCertificate, PROBE_PRINCIPAL);
-      if (issued.fingerprint.length !== 64) {
+      if (issued.fingerprint.length !== 64 || this.#destroyed) {
         throw new Error("probe output is invalid");
       }
     } catch {

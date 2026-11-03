@@ -34,16 +34,20 @@ export class DatabaseAgentMaintenanceRepository implements AgentMaintenanceRepos
   /** @inheritDoc */
   public async cleanupTokens(limit: number): Promise<number> {
     const result = await this.#database.executeQuery(
-      `DELETE FROM join_tokens
-        WHERE id IN (
+      `DELETE FROM join_tokens t
+        WHERE t.id IN (
           SELECT id
             FROM join_tokens
            WHERE expires_at < now() - interval '24 hours'
              AND (used_at IS NULL OR used_at < now() - interval '24 hours')
              AND (revoked_at IS NULL OR revoked_at < now() - interval '24 hours')
            ORDER BY expires_at
+           FOR UPDATE SKIP LOCKED
            LIMIT :limit
-        )`,
+        )
+        AND t.expires_at < now() - interval '24 hours'
+        AND (t.used_at IS NULL OR t.used_at < now() - interval '24 hours')
+        AND (t.revoked_at IS NULL OR t.revoked_at < now() - interval '24 hours')`,
       { limit },
     );
     return result.rowCount ?? 0;
@@ -52,15 +56,18 @@ export class DatabaseAgentMaintenanceRepository implements AgentMaintenanceRepos
   /** @inheritDoc */
   public async cleanupCertificates(limit: number): Promise<number> {
     const result = await this.#database.executeQuery(
-      `DELETE FROM workload_certs
-        WHERE id IN (
+      `DELETE FROM workload_certs c
+        WHERE c.id IN (
           SELECT id
             FROM workload_certs
            WHERE not_after < now() - interval '30 days'
              AND (revoked_at IS NULL OR revoked_at < now() - interval '30 days')
            ORDER BY not_after
+           FOR UPDATE SKIP LOCKED
            LIMIT :limit
-        )`,
+        )
+        AND c.not_after < now() - interval '30 days'
+        AND (c.revoked_at IS NULL OR c.revoked_at < now() - interval '30 days')`,
       { limit },
     );
     return result.rowCount ?? 0;
@@ -92,6 +99,7 @@ export class AgentMaintenanceService {
   readonly #batchSize: number;
   #timer: ReturnType<typeof setInterval> | undefined;
   #started = false;
+  #activeRun: Promise<void> | undefined;
 
   /**
    * @param options - Repository, logger, interval, and batch size.
@@ -118,11 +126,14 @@ export class AgentMaintenanceService {
       void this.#runScheduled();
     }, this.#intervalMs);
     this.#timer.unref?.();
-    try {
-      await this.runOnce();
-    } catch {
-      await this.#logFailure();
-    }
+    // The initial cleanup runs in the background so a slow table or lock
+    // cannot delay listener binding. stop()/dispose() waits for this run.
+    this.#activeRun = this.runOnce()
+      .then(() => undefined)
+      .catch(() => this.#logFailure())
+      .finally(() => {
+        this.#activeRun = undefined;
+      });
   }
 
   /**
@@ -131,18 +142,50 @@ export class AgentMaintenanceService {
    * @returns Deleted token and certificate counts.
    */
   public async runOnce(): Promise<AgentMaintenanceResult> {
-    const tokens = await this.#repository.cleanupTokens(this.#batchSize);
-    const certificates = await this.#repository.cleanupCertificates(this.#batchSize);
+    const results = await Promise.allSettled([
+      this.#repository.cleanupTokens(this.#batchSize),
+      this.#repository.cleanupCertificates(this.#batchSize),
+    ]);
+    let failure: unknown;
+    let tokens = 0;
+    let certificates = 0;
+    if (results[0].status === "fulfilled") {
+      tokens = results[0].value;
+    } else {
+      failure = results[0].reason;
+    }
+    if (results[1].status === "fulfilled") {
+      certificates = results[1].value;
+    } else {
+      failure ??= results[1].reason;
+    }
+    if (failure !== undefined) {
+      throw failure;
+    }
     return { tokens, certificates };
   }
 
-  /** Stops the scheduler. The operation is idempotent. */
-  public stop(): void {
+  /** True while the daily scheduler is active. */
+  public get started(): boolean {
+    return this.#started;
+  }
+
+  /**
+   * Stops the scheduler and waits for an in-flight cleanup.
+   *
+   * The operation is idempotent. Waiting prevents a disposal path from
+   * disconnecting the database while a cleanup query is still running.
+   */
+  public async stop(): Promise<void> {
     if (this.#timer !== undefined) {
       clearInterval(this.#timer);
       this.#timer = undefined;
     }
     this.#started = false;
+    const active = this.#activeRun;
+    if (active !== undefined) {
+      await active;
+    }
   }
 
   async #runScheduled(): Promise<void> {

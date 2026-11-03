@@ -1,4 +1,3 @@
-import { createHash, X509Certificate } from "node:crypto";
 import type { Request } from "express";
 import { describe, expect, it } from "vitest";
 import { DatabaseAgentAuthenticator } from "../../../src/agent/agent-authenticator.js";
@@ -196,33 +195,133 @@ describe("database agent authenticator", () => {
     }
   });
 
-  it("should keep the positive cache bounded", async () => {
+  it("should keep the positive cache bounded and evict the oldest entry", async () => {
     await setup();
     try {
       const rows = new Map<string, Row>();
+      const materials: AgentClientFixture[] = [];
       for (let index = 0; index < 3; index += 1) {
         const material = await createAgentClientCertificate(
           ca,
           `01ARZ3NDEKTSV4RRFFQ69G5FA${index}`,
         );
+        materials.push(material);
         rows.set(material.fingerprint, rowFor(material, new Date(Date.now() + 60_000)));
       }
-      let current: Row | undefined;
+      let queries = 0;
       const database = {
-        executeQuery: async <T>(): Promise<{ readonly records: readonly T[] }> => ({
-          records: (current === undefined ? [] : [current]) as T[],
-        }),
+        async executeQuery<T>(
+          _query: string,
+          params?: Record<string, unknown>,
+        ): Promise<{ readonly records: readonly T[] }> {
+          queries += 1;
+          const fingerprint =
+            typeof params?.fingerprint === "string" ? params.fingerprint : undefined;
+          const row = fingerprint === undefined ? undefined : rows.get(fingerprint);
+          return { records: (row === undefined ? [] : [row]) as T[] };
+        },
       };
       const authenticator = new DatabaseAgentAuthenticator({ database, limit: 2 });
-      for (const [fingerprint, row] of rows) {
-        current = row;
-        const certificate = [...rows.keys()].includes(fingerprint);
-        expect(certificate).toBe(true);
-        const raw = Buffer.from(createHash("sha256").update(fingerprint).digest());
-        await authenticator.authenticate(agentRequest(raw));
+      for (const material of materials) {
+        const context = await authenticator.authenticate(
+          agentRequest(Buffer.from(material.certificate.rawData)),
+        );
+        expect(context?.fingerprint).toBe(material.fingerprint);
       }
-      expect(authenticator.size).toBeLessThanOrEqual(2);
-      expect(X509Certificate).toBeDefined();
+      expect(authenticator.size).toBe(2);
+
+      const first = materials[0];
+      if (first === undefined) {
+        throw new Error("expected three certificate fixtures");
+      }
+      const before = queries;
+      await authenticator.authenticate(agentRequest(Buffer.from(first.certificate.rawData)));
+      expect(queries).toBe(before + 1);
+      expect(authenticator.size).toBe(2);
+    } finally {
+      cleanup();
+    }
+  });
+
+  it("should fail a slow read and never cache a miss", async () => {
+    await setup();
+    try {
+      let now = Date.now();
+      const row = rowFor(client, new Date(now + 60_000));
+      const slowDatabase = {
+        async executeQuery<T>(): Promise<{ readonly records: readonly T[] }> {
+          now += 5_001;
+          return { records: [row] as T[] };
+        },
+      };
+      const slow = new DatabaseAgentAuthenticator({
+        database: slowDatabase,
+        now: () => now,
+      });
+      await expect(
+        slow.authenticate(agentRequest(Buffer.from(client.certificate.rawData))),
+      ).resolves.toBeUndefined();
+
+      let current: Row | undefined;
+      let queries = 0;
+      const database = {
+        async executeQuery<T>(): Promise<{ readonly records: readonly T[] }> {
+          queries += 1;
+          return { records: (current === undefined ? [] : [current]) as T[] };
+        },
+      };
+      const authenticator = new DatabaseAgentAuthenticator({ database });
+      const raw = Buffer.from(client.certificate.rawData);
+      await expect(authenticator.authenticate(agentRequest(raw))).resolves.toBeUndefined();
+      current = rowFor(client, new Date(Date.now() + 60_000));
+      await expect(authenticator.authenticate(agentRequest(raw))).resolves.toBeDefined();
+      expect(queries).toBe(2);
+    } finally {
+      cleanup();
+    }
+  });
+
+  it("should not repopulate the cache when a revoke lands during the read", async () => {
+    await setup();
+    try {
+      let authenticator: DatabaseAgentAuthenticator | undefined;
+      const database = {
+        async executeQuery<T>(): Promise<{ readonly records: readonly T[] }> {
+          authenticator?.invalidatePrincipal("01ARZ3NDEKTSV4RRFFQ69G5FAV");
+          return {
+            records: [rowFor(client, new Date(Date.now() + 60_000))] as T[],
+          };
+        },
+      };
+      authenticator = new DatabaseAgentAuthenticator({ database });
+      const context = await authenticator.authenticate(
+        agentRequest(Buffer.from(client.certificate.rawData)),
+      );
+      expect(context).toBeDefined();
+      expect(authenticator.size).toBe(0);
+    } finally {
+      cleanup();
+    }
+  });
+
+  it("should recheck notAfter for a cached context", async () => {
+    await setup();
+    try {
+      let now = Date.now();
+      let queries = 0;
+      const row = rowFor(client, new Date(now + 1_000));
+      const database = {
+        async executeQuery<T>(): Promise<{ readonly records: readonly T[] }> {
+          queries += 1;
+          return { records: [row] as T[] };
+        },
+      };
+      const authenticator = new DatabaseAgentAuthenticator({ database, now: () => now });
+      const raw = Buffer.from(client.certificate.rawData);
+      await expect(authenticator.authenticate(agentRequest(raw))).resolves.toBeDefined();
+      now += 1_500;
+      await expect(authenticator.authenticate(agentRequest(raw))).resolves.toBeUndefined();
+      expect(queries).toBe(2);
     } finally {
       cleanup();
     }

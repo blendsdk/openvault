@@ -9,6 +9,7 @@ import type { SecureWebApplication } from "../../../src/transport/secure-applica
 export const DATA_PROBE_SECRET = "agent-data-probe-secret";
 
 let probeDelayMs = 0;
+let probeOnEnter: (() => void) | undefined;
 
 /**
  * Test-only data route that exercises the agent middleware and the pre-send
@@ -21,6 +22,7 @@ class AgentDataProbeController extends BaseController {
         .get("/:project/secrets/:name")
         .handle(async (req: Request, res: Response) => {
           const context = requireAgent(req);
+          probeOnEnter?.();
           if (probeDelayMs > 0) {
             await delay(probeDelayMs);
           }
@@ -48,8 +50,9 @@ class AgentDataProbeController extends BaseController {
  */
 export function registerAgentDataProbe(
   app: SecureWebApplication,
-  options: { readonly delayMs?: number } = {},
+  options: { readonly delayMs?: number; readonly onEnter?: () => void } = {},
 ): void {
   probeDelayMs = options.delayMs ?? 0;
+  probeOnEnter = options.onEnter;
   app.registerController("/v1/data", AgentDataProbeController);
 }

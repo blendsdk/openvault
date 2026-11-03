@@ -66,6 +66,7 @@ export class DatabaseAgentAuthenticator implements AgentAuthenticator {
   readonly #now: () => number;
   readonly #cache = new Map<string, CacheEntry>();
   readonly #limit: number;
+  #generation = 0;
 
   /**
    * @param options - Database, injectable clock, and optional cache bound.
@@ -92,6 +93,7 @@ export class DatabaseAgentAuthenticator implements AgentAuthenticator {
 
   /** @inheritDoc */
   public invalidatePrincipal(principalId: string): void {
+    this.#generation += 1;
     for (const [fingerprint, entry] of this.#cache) {
       if (entry.context.principalId === principalId) {
         this.#cache.delete(fingerprint);
@@ -101,6 +103,7 @@ export class DatabaseAgentAuthenticator implements AgentAuthenticator {
 
   /** Removes every cached entry. */
   public clear(): void {
+    this.#generation += 1;
     this.#cache.clear();
   }
 
@@ -137,6 +140,7 @@ export class DatabaseAgentAuthenticator implements AgentAuthenticator {
     }
 
     const readStartedAt = this.#now();
+    const generation = this.#generation;
     const result = await this.#database.executeQuery<AgentRow>(
       `SELECT wc.id, wc.serial, wc.fingerprint, wc.not_after,
               p.id AS principal_id, p.owner_project_id, p.status AS principal_status,
@@ -187,8 +191,10 @@ export class DatabaseAgentAuthenticator implements AgentAuthenticator {
       publicKeySha256,
       notAfter: row.not_after.getTime(),
     };
-    this.#cache.set(fingerprint, { expiresAt: readStartedAt + CACHE_TTL_MS, context });
-    this.#enforceBound();
+    if (generation === this.#generation) {
+      this.#cache.set(fingerprint, { expiresAt: readStartedAt + CACHE_TTL_MS, context });
+      this.#enforceBound();
+    }
     return context;
   }
 
