@@ -4,9 +4,11 @@ import { createAuthPlugin } from "./auth/plugin.js";
 import type { OpenVaultConfig } from "./config/index.js";
 import { AuthController } from "./controllers/auth.js";
 import { CliAuthController } from "./controllers/cli-auth.js";
+import { IdentityController } from "./controllers/identity.js";
 import { MetaController } from "./controllers/meta.js";
 import { OidcController } from "./controllers/oidc.js";
 import { ReadyController } from "./controllers/ready.js";
+import { createIdentityRuntime } from "./identity/identity-runtime.js";
 import { createLoggerProvider } from "./observability/logger.js";
 import { createProductionProbes, ReadinessService } from "./readiness/service.js";
 import { KeyringProvider } from "./security/keyring.js";
@@ -35,6 +37,9 @@ export function createApplication(
 ): SecureWebApplication {
   const app = new SecureWebApplication(config, dependencies);
   const provider = createLoggerProvider(config, dependencies.loggerDestination);
+  const identityRuntime =
+    dependencies.identityRuntime ??
+    createIdentityRuntime({ database: dependencies.database, config });
 
   installPreStack(app.express, config, provider, options);
 
@@ -64,6 +69,31 @@ export function createApplication(
     },
   });
   app.registerService({
+    name: "identityRuntime",
+    type: "singleton",
+    factory: () => identityRuntime,
+  });
+  app.registerService({
+    name: "identityRepository",
+    type: "singleton",
+    factory: () => identityRuntime.repository,
+  });
+  app.registerService({
+    name: "identityAuthorizer",
+    type: "singleton",
+    factory: () => identityRuntime.authorizer,
+  });
+  app.registerService({
+    name: "identityService",
+    type: "singleton",
+    factory: () => identityRuntime.service,
+  });
+  app.registerService({
+    name: "agentTokenService",
+    type: "singleton",
+    factory: () => identityRuntime.tokens,
+  });
+  app.registerService({
     name: "readiness",
     type: "singleton",
     factory: () =>
@@ -84,6 +114,7 @@ export function createApplication(
   app.registerController("/v1/auth", AuthController);
   app.registerController("/v1/auth/cli", CliAuthController);
   app.registerController("/v1/auth", OidcController);
+  app.registerController("/v1/admin/identities", IdentityController);
   app.registerController("/v1/meta", MetaController);
   app.use(createLoggerPlugin(provider));
 

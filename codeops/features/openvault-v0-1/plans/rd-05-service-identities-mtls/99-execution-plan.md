@@ -3,7 +3,7 @@
 > **Document**: 99-execution-plan.md
 > **Parent**: [Index](00-index.md)
 > **Last Updated**: 2026-11-03 10:25
-> **Progress**: 14/69 tasks (20%)
+> **Progress**: 25/69 tasks (36%)
 > **CodeOps Artifact Schema**: 1
 
 ## Overview
@@ -121,21 +121,21 @@ guards before any implementation.
 service-principal human-credential rejection.
 
 - [ ] 2.1.1 [spec-author] Write authorization, admin lifecycle, and TTL status tests for ST-17–ST-30 and ST-84 — `apps/server/tests/integration/identity-admin.spec.test.ts`
-- [ ] 2.1.2 [spec-author] Write service-principal login, session, OIDC, CLI, and read-path tests ST-82 — `apps/server/tests/integration/service-principals.spec.test.ts`
-- [ ] 2.1.3 Run the Phase 2 specification tests and record the red result
+- [x] 2.1.2 [spec-author] Write service-principal login, session, OIDC, CLI, and read-path tests ST-82 ✅ (completed: 2026-11-03 10:58) — `apps/server/tests/integration/service-principals.spec.test.ts`
+- [x] 2.1.3 Run the Phase 2 specification tests and record the red result ✅ (completed: 2026-11-03 10:58)
 
 ### Step 2.2: Implementation
 
 **Reference**: [03-01](03-01-contracts-schema-authorization.md) §Identity records and repository, §Runtime ownership, §Narrow identity authorization, §Admin routes · AR-9, AR-10, AR-14, AR-19, AR-20, AR-23
 
-- [ ] 2.2.1 Add the identity repository with create/list/detail/revoke/consumer queries — `apps/server/src/identity/identity-repository.ts`
-- [ ] 2.2.2 Add the narrow `role_assignments` identity authorizer with org-only role filtering — `apps/server/src/identity/identity-authorizer.ts`
-- [ ] 2.2.3 Add join-token generation, hashing, TTL conversion, createdBy, and storage — `apps/server/src/agent/agent-token-service.ts`
-- [ ] 2.2.4 Add the identity service for create/list/detail/revoke/token issuance and the revocation callback — `apps/server/src/identity/identity-service.ts`
-- [ ] 2.2.5 Add the admin identity controller with all five routes and stable error codes — `apps/server/src/controllers/identity.ts`
-- [ ] 2.2.6 Reject service principals on OIDC linkage, browser/CLI session read paths, and credential paths — `apps/server/src/auth/oidc/identity.ts`, `apps/server/src/auth/credentials.ts`, `apps/server/src/auth/cli-sessions.ts`, `apps/server/src/auth/middleware.ts`
-- [ ] 2.2.7 Add the `IdentityRuntime` composition for admin-only tests and register identity services/controller — `apps/server/src/identity/identity-runtime.ts`, `apps/server/src/app.ts`
-- [ ] 2.2.8 Run the Phase 2 specification tests and verify green
+- [x] 2.2.1 Add the identity repository with create/list/detail/revoke/consumer queries ✅ (completed: 2026-11-03 11:00) — `apps/server/src/identity/identity-repository.ts`
+- [x] 2.2.2 Add the narrow `role_assignments` identity authorizer with org-only role filtering ✅ (completed: 2026-11-03 11:00) — `apps/server/src/identity/identity-authorizer.ts`
+- [x] 2.2.3 Add join-token generation, hashing, TTL conversion, createdBy, and storage ✅ (completed: 2026-11-03 11:00) — `apps/server/src/agent/agent-token-service.ts`
+- [x] 2.2.4 Add the identity service for create/list/detail/revoke/token issuance and the revocation callback ✅ (completed: 2026-11-03 11:00) — `apps/server/src/identity/identity-service.ts`
+- [x] 2.2.5 Add the admin identity controller with all five routes and stable error codes ✅ (completed: 2026-11-03 11:00) — `apps/server/src/controllers/identity.ts`
+- [x] 2.2.6 Reject service principals on OIDC linkage, browser/CLI session read paths, and credential paths ✅ (completed: 2026-11-03 11:00) — `apps/server/src/auth/oidc/identity.ts`, `apps/server/src/auth/credentials.ts`, `apps/server/src/auth/cli-sessions.ts`, `apps/server/src/auth/middleware.ts`
+- [x] 2.2.7 Add the `IdentityRuntime` composition for admin-only tests and register identity services/controller ✅ (completed: 2026-11-03 11:00) — `apps/server/src/identity/identity-runtime.ts`, `apps/server/src/app.ts`
+- [x] 2.2.8 Run the Phase 2 specification tests and verify green ✅ (completed: 2026-11-03 11:02)
 
 ### Step 2.3: Implementation Tests and Hardening
 

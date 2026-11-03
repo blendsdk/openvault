@@ -4,6 +4,7 @@ import type { PostgreSQLDatabase } from "blendsdk/postgresql";
 import { WebApplication } from "blendsdk/webafx";
 import type { AuthOverrides } from "../auth/types.js";
 import { createWebApplicationConfig, type OpenVaultConfig } from "../config/index.js";
+import type { IdentityRuntime } from "../identity/identity-runtime.js";
 import type { ReadinessProbe } from "../readiness/service.js";
 import type { KeyringProvider } from "../security/keyring.js";
 import { CidrMatcher, createTrustProxy } from "./proxy.js";
@@ -43,6 +44,8 @@ export interface SecureApplicationDependencies {
   readonly loggerDestination?: Writable;
   /** Test-only auth collaboration seams (OIDC fetch, cache, clock). */
   readonly authOverrides?: AuthOverrides;
+  /** Optional composed identity runtime; production creates one when absent. */
+  readonly identityRuntime?: IdentityRuntime;
 }
 
 /** Timeouts and connection caps applied to each HTTPS server. */

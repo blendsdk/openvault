@@ -118,7 +118,7 @@ export class CredentialsRepository {
               c.password_hash, c.must_change, c.failed_count, c.locked_until, c.updated_at
          FROM principals p
          JOIN local_credentials c ON c.principal_id = p.id
-        WHERE p.id = :principalId`,
+        WHERE p.id = :principalId AND p.kind = 'user'`,
       { principalId },
     );
   }
@@ -134,7 +134,7 @@ export class CredentialsRepository {
       `SELECT p.status, p.name, p.email, COALESCE(c.must_change, false) AS must_change
          FROM principals p
          LEFT JOIN local_credentials c ON c.principal_id = p.id
-        WHERE p.id = :principalId`,
+        WHERE p.id = :principalId AND p.kind = 'user'`,
       { principalId },
     );
 

@@ -181,7 +181,7 @@ export class OidcIdentityService {
       `SELECT p.id, p.name, p.email, p.status
          FROM oidc_identities i
          JOIN principals p ON p.id = i.principal_id
-        WHERE i.issuer = :issuer AND i.subject = :subject`,
+        WHERE i.issuer = :issuer AND i.subject = :subject AND p.kind = 'user'`,
       { issuer, subject },
     );
     return result.records[0];
