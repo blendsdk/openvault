@@ -185,7 +185,9 @@ A duplicate tuple returns `409 assignment_conflict`. A visible assignment the ca
 write returns `403 access_denied`; an assignment outside the caller's visible scope returns
 `404 assignment_not_found`. Removing the last active user organization administrator returns
 `409 last_org_admin`. A service identity cannot receive a control-plane role; that request
-returns `422 service_control_plane`.
+returns `422 service_control_plane`. Assignment writes are limited to 30 per minute per
+principal; reads and explanations are limited to 60 per minute per principal. A rejected limit
+returns `429 RATE_LIMIT_EXCEEDED`.
 
 ```text
 GET /v1/admin/access-explain?action=secret.read&scopeType=object&scopeId=01J...
@@ -210,7 +212,19 @@ the same statement as the assignment rows.
 `GET /v1/meta/roles` returns the static action catalog, the nine role definitions, and the
 current `policyVersion`. It is public and contains no principals, assignments, or project data.
 
-Per-object responses from the data plane include the current principal's capability flags:
+```json
+{ "actions": [ { "name": "project.create", "plane": "control",
+                  "description": "Create a project" } ],
+  "roles": [ { "name": "reader",
+               "actions": ["project.read", "secret.list", "certificate.list"],
+               "scopes": ["org", "project"] } ],
+  "policyVersion": 8 }
+```
+
+The policy layer computes the current principal's capability flags for a secret or
+certificate. The data-plane endpoints will return them when the project, secret, and
+certificate API ships; the UI uses these flags and never derives permissions from client-side
+role math.
 
 ```json
 { "capabilities": { "canRead": true, "canWrite": false, "canDelete": false,

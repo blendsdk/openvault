@@ -64,7 +64,9 @@ curl -X POST https://vault.example.com/v1/admin/assignments \
 ```
 
 `GET /v1/admin/assignments` accepts optional `principalId`, `role`, `scopeType`, and `scopeId`
-filters. `DELETE /v1/admin/assignments/:id` removes one assignment.
+filters. `DELETE /v1/admin/assignments/:id` removes one assignment. Assignment writes are
+limited to 30 per minute per principal; reads and explanations are limited to 60 per minute
+per principal. A rejected limit returns `429 RATE_LIMIT_EXCEEDED`.
 
 The API enforces the grant guards. A project-scoped project administrator can manage only
 its own project. Only an organization administrator can grant `org.admin`. Removing the last
@@ -78,7 +80,9 @@ organization administrator is rejected.
 
 ## UI capabilities
 
-The API returns per-object flags for the current principal:
+The policy layer computes per-object flags for the current principal. The data-plane endpoints
+will return them when the project, secret, and certificate API ships; the UI uses these flags
+and never derives permissions from client-side role math.
 
 ```json
 {
@@ -91,8 +95,6 @@ The API returns per-object flags for the current principal:
   }
 }
 ```
-
-The UI uses these flags. It never derives permissions from client-side role math.
 
 ## Access explain
 

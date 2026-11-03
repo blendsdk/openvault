@@ -16,7 +16,7 @@
   readiness.
 - Local and OIDC browser authentication plus CLI bearer authentication.
 - Scoped RBAC with fixed actions and roles, assignment administration, grant guards,
-  per-object capability flags, and access explanations.
+  policy-side capability computation, and access explanations.
 
 ### Planned
 
