@@ -27,8 +27,9 @@ KEK. `OPENVAULT_INTERNAL_CA` is the matching public certificate. The CA profile 
 self-signed, 10 years, `CA:TRUE`, `pathlen:0`, and `keyCertSign`. `ov init` creates it once;
 re-running init does not rotate it. A `CaSigner` is the only component that unwraps the key
 for signing; the KEK-rotation path may unwrap it only to re-wrap it. Startup and `/ready` fail
-closed if the key is missing or does not match the public certificate. RD-13 re-wraps the
-key, backs it up, and re-materializes the public certificate on restore.
+closed if the key is missing or does not match the public certificate. The CA initialization
+and backup workflow re-wraps the key, backs it up, and re-materializes the public certificate
+on restore.
 
 ## Envelope encryption
 

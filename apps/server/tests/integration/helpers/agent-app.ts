@@ -1,3 +1,4 @@
+import type { Writable } from "node:stream";
 import type { PostgreSQLDatabase } from "blendsdk/postgresql";
 import type { AgentRateLimitOptions } from "../../../src/agent/agent-rate-limits.js";
 import { type AgentRuntime, createAgentRuntime } from "../../../src/agent/agent-runtime.js";
@@ -37,6 +38,7 @@ export async function startAgentTestServer(options: {
   readonly now?: () => number;
   readonly rateLimitOptions?: AgentRateLimitOptions;
   readonly maintenanceBatchSize?: number;
+  readonly loggerDestination?: Writable;
   readonly seedCa?: boolean;
   /** Optional separate database/pool; defaults to the test database. */
   readonly database?: PostgreSQLDatabase;
@@ -67,6 +69,9 @@ export async function startAgentTestServer(options: {
     tls,
     keyring,
     agentRuntime: runtime,
+    ...(options.loggerDestination === undefined
+      ? {}
+      : { loggerDestination: options.loggerDestination }),
   });
   options.configure?.(app);
   await app.prepare();

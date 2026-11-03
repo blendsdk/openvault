@@ -3,7 +3,7 @@
 > **Document**: 99-execution-plan.md
 > **Parent**: [Index](00-index.md)
 > **Last Updated**: 2026-11-03 10:25
-> **Progress**: 61/69 tasks (88%)
+> **Progress**: 69/69 tasks (100%)
 > **CodeOps Artifact Schema**: 1
 
 ## Overview
@@ -267,7 +267,7 @@ credentials, and existing-suite updates before code.
 
 ## Phase 5: Hardening, documentation, and release verification
 
-> **Phase baseline tree**: _(recorded by the exec-plan skill)_
+> **Phase baseline tree**: 9e5f999a574c3d8b838dfc444da51115bf595da3
 > **Modification set**: `apps/server/src/observability/logger.ts`, `apps/server/tests/logging.spec.test.ts`, `apps/server/tests/integration/agent-logging.spec.test.ts`, `docs/`, `.changeset/`, Phase 5 verification artifacts
 > **Scope mode**: strict
 > **Lenses**: security, api-surface, migration
@@ -278,14 +278,14 @@ credentials, and existing-suite updates before code.
 
 **Reference**: [07](07-testing-strategy.md) §Verification Checklist, §Verification Commands · [03-04](03-04-agent-listener-revocation.md) §Test seams · AR-11, AR-12, AR-15, AR-21, AR-25
 
-- [ ] 5.1.1 Add join-token/CSR/CA-key redaction paths and the captured-log sentinel test for ST-78 — `apps/server/src/observability/logger.ts`, `apps/server/tests/logging.spec.test.ts`, `apps/server/tests/integration/agent-logging.spec.test.ts`
-- [ ] 5.1.2 Audit the reference/architecture/guides for drift against the implemented CA row, listener, join/renew, renewal, revoke, consumer, rate-limit, and retention behavior — `docs/`
-- [ ] 5.1.3 Add the user-visible changeset — `.changeset/`
-- [ ] 5.1.4 Run the explicit PostgreSQL 16/17 migration, integration, and generated-type matrix case ST-83 — `apps/server/migrations/`, `pnpm db:types:check`; commands from [07](07-testing-strategy.md) §Verification Commands
-- [ ] 5.1.5 Run the full integration suite on PostgreSQL 16 and 17 with the disposable-database helper
-- [ ] 5.1.6 Run full project verification under Node 24.21.0 — `pnpm verify`
-- [ ] 5.1.7 Audit shipped code/docs for execution-plan, requirement, and ambiguity identifiers; remove any found
-- [ ] 5.1.8 Final review: no dead code, no unused exports, no unhandled secret/log path, no cross-RD assertion claimed as complete
+- [x] 5.1.1 Add join-token/CSR/CA-key redaction paths and the captured-log sentinel test for ST-78 — `apps/server/src/observability/logger.ts`, `apps/server/tests/logging.spec.test.ts`, `apps/server/tests/integration/agent-logging.spec.test.ts` ✅ (completed: 2026-11-03 14:05)
+- [x] 5.1.2 Audit the reference/architecture/guides for drift against the implemented CA row, listener, join/renew, renewal, revoke, consumer, rate-limit, and retention behavior — `docs/` ✅ (completed: 2026-11-03 14:05)
+- [x] 5.1.3 Add the user-visible changeset — `.changeset/` ✅ (completed: 2026-11-03 14:05)
+- [x] 5.1.4 Run the explicit PostgreSQL 16/17 migration, integration, and generated-type matrix case ST-83 — `apps/server/migrations/`, `pnpm db:types:check`; commands from [07](07-testing-strategy.md) §Verification Commands ✅ (completed: 2026-11-03 14:05)
+- [x] 5.1.5 Run the full integration suite on PostgreSQL 16 and 17 with the disposable-database helper ✅ (completed: 2026-11-03 14:05)
+- [x] 5.1.6 Run full project verification under Node 24.21.0 — `pnpm verify` ✅ (completed: 2026-11-03 14:05)
+- [x] 5.1.7 Audit shipped code/docs for execution-plan, requirement, and ambiguity identifiers; remove any found ✅ (completed: 2026-11-03 14:05)
+- [x] 5.1.8 Final review: no dead code, no unused exports, no unhandled secret/log path, no cross-RD assertion claimed as complete ✅ (completed: 2026-11-03 14:05)
 
 **Deliverables**:
 - Captured-log evidence for token/CSR/key redaction.
