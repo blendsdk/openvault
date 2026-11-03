@@ -123,6 +123,13 @@ export const assignmentCreateRequestSchema = z
     expiresAt: z.iso.datetime().optional(),
   })
   .superRefine((value, context) => {
+    if (value.expiresAt !== undefined && Date.parse(value.expiresAt) <= Date.now()) {
+      context.addIssue({
+        code: "custom",
+        path: ["expiresAt"],
+        message: "expiry must be in the future",
+      });
+    }
     if (value.scopeType === "org") {
       if (value.scopeId !== "org") {
         context.addIssue({
@@ -143,12 +150,33 @@ export const assignmentCreateRequestSchema = z
   });
 
 /** Query filters for the assignment list. */
-export const assignmentListQuerySchema = z.strictObject({
-  principalId: ulidSchema.optional(),
-  role: z.enum(RBAC_ROLES).optional(),
-  scopeType: rbacScopeTypeSchema.optional(),
-  scopeId: z.string().min(1).max(26).optional(),
-});
+export const assignmentListQuerySchema = z
+  .strictObject({
+    principalId: ulidSchema.optional(),
+    role: z.enum(RBAC_ROLES).optional(),
+    scopeType: rbacScopeTypeSchema.optional(),
+    scopeId: z.string().min(1).max(26).optional(),
+  })
+  .superRefine((value, context) => {
+    if (value.scopeType === "org" && value.scopeId !== undefined && value.scopeId !== "org") {
+      context.addIssue({
+        code: "custom",
+        path: ["scopeId"],
+        message: "organization scope requires the org id",
+      });
+    }
+    if (
+      value.scopeType !== "org" &&
+      value.scopeId !== undefined &&
+      !ulidSchema.safeParse(value.scopeId).success
+    ) {
+      context.addIssue({
+        code: "custom",
+        path: ["scopeId"],
+        message: "scope id must be a ULID",
+      });
+    }
+  });
 
 /** Query for one access explanation. */
 export const accessExplainQuerySchema = z
@@ -192,6 +220,15 @@ export const accessExplainQuerySchema = z
         code: "custom",
         path: ["objectType"],
         message: "object type is only valid for object scope",
+      });
+    }
+
+    const dataPlane = value.action.startsWith("secret.") || value.action.startsWith("certificate.");
+    if (dataPlane && (value.scopeType === undefined || value.scopeType === "org")) {
+      context.addIssue({
+        code: "custom",
+        path: ["scopeType"],
+        message: "data-plane explanations require project or object scope",
       });
     }
   });

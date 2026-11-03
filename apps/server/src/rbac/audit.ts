@@ -1,6 +1,6 @@
 import type { RbacAction, RbacRole, RbacScopeType } from "@openvault/api-contract";
 import type { Logger } from "blendsdk/webafx";
-import type { PolicyReason } from "./reasons.js";
+import type { DecisionReason } from "./reasons.js";
 
 /** Maximum principals retained by the process-local denial counter. */
 const DENIAL_COUNTER_LIMIT = 1_024;
@@ -34,7 +34,7 @@ export interface PolicyDecisionEvent {
   /** Decision result. */
   readonly result: "allow" | "deny";
   /** Stable reason code. */
-  readonly reason: PolicyReason;
+  readonly reason: DecisionReason;
   /** Policy version used for the decision. */
   readonly policyVersion: number;
   /** Per-process denial count for this actor, present on denials. */
@@ -47,6 +47,8 @@ export interface PolicyDecisionEvent {
 export interface PolicyMutationEvent {
   /** Actor principal identifier. */
   readonly actorId: string;
+  /** Actor kind; assignment mutations are user-initiated. */
+  readonly actorKind: "user";
   /** Mutation action. */
   readonly action: "assignment.grant" | "assignment.revoke";
   /** Assignment row identifier. */
@@ -72,9 +74,9 @@ export interface PolicyMutationEvent {
 /**
  * Narrow audit boundary for policy evidence.
  *
- * RD-07 replaces the logger adapter with the persistent hash-chained writer
- * without changing callers. Implementations must never receive or emit secret
- * values, private keys, tokens, cookies, CSRs, or request bodies.
+ * The persistent audit writer replaces the logger adapter without changing
+ * callers. Implementations must never receive or emit secret values, private
+ * keys, tokens, cookies, CSRs, or request bodies.
  */
 export interface PolicyAuditPort {
   /** Records exactly one authorization decision. */
@@ -116,7 +118,9 @@ export class LoggingPolicyAudit implements PolicyAuditPort {
   /** @inheritDoc */
   public async recordDecision(event: PolicyDecisionEvent): Promise<void> {
     const denialCount = event.result === "deny" ? this.#incrementDenial(event.actorId) : undefined;
-    await this.#logger.info("policy decision", {
+    // Audit evidence must survive every supported log level. The error channel
+    // is emitted at all levels; the payload contains identifiers only.
+    await this.#logger.error("policy decision", {
       actorId: event.actorId,
       actorKind: event.actorKind,
       action: event.action,
@@ -134,8 +138,9 @@ export class LoggingPolicyAudit implements PolicyAuditPort {
 
   /** @inheritDoc */
   public async recordMutation(event: PolicyMutationEvent): Promise<void> {
-    await this.#logger.info("policy mutation", {
+    await this.#logger.error("policy mutation", {
       actorId: event.actorId,
+      actorKind: event.actorKind,
       action: event.action,
       assignmentId: event.assignmentId,
       targetPrincipalId: event.targetPrincipalId,

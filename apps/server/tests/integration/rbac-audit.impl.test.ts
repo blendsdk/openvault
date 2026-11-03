@@ -12,14 +12,15 @@ interface LogLine {
 }
 
 function recordingLogger(lines: LogLine[], fail = false): Logger {
+  const record = async (message: string, data?: Record<string, unknown>) => {
+    if (fail) {
+      throw new Error("logger unavailable");
+    }
+    lines.push({ message, data });
+  };
   return {
-    info: async (message, data) => {
-      if (fail) {
-        throw new Error("logger unavailable");
-      }
-      lines.push({ message, data });
-    },
-    error: async () => undefined,
+    info: record,
+    error: record,
     warn: async () => undefined,
     debug: async () => undefined,
   };
@@ -44,6 +45,7 @@ function decision(overrides: Partial<PolicyDecisionEvent> = {}): PolicyDecisionE
 function mutation(): PolicyMutationEvent {
   return {
     actorId: "01ARZ3NDEKTSV4RRFFQ69G5FAV",
+    actorKind: "user",
     action: "assignment.grant",
     assignmentId: "01ARZ3NDEKTSV4RRFFQ69G5FAW",
     targetPrincipalId: "01ARZ3NDEKTSV4RRFFQ69G5FAX",

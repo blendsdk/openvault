@@ -34,10 +34,16 @@ describe("RBAC enum boundaries", () => {
 });
 
 describe("query boundaries", () => {
-  it("should accept org scope without a scope id and reject object type on a project", () => {
+  it("should require project or object scope for data-plane actions", () => {
     expect(
       accessExplainQuerySchema.safeParse({
         action: "secret.read",
+        scopeType: "org",
+      }).success,
+    ).toBe(false);
+    expect(
+      accessExplainQuerySchema.safeParse({
+        action: "assignment.read",
         scopeType: "org",
       }).success,
     ).toBe(true);

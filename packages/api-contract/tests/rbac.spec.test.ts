@@ -12,6 +12,7 @@ import {
 const ULID = "01ARZ3NDEKTSV4RRFFQ69G5FAV";
 const OTHER_ULID = "01ARZ3NDEKTSV4RRFFQ69G5FAW";
 const TIMESTAMP = "2026-11-03T12:00:00.000Z";
+const FUTURE_TIMESTAMP = "2099-01-01T00:00:00.000Z";
 
 describe("assignmentCreateRequestSchema", () => {
   it("should accept a valid tuple and reject unknown or missing fields", () => {
@@ -77,11 +78,17 @@ describe("assignmentCreateRequestSchema", () => {
       scopeId: OTHER_ULID,
     };
     expect(assignmentCreateRequestSchema.parse(base).expiresAt).toBeUndefined();
-    expect(assignmentCreateRequestSchema.parse({ ...base, expiresAt: TIMESTAMP }).expiresAt).toBe(
-      TIMESTAMP,
-    );
+    expect(
+      assignmentCreateRequestSchema.parse({ ...base, expiresAt: FUTURE_TIMESTAMP }).expiresAt,
+    ).toBe(FUTURE_TIMESTAMP);
     expect(
       assignmentCreateRequestSchema.safeParse({ ...base, expiresAt: "not-a-timestamp" }).success,
+    ).toBe(false);
+    expect(
+      assignmentCreateRequestSchema.safeParse({
+        ...base,
+        expiresAt: "2020-01-01T00:00:00.000Z",
+      }).success,
     ).toBe(false);
   });
 });
@@ -103,23 +110,34 @@ describe("assignmentListQuerySchema", () => {
     });
   });
 
-  it("should reject an unknown field or an invalid role", () => {
+  it("should reject an unknown field, an invalid role, or a non-ULID scope id", () => {
     expect(assignmentListQuerySchema.safeParse({ extra: true }).success).toBe(false);
     expect(assignmentListQuerySchema.safeParse({ role: "root" }).success).toBe(false);
+    expect(assignmentListQuerySchema.safeParse({ scopeId: "not-a-ulid" }).success).toBe(false);
+    expect(
+      assignmentListQuerySchema.safeParse({ scopeType: "project", scopeId: "not-a-ulid" }).success,
+    ).toBe(false);
   });
 });
 
 describe("accessExplainQuerySchema", () => {
   it("should require an action and enforce the scope shape", () => {
     expect(accessExplainQuerySchema.safeParse({}).success).toBe(false);
-    expect(accessExplainQuerySchema.safeParse({ action: "secret.read" }).success).toBe(true);
+    expect(accessExplainQuerySchema.safeParse({ action: "secret.read" }).success).toBe(false);
+    expect(
+      accessExplainQuerySchema.safeParse({
+        action: "secret.read",
+        scopeType: "project",
+        scopeId: OTHER_ULID,
+      }).success,
+    ).toBe(true);
     expect(
       accessExplainQuerySchema.safeParse({
         action: "secret.read",
         scopeType: "org",
         scopeId: "org",
       }).success,
-    ).toBe(true);
+    ).toBe(false);
     expect(
       accessExplainQuerySchema.safeParse({
         action: "secret.read",

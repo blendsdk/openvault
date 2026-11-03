@@ -94,7 +94,9 @@ public async create(
 9. Commit and return the assignment.
 
 If the audit port fails, the transaction rolls back and the controller returns 503. If the insert
-conflicts, the version bump rolls back and no assignment row is committed. The logger adapter is
+conflicts, the version bump rolls back and no assignment row is committed. Deployment provisioning
+that inserts the first administrator directly must bump `policy_state` in the same transaction;
+no current cache depends on it, but the version must stay truthful. The logger adapter is
 not transactional: a later database failure can leave a decision or mutation line in the log even
 though the row rolled back. This is a known limitation until RD-07 writes the event in the same
 transaction. The fail-closed direction is preserved: a mutation never commits without a successful

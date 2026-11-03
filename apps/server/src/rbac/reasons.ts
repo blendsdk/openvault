@@ -20,12 +20,10 @@ export type PolicyReason =
   | "invalid_scope"
   | "duplicate_assignment";
 
-/** Reason codes the evaluator can return for an ordinary decision. */
-export const DECISION_REASONS: ReadonlySet<PolicyReason> = new Set<PolicyReason>([
-  "allowed",
-  "inactive_principal",
-  "no_assignment",
-  "scope_mismatch",
-  "expired_assignment",
-  "service_control_plane",
-]);
+/**
+ * Reason codes that can appear on an audited decision.
+ *
+ * `duplicate_assignment` is an API conflict after an allowed decision, so it
+ * never appears on a decision event.
+ */
+export type DecisionReason = Exclude<PolicyReason, "duplicate_assignment">;

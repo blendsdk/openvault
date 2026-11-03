@@ -101,6 +101,34 @@ const EXPECTED_ACTIONS: Record<RbacRole, readonly RbacAction[]> = {
   reader: ["project.read", "secret.list", "certificate.list"],
 };
 
+const EXPECTED_DESCRIPTIONS: Record<RbacAction, string> = {
+  "project.create": "Create a project",
+  "project.read": "Read project metadata",
+  "project.update": "Rename or change project settings",
+  "project.delete": "Soft-delete a project",
+  "identity.create": "Create a service identity",
+  "identity.read": "Read identity metadata",
+  "identity.revoke": "Disable an identity and revoke its credentials",
+  "identity.join_token": "Issue a join token",
+  "assignment.read": "Read assignments and access explanations",
+  "assignment.write": "Grant or revoke roles",
+  "audit.read": "Read or export audit events",
+  "kek.rotate": "Start KEK rotation",
+  "secret.list": "List secret metadata and consumer summaries",
+  "secret.read": "Read a secret value or version",
+  "secret.write": "Create, update, or add a version",
+  "secret.delete": "Soft-delete a secret",
+  "secret.recover": "Recover a soft-deleted secret",
+  "secret.purge": "Permanently delete a secret",
+  "certificate.list": "List certificate metadata",
+  "certificate.read": "Read a certificate chain",
+  "certificate.read_private": "Read a certificate private key",
+  "certificate.write": "Import, generate, or update a certificate",
+  "certificate.delete": "Soft-delete a certificate",
+  "certificate.recover": "Recover a soft-deleted certificate",
+  "certificate.purge": "Permanently delete a certificate",
+};
+
 const EXPECTED_SCOPES: Record<RbacRole, readonly ("org" | "project" | "object")[]> = {
   "org.admin": ["org"],
   "project.admin": ["org", "project"],
@@ -124,7 +152,7 @@ describe("action catalog", () => {
     for (const [index, action] of RBAC_ACTIONS.entries()) {
       const definition = ACTION_DEFINITIONS.get(action);
       expect(definition).toBeDefined();
-      expect(definition?.description.length).toBeGreaterThan(0);
+      expect(definition?.description).toBe(EXPECTED_DESCRIPTIONS[action]);
       expect(definition?.plane).toBe(index < 12 ? "control" : "data");
       expect(isControlPlaneAction(action)).toBe(index < 12);
     }

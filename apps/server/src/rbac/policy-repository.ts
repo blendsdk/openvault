@@ -59,16 +59,25 @@ export class PolicyRepository {
    * @throws {PolicyUnavailableError} When the row is missing.
    */
   public async bumpPolicyVersion(database: QueryExecutor): Promise<number> {
-    const result = await database.executeQuery<VersionRow>(
-      `UPDATE policy_state
-          SET version = version + 1, updated_at = now()
-        WHERE id = 1
-        RETURNING version`,
-    );
+    let result: { readonly records: readonly VersionRow[] };
+    try {
+      result = await database.executeQuery<VersionRow>(
+        `UPDATE policy_state
+            SET version = version + 1, updated_at = now()
+          WHERE id = 1
+          RETURNING version`,
+      );
+    } catch {
+      throw new PolicyUnavailableError();
+    }
     const row = result.records[0];
     if (row === undefined) {
       throw new PolicyUnavailableError();
     }
-    return Number(row.version);
+    const version = Number(row.version);
+    if (!Number.isSafeInteger(version) || version <= 0) {
+      throw new PolicyUnavailableError();
+    }
+    return version;
   }
 }
