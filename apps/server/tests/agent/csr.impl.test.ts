@@ -31,6 +31,27 @@ describe("CSR resource and encoding boundaries", () => {
     });
   });
 
+  it("should reject a second extensionRequest attribute", async () => {
+    const csr = await createAgentCsr({
+      attributes: [
+        new x509.ExtensionsAttribute([]),
+        new x509.ExtensionsAttribute([
+          new x509.SubjectAlternativeNameExtension([{ type: "dns", value: "evil.test" }]),
+        ]),
+      ],
+    });
+    await expect(parseAgentCsr(csr.csrPem)).rejects.toMatchObject({
+      reason: "extensions_not_allowed",
+    });
+  });
+
+  it("should map a malformed extensionRequest attribute to a validation error", async () => {
+    const csr = await createAgentCsr({
+      attributes: [new x509.Attribute("1.2.840.113549.1.9.14", [Buffer.from("3003010100", "hex")])],
+    });
+    await expect(parseAgentCsr(csr.csrPem)).rejects.toBeInstanceOf(CsrValidationError);
+  });
+
   it("should ignore a complex but valid subject", async () => {
     const csr = await createAgentCsr({ subject: "CN=agent,O=Example,C=US" });
     const parsed = await parseAgentCsr(csr.csrPem);

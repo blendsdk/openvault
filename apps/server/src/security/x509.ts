@@ -125,6 +125,21 @@ export function p256PointFromSpki(spki: Buffer): Buffer | undefined {
 }
 
 /**
+ * Hashes a canonical uncompressed P-256 public key.
+ *
+ * A SubjectPublicKeyInfo value can encode the same key as a compressed or
+ * uncompressed point. Hashing the canonical 65-byte point makes the fresh-key
+ * comparison independent of that encoding.
+ *
+ * @param spki - DER SubjectPublicKeyInfo.
+ * @returns Lowercase SHA-256 hex, or undefined when the key is not P-256.
+ */
+export function canonicalPublicKeyHash(spki: Buffer): string | undefined {
+  const point = p256PointFromSpki(spki);
+  return point === undefined ? undefined : sha256Hex(point);
+}
+
+/**
  * Parses and verifies one agent certificate signing request.
  *
  * The request must be a bounded PEM/DER CSR with a valid proof of possession,
@@ -157,18 +172,28 @@ export async function parseAgentCsr(csrPem: string): Promise<AgentCsr> {
     throw new CsrValidationError("bad_signature");
   }
 
-  if (request.extensions.length > 0) {
+  let extensionRequests: x509.Attribute[];
+  try {
+    // Reject every extensionRequest attribute, including empty or malformed
+    // ones. Reading only `request.extensions` would accept a second attribute
+    // or surface a raw ASN.1 error as a 500.
+    extensionRequests = request.getAttributes("1.2.840.113549.1.9.14");
+  } catch {
+    throw new CsrValidationError("malformed");
+  }
+  if (extensionRequests.length > 0) {
     throw new CsrValidationError("extensions_not_allowed");
   }
 
   const spki = Buffer.from(request.publicKey.rawData);
-  if (p256PointFromSpki(spki) === undefined) {
+  const publicKeySha256 = canonicalPublicKeyHash(spki);
+  if (publicKeySha256 === undefined) {
     throw new CsrValidationError("not_p256");
   }
 
   return {
     publicKey: request.publicKey,
-    publicKeySha256: sha256Hex(spki),
+    publicKeySha256,
   };
 }
 

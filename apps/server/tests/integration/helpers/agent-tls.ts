@@ -6,7 +6,7 @@ import { newUlid } from "@openvault/core";
 import type { PostgreSQLDatabase } from "blendsdk/postgresql";
 import { wrapCaScalar } from "../../../src/security/ca.js";
 import type { KeyringProvider } from "../../../src/security/keyring.js";
-import { x509 } from "../../../src/security/x509.js";
+import { canonicalPublicKeyHash, x509 } from "../../../src/security/x509.js";
 
 /** One disposable EC P-256 internal CA. */
 export interface AgentCaFixture {
@@ -14,6 +14,8 @@ export interface AgentCaFixture {
   readonly certPem: string;
   readonly certPath: string;
   readonly keys: CryptoKeyPair;
+  /** PKCS#8 private key PEM used only to prove a bundle is normalized. */
+  readonly keyPem: string;
   /** Uncompressed `0x04 || x || y` public point. */
   readonly publicPoint: Buffer;
   /** 32-byte private scalar. */
@@ -100,12 +102,20 @@ export async function createAgentCaFixture(): Promise<AgentCaFixture> {
   writeFileSync(certPath, certPem, { mode: 0o600 });
   chmodSync(certPath, 0o600);
   const material = await privateKeyMaterial(keys);
+  const privateKeyDer = await globalThis.crypto.subtle.exportKey("pkcs8", keys.privateKey);
+  const exportedKey = createPrivateKey({
+    key: Buffer.from(privateKeyDer),
+    format: "der",
+    type: "pkcs8",
+  }).export({ format: "pem", type: "pkcs8" });
+  const keyPem = typeof exportedKey === "string" ? exportedKey : exportedKey.toString("utf8");
 
   return {
     cert: certificate,
     certPem,
     certPath,
     keys,
+    keyPem,
     publicPoint: material.publicPoint,
     scalar: material.scalar,
     cleanup(): void {
@@ -160,6 +170,7 @@ export async function createAgentCsr(
     readonly keys?: CryptoKeyPair;
     readonly subject?: string;
     readonly extensions?: x509.Extension[];
+    readonly attributes?: x509.Attribute[];
     readonly signingAlgorithm?: Algorithm | EcdsaParams;
   } = {},
 ): Promise<AgentCsrFixture> {
@@ -170,13 +181,16 @@ export async function createAgentCsr(
     keys,
     signingAlgorithm: algorithm,
     ...(options.extensions === undefined ? {} : { extensions: options.extensions }),
+    ...(options.attributes === undefined ? {} : { attributes: options.attributes }),
   });
+  const publicKeySpki = Buffer.from(request.publicKey.rawData);
+  const publicKeySha256 = canonicalPublicKeyHash(publicKeySpki) ?? sha256Hex(publicKeySpki);
   return {
     csrPem: request.toString("pem"),
     keys,
     publicKey: request.publicKey,
-    publicKeySha256: sha256Hex(Buffer.from(request.publicKey.rawData)),
-    publicKeySpki: Buffer.from(request.publicKey.rawData),
+    publicKeySha256,
+    publicKeySpki,
   };
 }
 
@@ -225,11 +239,15 @@ export async function createAgentClientCertificate(
   }).export({ format: "pem", type: "pkcs8" });
   const keyPem = typeof exportedKey === "string" ? exportedKey : exportedKey.toString("utf8");
   const raw = Buffer.from(certificate.rawData);
+  const publicKeySha256 = canonicalPublicKeyHash(Buffer.from(certificate.publicKey.rawData));
+  if (publicKeySha256 === undefined) {
+    throw new Error("client certificate fixture must use a P-256 key");
+  }
   return {
     certPem: certificate.toString("pem"),
     keyPem,
     fingerprint: sha256Hex(raw),
-    publicKeySha256: sha256Hex(Buffer.from(certificate.publicKey.rawData)),
+    publicKeySha256,
     certificate,
     keys,
   };

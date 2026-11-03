@@ -439,17 +439,23 @@ describe("join", () => {
     const token = await issueToken(serviceId);
     const csr = await createAgentCsr();
 
-    const [joined] = await Promise.allSettled([
+    const [joined, revoked] = await Promise.allSettled([
       join(token.token, csr.csrPem),
       runtime.identityRuntime.service.revoke(actorId, serviceId),
     ]);
+    expect(revoked.status).toBe("fulfilled");
     expect(joined.status).toBe("fulfilled");
+    if (joined.status !== "fulfilled") {
+      return;
+    }
     const certificates = await certificateRows(serviceId);
     const consumers = await consumerRows(serviceId);
-    if (joined.status === "fulfilled" && joined.value.status === 200) {
+    if (joined.value.status === 200) {
       expect(certificates.every((certificate) => certificate.revoked_at !== null)).toBe(true);
       expect(consumers.every((row) => row.state === "failed")).toBe(true);
     } else {
+      expect(joined.value.status).toBe(401);
+      expect(errorCode(joined.value)).toBe("join_failed");
       expect(certificates).toHaveLength(0);
       expect(consumers).toHaveLength(0);
     }

@@ -138,6 +138,41 @@ describe("join transaction internals", () => {
     signer.destroy();
   });
 
+  it("should succeed after a transient serial collision", async () => {
+    const otherService = id();
+    await testDb.db.executeQuery(
+      `INSERT INTO principals (id, kind, name, owner_project_id)
+       VALUES (:id, 'service', 'transient-owner', :projectId)`,
+      { id: otherService, projectId },
+    );
+    await testDb.db.executeQuery(
+      `INSERT INTO workload_certs
+         (id, principal_id, serial, fingerprint, not_before, not_after)
+       VALUES (:id, :principalId, 'cafebabe', :fingerprint, now() - interval '1 hour', now() + interval '1 day')`,
+      { id: id(), principalId: otherService, fingerprint: "c".repeat(64) },
+    );
+    const serials = ["cafebabe", "cafebabe", "feed1234"];
+    let serialIndex = 0;
+    const signer = await CaSigner.load({
+      database: testDb.db,
+      keyring: server.keyring,
+      caPem: ca.certPem,
+      serialSource: () => serials[Math.min(serialIndex++, serials.length - 1)] ?? "feed1234",
+    });
+    const service = new AgentJoinService({
+      database: testDb.db,
+      tokens: runtime.identityRuntime.tokens,
+      consumers: new ConsumerRepository(testDb.db),
+      signer,
+      config: { certTtlDays: 30 },
+    });
+    const token = await issueToken();
+    const csr = await createAgentCsr();
+    const response = await service.join({ token: token.token, csr: csr.csrPem, consumer });
+    expect(response.serial).toBe("feed1234");
+    signer.destroy();
+  });
+
   it("should roll back the token when the signer fails", async () => {
     const signer = await CaSigner.load({
       database: testDb.db,

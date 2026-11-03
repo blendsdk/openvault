@@ -5,6 +5,7 @@ import type { OpenVaultConfig } from "../config/index.js";
 import type { QueryExecutor } from "../identity/identity-repository.js";
 import { type CaSigner, CaSignerUnavailableError } from "../security/ca.js";
 import { CsrValidationError, parseAgentCsr } from "../security/x509.js";
+import { CERTIFICATE_ATTEMPTS, isCertificateConflict } from "./certificate-retry.js";
 import type { ConsumerRepository } from "./consumer-repository.js";
 import { AgentServiceError } from "./errors.js";
 import type { AgentAuthContext } from "./types.js";
@@ -160,6 +161,7 @@ export class AgentRenewService {
   readonly #config: Pick<OpenVaultConfig, "certTtlDays">;
   readonly #cache: RenewalReplayCache;
   readonly #now: () => number;
+  readonly #queues = new Map<string, Promise<void>>();
 
   /**
    * @param options - Database, consumer repository, CA signer, config, and cache.
@@ -212,73 +214,147 @@ export class AgentRenewService {
       throw new AgentServiceError(422, "validation_error", "Validation failed");
     }
 
-    const response = await this.#database.withTransaction(async (tx) => {
-      const locked = await this.#lockIdentity(tx, context.principalId);
-      if (
-        locked === undefined ||
-        locked.status !== "active" ||
-        locked.project_deleted_at !== null
-      ) {
-        throw new AgentServiceError(401, "authentication_required", "Authentication required");
+    return this.#serialize(context.principalId, async () => {
+      // A concurrent renewal for the same principal may have completed while
+      // this request waited for the in-process queue.
+      const queuedReplay = this.#cache.get(context.principalId, csr.publicKeySha256);
+      if (queuedReplay !== undefined) {
+        return queuedReplay;
       }
 
-      const newest = await this.#newestCertificate(tx, context.principalId);
-      if (newest === undefined || newest.id !== context.certificateId) {
-        throw new AgentServiceError(409, "renewal_not_current", "Certificate is not current");
-      }
+      for (let attempt = 1; attempt <= CERTIFICATE_ATTEMPTS; attempt += 1) {
+        try {
+          const response = await this.#database.withTransaction(async (tx) => {
+            const locked = await this.#lockIdentity(tx, context.principalId);
+            if (
+              locked === undefined ||
+              locked.status !== "active" ||
+              locked.project_deleted_at !== null
+            ) {
+              throw new AgentServiceError(
+                401,
+                "authentication_required",
+                "Authentication required",
+              );
+            }
 
-      const threshold =
-        newest.not_before.getTime() +
-        Math.floor(((newest.not_after.getTime() - newest.not_before.getTime()) * 2) / 3);
-      if (this.#now() < threshold) {
-        throw new AgentServiceError(409, "renewal_not_due", "Certificate renewal is not due");
-      }
+            const project = await tx.executeQuery<{ readonly deleted_at: Date | null }>(
+              "SELECT deleted_at FROM projects WHERE id = :projectId FOR SHARE",
+              { projectId: locked.owner_project_id },
+            );
+            if (project.records[0] === undefined || project.records[0].deleted_at !== null) {
+              throw new AgentServiceError(
+                401,
+                "authentication_required",
+                "Authentication required",
+              );
+            }
 
-      let issued: Awaited<ReturnType<CaSigner["issueClientCertificate"]>>;
-      try {
-        issued = await this.#signer.issueClientCertificate(
-          csr,
-          locked.id,
-          this.#config.certTtlDays,
-        );
-      } catch (error) {
-        if (error instanceof CaSignerUnavailableError) {
-          throw new AgentServiceError(503, "ca_unavailable", "Certificate authority unavailable");
+            const newest = await this.#newestCertificate(tx, context.principalId);
+            if (newest === undefined || newest.id !== context.certificateId) {
+              throw new AgentServiceError(409, "renewal_not_current", "Certificate is not current");
+            }
+
+            const threshold =
+              newest.not_before.getTime() +
+              Math.floor(((newest.not_after.getTime() - newest.not_before.getTime()) * 2) / 3);
+            if (this.#now() < threshold) {
+              throw new AgentServiceError(409, "renewal_not_due", "Certificate renewal is not due");
+            }
+
+            let issued: Awaited<ReturnType<CaSigner["issueClientCertificate"]>>;
+            try {
+              issued = await this.#signer.issueClientCertificate(
+                csr,
+                locked.id,
+                this.#config.certTtlDays,
+              );
+            } catch (error) {
+              if (error instanceof CaSignerUnavailableError) {
+                throw new AgentServiceError(
+                  503,
+                  "ca_unavailable",
+                  "Certificate authority unavailable",
+                );
+              }
+              throw error;
+            }
+
+            await tx.executeQuery(
+              `INSERT INTO workload_certs
+                 (id, principal_id, serial, fingerprint, not_before, not_after, issued_at)
+               VALUES
+                 (:id, :principalId, :serial, :fingerprint, :notBefore, :notAfter,
+                  clock_timestamp())`,
+              {
+                id: newUlid(),
+                principalId: locked.id,
+                serial: issued.serial,
+                fingerprint: issued.fingerprint,
+                notBefore: issued.notBefore,
+                notAfter: issued.notAfter,
+              },
+            );
+            await this.#consumers.upsert(tx, {
+              principalId: locked.id,
+              projectId: locked.owner_project_id,
+              consumer: input.consumer,
+            });
+
+            return {
+              certificatePem: issued.certificatePem,
+              chainPem: this.#signer.certificatePem,
+              identityId: locked.id,
+              serial: issued.serial,
+              notAfter: issued.notAfter.toISOString(),
+            };
+          });
+
+          this.#cache.set(context.principalId, csr.publicKeySha256, response);
+          return response;
+        } catch (error) {
+          if (isCertificateConflict(error)) {
+            if (attempt < CERTIFICATE_ATTEMPTS) {
+              continue;
+            }
+            throw new AgentServiceError(503, "ca_unavailable", "Certificate authority unavailable");
+          }
+          throw error;
         }
-        throw error;
       }
 
-      await tx.executeQuery(
-        `INSERT INTO workload_certs
-           (id, principal_id, serial, fingerprint, not_before, not_after)
-         VALUES
-           (:id, :principalId, :serial, :fingerprint, :notBefore, :notAfter)`,
-        {
-          id: newUlid(),
-          principalId: locked.id,
-          serial: issued.serial,
-          fingerprint: issued.fingerprint,
-          notBefore: issued.notBefore,
-          notAfter: issued.notAfter,
-        },
-      );
-      await this.#consumers.upsert(tx, {
-        principalId: locked.id,
-        projectId: locked.owner_project_id,
-        consumer: input.consumer,
-      });
-
-      return {
-        certificatePem: issued.certificatePem,
-        chainPem: this.#signer.certificatePem,
-        identityId: locked.id,
-        serial: issued.serial,
-        notAfter: issued.notAfter.toISOString(),
-      };
+      throw new AgentServiceError(503, "ca_unavailable", "Certificate authority unavailable");
     });
+  }
 
-    this.#cache.set(context.principalId, csr.publicKeySha256, response);
-    return response;
+  /**
+   * Serializes renewal work for one principal inside this process.
+   *
+   * The database principal lock remains the cross-process authority. The
+   * in-process queue closes the small window between commit and replay-cache
+   * publication for overlapping retries.
+   *
+   * @param principalId - Service principal.
+   * @param action - Renewal action.
+   * @returns The action result.
+   */
+  async #serialize<T>(principalId: string, action: () => Promise<T>): Promise<T> {
+    const previous = this.#queues.get(principalId) ?? Promise.resolve();
+    let release: (() => void) | undefined;
+    const current = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    const tail = previous.catch(() => undefined).then(() => current);
+    this.#queues.set(principalId, tail);
+    await previous.catch(() => undefined);
+    try {
+      return await action();
+    } finally {
+      release?.();
+      if (this.#queues.get(principalId) === tail) {
+        this.#queues.delete(principalId);
+      }
+    }
   }
 
   /**

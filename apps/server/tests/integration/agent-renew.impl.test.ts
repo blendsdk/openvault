@@ -1,8 +1,16 @@
 import type { AgentConsumer } from "@openvault/api-contract";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
+import { AgentRenewService, RenewalReplayCache } from "../../src/agent/agent-renew-service.js";
+import { ConsumerRepository } from "../../src/agent/consumer-repository.js";
 import type { AgentAuthContext } from "../../src/agent/types.js";
+import { CaSigner } from "../../src/security/ca.js";
 import { type AgentTestServer, startAgentTestServer } from "./helpers/agent-app.js";
-import { type AgentCaFixture, createAgentCaFixture, createAgentCsr } from "./helpers/agent-tls.js";
+import {
+  type AgentCaFixture,
+  createAgentCaFixture,
+  createAgentClientCertificate,
+  createAgentCsr,
+} from "./helpers/agent-tls.js";
 import { testUlid } from "./helpers/fixtures.js";
 import { createServerEnvironment, type ServerEnvironment } from "./helpers/server-environment.js";
 import { applyMigrations, createTestDatabase, type TestDatabase } from "./helpers/test-database.js";
@@ -60,6 +68,86 @@ function context(publicKeySha256: string): AgentAuthContext {
     notAfter: Date.now() + 86_400_000,
   };
 }
+
+describe("renewal serial handling", () => {
+  it("should retry a serial collision and fail closed with 503", async () => {
+    const projectId = testUlid(4_100);
+    await testDb.db.executeQuery("INSERT INTO projects (id, name) VALUES (:id, 'renew-serial')", {
+      id: projectId,
+    });
+    const serviceId = testUlid(4_101);
+    await testDb.db.executeQuery(
+      `INSERT INTO principals (id, kind, name, owner_project_id)
+       VALUES (:id, 'service', 'renew-serial-target', :projectId)`,
+      { id: serviceId, projectId },
+    );
+    const otherService = testUlid(4_102);
+    await testDb.db.executeQuery(
+      `INSERT INTO principals (id, kind, name, owner_project_id)
+       VALUES (:id, 'service', 'renew-serial-owner', :projectId)`,
+      { id: otherService, projectId },
+    );
+    const client = await createAgentClientCertificate(ca, serviceId);
+    const currentId = testUlid(4_103);
+    const now = Date.now();
+    await testDb.db.executeQuery(
+      `INSERT INTO workload_certs
+         (id, principal_id, serial, fingerprint, not_before, not_after)
+       VALUES (:id, :principalId, 'c0ffee', :fingerprint, :notBefore, :notAfter)`,
+      {
+        id: currentId,
+        principalId: serviceId,
+        fingerprint: client.fingerprint,
+        notBefore: new Date(now - 25 * 86_400_000),
+        notAfter: new Date(now + 5 * 86_400_000),
+      },
+    );
+    await testDb.db.executeQuery(
+      `INSERT INTO workload_certs
+         (id, principal_id, serial, fingerprint, not_before, not_after)
+       VALUES (:id, :principalId, 'deadbeef', :fingerprint, now() - interval '1 hour', now() + interval '1 day')`,
+      { id: testUlid(4_104), principalId: otherService, fingerprint: "d".repeat(64) },
+    );
+
+    const signer = await CaSigner.load({
+      database: testDb.db,
+      keyring: server.keyring,
+      caPem: ca.certPem,
+      serialSource: () => "deadbeef",
+    });
+    const service = new AgentRenewService({
+      database: testDb.db,
+      consumers: new ConsumerRepository(testDb.db),
+      signer,
+      config: { certTtlDays: 30 },
+      cache: new RenewalReplayCache(),
+    });
+    const csr = await createAgentCsr();
+    await expect(
+      service.renew(
+        {
+          kind: "agent",
+          principalId: serviceId,
+          projectId,
+          projectName: "renew-serial",
+          certificateId: currentId,
+          serial: "c0ffee",
+          fingerprint: client.fingerprint,
+          publicKeySha256: client.publicKeySha256,
+          notAfter: now + 5 * 86_400_000,
+        },
+        { csr: csr.csrPem, consumer },
+      ),
+    ).rejects.toMatchObject({ code: "ca_unavailable", statusCode: 503 });
+
+    const count = await testDb.db.executeQuery<{ count: number }>(
+      "SELECT count(*)::int AS count FROM workload_certs WHERE principal_id = :id",
+      { id: serviceId },
+    );
+    expect(count.records[0]?.count).toBe(1);
+    signer.destroy();
+  });
+});
 
 describe("renewal service internals", () => {
   it("should reject the authenticating key before any database work", async () => {

@@ -2,6 +2,7 @@ import { createHash, X509Certificate } from "node:crypto";
 import type { TLSSocket } from "node:tls";
 import type { PostgreSQLDatabase } from "blendsdk/postgresql";
 import type { Request } from "express";
+import { canonicalPublicKeyHash } from "../security/x509.js";
 import { listenerOf } from "../transport/scope.js";
 import type { AgentAuthContext } from "./types.js";
 
@@ -151,18 +152,27 @@ export class DatabaseAgentAuthenticator implements AgentAuthenticator {
           AND pr.deleted_at IS NULL`,
       { fingerprint },
     );
+    if (this.#now() - readStartedAt >= CACHE_TTL_MS) {
+      // A slow database read must not admit a request whose snapshot is older
+      // than the admission guarantee, even though the cache entry is expired.
+      return undefined;
+    }
+
     const row = result.records[0];
     if (row === undefined) {
       return undefined;
     }
 
-    let publicKeySha256: string;
+    let publicKeySha256: string | undefined;
     try {
       const certificate = new X509Certificate(raw);
-      publicKeySha256 = sha256Hex(
+      publicKeySha256 = canonicalPublicKeyHash(
         Buffer.from(certificate.publicKey.export({ type: "spki", format: "der" })),
       );
     } catch {
+      return undefined;
+    }
+    if (publicKeySha256 === undefined) {
       return undefined;
     }
 

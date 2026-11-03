@@ -10,6 +10,7 @@ import {
 import { KeyringProvider } from "../../src/security/keyring.js";
 import {
   CsrValidationError,
+  canonicalPublicKeyHash,
   parseAgentCsr,
   verifyAgentCertificateProfile,
   x509,
@@ -141,10 +142,15 @@ describe("CA signer loading and issuance", () => {
       const certificate = new x509.X509Certificate(issued.certificatePem);
       expect(certificate.subject).toBe(`CN=${PRINCIPAL}`);
       expect(certificate.issuer).toBe(ca.cert.subject);
-      expect(certificate.getExtension(x509.BasicConstraintsExtension)?.ca).toBe(false);
-      expect(certificate.getExtension(x509.KeyUsagesExtension)?.usages).toBe(
-        x509.KeyUsageFlags.digitalSignature,
+      expect(canonicalPublicKeyHash(Buffer.from(certificate.publicKey.rawData))).toBe(
+        csr.publicKeySha256,
       );
+      const basicConstraints = certificate.getExtension(x509.BasicConstraintsExtension);
+      expect(basicConstraints?.ca).toBe(false);
+      expect(basicConstraints?.critical).toBe(true);
+      const keyUsages = certificate.getExtension(x509.KeyUsagesExtension);
+      expect(keyUsages?.usages).toBe(x509.KeyUsageFlags.digitalSignature);
+      expect(keyUsages?.critical).toBe(true);
       expect(certificate.getExtension(x509.ExtendedKeyUsageExtension)?.usages).toEqual([
         x509.ExtendedKeyUsage.clientAuth,
       ]);
@@ -195,6 +201,25 @@ describe("CA signer loading and issuance", () => {
       expect(issued.serial).toBe("abcdef");
       expect(JSON.stringify(signer)).not.toContain(ca.scalar.toString("hex"));
       expect(JSON.stringify(signer)).not.toContain("wrapped_key");
+      signer.destroy();
+    } finally {
+      ca.cleanup();
+    }
+  });
+
+  it("should never return a private key from a CA bundle", async () => {
+    const ca = await currentCa();
+    try {
+      const bundle = `${ca.certPem}\n${ca.keyPem}`;
+      const signer = await CaSigner.load({
+        database: testDb.db,
+        keyring,
+        caPem: bundle,
+        now: () => FIXED_NOW,
+      });
+      expect(signer.certificatePem).toContain("BEGIN CERTIFICATE");
+      expect(signer.certificatePem).not.toContain("PRIVATE KEY");
+      expect(signer.certificatePem).not.toContain(ca.keyPem.trim());
       signer.destroy();
     } finally {
       ca.cleanup();

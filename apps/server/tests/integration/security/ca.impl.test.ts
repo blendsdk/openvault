@@ -10,6 +10,7 @@ import {
 } from "../../../src/security/ca.js";
 import { KeyringProvider } from "../../../src/security/keyring.js";
 import {
+  canonicalPublicKeyHash,
   normalizeSerial,
   p256PointFromSpki,
   parseAgentCsr,
@@ -72,6 +73,22 @@ describe("CA scalar and point internals", () => {
       expect(p256PointFromSpki(Buffer.from("not a key"))).toBeUndefined();
       expect(p256PointFromSpki(Buffer.from(ca.cert.publicKey.rawData))).toEqual(ca.publicPoint);
       expect(createPublicKey({ key: rsaSpki, format: "der", type: "spki" }).type).toBe("public");
+
+      const uncompressed = Buffer.from(ca.cert.publicKey.rawData);
+      const point = p256PointFromSpki(uncompressed);
+      if (point === undefined) {
+        throw new Error("fixture CA must be P-256");
+      }
+      const algorithm = Buffer.from("301306072a8648ce3d020106082a8648ce3d030107", "hex");
+      const yLast = point[64] ?? 0;
+      const bitString = Buffer.concat([
+        Buffer.from([0x03, 0x22, 0x00, (yLast & 1) === 0 ? 0x02 : 0x03]),
+        point.subarray(1, 33),
+      ]);
+      const content = Buffer.concat([algorithm, bitString]);
+      const compressed = Buffer.concat([Buffer.from([0x30, content.length]), content]);
+      expect(canonicalPublicKeyHash(compressed)).toBe(canonicalPublicKeyHash(uncompressed));
+      expect(p256PointFromSpki(compressed)).toEqual(point);
     } finally {
       ca.cleanup();
     }
@@ -134,8 +151,6 @@ describe("CA signer failure boundaries", () => {
     const csr = await createAgentCsr();
     const parsed = await parseAgentCsr(csr.csrPem);
     expect(parsed.publicKeySha256).toBe(csr.publicKeySha256);
-    expect(parsed.publicKeySha256).toBe(
-      (await import("node:crypto")).createHash("sha256").update(csr.publicKeySpki).digest("hex"),
-    );
+    expect(parsed.publicKeySha256).toBe(canonicalPublicKeyHash(csr.publicKeySpki));
   });
 });

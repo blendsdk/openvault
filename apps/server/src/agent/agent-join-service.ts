@@ -7,11 +7,9 @@ import type { QueryExecutor } from "../identity/identity-repository.js";
 import { type CaSigner, CaSignerUnavailableError } from "../security/ca.js";
 import { CsrValidationError, parseAgentCsr } from "../security/x509.js";
 import type { AgentTokenService } from "./agent-token-service.js";
+import { CERTIFICATE_ATTEMPTS, isCertificateConflict } from "./certificate-retry.js";
 import type { ConsumerRepository } from "./consumer-repository.js";
 import { AgentServiceError } from "./errors.js";
-
-/** Maximum serial-collision retries for one join. */
-const SERIAL_RETRIES = 3;
 
 /** Principal state loaded under the join lock. */
 interface LockedJoinIdentity {
@@ -29,20 +27,6 @@ export interface AgentJoinInput {
   readonly csr: string;
   /** Self-reported consumer metadata. */
   readonly consumer: AgentConsumer;
-}
-
-/** Returns true for a unique-violation on the certificate serial. */
-function isSerialConflict(error: unknown): boolean {
-  if (typeof error !== "object" || error === null) {
-    return false;
-  }
-  const code = Reflect.get(error, "code");
-  const constraint = Reflect.get(error, "constraint");
-  return (
-    code === "23505" &&
-    typeof constraint === "string" &&
-    constraint.includes("workload_certs_serial")
-  );
 }
 
 /** Hashes a raw join token with SHA-256. */
@@ -105,7 +89,7 @@ export class AgentJoinService {
       throw new AgentServiceError(401, "join_failed", "Join failed");
     }
 
-    for (let attempt = 1; attempt <= SERIAL_RETRIES; attempt += 1) {
+    for (let attempt = 1; attempt <= CERTIFICATE_ATTEMPTS; attempt += 1) {
       try {
         return await this.#database.withTransaction(async (tx) => {
           const locked = await this.#lockIdentity(tx, token.principalId);
@@ -114,6 +98,14 @@ export class AgentJoinService {
             locked.status !== "active" ||
             locked.project_deleted_at !== null
           ) {
+            throw new AgentServiceError(401, "join_failed", "Join failed");
+          }
+
+          const project = await tx.executeQuery<{ readonly deleted_at: Date | null }>(
+            "SELECT deleted_at FROM projects WHERE id = :projectId FOR SHARE",
+            { projectId: locked.owner_project_id },
+          );
+          if (project.records[0] === undefined || project.records[0].deleted_at !== null) {
             throw new AgentServiceError(401, "join_failed", "Join failed");
           }
 
@@ -146,9 +138,10 @@ export class AgentJoinService {
 
           await tx.executeQuery(
             `INSERT INTO workload_certs
-               (id, principal_id, serial, fingerprint, not_before, not_after)
+               (id, principal_id, serial, fingerprint, not_before, not_after, issued_at)
              VALUES
-               (:id, :principalId, :serial, :fingerprint, :notBefore, :notAfter)`,
+               (:id, :principalId, :serial, :fingerprint, :notBefore, :notAfter,
+                clock_timestamp())`,
             {
               id: newUlid(),
               principalId: locked.id,
@@ -173,8 +166,8 @@ export class AgentJoinService {
           };
         });
       } catch (error) {
-        if (isSerialConflict(error)) {
-          if (attempt < SERIAL_RETRIES) {
+        if (isCertificateConflict(error)) {
+          if (attempt < CERTIFICATE_ATTEMPTS) {
             continue;
           }
           throw new AgentServiceError(503, "ca_unavailable", "Certificate authority unavailable");

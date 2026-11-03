@@ -265,6 +265,24 @@ describe("renewal replay", () => {
     expect(await certificateCount(fixture.serviceId)).toBe(2);
   });
 
+  it("should return the same certificate to two overlapping same-key renewals", async () => {
+    const fixture = await createRenewalFixture({
+      notBeforeOffsetDays: -25,
+      notAfterOffsetDays: 5,
+    });
+    const csr = await createAgentCsr();
+    const [first, second] = await Promise.all([
+      renew(fixture, csr.csrPem),
+      renew(fixture, csr.csrPem),
+    ]);
+    expect(first.status).toBe(200);
+    expect(second.status).toBe(200);
+    expect(certificateEnvelope.parse(second.json).data).toEqual(
+      certificateEnvelope.parse(first.json).data,
+    );
+    expect(await certificateCount(fixture.serviceId)).toBe(2);
+  });
+
   it("should miss the replay cache after five minutes and require a current certificate", async () => {
     const fixture = await createRenewalFixture({
       notBeforeOffsetDays: -25,

@@ -162,12 +162,21 @@ export function unwrapCaScalar(
     const decipher = createDecipheriv("aes-256-gcm", key, input.wrapNonce);
     decipher.setAAD(aadFor(input.id));
     decipher.setAuthTag(input.wrapTag);
-    const scalar = Buffer.concat([decipher.update(input.wrappedKey), decipher.final()]);
-    if (scalar.length !== SCALAR_BYTES) {
-      scalar.fill(0);
-      throw new Error("Unwrapped CA scalar has invalid length");
+    let updated: Buffer | undefined;
+    let finalized: Buffer | undefined;
+    try {
+      updated = decipher.update(input.wrappedKey);
+      finalized = decipher.final();
+      const scalar = Buffer.concat([updated, finalized]);
+      if (scalar.length !== SCALAR_BYTES) {
+        scalar.fill(0);
+        throw new Error("Unwrapped CA scalar has invalid length");
+      }
+      return scalar;
+    } finally {
+      updated?.fill(0);
+      finalized?.fill(0);
     }
-    return scalar;
   });
 }
 
@@ -202,8 +211,8 @@ function buffersEqual(left: Buffer, right: Buffer): boolean {
  * certificate issuance and a probe, never the scalar or the signing key.
  */
 export class CaSigner {
-  readonly #caCertificate: CaCertificate;
-  readonly #signingKey: CryptoKey;
+  #caCertificate: CaCertificate | undefined;
+  #signingKey: CryptoKey | undefined;
   readonly #caPem: string;
   readonly #now: () => number;
   readonly #serialSource: (() => string) | undefined;
@@ -333,7 +342,7 @@ export class CaSigner {
       return new CaSigner({
         caCertificate,
         signingKey,
-        caPem: options.caPem,
+        caPem: configuredCertificate.toString("pem"),
         now: options.now ?? Date.now,
         ...(options.serialSource === undefined ? {} : { serialSource: options.serialSource }),
       });
@@ -356,15 +365,17 @@ export class CaSigner {
     principalId: string,
     ttlDays: number,
   ): Promise<IssuedCertificate> {
-    if (this.#destroyed) {
+    const caCertificate = this.#caCertificate;
+    const signingKey = this.#signingKey;
+    if (this.#destroyed || caCertificate === undefined || signingKey === undefined) {
       throw new CaSignerUnavailableError();
     }
     try {
       return await issueAgentCertificate({
         publicKey: csr.publicKey,
         principalId,
-        caCertificate: this.#caCertificate,
-        signingKey: this.#signingKey,
+        caCertificate,
+        signingKey,
         ttlDays,
         now: this.#now(),
         ...(this.#serialSource === undefined ? {} : { serialSource: this.#serialSource }),
@@ -380,7 +391,9 @@ export class CaSigner {
    * @throws {CaSignerUnavailableError} When signing or profile verification fails.
    */
   public async probe(): Promise<void> {
-    if (this.#destroyed) {
+    const caCertificate = this.#caCertificate;
+    const signingKey = this.#signingKey;
+    if (this.#destroyed || caCertificate === undefined || signingKey === undefined) {
       throw new CaSignerUnavailableError();
     }
     try {
@@ -393,16 +406,12 @@ export class CaSigner {
       const issued = await issueAgentCertificate({
         publicKey,
         principalId: PROBE_PRINCIPAL,
-        caCertificate: this.#caCertificate,
-        signingKey: this.#signingKey,
+        caCertificate,
+        signingKey,
         ttlDays: PROBE_TTL_DAYS,
         now: this.#now(),
       });
-      await verifyAgentCertificateProfile(
-        issued.certificatePem,
-        this.#caCertificate,
-        PROBE_PRINCIPAL,
-      );
+      await verifyAgentCertificateProfile(issued.certificatePem, caCertificate, PROBE_PRINCIPAL);
       if (issued.fingerprint.length !== 64) {
         throw new Error("probe output is invalid");
       }
@@ -411,8 +420,10 @@ export class CaSigner {
     }
   }
 
-  /** Drops references to the signing key. */
+  /** Drops references to the signing key and CA certificate. */
   public destroy(): void {
     this.#destroyed = true;
+    this.#signingKey = undefined;
+    this.#caCertificate = undefined;
   }
 }
