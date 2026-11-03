@@ -2,8 +2,8 @@
 
 > **Document**: 99-execution-plan.md
 > **Parent**: [Index](00-index.md)
-> **Last Updated**: 2026-11-03 10:15
-> **Progress**: 11/69 tasks (16%)
+> **Last Updated**: 2026-11-03 10:20
+> **Progress**: 12/69 tasks (17%)
 > **CodeOps Artifact Schema**: 1
 
 ## Overview
@@ -90,7 +90,7 @@ guards before any implementation.
 
 **Reference**: [07](07-testing-strategy.md) §Contracts, §Schema, §Verification Commands · AR-12, AR-14, AR-17, AR-25
 
-- [ ] 1.3.1 Write contract edge tests for strict fields, name/TTL boundaries, status-code mapping, and response shapes — `packages/api-contract/tests/identities.impl.test.ts`, `packages/api-contract/tests/agents.impl.test.ts`
+- [x] 1.3.1 Write contract edge tests for strict fields, name/TTL boundaries, status-code mapping, and response shapes ✅ (completed: 2026-11-03 10:20) — `packages/api-contract/tests/identities.impl.test.ts`, `packages/api-contract/tests/agents.impl.test.ts`
 - [ ] 1.3.2 Write migration/trigger implementation tests for key lengths, index predicates, full-row guards, kind immutability, and type drift — `apps/server/tests/integration/schema-identity.impl.test.ts`
 - [ ] 1.3.3 Run `pnpm verify`, the integration gate, and `pnpm db:types:check` — `pnpm verify`; integration commands from [07](07-testing-strategy.md) §Verification Commands
 
