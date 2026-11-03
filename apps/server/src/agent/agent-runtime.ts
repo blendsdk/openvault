@@ -20,7 +20,7 @@ import { AgentRenewService, RenewalReplayCache } from "./agent-renew-service.js"
 import { ConsumerRepository } from "./consumer-repository.js";
 import { DatabaseProjectResolver } from "./project-resolver.js";
 
-/** The Phase 3 agent runtime core shared by the application and tests. */
+/** The agent runtime core shared by the application and tests. */
 export interface AgentRuntimeCore {
   /** Loaded CA signer. */
   readonly caSigner: CaSigner;

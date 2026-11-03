@@ -96,7 +96,13 @@ describe("log redaction", () => {
           originalUrl: "/v1/auth/callback?code=secret-original-code&state=secret-original-state",
           query: { code: "secret-query-code", state: "secret-query-state" },
         },
-        nested: { token: "secret-nested-token" },
+        nested: {
+          token: "secret-nested-token",
+          token_hash: "secret-nested-token-hash",
+          cert_pem: "secret-nested-cert-pem",
+          kek_id: "secret-nested-kek-id",
+          kekId: "secret-nested-kek-id-camel",
+        },
       });
       await provider.info("error probe", {
         code: "invalid_credentials",
@@ -152,6 +158,10 @@ describe("log redaction", () => {
         "secret-query-code",
         "secret-query-state",
         "secret-nested-token",
+        "secret-nested-token-hash",
+        "secret-nested-cert-pem",
+        "secret-nested-kek-id",
+        "secret-nested-kek-id-camel",
       ]) {
         expect(output).not.toContain(secret);
       }

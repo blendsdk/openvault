@@ -73,3 +73,18 @@ authenticator cache implementation tests remain scheduled by the execution plan 
 
 No Phase 4 critical or major product defect was found; the security review reported no findings.
 All reported minor findings were fixed.
+
+## Phase 5
+
+| Finding | Phase | Severity | Area | Ruling |
+|---|---|---|---|---|
+| RV-001 | 5 | MAJOR | deferred CA/data-plane docs | fixed |
+| RV-002 / SA-003 | 5 | MINOR | readiness/CA row claims | fixed |
+| RV-003 | 5 | MINOR | changeset private packages | fixed |
+| RV-004 / SA-002 | 5 | MINOR | nested snake-case redaction | fixed |
+| RV-005 / SA-001 | 5 | MINOR | captured-log evidence | fixed |
+| RV-006 | 5 | MINOR | planning references | fixed |
+| RV-007 | 5 | MINOR | changelog drift | fixed |
+| SA-004 | 5 | MINOR | roadmap residual owners | fixed |
+
+All Phase 5 findings were fixed. Final verification passed on PostgreSQL 16 and 17.

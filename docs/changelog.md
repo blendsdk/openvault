@@ -14,10 +14,10 @@
 - Server-side service identities, administrative lifecycle, join-token issuance, CA/X.509
   agent join and renewal, mTLS agent listener, revocation, bounded retention, and CA
   readiness.
+- Local and OIDC browser authentication plus CLI bearer authentication.
 
 ### Planned
 
-- Local and OIDC BFF authentication.
 - Secrets and certificates.
 - Scoped RBAC and per-object capabilities.
 - `ov-agent` client with tmpfs delivery and local status socket.

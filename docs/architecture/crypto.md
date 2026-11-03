@@ -24,12 +24,13 @@ previous key exist. Each process refreshes its current/previous snapshot when it
 
 The workload CA key is stored in `ca_keys` as a 32-byte P-256 scalar wrapped by the current
 KEK. `OPENVAULT_INTERNAL_CA` is the matching public certificate. The CA profile is EC P-256,
-self-signed, 10 years, `CA:TRUE`, `pathlen:0`, and `keyCertSign`. `ov init` creates it once;
-re-running init does not rotate it. A `CaSigner` is the only component that unwraps the key
-for signing; the KEK-rotation path may unwrap it only to re-wrap it. Startup and `/ready` fail
-closed if the key is missing or does not match the public certificate. The CA initialization
-and backup workflow re-wraps the key, backs it up, and re-materializes the public certificate
-on restore.
+self-signed, 10 years, `CA:TRUE`, `pathlen:0`, and `keyCertSign`. The deployment provisioner
+creates it once; re-running the provisioner does not rotate it. A `CaSigner` is the only
+component that unwraps the key for signing. Startup fails closed if the key is missing or does
+not match the public certificate. `/ready` uses the loaded signer without re-reading the row. The current release
+consumes a `ca_keys` row provisioned by the deployment workflow. CA generation, backup, and
+restore are later work; a backup must include the wrapped row and public certificate, never
+the raw key.
 
 ## Envelope encryption
 

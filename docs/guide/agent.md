@@ -2,8 +2,8 @@
 
 ::: info Current scope
 The server-side join, renewal, revocation, certificate, and data-route boundary are
-implemented. The `ov-agent` client, tmpfs delivery, and local status socket are delivered by
-the agent roadmap item.
+implemented. The `ov-agent` client, tmpfs delivery, and local status socket are delivered in
+a later release.
 :::
 
 The agent runs next to an application service. Its first start joins with a one-time token,

@@ -3,6 +3,7 @@ import type { PostgreSQLDatabase } from "blendsdk/postgresql";
 import type { AgentRateLimitOptions } from "../../../src/agent/agent-rate-limits.js";
 import { type AgentRuntime, createAgentRuntime } from "../../../src/agent/agent-runtime.js";
 import { createApplication } from "../../../src/app.js";
+import { createLoggerProvider } from "../../../src/observability/logger.js";
 import { KeyringProvider } from "../../../src/security/keyring.js";
 import type {
   SecureWebApplication,
@@ -51,6 +52,10 @@ export async function startAgentTestServer(options: {
     await seedCaKey(options.testDb.db, keyring, options.ca);
   }
   const database = options.database ?? options.testDb.db;
+  const logger =
+    options.loggerDestination === undefined
+      ? undefined
+      : createLoggerProvider(options.environment.config, options.loggerDestination);
   const runtime = await createAgentRuntime({
     database,
     keyring,
@@ -63,6 +68,7 @@ export async function startAgentTestServer(options: {
     ...(options.maintenanceBatchSize === undefined
       ? {}
       : { maintenanceBatchSize: options.maintenanceBatchSize }),
+    ...(logger === undefined ? {} : { logger }),
   });
   const app = createApplication(options.environment.config, {
     database,
@@ -72,6 +78,7 @@ export async function startAgentTestServer(options: {
     ...(options.loggerDestination === undefined
       ? {}
       : { loggerDestination: options.loggerDestination }),
+    ...(logger === undefined ? {} : { logger }),
   });
   options.configure?.(app);
   await app.prepare();

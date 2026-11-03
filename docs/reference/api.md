@@ -193,10 +193,10 @@ revocation, an active principal, and an active project. A failed check returns
 `401 authentication_required`; a database/cache failure returns 503. The check runs on every
 request, not only at the TLS handshake, and the state cache is bounded to 5 seconds.
 
-The agent data-plane fetch uses the existing `GET /v1/data/:project/secrets/:name` route on
-the agent listener. The certificate principal's `owner_project_id` must equal the id of the
-project named by `:project`; a successful fetch updates the consumer's `last_seen` and
-`state`. Revocation removes all
+The agent listener reserves `GET /v1/data/:project/secrets/:name` for the data-plane release.
+The certificate principal's `owner_project_id` must equal the id of the project named by
+`:project`; the production secret handler and consumer heartbeat are delivered with that
+data-plane work. Revocation removes all
 certificates and unused tokens in one transaction; no request succeeds more than 5 seconds
 after the revocation commits, including on an existing keep-alive connection. Renewal is
 allowed after two thirds of the certificate's actual lifetime and requires a fresh CSR/key.
@@ -204,8 +204,9 @@ Only the newest unexpired, unrevoked certificate may renew; older certificates r
 for data until expiry. Join tokens and workload certificates have bounded retention: tokens
 for 24 hours after expiry/use; certificates for 30 days after expiry or revocation.
 
-`GET /ready` also checks that the wrapped CA signing key is present, matches
-`OPENVAULT_INTERNAL_CA`, and can sign a test certificate that verifies against the CA.
+Startup validates that the wrapped CA signing key is present and matches
+`OPENVAULT_INTERNAL_CA`; `GET /ready` then signs and verifies a test certificate with the
+loaded key.
 
 ### Meta
 
