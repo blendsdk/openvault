@@ -99,7 +99,7 @@ export class AgentMaintenanceService {
   readonly #batchSize: number;
   #timer: ReturnType<typeof setInterval> | undefined;
   #started = false;
-  #activeRun: Promise<void> | undefined;
+  readonly #activeRuns = new Set<Promise<void>>();
 
   /**
    * @param options - Repository, logger, interval, and batch size.
@@ -123,17 +123,16 @@ export class AgentMaintenanceService {
     }
     this.#started = true;
     this.#timer = setInterval(() => {
-      void this.#runScheduled();
+      void this.#track(this.#runScheduled());
     }, this.#intervalMs);
     this.#timer.unref?.();
     // The initial cleanup runs in the background so a slow table or lock
     // cannot delay listener binding. stop()/dispose() waits for this run.
-    this.#activeRun = this.runOnce()
-      .then(() => undefined)
-      .catch(() => this.#logFailure())
-      .finally(() => {
-        this.#activeRun = undefined;
-      });
+    void this.#track(
+      this.runOnce()
+        .then(() => undefined)
+        .catch(() => this.#logFailure()),
+    );
   }
 
   /**
@@ -159,8 +158,8 @@ export class AgentMaintenanceService {
     } else {
       failure ??= results[1].reason;
     }
-    if (failure !== undefined) {
-      throw failure;
+    if (results.some((result) => result.status === "rejected")) {
+      throw failure ?? new Error("Agent cleanup failed");
     }
     return { tokens, certificates };
   }
@@ -182,13 +181,22 @@ export class AgentMaintenanceService {
       this.#timer = undefined;
     }
     this.#started = false;
-    const active = this.#activeRun;
-    if (active !== undefined) {
-      await active;
-    }
+    await Promise.allSettled([...this.#activeRuns]);
+  }
+
+  /** Tracks one in-flight run so stop() can wait for it. */
+  #track(run: Promise<void>): Promise<void> {
+    const tracked = run.finally(() => {
+      this.#activeRuns.delete(tracked);
+    });
+    this.#activeRuns.add(tracked);
+    return tracked;
   }
 
   async #runScheduled(): Promise<void> {
+    if (!this.#started) {
+      return;
+    }
     try {
       await this.runOnce();
     } catch {

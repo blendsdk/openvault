@@ -1,5 +1,4 @@
 import { randomBytes } from "node:crypto";
-import { setTimeout as delay } from "node:timers/promises";
 import { PostgreSQLDatabase } from "blendsdk/postgresql";
 import type { Logger } from "blendsdk/webafx";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
@@ -381,7 +380,47 @@ describe("runtime lifecycle", () => {
     await bootstrapAgentRuntime(server.app);
     expect(runtime.maintenance.started).toBe(true);
     runtime.authenticator.clear();
-    runtime.renewalCache.clear();
+
+    const project = { id: id(), name: `lifecycle-${nextId}` };
+    await testDb.db.executeQuery("INSERT INTO projects (id, name) VALUES (:id, :name)", project);
+    const service = id();
+    await testDb.db.executeQuery(
+      `INSERT INTO principals (id, kind, name, owner_project_id)
+       VALUES (:id, 'service', 'lifecycle-service', :projectId)`,
+      { id: service, projectId: project.id },
+    );
+    const client = await createAgentClientCertificate(ca, service);
+    await testDb.db.executeQuery(
+      `INSERT INTO workload_certs
+         (id, principal_id, serial, fingerprint, not_before, not_after)
+       VALUES (:id, :principalId, :serial, :fingerprint, now() - interval '1 hour',
+               now() + interval '1 day')`,
+      {
+        id: id(),
+        principalId: service,
+        serial: client.fingerprint.slice(0, 32),
+        fingerprint: client.fingerprint,
+      },
+    );
+    const health = await testRequest({
+      port: server.handle.agentPort,
+      path: "/health",
+      host: "127.0.0.1",
+      ca: environment.tls.caPem,
+      servername: "localhost",
+      cert: client.certPem,
+      key: client.keyPem,
+    });
+    expect(health.status).toBe(200);
+    runtime.renewalCache.set(service, "hash", {
+      certificatePem: "certificate",
+      chainPem: "chain",
+      identityId: service,
+      serial: "01",
+      notAfter: "2027-01-01T00:00:00.000Z",
+    });
+    expect(runtime.authenticator.size).toBeGreaterThan(0);
+    expect(runtime.renewalCache.size).toBeGreaterThan(0);
 
     await server.stop();
     expect(runtime.maintenance.started).toBe(false);
