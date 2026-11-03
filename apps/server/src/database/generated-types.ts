@@ -910,6 +910,41 @@ export interface Org {
 }
 
 /**
+ * @default id to 1
+ * @primaryKey id
+ * @unique id
+ * @checkContraint id CHECK ((id = 1))
+ * @default updated_at to now()
+ * @default version to 1
+ * @checkContraint version CHECK ((version > 0))
+ * @interface
+ */
+export interface PolicyState {
+  /**
+   * @default 1
+   * @primaryKey
+   * @unique
+   * @checkContraint CHECK ((id = 1))
+   * @optional
+   * @memberOf {PolicyState}
+   */
+  id?: number;
+  /**
+   * @default now()
+   * @optional
+   * @memberOf {PolicyState}
+   */
+  updated_at?: Date;
+  /**
+   * @default 1
+   * @checkContraint CHECK ((version > 0))
+   * @optional
+   * @memberOf {PolicyState}
+   */
+  version?: string;
+}
+
+/**
  * @default created_at to now()
  * @checkContraint disabled_at CHECK ((((status = 'active'::text) AND (disabled_at IS NULL)) OR ((status = 'disabled'::text) AND (disabled_at IS NOT NULL))))
  * @primaryKey id

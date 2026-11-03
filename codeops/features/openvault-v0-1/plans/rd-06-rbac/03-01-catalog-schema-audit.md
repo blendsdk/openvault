@@ -263,7 +263,7 @@ export interface PolicyDecisionEvent {
   readonly objectType: "project" | "identity" | "secret" | "certificate" | null;
   readonly objectId: string | null;
   readonly result: "allow" | "deny";
-  readonly reason: PolicyReason;
+  readonly reason: DecisionReason;
   readonly policyVersion: number;
   readonly denialCount?: number;
   readonly context?: PolicyAuditContext;
@@ -271,6 +271,7 @@ export interface PolicyDecisionEvent {
 
 export interface PolicyMutationEvent {
   readonly actorId: string;
+  readonly actorKind: "user";
   readonly action: "assignment.grant" | "assignment.revoke";
   readonly assignmentId: string;
   readonly targetPrincipalId: string;
@@ -292,9 +293,13 @@ export interface PolicyAuditPort {
 `LoggingPolicyAudit` implements the port with the existing WebAFX `Logger`:
 
 ```ts
-await logger.info("policy decision", { ...event });
-await logger.info("policy mutation", { ...event });
+await logger.error("policy decision", { ...event });
+await logger.error("policy mutation", { ...event });
 ```
+
+Policy evidence is written on the error channel so it survives every supported log level. A
+deployment that sets `OPENVAULT_LOG_LEVEL=warn` or `error` would otherwise silently drop
+`info` records and let authorization proceed without evidence.
 
 The adapter keeps a bounded per-principal denial counter (`Map<principalId, number>`, at most
 1,024 principals, oldest insertion evicted). A denied decision includes `denialCount` so abuse

@@ -1712,6 +1712,52 @@
     },
     {
       "schema": "public",
+      "name": "policy_state",
+      "columns": [
+        {
+          "name": "id",
+          "type": "smallint",
+          "nullable": false,
+          "default": 1
+        },
+        {
+          "name": "updated_at",
+          "type": "timestamptz",
+          "nullable": false,
+          "default": "now()"
+        },
+        {
+          "name": "version",
+          "type": "bigint",
+          "nullable": false,
+          "default": 1
+        }
+      ],
+      "primaryKey": {
+        "kind": "primaryKey",
+        "name": "policy_state_id_pkey",
+        "columns": [
+          "id"
+        ]
+      },
+      "uniqueConstraints": [],
+      "checkConstraints": [
+        {
+          "kind": "check",
+          "name": "policy_state_429634fbaa_check",
+          "expression": "version > 0"
+        },
+        {
+          "kind": "check",
+          "name": "policy_state_cec3cc2294_check",
+          "expression": "id = 1"
+        }
+      ],
+      "foreignKeys": [],
+      "indexes": []
+    },
+    {
+      "schema": "public",
       "name": "principals",
       "columns": [
         {

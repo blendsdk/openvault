@@ -15,11 +15,12 @@
   agent join and renewal, mTLS agent listener, revocation, bounded retention, and CA
   readiness.
 - Local and OIDC browser authentication plus CLI bearer authentication.
+- Scoped RBAC with fixed actions and roles, assignment administration, grant guards,
+  policy-side capability computation, and access explanations.
 
 ### Planned
 
 - Secrets and certificates.
-- Scoped RBAC and per-object capabilities.
 - `ov-agent` client with tmpfs delivery and local status socket.
 - CLI and Docker Compose scaffold.
 - Audit chain, verification, and export.

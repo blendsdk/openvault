@@ -51,7 +51,9 @@ describe("service identity generated artifacts", () => {
     const ids = result.records.map((row) => row.id);
     expect(ids).toContain("20261103141309_service-identities");
     expect(ids).toContain("20261103141310_identity-guards");
-    expect(ids).toHaveLength(6);
+    expect(ids).toContain("20261103192657_rbac-policy-state");
+    expect(ids).toContain("20261103192700_policy-state-seed");
+    expect(ids).toHaveLength(8);
   });
 });
 

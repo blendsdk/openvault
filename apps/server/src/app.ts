@@ -7,6 +7,7 @@ import type { AgentProjectResolver } from "./agent/project-resolver.js";
 import { createAuthPlugin } from "./auth/plugin.js";
 import type { OpenVaultConfig } from "./config/index.js";
 import { AgentController } from "./controllers/agent.js";
+import { AccessExplainController, AssignmentsController } from "./controllers/assignments.js";
 import { AuthController } from "./controllers/auth.js";
 import { CliAuthController } from "./controllers/cli-auth.js";
 import { IdentityController } from "./controllers/identity.js";
@@ -15,6 +16,7 @@ import { OidcController } from "./controllers/oidc.js";
 import { ReadyController } from "./controllers/ready.js";
 import { createIdentityRuntime } from "./identity/identity-runtime.js";
 import { createLoggerProvider } from "./observability/logger.js";
+import { createPolicyRuntime } from "./rbac/runtime.js";
 import { createProductionProbes, ReadinessService } from "./readiness/service.js";
 import { KeyringProvider } from "./security/keyring.js";
 import { installPreStack, type PreStackOptions } from "./transport/pre-stack.js";
@@ -46,10 +48,18 @@ export function createApplication(
   const app = new SecureWebApplication(config, dependencies);
   const provider: PinoLoggerProvider =
     dependencies.logger ?? createLoggerProvider(config, dependencies.loggerDestination);
+  const policyRuntime =
+    dependencies.agentRuntime?.policyRuntime ??
+    dependencies.identityRuntime?.policyRuntime ??
+    createPolicyRuntime({ database: dependencies.database, logger: provider });
   const identityRuntime =
     dependencies.agentRuntime?.identityRuntime ??
     dependencies.identityRuntime ??
-    createIdentityRuntime({ database: dependencies.database, config });
+    createIdentityRuntime({
+      database: dependencies.database,
+      config,
+      policyRuntime,
+    });
   const authenticator =
     dependencies.agentRuntime?.authenticator ?? dependencies.agentOverrides?.authenticator;
   const projectResolver: AgentProjectResolver = dependencies.agentRuntime?.projectResolver ??
@@ -86,6 +96,31 @@ export function createApplication(
         keyring.destroy();
       }
     },
+  });
+  app.registerService({
+    name: "policyRepository",
+    type: "singleton",
+    factory: () => policyRuntime.repository,
+  });
+  app.registerService({
+    name: "policyAudit",
+    type: "singleton",
+    factory: () => policyRuntime.audit,
+  });
+  app.registerService({
+    name: "policyService",
+    type: "singleton",
+    factory: () => policyRuntime.service,
+  });
+  app.registerService({
+    name: "assignmentService",
+    type: "singleton",
+    factory: () => policyRuntime.assignments,
+  });
+  app.registerService({
+    name: "rbacRateLimits",
+    type: "singleton",
+    factory: () => policyRuntime.rateLimits,
   });
   app.registerService({
     name: "identityRuntime",
@@ -188,6 +223,8 @@ export function createApplication(
   app.registerController("/v1/auth/cli", CliAuthController);
   app.registerController("/v1/auth", OidcController);
   app.registerController("/v1/admin/identities", IdentityController);
+  app.registerController("/v1/admin/assignments", AssignmentsController);
+  app.registerController("/v1/admin/access-explain", AccessExplainController);
   if (dependencies.agentRuntime !== undefined) {
     app.registerController("/v1/agent", AgentController);
   }

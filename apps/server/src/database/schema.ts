@@ -274,6 +274,21 @@ roleAssignments.checkConstraint(
 roleAssignments.index().column("principal_id").indexName("role_assignments_principal_idx");
 roleAssignments.index().column("scope_type", "scope_id").indexName("role_assignments_scope_idx");
 
+/**
+ * Single-row policy version and mutation lock.
+ *
+ * Every assignment change updates this row inside its transaction. The row
+ * update serializes concurrent grants and revocations and carries the version
+ * that callers and audit events use to detect policy changes.
+ */
+const policyState = db.table("policy_state");
+policyState.smallint("id").default(1);
+policyState.bigint("version").default(1);
+policyState.timestamptz("updated_at").default("now()");
+policyState.primaryKey().column("id");
+policyState.checkConstraint("id = 1");
+policyState.checkConstraint("version > 0");
+
 // ---------------------------------------------------------------------------
 // Secrets
 // ---------------------------------------------------------------------------

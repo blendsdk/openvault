@@ -152,9 +152,11 @@ export class IdentityService {
         ? "all"
         : await this.#authorizer.readableProjectIds(actorId);
     } else {
-      scope = (await this.#authorizer.canReadAll(actorId))
-        ? "all"
-        : await this.#authorizer.readableProjectIds(actorId);
+      const visibility = await this.#authorizer.readScope(actorId);
+      if (visibility === undefined) {
+        throw new IdentityServiceError(403, "access_denied", "Access denied");
+      }
+      scope = visibility.kind === "all" ? "all" : visibility.projectIds;
     }
 
     const identities = await this.#repository.listIdentities(scope, projectId);

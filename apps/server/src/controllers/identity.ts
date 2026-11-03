@@ -14,6 +14,7 @@ import type { Request, Response } from "express";
 import { requirePrincipal } from "../auth/middleware.js";
 import { IdentityServiceError } from "../identity/errors.js";
 import type { IdentityService } from "../identity/identity-service.js";
+import { PolicyUnavailableError } from "../rbac/errors.js";
 
 /** Converts a domain error into the stable WebAFX envelope. */
 async function execute<T>(action: () => Promise<T>): Promise<T> {
@@ -22,6 +23,9 @@ async function execute<T>(action: () => Promise<T>): Promise<T> {
   } catch (error) {
     if (error instanceof IdentityServiceError) {
       throw new ApiError(error.statusCode, error.code, error.message);
+    }
+    if (error instanceof PolicyUnavailableError) {
+      throw new ApiError(503, "service_unavailable", "Service unavailable");
     }
     throw error;
   }
@@ -39,8 +43,8 @@ function identityId(req: Request): string {
 /**
  * Administrative service-identity routes.
  *
- * The narrow identity authorizer enforces the pre-RBAC matrix; the controller
- * only parses requests, maps stable errors, and serializes public responses.
+ * The policy engine enforces the action matrix; the controller only parses
+ * requests, maps stable errors, and serializes public responses.
  */
 export class IdentityController extends BaseController {
   /** @inheritDoc */
