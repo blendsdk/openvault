@@ -2,6 +2,7 @@ import type { PostgreSQLDatabase } from "blendsdk/postgresql";
 import type { Logger } from "blendsdk/webafx";
 import type { OpenVaultConfig } from "../config/index.js";
 import { createIdentityRuntime, type IdentityRuntime } from "../identity/identity-runtime.js";
+import { createPolicyRuntime, type PolicyRuntime } from "../rbac/runtime.js";
 import { CaSigner } from "../security/ca.js";
 import type { KeyringProvider } from "../security/keyring.js";
 import type { TlsMaterial } from "../transport/tls.js";
@@ -38,6 +39,8 @@ export interface AgentRuntimeCore {
   readonly rateLimits: AgentRateLimitService;
   /** Process-local renewal replay cache. */
   readonly renewalCache: RenewalReplayCache;
+  /** Shared policy runtime. */
+  readonly policyRuntime: PolicyRuntime;
 }
 
 /** The complete agent runtime, including maintenance and disposal. */
@@ -93,6 +96,10 @@ const silentLogger: Logger = {
 export async function createAgentRuntime(
   options: CreateAgentRuntimeOptions,
 ): Promise<AgentRuntime> {
+  const policyRuntime = createPolicyRuntime({
+    database: options.database,
+    ...(options.logger === undefined ? {} : { logger: options.logger }),
+  });
   const caSigner = await CaSigner.load({
     database: options.database,
     keyring: options.keyring,
@@ -119,6 +126,7 @@ export async function createAgentRuntime(
   const identityRuntime = createIdentityRuntime({
     database: options.database,
     config: options.config,
+    policyService: policyRuntime.service,
     onRevoked: (principalId) => {
       authenticator.invalidatePrincipal(principalId);
       renewService.invalidatePrincipal(principalId);
@@ -152,6 +160,7 @@ export async function createAgentRuntime(
     renewService,
     rateLimits: createAgentRateLimitService(options.rateLimitOptions),
     renewalCache,
+    policyRuntime,
     maintenance,
     async dispose(): Promise<void> {
       await maintenance.stop();

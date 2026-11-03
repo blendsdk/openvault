@@ -3,7 +3,7 @@
 > **Document**: 99-execution-plan.md
 > **Parent**: [Index](00-index.md)
 > **Last Updated**: 2026-11-03 20:25
-> **Progress**: 16/57 tasks (28%)
+> **Progress**: 32/57 tasks (56%)
 > **CodeOps Artifact Schema**: 1
 
 ## Overview
@@ -107,32 +107,32 @@ implementation.
 
 **Reference**: [03-02](03-02-policy-evaluator.md) §Decision algorithm, §List authorization, §Grant authorization, §Capabilities, §Identity bridge · [07](07-testing-strategy.md) ST-4, ST-16–ST-30, ST-53–ST-55 · AR-3, AR-9, AR-10, AR-12, AR-19, AR-22
 
-- [ ] 2.1.1 [spec-author] Write catalog-route, evaluator, capability, and audit tests for ST-4 and ST-16–ST-30 — `apps/server/tests/integration/rbac-policy.spec.test.ts`
-- [ ] 2.1.2 [spec-author] Write identity bridge and list-denial tests for ST-53–ST-55 — `apps/server/tests/integration/rbac-identity.spec.test.ts`
-- [ ] 2.1.3 Run the Phase 2 specification tests and record the red result
+- [x] 2.1.1 [spec-author] Write catalog-route, evaluator, capability, and audit tests for ST-4 and ST-16–ST-30 — `apps/server/tests/integration/rbac-policy.spec.test.ts` ✅ (completed: 2026-11-03 21:05)
+- [x] 2.1.2 [spec-author] Write identity bridge and list-denial tests for ST-53–ST-55 — `apps/server/tests/integration/rbac-identity.spec.test.ts` ✅ (completed: 2026-11-03 21:05)
+- [x] 2.1.3 Run the Phase 2 specification tests and record the red result ✅ (completed: 2026-11-03 21:05)
 
 ### Step 2.2: Implementation
 
 **Reference**: [03-02](03-02-policy-evaluator.md) §Decision algorithm, §List authorization, §Grant authorization, §Capabilities, §Identity bridge, §Runtime composition · AR-3, AR-12, AR-22
 
-- [ ] 2.2.1 Add the actor snapshot, version, and resource repository — `apps/server/src/rbac/policy-repository.ts`
-- [ ] 2.2.2 Implement `authorize`, scope matching, reason selection, and `recordDecision` — `apps/server/src/rbac/policy-service.ts`
-- [ ] 2.2.3 Implement `authorizeList`, `authorizeGrant`, `effectiveActions`, and `capabilitiesFor` — `apps/server/src/rbac/policy-service.ts`
-- [ ] 2.2.4 Replace the identity helper internals and add `readScope` — `apps/server/src/identity/identity-authorizer.ts`
-- [ ] 2.2.5 Deny an identity list with no visible scope — `apps/server/src/identity/identity-service.ts`
-- [ ] 2.2.6 Add the policy runtime and pass it through the identity runtime — `apps/server/src/rbac/runtime.ts`, `apps/server/src/identity/identity-runtime.ts`
-- [ ] 2.2.7 Wire the policy runtime through the agent runtime and application services — `apps/server/src/agent/agent-runtime.ts`, `apps/server/src/app.ts`
-- [ ] 2.2.8 Add the public role catalog route — `apps/server/src/controllers/meta.ts`
-- [ ] 2.2.9 Map policy-unavailable failures in the identity controller — `apps/server/src/controllers/identity.ts`
+- [x] 2.2.1 Add the actor snapshot, version, and resource repository — `apps/server/src/rbac/policy-repository.ts` ✅ (completed: 2026-11-03 21:05)
+- [x] 2.2.2 Implement `authorize`, scope matching, reason selection, and `recordDecision` — `apps/server/src/rbac/policy-service.ts` ✅ (completed: 2026-11-03 21:05)
+- [x] 2.2.3 Implement `authorizeList`, `authorizeGrant`, `effectiveActions`, and `capabilitiesFor` — `apps/server/src/rbac/policy-service.ts` ✅ (completed: 2026-11-03 21:05)
+- [x] 2.2.4 Replace the identity helper internals and add `readScope` — `apps/server/src/identity/identity-authorizer.ts` ✅ (completed: 2026-11-03 21:05)
+- [x] 2.2.5 Deny an identity list with no visible scope — `apps/server/src/identity/identity-service.ts` ✅ (completed: 2026-11-03 21:05)
+- [x] 2.2.6 Add the policy runtime and pass it through the identity runtime — `apps/server/src/rbac/runtime.ts`, `apps/server/src/identity/identity-runtime.ts` ✅ (completed: 2026-11-03 21:05)
+- [x] 2.2.7 Wire the policy runtime through the agent runtime and application services — `apps/server/src/agent/agent-runtime.ts`, `apps/server/src/app.ts` ✅ (completed: 2026-11-03 21:05)
+- [x] 2.2.8 Add the public role catalog route — `apps/server/src/controllers/meta.ts` ✅ (completed: 2026-11-03 21:05)
+- [x] 2.2.9 Map policy-unavailable failures in the identity controller — `apps/server/src/controllers/identity.ts` ✅ (completed: 2026-11-03 21:05)
 
 ### Step 2.3: Implementation Tests and Hardening
 
 **Reference**: [03-02](03-02-policy-evaluator.md) §Error Handling · [07](07-testing-strategy.md) ST-16–ST-30, ST-53–ST-55 · AR-9, AR-19, AR-22
 
-- [ ] 2.3.1 Write evaluator implementation tests for scope, reason, and version edges — `apps/server/tests/integration/rbac-policy.impl.test.ts`
-- [ ] 2.3.2 Write runtime and audit composition tests — `apps/server/tests/integration/rbac-policy.impl.test.ts`
-- [ ] 2.3.3 Re-run the Phase 2 specification and existing identity suites and confirm green
-- [ ] 2.3.4 Run `pnpm verify`, the integration gate, and `pnpm db:types:check`
+- [x] 2.3.1 Write evaluator implementation tests for scope, reason, and version edges — `apps/server/tests/integration/rbac-policy.impl.test.ts` ✅ (completed: 2026-11-03 21:05)
+- [x] 2.3.2 Write runtime and audit composition tests — `apps/server/tests/integration/rbac-policy.impl.test.ts` ✅ (completed: 2026-11-03 21:05)
+- [x] 2.3.3 Re-run the Phase 2 specification and existing identity suites and confirm green ✅ (completed: 2026-11-03 21:05)
+- [x] 2.3.4 Run `pnpm verify`, the integration gate, and `pnpm db:types:check` ✅ (completed: 2026-11-03 21:08)
 
 **Verify**: `pnpm verify` plus the integration gate in [07](07-testing-strategy.md) §Verification Checklist
 

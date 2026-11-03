@@ -1,52 +1,51 @@
+import type { Logger } from "blendsdk/webafx";
+import type { PolicyAuditContext } from "../rbac/audit.js";
+import { LoggingPolicyAudit } from "../rbac/audit.js";
+import { PolicyRepository } from "../rbac/policy-repository.js";
+import { type PolicyResource, PolicyService } from "../rbac/policy-service.js";
 import type { QueryExecutor } from "./identity-repository.js";
 
-/** Identity actions understood by the narrow pre-RBAC helper. */
+/** Identity actions understood by the administrative API. */
 export type IdentityAction =
   | "identity.create"
   | "identity.read"
   | "identity.revoke"
   | "identity.join_token";
 
-interface AssignmentRow {
-  readonly role: string;
-  readonly scope_type: string;
-  readonly scope_id: string;
-}
-
-const READ_ORG_ROLES = new Set(["org.admin", "project.admin", "auditor"]);
-const READ_PROJECT_ROLES = new Set(["project.admin", "auditor"]);
-const WRITE_ORG_ROLES = new Set(["org.admin", "project.admin"]);
-const WRITE_PROJECT_ROLES = new Set(["project.admin"]);
-
-function readRoles(action: IdentityAction): {
-  readonly org: ReadonlySet<string>;
-  readonly project: ReadonlySet<string>;
-} {
-  return action === "identity.read"
-    ? { org: READ_ORG_ROLES, project: READ_PROJECT_ROLES }
-    : { org: WRITE_ORG_ROLES, project: WRITE_PROJECT_ROLES };
-}
+const silentLogger: Logger = {
+  info: async () => undefined,
+  error: async () => undefined,
+  warn: async () => undefined,
+  debug: async () => undefined,
+};
 
 /**
- * Resolves the identity slice of the authorization matrix until the full RBAC
- * evaluator is available.
+ * Identity-authorization adapter used by the administrative service.
  *
- * The helper never trusts a role name outside the scope where it is valid:
- * an org-scoped assignment covers every project; a project-scoped assignment
- * covers only that project; and a project-scoped `org.admin` is ignored.
+ * The full policy engine owns the matrix and scope rules. This class keeps the
+ * narrow method shape that the identity service already calls, so the admin API
+ * does not change when the policy engine replaces the former helper.
  */
 export class IdentityAuthorizer {
-  readonly #database: QueryExecutor;
+  readonly #policy: PolicyService;
 
   /**
-   * @param database - Database that stores role assignments.
+   * @param database - Database or transaction executor.
+   * @param policy - Optional shared policy service; production passes the app service.
    */
-  public constructor(database: QueryExecutor) {
-    this.#database = database;
+  public constructor(database: QueryExecutor, policy?: PolicyService) {
+    this.#policy =
+      policy ??
+      new PolicyService({
+        repository: new PolicyRepository(database),
+        // Direct construction is used by narrow tests; production always passes
+        // the application policy service with its real logger.
+        audit: new LoggingPolicyAudit(silentLogger),
+      });
   }
 
   /**
-   * Checks one action against the actor's unexpired assignments.
+   * Checks one identity action against a service identity's owner project.
    *
    * @param action - Identity action.
    * @param actorId - Signed-in user principal.
@@ -54,39 +53,22 @@ export class IdentityAuthorizer {
    * @returns True when the action is covered.
    */
   public async can(action: IdentityAction, actorId: string, projectId: string): Promise<boolean> {
-    const assignments = await this.#assignments(actorId);
-    const roles = readRoles(action);
-    return assignments.some((assignment) => {
-      if (assignment.scope_type === "org") {
-        return roles.org.has(assignment.role);
-      }
-      return (
-        assignment.scope_type === "project" &&
-        assignment.scope_id === projectId &&
-        roles.project.has(assignment.role)
-      );
-    });
+    const resource: Extract<PolicyResource, { type: "project" }> = {
+      type: "project",
+      id: projectId,
+    };
+    return (await this.#policy.authorize(actorId, action, resource)).allowed;
   }
 
   /**
-   * Reports whether the actor has any assignment for an action.
-   *
-   * This distinguishes an actor with no relevant role (a policy denial) from
-   * an actor whose role simply does not cover the target project (a hidden
-   * foreign identity).
+   * Reports whether the actor holds an identity action somewhere.
    *
    * @param action - Identity action.
    * @param actorId - Signed-in user principal.
-   * @returns True when at least one assignment covers the action somewhere.
+   * @returns True when at least one assignment covers the action.
    */
   public async hasAny(action: IdentityAction, actorId: string): Promise<boolean> {
-    const assignments = await this.#assignments(actorId);
-    const roles = readRoles(action);
-    return assignments.some((assignment) =>
-      assignment.scope_type === "org"
-        ? roles.org.has(assignment.role)
-        : assignment.scope_type === "project" && roles.project.has(assignment.role),
-    );
+    return (await this.#policy.hasAny(actorId, action)).allowed;
   }
 
   /**
@@ -96,10 +78,15 @@ export class IdentityAuthorizer {
    * @returns True for org-scoped admin, project-admin, or auditor.
    */
   public async canReadAll(actorId: string): Promise<boolean> {
-    const assignments = await this.#assignments(actorId);
-    return assignments.some(
-      (assignment) => assignment.scope_type === "org" && READ_ORG_ROLES.has(assignment.role),
-    );
+    return (
+      await this.#policy.authorize(
+        actorId,
+        "identity.read",
+        { type: "org", id: "org" },
+        undefined,
+        { audit: false },
+      )
+    ).allowed;
   }
 
   /**
@@ -109,31 +96,30 @@ export class IdentityAuthorizer {
    * @returns Unique project identifiers.
    */
   public async readableProjectIds(actorId: string): Promise<readonly string[]> {
-    const assignments = await this.#assignments(actorId);
-    return [
-      ...new Set(
-        assignments
-          .filter(
-            (assignment) =>
-              assignment.scope_type === "project" && READ_PROJECT_ROLES.has(assignment.role),
-          )
-          .map((assignment) => assignment.scope_id),
-      ),
-    ];
+    return this.#policy.readableProjectIds(actorId, "identity.read");
   }
 
-  /** Loads active, unexpired assignments for an active human actor. */
-  async #assignments(actorId: string): Promise<readonly AssignmentRow[]> {
-    const result = await this.#database.executeQuery<AssignmentRow>(
-      `SELECT r.role, r.scope_type, r.scope_id
-         FROM principals p
-         JOIN role_assignments r ON r.principal_id = p.id
-        WHERE p.id = :actorId
-          AND p.kind = 'user'
-          AND p.status = 'active'
-          AND (r.expires_at IS NULL OR r.expires_at > now())`,
-      { actorId },
+  /**
+   * Resolves the list visibility and records one list decision.
+   *
+   * @param actorId - Signed-in user principal.
+   * @param context - Optional request metadata.
+   * @returns All/project visibility, or undefined when the list is denied.
+   */
+  public async readScope(
+    actorId: string,
+    context?: PolicyAuditContext,
+  ): Promise<
+    | { readonly kind: "all" }
+    | { readonly kind: "projects"; readonly projectIds: readonly string[] }
+    | undefined
+  > {
+    const result = await this.#policy.authorizeList(
+      actorId,
+      "identity.read",
+      { type: "org", id: "org" },
+      context,
     );
-    return result.records;
+    return result.decision.allowed ? result.visibility : undefined;
   }
 }

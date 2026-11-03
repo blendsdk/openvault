@@ -15,6 +15,7 @@ import { OidcController } from "./controllers/oidc.js";
 import { ReadyController } from "./controllers/ready.js";
 import { createIdentityRuntime } from "./identity/identity-runtime.js";
 import { createLoggerProvider } from "./observability/logger.js";
+import { createPolicyRuntime } from "./rbac/runtime.js";
 import { createProductionProbes, ReadinessService } from "./readiness/service.js";
 import { KeyringProvider } from "./security/keyring.js";
 import { installPreStack, type PreStackOptions } from "./transport/pre-stack.js";
@@ -46,10 +47,17 @@ export function createApplication(
   const app = new SecureWebApplication(config, dependencies);
   const provider: PinoLoggerProvider =
     dependencies.logger ?? createLoggerProvider(config, dependencies.loggerDestination);
+  const policyRuntime =
+    dependencies.agentRuntime?.policyRuntime ??
+    createPolicyRuntime({ database: dependencies.database, logger: provider });
   const identityRuntime =
     dependencies.agentRuntime?.identityRuntime ??
     dependencies.identityRuntime ??
-    createIdentityRuntime({ database: dependencies.database, config });
+    createIdentityRuntime({
+      database: dependencies.database,
+      config,
+      policyService: policyRuntime.service,
+    });
   const authenticator =
     dependencies.agentRuntime?.authenticator ?? dependencies.agentOverrides?.authenticator;
   const projectResolver: AgentProjectResolver = dependencies.agentRuntime?.projectResolver ??
@@ -86,6 +94,21 @@ export function createApplication(
         keyring.destroy();
       }
     },
+  });
+  app.registerService({
+    name: "policyRepository",
+    type: "singleton",
+    factory: () => policyRuntime.repository,
+  });
+  app.registerService({
+    name: "policyAudit",
+    type: "singleton",
+    factory: () => policyRuntime.audit,
+  });
+  app.registerService({
+    name: "policyService",
+    type: "singleton",
+    factory: () => policyRuntime.service,
   });
   app.registerService({
     name: "identityRuntime",
