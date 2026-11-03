@@ -1,9 +1,11 @@
 import { formatMigrationError, MigrationError, runMigrations } from "blendsdk/codegen";
 import { PostgreSQLDatabase } from "blendsdk/postgresql";
+import { createAgentRuntime } from "./agent/agent-runtime.js";
 import { createApplication } from "./app.js";
 import { bootstrapAuthRuntime } from "./auth/bootstrap.js";
 import { ConfigError, loadConfig } from "./config/index.js";
 import { migrationConfigPath } from "./db/config.js";
+import { createLoggerProvider } from "./observability/logger.js";
 import { KeyringProvider } from "./security/keyring.js";
 import { TlsMaterial } from "./transport/tls.js";
 
@@ -22,7 +24,9 @@ try {
     enableGracefulShutdown: false,
   });
 
-  const app = createApplication(config, { database, tls, keyring });
+  const logger = createLoggerProvider(config);
+  const agentRuntime = await createAgentRuntime({ database, keyring, tls, config });
+  const app = createApplication(config, { database, tls, keyring, logger, agentRuntime });
   await app.prepare();
   await bootstrapAuthRuntime(app);
   await app.startTransport();

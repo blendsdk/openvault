@@ -1,12 +1,17 @@
+import { createHash, X509Certificate } from "node:crypto";
 import { createServer } from "node:net";
 import { networkInterfaces } from "node:os";
+import { TLSSocket } from "node:tls";
 import { PostgreSQLDatabase } from "blendsdk/postgresql";
 import { BaseController, type RouteDefinition } from "blendsdk/webafx";
 import type { Request, Response } from "express";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { z } from "zod";
+import type { AgentAuthenticator } from "../../src/agent/agent-authenticator.js";
+import type { AgentAuthContext } from "../../src/agent/types.js";
 import { createApplication, createTestApplication } from "../../src/app.js";
 import { KeyringProvider } from "../../src/security/keyring.js";
+import { listenerOf } from "../../src/transport/scope.js";
 import { TlsMaterial } from "../../src/transport/tls.js";
 import { testRequest } from "./helpers/https.js";
 import { createServerEnvironment, type ServerEnvironment } from "./helpers/server-environment.js";
@@ -86,6 +91,45 @@ async function start(environment: ServerEnvironment): Promise<RunningApp> {
     agentPort: handle.agentPort,
     stop: handle.stop,
     environment,
+  };
+}
+
+/** Accepts only the trusted transport fixture certificate for listener tests. */
+function fixtureAuthenticator(environment: ServerEnvironment): AgentAuthenticator {
+  const trusted = new X509Certificate(environment.tls.clientCertPem);
+  const raw = trusted.raw;
+  const fingerprint = createHash("sha256").update(raw).digest("hex");
+  const publicKeySha256 = createHash("sha256")
+    .update(trusted.publicKey.export({ type: "spki", format: "der" }))
+    .digest("hex");
+  const context: AgentAuthContext = {
+    kind: "agent",
+    principalId: "01ARZ3NDEKTSV4RRFFQ69G5FAV",
+    projectId: "01ARZ3NDEKTSV4RRFFQ69G5FAW",
+    projectName: "fixture",
+    certificateId: "01ARZ3NDEKTSV4RRFFQ69G5FAX",
+    serial: "01",
+    fingerprint,
+    publicKeySha256,
+    notAfter: Date.now() + 86_400_000,
+  };
+  const authenticate = async (req: import("express").Request) => {
+    if (listenerOf(req) !== "agent") {
+      return undefined;
+    }
+    if (!(req.socket instanceof TLSSocket) || req.socket.authorized !== true) {
+      return undefined;
+    }
+    const peer = req.socket.getPeerCertificate();
+    if (!Buffer.isBuffer(peer.raw) || !peer.raw.equals(raw)) {
+      return undefined;
+    }
+    return context;
+  };
+  return {
+    authenticate,
+    revalidate: authenticate,
+    invalidatePrincipal: () => undefined,
   };
 }
 
@@ -184,7 +228,15 @@ describe("forwarded headers", () => {
         poolConfig: { connectionTimeoutMillis: 2_000 },
         enableGracefulShutdown: false,
       });
-      const app = createApplication(environment.config, { database, tls, keyring });
+      const app = createApplication(environment.config, {
+        database,
+        tls,
+        keyring,
+        agentOverrides: {
+          authenticator: fixtureAuthenticator(environment),
+          projectResolver: { resolveActiveByName: async () => undefined },
+        },
+      });
       app.registerController("/v1", EchoController);
       app.registerController("/v1/agent", EchoController);
       await app.prepare();
@@ -258,6 +310,10 @@ describe("transport lifecycle", () => {
       database,
       tls,
       keyring,
+      agentOverrides: {
+        authenticator: fixtureAuthenticator(environment),
+        projectResolver: { resolveActiveByName: async () => undefined },
+      },
     });
     const reserved = createServer();
     await new Promise<void>((resolve) => reserved.listen(0, "0.0.0.0", resolve));

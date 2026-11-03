@@ -3,7 +3,7 @@
 > **Document**: 99-execution-plan.md
 > **Parent**: [Index](00-index.md)
 > **Last Updated**: 2026-11-03 10:25
-> **Progress**: 28/69 tasks (41%)
+> **Progress**: 47/69 tasks (68%)
 > **CodeOps Artifact Schema**: 1
 
 ## Overview
@@ -158,7 +158,7 @@ service-principal human-credential rejection.
 
 ## Phase 3: CA, X.509, agent listener, join, renewal, and consumer
 
-> **Phase baseline tree**: _(recorded by the exec-plan skill)_
+> **Phase baseline tree**: a237b44d0089f1315623fa6b0023e7f5ebb9f2d7
 > **Modification set**: `apps/server/src/security/x509.ts`, `apps/server/src/security/ca.ts`, `apps/server/src/agent/agent-token-service.ts`, `apps/server/src/agent/consumer-repository.ts`, `apps/server/src/agent/agent-join-service.ts`, `apps/server/src/agent/agent-renew-service.ts`, `apps/server/src/agent/agent-rate-limits.ts`, `apps/server/src/agent/agent-authenticator.ts`, `apps/server/src/agent/agent-middleware.ts`, `apps/server/src/agent/project-resolver.ts`, `apps/server/src/agent/agent-runtime.ts`, `apps/server/src/controllers/agent.ts`, `apps/server/src/transport/secure-application.ts`, `apps/server/src/transport/scope.ts`, `apps/server/src/auth/plugin.ts`, `apps/server/src/auth/middleware.ts`, `apps/server/src/types/express.d.ts`, `apps/server/src/app.ts`, `apps/server/src/main.ts`, `apps/server/tests/integration/helpers/agent-tls.ts`, `apps/server/tests/integration/helpers/agent-runtime.ts`, `apps/server/tests/integration/transport.spec.test.ts`, `apps/server/tests/integration/transport.impl.test.ts`, Phase 3 tests
 > **Scope mode**: strict
 > **Lenses**: security, concurrency, api-surface
@@ -171,35 +171,35 @@ service-principal human-credential rejection.
 **Objective**: Freeze CA/CSR/profile, token atomicity, the join/renew HTTP boundary, consumer,
 replay, and basic agent authentication before code.
 
-- [ ] 3.1.1 [spec-author] Write CA, CSR, certificate-profile, serial-seam, and probe tests for ST-31–ST-42 — `apps/server/tests/integration/ca-x509.spec.test.ts`
-- [ ] 3.1.2 [spec-author] Write join, token, no-cert join, protected-health, agent token-status, and existing transport-boundary tests for ST-43–ST-53, ST-65–ST-68, ST-85 — `apps/server/tests/integration/agent-join.spec.test.ts`, `apps/server/tests/integration/transport.spec.test.ts`, `apps/server/tests/integration/transport.impl.test.ts`
-- [ ] 3.1.3 [spec-author] Write renewal, fresh-key, replay, consumer, and rate-limit tests for ST-54–ST-64 — `apps/server/tests/integration/agent-renew.spec.test.ts`
-- [ ] 3.1.4 Run the Phase 3 specification tests and record the red result
+- [x] 3.1.1 [spec-author] Write CA, CSR, certificate-profile, serial-seam, and probe tests for ST-31–ST-42 — `apps/server/tests/integration/ca-x509.spec.test.ts` ✅ (completed: 2026-11-03 12:10)
+- [x] 3.1.2 [spec-author] Write join, token, no-cert join, protected-health, agent token-status, and existing transport-boundary tests for ST-43–ST-53, ST-65–ST-68, ST-85 — `apps/server/tests/integration/agent-join.spec.test.ts`, `apps/server/tests/integration/transport.spec.test.ts`, `apps/server/tests/integration/transport.impl.test.ts` ✅ (completed: 2026-11-03 12:10)
+- [x] 3.1.3 [spec-author] Write renewal, fresh-key, replay, consumer, and rate-limit tests for ST-54–ST-64 — `apps/server/tests/integration/agent-renew.spec.test.ts` ✅ (completed: 2026-11-03 12:10)
+- [x] 3.1.4 Run the Phase 3 specification tests and record the red result ✅ (completed: 2026-11-03 12:10)
 
 ### Step 3.2: Implementation
 
 **Reference**: [03-02](03-02-ca-x509-issuance.md) §X.509 boundary, §CSR parsing, §Certificate profile, §CA row, §`CaSigner.load()` · [03-03](03-03-join-renew-consumer.md) §Join sequence, §Renewal, §Consumer upsert, §Rate limits · [03-04](03-04-agent-listener-revocation.md) §Agent context, §Listener options, §Middleware, §Runtime composition · AR-3, AR-4, AR-6, AR-7, AR-8, AR-12, AR-13, AR-15, AR-18, AR-24
 
-- [ ] 3.2.1 Add the single X.509 boundary: CSR parse/proof/curve/extension checks, fixed-profile issuance, injectable serial source, and CA probe — `apps/server/src/security/x509.ts`
-- [ ] 3.2.2 Add CA scalar wrapping, `CaSigner.load()`, public/certificate matching, and signer lifecycle — `apps/server/src/security/ca.ts`
-- [ ] 3.2.3 Add the atomic join-token claim and token lookup primitives — `apps/server/src/agent/agent-token-service.ts`
-- [ ] 3.2.4 Add the consumer upsert repository — `apps/server/src/agent/consumer-repository.ts`
-- [ ] 3.2.5 Add the join service: pre-CSR validation, principal lock, claim, issue, serial retry, certificate and consumer insert — `apps/server/src/agent/agent-join-service.ts`
-- [ ] 3.2.6 Add the renewal service: replay-first, fresh-key comparison, newest/current/threshold checks, insert, and replay cache — `apps/server/src/agent/agent-renew-service.ts`
-- [ ] 3.2.7 Add per-app join/renew rate limiters — `apps/server/src/agent/agent-rate-limits.ts`
-- [ ] 3.2.8 Add the agent context, DB authenticator without cache, `requireAgent`, the active-project resolver, and default-deny middleware — `apps/server/src/agent/agent-authenticator.ts`, `apps/server/src/agent/project-resolver.ts`, `apps/server/src/agent/agent-middleware.ts`, `apps/server/src/types/express.d.ts`
-- [ ] 3.2.9 Change the agent listener only with the middleware present, require an authenticator in `startTransport`, open agent-scoped `/v1/data`, and make browser/CLI resolvers listener-aware — `apps/server/src/transport/secure-application.ts`, `apps/server/src/transport/scope.ts`, `apps/server/src/auth/plugin.ts`, `apps/server/src/auth/middleware.ts`
-- [ ] 3.2.10 Add the agent controller and the production identity/agent runtime composition (replacing the Phase 2 test identity registration) with one logger, a deny-all `createTestApplication` authenticator, fail-closed startup, and updated transport tests — `apps/server/src/controllers/agent.ts`, `apps/server/src/agent/agent-runtime.ts`, `apps/server/src/app.ts`, `apps/server/src/main.ts`, `apps/server/tests/integration/transport.spec.test.ts`, `apps/server/tests/integration/transport.impl.test.ts`
-- [ ] 3.2.11 Run the Phase 3 specification tests and verify green
+- [x] 3.2.1 Add the single X.509 boundary: CSR parse/proof/curve/extension checks, fixed-profile issuance, injectable serial source, and CA probe — `apps/server/src/security/x509.ts` ✅ (completed: 2026-11-03 12:10)
+- [x] 3.2.2 Add CA scalar wrapping, `CaSigner.load()`, public/certificate matching, and signer lifecycle — `apps/server/src/security/ca.ts` ✅ (completed: 2026-11-03 12:10)
+- [x] 3.2.3 Add the atomic join-token claim and token lookup primitives — `apps/server/src/agent/agent-token-service.ts` ✅ (completed: 2026-11-03 12:10)
+- [x] 3.2.4 Add the consumer upsert repository — `apps/server/src/agent/consumer-repository.ts` ✅ (completed: 2026-11-03 12:10)
+- [x] 3.2.5 Add the join service: pre-CSR validation, principal lock, claim, issue, serial retry, certificate and consumer insert — `apps/server/src/agent/agent-join-service.ts` ✅ (completed: 2026-11-03 12:10)
+- [x] 3.2.6 Add the renewal service: replay-first, fresh-key comparison, newest/current/threshold checks, insert, and replay cache — `apps/server/src/agent/agent-renew-service.ts` ✅ (completed: 2026-11-03 12:10)
+- [x] 3.2.7 Add per-app join/renew rate limiters — `apps/server/src/agent/agent-rate-limits.ts` ✅ (completed: 2026-11-03 12:10)
+- [x] 3.2.8 Add the agent context, DB authenticator without cache, `requireAgent`, the active-project resolver, and default-deny middleware — `apps/server/src/agent/agent-authenticator.ts`, `apps/server/src/agent/project-resolver.ts`, `apps/server/src/agent/agent-middleware.ts`, `apps/server/src/types/express.d.ts` ✅ (completed: 2026-11-03 12:10)
+- [x] 3.2.9 Change the agent listener only with the middleware present, require an authenticator in `startTransport`, open agent-scoped `/v1/data`, and make browser/CLI resolvers listener-aware — `apps/server/src/transport/secure-application.ts`, `apps/server/src/transport/scope.ts`, `apps/server/src/auth/plugin.ts`, `apps/server/src/auth/middleware.ts` ✅ (completed: 2026-11-03 12:10)
+- [x] 3.2.10 Add the agent controller and the production identity/agent runtime composition (replacing the Phase 2 test identity registration) with one logger, a deny-all `createTestApplication` authenticator, fail-closed startup, and updated transport tests — `apps/server/src/controllers/agent.ts`, `apps/server/src/agent/agent-runtime.ts`, `apps/server/src/app.ts`, `apps/server/src/main.ts`, `apps/server/tests/integration/transport.spec.test.ts`, `apps/server/tests/integration/transport.impl.test.ts` ✅ (completed: 2026-11-03 12:10)
+- [x] 3.2.11 Run the Phase 3 specification tests and verify green ✅ (completed: 2026-11-03 12:10)
 
 ### Step 3.3: Implementation Tests and Hardening
 
 **Reference**: [07](07-testing-strategy.md) §CA and X.509, §Join, §Renewal, §Verification Commands · AR-3, AR-4, AR-6, AR-8, AR-12, AR-13, AR-15, AR-18, AR-24
 
-- [ ] 3.3.1 Write CA/CSR implementation tests for AAD, key lengths, load mismatch, curve, extension, serial normalization, serial seam, and redaction edges — `apps/server/tests/integration/security/ca.impl.test.ts`, `apps/server/tests/agent/csr.impl.test.ts`
-- [ ] 3.3.2 Write concurrent join, consumer upsert, token-race, and serial-retry implementation tests — `apps/server/tests/integration/agent-join.impl.test.ts`
-- [ ] 3.3.3 Write replay-cache, fresh-key, TTL-threshold, rate-limit, and lost-response implementation tests — `apps/server/tests/agent/replay-cache.impl.test.ts`, `apps/server/tests/agent/rate-limits.impl.test.ts`, `apps/server/tests/integration/agent-renew.impl.test.ts`
-- [ ] 3.3.4 Run `pnpm verify`, the integration gate, and `pnpm db:types:check` — `pnpm verify`; integration commands from [07](07-testing-strategy.md) §Verification Commands
+- [x] 3.3.1 Write CA/CSR implementation tests for AAD, key lengths, load mismatch, curve, extension, serial normalization, serial seam, and redaction edges — `apps/server/tests/integration/security/ca.impl.test.ts`, `apps/server/tests/agent/csr.impl.test.ts` ✅ (completed: 2026-11-03 12:10)
+- [x] 3.3.2 Write concurrent join, consumer upsert, token-race, and serial-retry implementation tests — `apps/server/tests/integration/agent-join.impl.test.ts` ✅ (completed: 2026-11-03 12:10)
+- [x] 3.3.3 Write replay-cache, fresh-key, TTL-threshold, rate-limit, and lost-response implementation tests — `apps/server/tests/agent/replay-cache.impl.test.ts`, `apps/server/tests/agent/rate-limits.impl.test.ts`, `apps/server/tests/integration/agent-renew.impl.test.ts` ✅ (completed: 2026-11-03 12:10)
+- [x] 3.3.4 Run `pnpm verify`, the integration gate, and `pnpm db:types:check` — `pnpm verify`; integration commands from [07](07-testing-strategy.md) §Verification Commands ✅ (completed: 2026-11-03 12:25)
 
 **Deliverables**:
 - Approved X.509 boundary with no shell or custom ASN.1.

@@ -228,6 +228,15 @@ export async function createTestDatabase(
       cleaned = true;
       try {
         await db.disconnect();
+      } catch (error) {
+        // The application shutdown path may have disposed the same pool first.
+        // A second `pg-pool` end is benign for a disposable test database.
+        if (
+          !(error instanceof Error) ||
+          !error.message.includes("Called end on pool more than once")
+        ) {
+          throw error;
+        }
       } finally {
         const dropAdmin = new Client({ connectionString: settings.maintenanceUrl });
         await dropAdmin.connect();

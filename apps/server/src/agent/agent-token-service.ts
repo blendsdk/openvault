@@ -26,6 +26,47 @@ export interface IssuedJoinToken {
   readonly expiresAt: Date;
 }
 
+/** One token row loaded by hash, including its lifecycle state. */
+export interface JoinTokenRecord {
+  /** Token row identifier. */
+  readonly id: string;
+  /** Bound service principal. */
+  readonly principalId: string;
+  /** Bound owner project. */
+  readonly projectId: string;
+  /** Absolute expiry. */
+  readonly expiresAt: Date;
+  /** Consumption time, or null. */
+  readonly usedAt: Date | null;
+  /** Revocation time, or null. */
+  readonly revokedAt: Date | null;
+}
+
+/** One successfully claimed token. */
+export interface ClaimedJoinToken {
+  /** Token row identifier. */
+  readonly id: string;
+  /** Bound service principal. */
+  readonly principalId: string;
+  /** Bound owner project. */
+  readonly projectId: string;
+}
+
+interface TokenRow {
+  readonly id: string;
+  readonly principal_id: string;
+  readonly project_id: string;
+  readonly expires_at: Date;
+  readonly used_at: Date | null;
+  readonly revoked_at: Date | null;
+}
+
+interface ClaimedTokenRow {
+  readonly id: string;
+  readonly principal_id: string;
+  readonly project_id: string;
+}
+
 interface LockedTokenIdentity {
   readonly status: string;
   readonly owner_project_id: string;
@@ -124,6 +165,63 @@ export class AgentTokenService {
     });
 
     return { id, token, expiresAt };
+  }
+
+  /**
+   * Loads one token by its SHA-256 hash.
+   *
+   * Lifecycle fields are returned so the join service can make the same
+   * generic decision for expired, used, and revoked tokens. The claim remains
+   * the authoritative conditional check.
+   *
+   * @param tokenHash - 32-byte SHA-256 digest.
+   * @returns The token row, or undefined.
+   */
+  public async findByHash(tokenHash: Buffer): Promise<JoinTokenRecord | undefined> {
+    const result = await this.#database.executeQuery<TokenRow>(
+      `SELECT id, principal_id, project_id, expires_at, used_at, revoked_at
+         FROM join_tokens
+        WHERE token_hash = :tokenHash`,
+      { tokenHash },
+    );
+    const row = result.records[0];
+    return row === undefined
+      ? undefined
+      : {
+          id: row.id,
+          principalId: row.principal_id,
+          projectId: row.project_id,
+          expiresAt: row.expires_at,
+          usedAt: row.used_at,
+          revokedAt: row.revoked_at,
+        };
+  }
+
+  /**
+   * Claims one unused, unexpired, unrevoked token inside a transaction.
+   *
+   * The conditional update is the atomic gate: only one concurrent join can
+   * observe a returned row. A transaction rollback releases the claim.
+   *
+   * @param tx - Join transaction.
+   * @param tokenHash - 32-byte SHA-256 digest.
+   * @returns Claimed binding fields, or undefined.
+   */
+  public async claim(tx: QueryExecutor, tokenHash: Buffer): Promise<ClaimedJoinToken | undefined> {
+    const result = await tx.executeQuery<ClaimedTokenRow>(
+      `UPDATE join_tokens
+          SET used_at = now()
+        WHERE token_hash = :tokenHash
+          AND used_at IS NULL
+          AND revoked_at IS NULL
+          AND expires_at > now()
+        RETURNING id, principal_id, project_id`,
+      { tokenHash },
+    );
+    const row = result.records[0];
+    return row === undefined
+      ? undefined
+      : { id: row.id, principalId: row.principal_id, projectId: row.project_id };
   }
 
   /**
