@@ -174,10 +174,12 @@ describe("assignment creation", () => {
       action: "assignment.write",
       result: "allow",
       reason: "allowed",
+      policyVersion: beforeVersion,
     });
     expect(audit.mutations).toHaveLength(1);
     expect(audit.mutations[0]).toMatchObject({
       action: "assignment.grant",
+      policyVersion: beforeVersion + 1,
       assignmentId: created.id,
       targetPrincipalId: target,
       role: "secrets.reader",
@@ -353,10 +355,12 @@ describe("assignment deletion", () => {
       "DELETE FROM role_assignments WHERE role = 'org.admin' AND principal_id <> :id",
       { id: orgAdmin },
     );
+    const beforeVersion = await version();
     await expect(service.delete(orgAdmin, actorAssignmentId ?? "")).rejects.toMatchObject({
       statusCode: 409,
       code: "last_org_admin",
     });
+    expect(await version()).toBe(beforeVersion);
   });
 
   it("should hide an assignment outside the caller's project", async () => {

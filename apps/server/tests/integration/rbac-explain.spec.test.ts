@@ -272,3 +272,32 @@ describe("access explanation", () => {
     );
   });
 });
+
+describe("explanation policy version", () => {
+  it("should use the candidate query version for the response", async () => {
+    class FixedVersionRepository extends PolicyRepository {
+      public override async listExplainCandidates(): Promise<{
+        readonly policyVersion: number;
+        readonly rows: readonly never[];
+      }> {
+        return { policyVersion: 4_242, rows: [] };
+      }
+    }
+    const fixed = new AssignmentService({
+      database: testDb.db,
+      repository: new FixedVersionRepository(testDb.db),
+      policy: new PolicyService({
+        repository: new PolicyRepository(testDb.db),
+        audit,
+      }),
+      audit,
+    });
+    const result = await fixed.explain(orgAdmin, {
+      action: "assignment.read",
+      scopeType: "org",
+      scopeId: "org",
+    });
+    expect(result.policyVersion).toBe(4_242);
+    expect(result.principals).toEqual([]);
+  });
+});

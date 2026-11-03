@@ -546,6 +546,7 @@ export class PolicyService {
    * @param snapshot - Actor snapshot.
    * @param action - Fixed action.
    * @param resource - Target resource.
+   * @param now - Evaluation instant; defaults to the current clock.
    * @returns Matching assignments in specificity order.
    */
   public matchingAssignments(

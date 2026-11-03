@@ -545,7 +545,8 @@ export class PolicyRepository {
    *
    * @param executor - Transaction executor.
    * @param excludeAssignmentId - Assignment being removed.
-   * @returns Active administrator count.
+   * @param now - Evaluation instant used for expiry.
+   * @returns Active user administrator count.
    */
   public async countActiveOrgAdmins(
     executor: QueryExecutor,
@@ -657,7 +658,7 @@ export class PolicyRepository {
   /**
    * Loads active principals, their assignments, and consumer metadata.
    *
-   * @returns One row per principal/assignment pair.
+   * @returns The policy version and one row per principal/assignment pair.
    */
   public async listExplainCandidates(): Promise<{
     readonly policyVersion: number;

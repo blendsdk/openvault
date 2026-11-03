@@ -1,11 +1,10 @@
-import {
-  type AccessExplainQuery,
-  type AccessExplainResponse,
-  type AssignmentCreateRequest,
-  type AssignmentListQuery,
-  RBAC_ROLES,
-  type RbacRole,
-  type RbacScopeType,
+import type {
+  AccessExplainQuery,
+  AccessExplainResponse,
+  AssignmentCreateRequest,
+  AssignmentListQuery,
+  RbacRole,
+  RbacScopeType,
 } from "@openvault/api-contract";
 import { newUlid } from "@openvault/core";
 import type { PostgreSQLDatabase } from "blendsdk/postgresql";
@@ -23,7 +22,7 @@ import {
   type PolicyRepository,
 } from "./policy-repository.js";
 import type { PolicyResource, PolicyService } from "./policy-service.js";
-import { ROLE_DEFINITIONS, roleEligibleAt } from "./roles.js";
+import { ROLE_DEFINITIONS } from "./roles.js";
 
 const SECRET_READER_ROLE = "secrets.reader";
 const CERTIFICATE_READER_ROLE = "certificates.reader";
@@ -397,7 +396,12 @@ export class AssignmentService {
         policyVersion: decision.policyVersion,
         assignments: toActorAssignments(rows),
       };
-      const matches = this.#policy.matchingAssignments(snapshot, query.action, resolved.resource);
+      const matches = this.#policy.matchingAssignments(
+        snapshot,
+        query.action,
+        resolved.resource,
+        now,
+      );
       if (matches.length === 0) {
         continue;
       }
