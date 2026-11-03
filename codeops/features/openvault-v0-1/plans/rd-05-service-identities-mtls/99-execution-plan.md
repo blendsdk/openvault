@@ -3,7 +3,7 @@
 > **Document**: 99-execution-plan.md
 > **Parent**: [Index](00-index.md)
 > **Last Updated**: 2026-11-03 10:25
-> **Progress**: 13/69 tasks (19%)
+> **Progress**: 14/69 tasks (20%)
 > **CodeOps Artifact Schema**: 1
 
 ## Overview
@@ -92,7 +92,7 @@ guards before any implementation.
 
 - [x] 1.3.1 Write contract edge tests for strict fields, name/TTL boundaries, status-code mapping, and response shapes ✅ (completed: 2026-11-03 10:20) — `packages/api-contract/tests/identities.impl.test.ts`, `packages/api-contract/tests/agents.impl.test.ts`
 - [x] 1.3.2 Write migration/trigger implementation tests for key lengths, index predicates, full-row guards, kind immutability, and type drift ✅ (completed: 2026-11-03 10:25) — `apps/server/tests/integration/schema-identity.impl.test.ts`
-- [ ] 1.3.3 Run `pnpm verify`, the integration gate, and `pnpm db:types:check` — `pnpm verify`; integration commands from [07](07-testing-strategy.md) §Verification Commands
+- [x] 1.3.3 Run `pnpm verify`, the integration gate, and `pnpm db:types:check` — `pnpm verify`; integration commands from [07](07-testing-strategy.md) §Verification Commands ✅ (completed: 2026-11-03 10:45)
 
 **Deliverables**:
 - Strict identity and agent contracts exported from `@openvault/api-contract`.
