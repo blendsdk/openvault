@@ -215,6 +215,7 @@ export class SecureWebApplication extends WebApplication {
       // request is authenticated by the application middleware against the
       // stored fingerprint and live identity state.
       // codeql[js/disabling-certificate-validation]
+      // lgtm[js/disabling-certificate-validation]
       rejectUnauthorized: false,
       ca: [tls.caPem],
       secureOptions: SSL_OP_NO_TICKET,
