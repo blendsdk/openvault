@@ -1,4 +1,5 @@
 import type { PostgreSQLDatabase } from "blendsdk/postgresql";
+import type { Logger } from "blendsdk/webafx";
 import type { OpenVaultConfig } from "../config/index.js";
 import { createIdentityRuntime, type IdentityRuntime } from "../identity/identity-runtime.js";
 import { CaSigner } from "../security/ca.js";
@@ -6,6 +7,10 @@ import type { KeyringProvider } from "../security/keyring.js";
 import type { TlsMaterial } from "../transport/tls.js";
 import { DatabaseAgentAuthenticator } from "./agent-authenticator.js";
 import { AgentJoinService } from "./agent-join-service.js";
+import {
+  AgentMaintenanceService,
+  DatabaseAgentMaintenanceRepository,
+} from "./agent-maintenance.js";
 import {
   type AgentRateLimitOptions,
   type AgentRateLimitService,
@@ -35,6 +40,14 @@ export interface AgentRuntimeCore {
   readonly renewalCache: RenewalReplayCache;
 }
 
+/** The complete agent runtime, including maintenance and disposal. */
+export interface AgentRuntime extends AgentRuntimeCore {
+  /** Bounded daily retention cleanup. */
+  readonly maintenance: AgentMaintenanceService;
+  /** Stops maintenance, clears caches, and drops the CA key references. */
+  dispose(): Promise<void>;
+}
+
 /** Options for {@link createAgentRuntime}. */
 export interface CreateAgentRuntimeOptions {
   /** Connected database. */
@@ -45,11 +58,25 @@ export interface CreateAgentRuntimeOptions {
   readonly tls: TlsMaterial;
   /** Validated runtime configuration. */
   readonly config: OpenVaultConfig;
+  /** Shared structured logger; absent in unit-focused tests. */
+  readonly logger?: Logger;
   /** Injectable clock for authentication and renewal. */
   readonly now?: () => number;
   /** Test-only limiter thresholds; production leaves this empty. */
   readonly rateLimitOptions?: AgentRateLimitOptions;
+  /** Retention scheduler interval; tests may shorten it. */
+  readonly maintenanceIntervalMs?: number;
+  /** Rows deleted per table per cleanup run. */
+  readonly maintenanceBatchSize?: number;
 }
+
+/** Keeps tests and offline listeners quiet without a logger dependency. */
+const silentLogger: Logger = {
+  info: async () => undefined,
+  error: async () => undefined,
+  warn: async () => undefined,
+  debug: async () => undefined,
+};
 
 /**
  * Builds the production agent runtime.
@@ -65,7 +92,7 @@ export interface CreateAgentRuntimeOptions {
  */
 export async function createAgentRuntime(
   options: CreateAgentRuntimeOptions,
-): Promise<AgentRuntimeCore> {
+): Promise<AgentRuntime> {
   const caSigner = await CaSigner.load({
     database: options.database,
     keyring: options.keyring,
@@ -105,6 +132,17 @@ export async function createAgentRuntime(
     config: options.config,
   });
 
+  const maintenance = new AgentMaintenanceService({
+    repository: new DatabaseAgentMaintenanceRepository(options.database),
+    logger: options.logger ?? silentLogger,
+    ...(options.maintenanceIntervalMs === undefined
+      ? {}
+      : { intervalMs: options.maintenanceIntervalMs }),
+    ...(options.maintenanceBatchSize === undefined
+      ? {}
+      : { batchSize: options.maintenanceBatchSize }),
+  });
+
   return {
     caSigner,
     authenticator,
@@ -114,5 +152,12 @@ export async function createAgentRuntime(
     renewService,
     rateLimits: createAgentRateLimitService(options.rateLimitOptions),
     renewalCache,
+    maintenance,
+    async dispose(): Promise<void> {
+      maintenance.stop();
+      authenticator.clear();
+      renewService.clear();
+      caSigner.destroy();
+    },
   };
 }

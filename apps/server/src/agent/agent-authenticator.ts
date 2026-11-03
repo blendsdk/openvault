@@ -1,7 +1,7 @@
 import { createHash, X509Certificate } from "node:crypto";
 import type { TLSSocket } from "node:tls";
-import type { PostgreSQLDatabase } from "blendsdk/postgresql";
 import type { Request } from "express";
+import type { QueryExecutor } from "../identity/identity-repository.js";
 import { canonicalPublicKeyHash } from "../security/x509.js";
 import { listenerOf } from "../transport/scope.js";
 import type { AgentAuthContext } from "./types.js";
@@ -62,7 +62,7 @@ function sha256Hex(value: Buffer): string {
  * newly joined agent is accepted immediately.
  */
 export class DatabaseAgentAuthenticator implements AgentAuthenticator {
-  readonly #database: PostgreSQLDatabase;
+  readonly #database: QueryExecutor;
   readonly #now: () => number;
   readonly #cache = new Map<string, CacheEntry>();
   readonly #limit: number;
@@ -71,7 +71,7 @@ export class DatabaseAgentAuthenticator implements AgentAuthenticator {
    * @param options - Database, injectable clock, and optional cache bound.
    */
   public constructor(options: {
-    readonly database: PostgreSQLDatabase;
+    readonly database: QueryExecutor;
     readonly now?: () => number;
     readonly limit?: number;
   }) {
@@ -159,7 +159,7 @@ export class DatabaseAgentAuthenticator implements AgentAuthenticator {
     }
 
     const row = result.records[0];
-    if (row === undefined) {
+    if (row === undefined || row.not_after.getTime() <= this.#now()) {
       return undefined;
     }
 

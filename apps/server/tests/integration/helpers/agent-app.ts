@@ -1,6 +1,6 @@
 import type { PostgreSQLDatabase } from "blendsdk/postgresql";
 import type { AgentRateLimitOptions } from "../../../src/agent/agent-rate-limits.js";
-import { type AgentRuntimeCore, createAgentRuntime } from "../../../src/agent/agent-runtime.js";
+import { type AgentRuntime, createAgentRuntime } from "../../../src/agent/agent-runtime.js";
 import { createApplication } from "../../../src/app.js";
 import { KeyringProvider } from "../../../src/security/keyring.js";
 import type {
@@ -17,7 +17,7 @@ import type { TestDatabase } from "./test-database.js";
 export interface AgentTestServer {
   readonly app: SecureWebApplication;
   readonly handle: TransportHandle;
-  readonly runtime: AgentRuntimeCore;
+  readonly runtime: AgentRuntime;
   readonly database: PostgreSQLDatabase;
   readonly keyring: KeyringProvider;
   readonly tls: TlsMaterial;
@@ -36,6 +36,7 @@ export async function startAgentTestServer(options: {
   readonly ca: AgentCaFixture;
   readonly now?: () => number;
   readonly rateLimitOptions?: AgentRateLimitOptions;
+  readonly maintenanceBatchSize?: number;
   readonly seedCa?: boolean;
   /** Optional separate database/pool; defaults to the test database. */
   readonly database?: PostgreSQLDatabase;
@@ -57,6 +58,9 @@ export async function startAgentTestServer(options: {
     ...(options.rateLimitOptions === undefined
       ? {}
       : { rateLimitOptions: options.rateLimitOptions }),
+    ...(options.maintenanceBatchSize === undefined
+      ? {}
+      : { maintenanceBatchSize: options.maintenanceBatchSize }),
   });
   const app = createApplication(options.environment.config, {
     database,

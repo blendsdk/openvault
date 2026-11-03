@@ -1,6 +1,7 @@
 import { formatMigrationError, MigrationError, runMigrations } from "blendsdk/codegen";
 import { PostgreSQLDatabase } from "blendsdk/postgresql";
 import { createAgentRuntime } from "./agent/agent-runtime.js";
+import { bootstrapAgentRuntime } from "./agent/bootstrap.js";
 import { createApplication } from "./app.js";
 import { bootstrapAuthRuntime } from "./auth/bootstrap.js";
 import { ConfigError, loadConfig } from "./config/index.js";
@@ -25,10 +26,11 @@ try {
   });
 
   const logger = createLoggerProvider(config);
-  const agentRuntime = await createAgentRuntime({ database, keyring, tls, config });
+  const agentRuntime = await createAgentRuntime({ database, keyring, tls, config, logger });
   const app = createApplication(config, { database, tls, keyring, logger, agentRuntime });
   await app.prepare();
   await bootstrapAuthRuntime(app);
+  await bootstrapAgentRuntime(app);
   await app.startTransport();
 } catch (error) {
   keyring?.destroy();

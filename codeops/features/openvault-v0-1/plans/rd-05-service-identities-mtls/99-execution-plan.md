@@ -3,7 +3,7 @@
 > **Document**: 99-execution-plan.md
 > **Parent**: [Index](00-index.md)
 > **Last Updated**: 2026-11-03 10:25
-> **Progress**: 47/69 tasks (68%)
+> **Progress**: 61/69 tasks (88%)
 > **CodeOps Artifact Schema**: 1
 
 ## Overview
@@ -215,7 +215,7 @@ replay, and basic agent authentication before code.
 
 ## Phase 4: Revocation, cache, retention, readiness, and existing-suite updates
 
-> **Phase baseline tree**: _(recorded by the exec-plan skill)_
+> **Phase baseline tree**: 873f07808bd6ba8bc3c6358f7f96ccd629b6677c
 > **Modification set**: `apps/server/src/agent/agent-authenticator.ts`, `apps/server/src/agent/agent-renew-service.ts`, `apps/server/src/agent/agent-maintenance.ts`, `apps/server/src/agent/agent-runtime.ts`, `apps/server/src/identity/identity-service.ts`, `apps/server/src/readiness/service.ts`, `apps/server/src/controllers/ready.ts`, `apps/server/src/transport/secure-application.ts`, `apps/server/src/app.ts`, `apps/server/tests/integration/readiness.spec.test.ts`, `apps/server/tests/test-app.impl.test.ts`, `apps/server/tests/integration/helpers/agent-runtime.ts`, `apps/server/tests/integration/helpers/cli.ts`, Phase 4 tests
 > **Scope mode**: strict
 > **Lenses**: security, concurrency, web application
@@ -228,30 +228,30 @@ replay, and basic agent authentication before code.
 **Objective**: Freeze cache bounds, revoke timing, data-route delivery, retention, readiness, mixed
 credentials, and existing-suite updates before code.
 
-- [ ] 4.1.1 [spec-author] Write cache, revoke, data-route, and mixed-credential tests for ST-69–ST-74, ST-80 — `apps/server/tests/integration/agent-listener.spec.test.ts`
-- [ ] 4.1.2 [spec-author] Write retention, readiness, and delivery-bound tests for ST-75–ST-77, ST-79, ST-81 and update readiness/test-app expectations — `apps/server/tests/integration/agent-retention.spec.test.ts`, `apps/server/tests/integration/readiness.spec.test.ts`, `apps/server/tests/test-app.impl.test.ts`
-- [ ] 4.1.3 Run the Phase 4 specification tests and record the red result
+- [x] 4.1.1 [spec-author] Write cache, revoke, data-route, and mixed-credential tests for ST-69–ST-74, ST-80 — `apps/server/tests/integration/agent-listener.spec.test.ts` ✅ (completed: 2026-11-03 13:10)
+- [x] 4.1.2 [spec-author] Write retention, readiness, and delivery-bound tests for ST-75–ST-77, ST-79, ST-81 and update readiness/test-app expectations — `apps/server/tests/integration/agent-retention.spec.test.ts`, `apps/server/tests/integration/readiness.spec.test.ts`, `apps/server/tests/test-app.impl.test.ts` ✅ (completed: 2026-11-03 13:10)
+- [x] 4.1.3 Run the Phase 4 specification tests and record the red result ✅ (completed: 2026-11-03 13:10)
 
 ### Step 4.2: Implementation
 
 **Reference**: [03-04](03-04-agent-listener-revocation.md) §Agent authenticator, §Middleware, §Revocation, §Retention, §Readiness, §Runtime composition, §Test seams · AR-2, AR-3, AR-5, AR-13, AR-15, AR-18, AR-22
 
-- [ ] 4.2.1 Add the positive authenticator cache with read-start TTL, `notAfter` recheck, invalidation, and cache-bypassing `revalidate()` — `apps/server/src/agent/agent-authenticator.ts`
-- [ ] 4.2.2 Extend revoke to clear the authenticator and renewal-replay caches and verify the atomic transaction — `apps/server/src/identity/identity-service.ts`, `apps/server/src/agent/agent-authenticator.ts`, `apps/server/src/agent/agent-renew-service.ts`
-- [ ] 4.2.3 Add the test-only data controller/harness seam before `prepare()` for the pre-written ST-70/ST-81 cases — `apps/server/tests/integration/helpers/agent-runtime.ts`
-- [ ] 4.2.4 Add bounded daily token/certificate cleanup with stop/dispose behavior — `apps/server/src/agent/agent-maintenance.ts`
-- [ ] 4.2.5 Add the conditional CA readiness probe and `ca` failure mapping, keeping admin-only readiness green — `apps/server/src/readiness/service.ts`, `apps/server/src/controllers/ready.ts`
-- [ ] 4.2.6 Add runtime disposal/logger wiring for the Phase 3 core runtime — `apps/server/src/agent/agent-runtime.ts`, `apps/server/src/app.ts`
-- [ ] 4.2.7 Update the CLI helper transport-start fixture for the deny-all test default; no ST oracle changes — `apps/server/tests/integration/helpers/cli.ts`
-- [ ] 4.2.8 Run the Phase 4 specification tests and verify green
+- [x] 4.2.1 Add the positive authenticator cache with read-start TTL, `notAfter` recheck, invalidation, and cache-bypassing `revalidate()` — `apps/server/src/agent/agent-authenticator.ts` ✅ (completed: 2026-11-03 13:10)
+- [x] 4.2.2 Extend revoke to clear the authenticator and renewal-replay caches and verify the atomic transaction — `apps/server/src/identity/identity-service.ts`, `apps/server/src/agent/agent-authenticator.ts`, `apps/server/src/agent/agent-renew-service.ts` ✅ (completed: 2026-11-03 13:10)
+- [x] 4.2.3 Add the test-only data controller/harness seam before `prepare()` for the pre-written ST-70/ST-81 cases — `apps/server/tests/integration/helpers/agent-runtime.ts` ✅ (completed: 2026-11-03 13:10)
+- [x] 4.2.4 Add bounded daily token/certificate cleanup with stop/dispose behavior — `apps/server/src/agent/agent-maintenance.ts` ✅ (completed: 2026-11-03 13:10)
+- [x] 4.2.5 Add the conditional CA readiness probe and `ca` failure mapping, keeping admin-only readiness green — `apps/server/src/readiness/service.ts`, `apps/server/src/controllers/ready.ts` ✅ (completed: 2026-11-03 13:10)
+- [x] 4.2.6 Add runtime disposal/logger wiring for the Phase 3 core runtime — `apps/server/src/agent/agent-runtime.ts`, `apps/server/src/app.ts` ✅ (completed: 2026-11-03 13:10)
+- [x] 4.2.7 Update the CLI helper transport-start fixture for the deny-all test default; no ST oracle changes — `apps/server/tests/integration/helpers/cli.ts` ✅ (completed: 2026-11-03 13:10)
+- [x] 4.2.8 Run the Phase 4 specification tests and verify green ✅ (completed: 2026-11-03 13:10)
 
 ### Step 4.3: Implementation Tests and Hardening
 
 **Reference**: [07](07-testing-strategy.md) §Agent listener, §Revocation, §Retention, §Verification Commands · AR-2, AR-5, AR-15, AR-18, AR-22
 
-- [ ] 4.3.1 Write authenticator/cache implementation tests for socket typing, fingerprint, SPKI key hash, cache bound/TTL, invalidation, revalidate, DB failure, and test seams — `apps/server/tests/integration/agent/authenticator.impl.test.ts`
-- [ ] 4.3.2 Write retention/revoke implementation tests for boundaries, post-expiry revocation, concurrent join/revoke, cache clearing, and failed cleanup — `apps/server/tests/integration/agent/retention.impl.test.ts`, `apps/server/tests/integration/agent-revoke.impl.test.ts`
-- [ ] 4.3.3 Run `pnpm verify`, the integration gate, and `pnpm db:types:check` — `pnpm verify`; integration commands from [07](07-testing-strategy.md) §Verification Commands
+- [x] 4.3.1 Write authenticator/cache implementation tests for socket typing, fingerprint, SPKI key hash, cache bound/TTL, invalidation, revalidate, DB failure, and test seams — `apps/server/tests/integration/agent/authenticator.impl.test.ts` ✅ (completed: 2026-11-03 13:10)
+- [x] 4.3.2 Write retention/revoke implementation tests for boundaries, post-expiry revocation, concurrent join/revoke, cache clearing, and failed cleanup — `apps/server/tests/integration/agent/retention.impl.test.ts`, `apps/server/tests/integration/agent-revoke.impl.test.ts` ✅ (completed: 2026-11-03 13:10)
+- [x] 4.3.3 Run `pnpm verify`, the integration gate, and `pnpm db:types:check` — `pnpm verify`; integration commands from [07](07-testing-strategy.md) §Verification Commands ✅ (completed: 2026-11-03 13:10)
 
 **Deliverables**:
 - Five-second positive cache with read-start TTL and local invalidation.

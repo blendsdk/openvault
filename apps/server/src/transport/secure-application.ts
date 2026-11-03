@@ -5,7 +5,7 @@ import type { PostgreSQLDatabase } from "blendsdk/postgresql";
 import { WebApplication } from "blendsdk/webafx";
 import type { PinoLoggerProvider } from "blendsdk/webafx-pino";
 import type { AgentAuthenticator } from "../agent/agent-authenticator.js";
-import type { AgentRuntimeCore } from "../agent/agent-runtime.js";
+import type { AgentRuntime } from "../agent/agent-runtime.js";
 import type { AgentProjectResolver } from "../agent/project-resolver.js";
 import type { AuthOverrides } from "../auth/types.js";
 import { createWebApplicationConfig, type OpenVaultConfig } from "../config/index.js";
@@ -52,7 +52,7 @@ export interface SecureApplicationDependencies {
   /** Optional composed identity runtime; production creates one when absent. */
   readonly identityRuntime?: IdentityRuntime;
   /** Production agent runtime; owns the CA signer and identity runtime. */
-  readonly agentRuntime?: AgentRuntimeCore;
+  readonly agentRuntime?: AgentRuntime;
   /** Test-only agent seams; production never supplies these. */
   readonly agentOverrides?: AgentTestOverrides;
   /** Shared logger provider; created by the caller when absent. */

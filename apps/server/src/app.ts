@@ -118,12 +118,12 @@ export function createApplication(
       name: "agentRuntime",
       type: "singleton",
       factory: () => runtime,
+      dispose: () => runtime.dispose(),
     });
     app.registerService({
       name: "caSigner",
       type: "singleton",
       factory: () => runtime.caSigner,
-      dispose: () => runtime.caSigner.destroy(),
     });
     app.registerService({
       name: "agentAuthenticator",
@@ -160,7 +160,17 @@ export function createApplication(
     name: "readiness",
     type: "singleton",
     factory: () =>
-      new ReadinessService(dependencies.readinessProbes ?? createProductionProbes(dependencies)),
+      new ReadinessService(
+        dependencies.readinessProbes ??
+          createProductionProbes({
+            database: dependencies.database,
+            keyring: dependencies.keyring,
+            tls: dependencies.tls,
+            ...(dependencies.agentRuntime === undefined
+              ? {}
+              : { caSigner: dependencies.agentRuntime.caSigner }),
+          }),
+      ),
   });
   app.use(
     createAuthPlugin({
