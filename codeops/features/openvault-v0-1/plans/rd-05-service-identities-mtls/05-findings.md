@@ -79,7 +79,7 @@ All reported minor findings were fixed.
 | Finding | Phase | Severity | Area | Ruling |
 |---|---|---|---|---|
 | RV-001 | 5 | MAJOR | deferred CA/data-plane docs | fixed |
-| RV-002 / SA-003 | 5 | MINOR | readiness/CA row claims | fixed |
+| RV-002 / SA-003 | 5 | MINOR | readiness/CA row claims | fixed; re-review wording corrected |
 | RV-003 | 5 | MINOR | changeset private packages | fixed |
 | RV-004 / SA-002 | 5 | MINOR | nested snake-case redaction | fixed |
 | RV-005 / SA-001 | 5 | MINOR | captured-log evidence | fixed |

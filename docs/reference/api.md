@@ -270,7 +270,7 @@ loaded key.
 ### Operational
 
 `GET /health` is provided by WebAFX. `GET /ready` checks the database, keyring, TLS/CA
-material, wrapped CA signing key (including a sign/verify probe), and audit table.
+material, CA signing key loaded at startup (including a sign/verify probe), and audit table.
 
 ## Status codes
 

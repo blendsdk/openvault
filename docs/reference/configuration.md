@@ -87,7 +87,7 @@ must re-wrap and restore the wrapped `ca_keys` row together with the public cert
 | Endpoint | Semantics |
 |---|---|
 | `GET /health` | Liveness only; remains 200 during a dependency outage |
-| `GET /ready` | PostgreSQL, keyring, TLS/CA, wrapped CA signing key (including a sign/verify probe), and audit-table probes; 200 or 503 `not_ready` |
+| `GET /ready` | PostgreSQL, keyring, TLS/CA, CA signing key loaded at startup (including a sign/verify probe), and audit-table probes; 200 or 503 `not_ready` |
 
 `/v1/ready` is not part of the contract. The readiness database probe uses a 2-second
 connection timeout and a bounded outer timeout.
