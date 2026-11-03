@@ -90,6 +90,19 @@ describe("assignmentCreateRequestSchema", () => {
         expiresAt: "2020-01-01T00:00:00.000Z",
       }).success,
     ).toBe(false);
+    const orgBase = { ...base, scopeType: "org" as const, scopeId: "org" };
+    expect(
+      assignmentCreateRequestSchema.safeParse({
+        ...orgBase,
+        expiresAt: "2020-01-01T00:00:00.000Z",
+      }).success,
+    ).toBe(false);
+    expect(
+      assignmentCreateRequestSchema.safeParse({
+        ...orgBase,
+        expiresAt: FUTURE_TIMESTAMP,
+      }).success,
+    ).toBe(true);
   });
 });
 
@@ -117,6 +130,9 @@ describe("assignmentListQuerySchema", () => {
     expect(
       assignmentListQuerySchema.safeParse({ scopeType: "project", scopeId: "not-a-ulid" }).success,
     ).toBe(false);
+    expect(assignmentListQuerySchema.safeParse({ scopeType: "org", scopeId: "org" }).success).toBe(
+      true,
+    );
   });
 });
 
@@ -152,6 +168,20 @@ describe("accessExplainQuerySchema", () => {
         scopeId: "not-a-ulid",
       }).success,
     ).toBe(false);
+    expect(
+      accessExplainQuerySchema.safeParse({
+        action: "certificate.write",
+        scopeType: "org",
+        scopeId: "org",
+      }).success,
+    ).toBe(false);
+    expect(
+      accessExplainQuerySchema.safeParse({
+        action: "kek.rotate",
+        scopeType: "org",
+        scopeId: "org",
+      }).success,
+    ).toBe(true);
   });
 });
 

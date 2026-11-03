@@ -263,7 +263,7 @@ export interface PolicyDecisionEvent {
   readonly objectType: "project" | "identity" | "secret" | "certificate" | null;
   readonly objectId: string | null;
   readonly result: "allow" | "deny";
-  readonly reason: PolicyReason;
+  readonly reason: DecisionReason;
   readonly policyVersion: number;
   readonly denialCount?: number;
   readonly context?: PolicyAuditContext;

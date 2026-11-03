@@ -19,7 +19,10 @@ function recordingLogger(lines: LogLine[], fail = false): Logger {
     lines.push({ message, data });
   };
   return {
-    info: record,
+    // Audit evidence must use the error channel; an info call is a test failure.
+    info: async () => {
+      throw new Error("audit must not use the info channel");
+    },
     error: record,
     warn: async () => undefined,
     debug: async () => undefined,
@@ -136,6 +139,7 @@ describe("logging policy audit", () => {
     expect(lines[0]?.message).toBe("policy mutation");
     expect(lines[0]?.data).toMatchObject({
       action: "assignment.grant",
+      actorKind: "user",
       role: "secrets.reader",
       scopeType: "project",
       policyVersion: 4,

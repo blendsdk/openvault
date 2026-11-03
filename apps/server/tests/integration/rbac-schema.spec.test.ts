@@ -71,4 +71,24 @@ describe("policy version reads", () => {
     await expect(repository.readPolicyVersion()).rejects.toBeInstanceOf(PolicyUnavailableError);
     await testDb.db.executeQuery("INSERT INTO policy_state (id, version) VALUES (1, 1)");
   });
+
+  it("should fail closed when the version bump cannot run or returns an invalid version", async () => {
+    const failing = {
+      executeQuery: async <T>(): Promise<{ readonly records: readonly T[] }> => {
+        throw new Error("database down");
+      },
+    };
+    await expect(new PolicyRepository(failing).bumpPolicyVersion(failing)).rejects.toBeInstanceOf(
+      PolicyUnavailableError,
+    );
+
+    const invalid = {
+      executeQuery: async <T>(): Promise<{ readonly records: readonly T[] }> => ({
+        records: [{ version: 0 }] as T[],
+      }),
+    };
+    await expect(new PolicyRepository(invalid).bumpPolicyVersion(invalid)).rejects.toBeInstanceOf(
+      PolicyUnavailableError,
+    );
+  });
 });
