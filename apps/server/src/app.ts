@@ -7,6 +7,7 @@ import type { AgentProjectResolver } from "./agent/project-resolver.js";
 import { createAuthPlugin } from "./auth/plugin.js";
 import type { OpenVaultConfig } from "./config/index.js";
 import { AgentController } from "./controllers/agent.js";
+import { AccessExplainController, AssignmentsController } from "./controllers/assignments.js";
 import { AuthController } from "./controllers/auth.js";
 import { CliAuthController } from "./controllers/cli-auth.js";
 import { IdentityController } from "./controllers/identity.js";
@@ -112,6 +113,16 @@ export function createApplication(
     factory: () => policyRuntime.service,
   });
   app.registerService({
+    name: "assignmentService",
+    type: "singleton",
+    factory: () => policyRuntime.assignments,
+  });
+  app.registerService({
+    name: "rbacRateLimits",
+    type: "singleton",
+    factory: () => policyRuntime.rateLimits,
+  });
+  app.registerService({
     name: "identityRuntime",
     type: "singleton",
     factory: () => identityRuntime,
@@ -212,6 +223,8 @@ export function createApplication(
   app.registerController("/v1/auth/cli", CliAuthController);
   app.registerController("/v1/auth", OidcController);
   app.registerController("/v1/admin/identities", IdentityController);
+  app.registerController("/v1/admin/assignments", AssignmentsController);
+  app.registerController("/v1/admin/access-explain", AccessExplainController);
   if (dependencies.agentRuntime !== undefined) {
     app.registerController("/v1/agent", AgentController);
   }

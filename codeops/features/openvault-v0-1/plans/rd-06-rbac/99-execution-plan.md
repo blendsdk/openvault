@@ -3,7 +3,7 @@
 > **Document**: 99-execution-plan.md
 > **Parent**: [Index](00-index.md)
 > **Last Updated**: 2026-11-03 20:25
-> **Progress**: 32/57 tasks (56%)
+> **Progress**: 47/57 tasks (82%)
 > **CodeOps Artifact Schema**: 1
 
 ## Overview
@@ -151,31 +151,31 @@ implementation.
 
 **Reference**: [03-03](03-03-assignments-access.md) §Create, §Delete and last-admin guard, §List, §Access explain, §Routes and rate limits · [07](07-testing-strategy.md) ST-14, ST-31–ST-52 · AR-5, AR-6, AR-8, AR-13, AR-15, AR-16, AR-18
 
-- [ ] 3.1.1 [spec-author] Write assignment, version, guard, last-admin, list, and rate-limit tests for ST-14 and ST-31–ST-45 — `apps/server/tests/integration/rbac-assignments.spec.test.ts`
-- [ ] 3.1.2 [spec-author] Write access-explain and catalog-route tests for ST-46–ST-52 — `apps/server/tests/integration/rbac-explain.spec.test.ts`
-- [ ] 3.1.3 Run the Phase 3 specification tests and record the red result
+- [x] 3.1.1 [spec-author] Write assignment, version, guard, last-admin, list, and rate-limit tests for ST-14 and ST-31–ST-45 — `apps/server/tests/integration/rbac-assignments.spec.test.ts` ✅ (completed: 2026-11-03 21:38)
+- [x] 3.1.2 [spec-author] Write access-explain and catalog-route tests for ST-46–ST-52 — `apps/server/tests/integration/rbac-explain.spec.test.ts` ✅ (completed: 2026-11-03 21:38)
+- [x] 3.1.3 Run the Phase 3 specification tests and record the red result ✅ (completed: 2026-11-03 21:38)
 
 ### Step 3.2: Implementation
 
 **Reference**: [03-03](03-03-assignments-access.md) §Create, §Delete and last-admin guard, §List, §Access explain, §Routes and rate limits, §HTTP mapping · AR-5, AR-6, AR-8, AR-13, AR-15, AR-16, AR-18
 
-- [ ] 3.2.1 Implement target resolution and assignment creation — `apps/server/src/rbac/assignment-service.ts`
-- [ ] 3.2.2 Implement deletion, decision audit, and the last-admin guard — `apps/server/src/rbac/assignment-service.ts`
-- [ ] 3.2.3 Implement scoped assignment listing and filters — `apps/server/src/rbac/assignment-service.ts`
-- [ ] 3.2.4 Implement access explain and consumer projection — `apps/server/src/rbac/assignment-service.ts`
-- [ ] 3.2.5 Add the admin write/read rate-limit service — `apps/server/src/rbac/rate-limits.ts`
-- [ ] 3.2.6 Add the assignment and access-explain controllers — `apps/server/src/controllers/assignments.ts`
-- [ ] 3.2.7 Register the services, controllers, and limiters — `apps/server/src/app.ts`
-- [ ] 3.2.8 Add the assignment list contract and finish error mapping — `packages/api-contract/src/rbac.ts`, `apps/server/src/controllers/assignments.ts`
+- [x] 3.2.1 Implement target resolution and assignment creation — `apps/server/src/rbac/assignment-service.ts` ✅ (completed: 2026-11-03 21:38)
+- [x] 3.2.2 Implement deletion, decision audit, and the last-admin guard — `apps/server/src/rbac/assignment-service.ts` ✅ (completed: 2026-11-03 21:38)
+- [x] 3.2.3 Implement scoped assignment listing and filters — `apps/server/src/rbac/assignment-service.ts` ✅ (completed: 2026-11-03 21:38)
+- [x] 3.2.4 Implement access explain and consumer projection — `apps/server/src/rbac/assignment-service.ts` ✅ (completed: 2026-11-03 21:38)
+- [x] 3.2.5 Add the admin write/read rate-limit service — `apps/server/src/rbac/rate-limits.ts` ✅ (completed: 2026-11-03 21:38)
+- [x] 3.2.6 Add the assignment and access-explain controllers — `apps/server/src/controllers/assignments.ts` ✅ (completed: 2026-11-03 21:38)
+- [x] 3.2.7 Register the services, controllers, and limiters — `apps/server/src/app.ts` ✅ (completed: 2026-11-03 21:38)
+- [x] 3.2.8 Add the assignment list contract and finish error mapping — `packages/api-contract/src/rbac.ts`, `apps/server/src/controllers/assignments.ts` ✅ (completed: 2026-11-03 21:38)
 
 ### Step 3.3: Implementation Tests and Hardening
 
 **Reference**: [03-03](03-03-assignments-access.md) §Error Handling · [07](07-testing-strategy.md) ST-31–ST-52 · AR-9, AR-16, AR-18
 
-- [ ] 3.3.1 Write assignment implementation tests for rollback, duplicate, and orphan cleanup — `apps/server/tests/integration/rbac-assignments.impl.test.ts`
-- [ ] 3.3.2 Write a forced concurrent last-admin delete test — `apps/server/tests/integration/rbac-assignments.impl.test.ts`
-- [ ] 3.3.3 Re-run the Phase 3 specification tests and confirm green
-- [ ] 3.3.4 Run `pnpm verify`, the integration gate, and `pnpm db:types:check`
+- [x] 3.3.1 Write assignment implementation tests for rollback, duplicate, and orphan cleanup — `apps/server/tests/integration/rbac-assignments.impl.test.ts` ✅ (completed: 2026-11-03 21:38)
+- [x] 3.3.2 Write a forced concurrent last-admin delete test — `apps/server/tests/integration/rbac-assignments.impl.test.ts` ✅ (completed: 2026-11-03 21:38)
+- [x] 3.3.3 Re-run the Phase 3 specification tests and confirm green ✅ (completed: 2026-11-03 21:38)
+- [x] 3.3.4 Run `pnpm verify`, the integration gate, and `pnpm db:types:check` ✅ (completed: 2026-11-03 21:42)
 
 **Verify**: `pnpm verify` plus the integration gate in [07](07-testing-strategy.md) §Verification Checklist
 

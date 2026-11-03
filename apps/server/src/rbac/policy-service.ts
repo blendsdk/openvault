@@ -539,6 +539,48 @@ export class PolicyService {
   }
 
   /**
+   * Returns every active assignment that independently grants an action.
+   *
+   * This is a projection for access explanations; it does not audit.
+   *
+   * @param snapshot - Actor snapshot.
+   * @param action - Fixed action.
+   * @param resource - Target resource.
+   * @returns Matching assignments in specificity order.
+   */
+  public matchingAssignments(
+    snapshot: ActorSnapshot,
+    action: RbacAction,
+    resource: PolicyResource,
+  ): readonly PolicyAssignmentMatch[] {
+    if (
+      snapshot.status !== "active" ||
+      (snapshot.kind === "service" && isControlPlaneAction(action))
+    ) {
+      return [];
+    }
+    const now = this.#now();
+    const matching = snapshot.assignments.filter(
+      (assignment) =>
+        roleEligibleAt(assignment.role, assignment.scopeType) &&
+        roleHasAction(assignment.role, action) &&
+        isActive(assignment, now) &&
+        assignmentCovers(assignment, resource),
+    );
+    return [...matching]
+      .sort(
+        (left, right) =>
+          scopeRank(left.scopeType) - scopeRank(right.scopeType) || left.id.localeCompare(right.id),
+      )
+      .map((assignment) => ({
+        id: assignment.id,
+        role: assignment.role,
+        scopeType: assignment.scopeType,
+        scopeId: assignment.scopeId,
+      }));
+  }
+
+  /**
    * Builds the public role and action catalog.
    *
    * @returns The catalog and current policy version.

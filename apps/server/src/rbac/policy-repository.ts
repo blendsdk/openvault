@@ -37,6 +37,111 @@ interface VersionRow {
   readonly version: string | number;
 }
 
+/** One principal used by assignment and explanation flows. */
+export interface PrincipalRecord {
+  /** Principal identifier. */
+  readonly id: string;
+  /** Principal kind. */
+  readonly kind: "user" | "service";
+  /** Principal status. */
+  readonly status: "active" | "disabled";
+}
+
+/** A project row used to validate assignment targets. */
+export interface ProjectRecord {
+  /** Project identifier. */
+  readonly id: string;
+  /** Soft-delete time, or null. */
+  readonly deletedAt: Date | null;
+}
+
+/** A secret or certificate row used to validate object assignments. */
+export interface ObjectRecord {
+  /** Object identifier. */
+  readonly id: string;
+  /** Owning project identifier. */
+  readonly projectId: string;
+  /** Soft-delete time, or null. */
+  readonly deletedAt: Date | null;
+}
+
+/** A principal row used to resolve an identity resource. */
+export interface IdentityRecord {
+  /** Principal identifier. */
+  readonly id: string;
+  /** Principal kind. */
+  readonly kind: "user" | "service";
+  /** Owner project for a service identity. */
+  readonly ownerProjectId: string | null;
+  /** Owner project soft-delete time. */
+  readonly projectDeletedAt: Date | null;
+}
+
+/** One persisted assignment. */
+export interface AssignmentRecord {
+  /** Assignment identifier. */
+  readonly id: string;
+  /** Target principal. */
+  readonly principalId: string;
+  /** Fixed role. */
+  readonly role: RbacRole;
+  /** Assignment scope type. */
+  readonly scopeType: RbacScopeType;
+  /** Assignment scope identifier. */
+  readonly scopeId: string;
+  /** Granting principal. */
+  readonly grantedBy: string;
+  /** Creation time. */
+  readonly createdAt: Date;
+  /** Expiry, or null. */
+  readonly expiresAt: Date | null;
+  /** Target principal status. */
+  readonly principalStatus: "active" | "disabled";
+}
+
+/** One candidate row for an access explanation. */
+export interface ExplainCandidateRow {
+  /** Principal identifier. */
+  readonly principalId: string;
+  /** Principal display name. */
+  readonly name: string;
+  /** Principal kind. */
+  readonly kind: "user" | "service";
+  /** Assignment identifier, or null when the principal has no assignment. */
+  readonly assignmentId: string | null;
+  /** Assignment role, or null. */
+  readonly role: string | null;
+  /** Assignment scope type, or null. */
+  readonly scopeType: string | null;
+  /** Assignment scope identifier, or null. */
+  readonly scopeId: string | null;
+  /** Assignment expiry, or null. */
+  readonly expiresAt: Date | null;
+  /** Consumer compose project, or null. */
+  readonly composeProject: string | null;
+  /** Consumer compose service, or null. */
+  readonly composeService: string | null;
+  /** Consumer hostname, or null. */
+  readonly hostname: string | null;
+  /** Consumer state, or null. */
+  readonly state: string | null;
+  /** Consumer last-seen time, or null. */
+  readonly lastSeen: Date | null;
+}
+
+/** Filters for the assignment list. */
+export interface AssignmentFilters {
+  readonly principalId?: string;
+  readonly role?: string;
+  readonly scopeType?: string;
+  readonly scopeId?: string;
+}
+
+/** List visibility returned by the policy service. */
+export type AssignmentVisibility =
+  | { readonly kind: "all" }
+  | { readonly kind: "projects"; readonly projectIds: readonly string[] };
+
 interface ActorRow {
   readonly principal_id: string;
   readonly kind: string;
@@ -50,12 +155,12 @@ interface ActorRow {
 }
 
 /** Returns true for a known role name. */
-function isRole(value: string): value is RbacRole {
+export function isRole(value: string): value is RbacRole {
   return ROLE_SET.has(value);
 }
 
 /** Returns true for a known scope type. */
-function isScopeType(value: string): value is RbacScopeType {
+export function isScopeType(value: string): value is RbacScopeType {
   return SCOPE_SET.has(value);
 }
 
@@ -204,5 +309,369 @@ export class PolicyRepository {
       policyVersion,
       assignments,
     };
+  }
+
+  /**
+   * Loads one principal.
+   *
+   * @param principalId - Principal identifier.
+   * @returns The principal, or undefined.
+   */
+  public async findPrincipal(principalId: string): Promise<PrincipalRecord | undefined> {
+    const result = await this.#database.executeQuery<{
+      readonly id: string;
+      readonly kind: string;
+      readonly status: string;
+    }>("SELECT id, kind, status FROM principals WHERE id = :principalId", { principalId });
+    const row = result.records[0];
+    if (row === undefined || !isPrincipalKind(row.kind)) {
+      return undefined;
+    }
+    return { id: row.id, kind: row.kind, status: row.status === "active" ? "active" : "disabled" };
+  }
+
+  /**
+   * Loads one project.
+   *
+   * @param projectId - Project identifier.
+   * @returns The project, or undefined.
+   */
+  public async findProject(projectId: string): Promise<ProjectRecord | undefined> {
+    const result = await this.#database.executeQuery<{
+      readonly id: string;
+      readonly deleted_at: Date | null;
+    }>("SELECT id, deleted_at FROM projects WHERE id = :projectId", { projectId });
+    const row = result.records[0];
+    return row === undefined ? undefined : { id: row.id, deletedAt: row.deleted_at };
+  }
+
+  /**
+   * Loads one secret or certificate.
+   *
+   * @param type - Object type.
+   * @param objectId - Object identifier.
+   * @returns The object, or undefined.
+   */
+  public async findObject(
+    type: "secret" | "certificate",
+    objectId: string,
+  ): Promise<ObjectRecord | undefined> {
+    const query =
+      type === "secret"
+        ? "SELECT id, project_id, deleted_at FROM secrets WHERE id = :objectId"
+        : "SELECT id, project_id, deleted_at FROM certificates WHERE id = :objectId";
+    const result = await this.#database.executeQuery<{
+      readonly id: string;
+      readonly project_id: string;
+      readonly deleted_at: Date | null;
+    }>(query, { objectId });
+    const row = result.records[0];
+    return row === undefined
+      ? undefined
+      : { id: row.id, projectId: row.project_id, deletedAt: row.deleted_at };
+  }
+
+  /**
+   * Loads one identity principal and its owner-project state.
+   *
+   * @param identityId - Principal identifier.
+   * @returns The identity, or undefined.
+   */
+  public async findIdentity(identityId: string): Promise<IdentityRecord | undefined> {
+    const result = await this.#database.executeQuery<{
+      readonly id: string;
+      readonly kind: string;
+      readonly owner_project_id: string | null;
+      readonly project_deleted_at: Date | null;
+    }>(
+      `SELECT p.id, p.kind, p.owner_project_id, pr.deleted_at AS project_deleted_at
+         FROM principals p
+         LEFT JOIN projects pr ON pr.id = p.owner_project_id
+        WHERE p.id = :identityId`,
+      { identityId },
+    );
+    const row = result.records[0];
+    if (row === undefined || !isPrincipalKind(row.kind)) {
+      return undefined;
+    }
+    return {
+      id: row.id,
+      kind: row.kind,
+      ownerProjectId: row.owner_project_id,
+      projectDeletedAt: row.project_deleted_at,
+    };
+  }
+
+  /**
+   * Loads one assignment with the target principal status.
+   *
+   * @param executor - Database or transaction executor.
+   * @param assignmentId - Assignment identifier.
+   * @returns The assignment, or undefined.
+   */
+  public async findAssignment(
+    executor: QueryExecutor,
+    assignmentId: string,
+  ): Promise<AssignmentRecord | undefined> {
+    const result = await executor.executeQuery<{
+      readonly id: string;
+      readonly principal_id: string;
+      readonly role: string;
+      readonly scope_type: string;
+      readonly scope_id: string;
+      readonly granted_by: string;
+      readonly created_at: Date;
+      readonly expires_at: Date | null;
+      readonly principal_status: string;
+    }>(
+      `SELECT r.id, r.principal_id, r.role, r.scope_type, r.scope_id, r.granted_by,
+              r.created_at, r.expires_at, p.status AS principal_status
+         FROM role_assignments r
+         JOIN principals p ON p.id = r.principal_id
+        WHERE r.id = :assignmentId`,
+      { assignmentId },
+    );
+    const row = result.records[0];
+    if (row === undefined || !isRole(row.role) || !isScopeType(row.scope_type)) {
+      return undefined;
+    }
+    return {
+      id: row.id,
+      principalId: row.principal_id,
+      role: row.role,
+      scopeType: row.scope_type,
+      scopeId: row.scope_id,
+      grantedBy: row.granted_by,
+      createdAt: row.created_at,
+      expiresAt: row.expires_at,
+      principalStatus: row.principal_status === "active" ? "active" : "disabled",
+    };
+  }
+
+  /**
+   * Inserts one assignment inside a transaction.
+   *
+   * @param executor - Transaction executor.
+   * @param input - Assignment fields.
+   * @returns The inserted assignment.
+   */
+  public async insertAssignment(
+    executor: QueryExecutor,
+    input: {
+      readonly id: string;
+      readonly principalId: string;
+      readonly role: RbacRole;
+      readonly scopeType: RbacScopeType;
+      readonly scopeId: string;
+      readonly grantedBy: string;
+      readonly expiresAt: Date | null;
+    },
+  ): Promise<AssignmentRecord> {
+    const result = await executor.executeQuery<{
+      readonly id: string;
+      readonly principal_id: string;
+      readonly role: string;
+      readonly scope_type: string;
+      readonly scope_id: string;
+      readonly granted_by: string;
+      readonly created_at: Date;
+      readonly expires_at: Date | null;
+    }>(
+      `INSERT INTO role_assignments
+         (id, principal_id, role, scope_type, scope_id, granted_by, expires_at)
+       VALUES
+         (:id, :principalId, :role, :scopeType, :scopeId, :grantedBy, :expiresAt)
+       RETURNING id, principal_id, role, scope_type, scope_id, granted_by, created_at, expires_at`,
+      input,
+    );
+    const row = result.records[0];
+    if (row === undefined || !isRole(row.role) || !isScopeType(row.scope_type)) {
+      throw new PolicyUnavailableError();
+    }
+    return {
+      id: row.id,
+      principalId: row.principal_id,
+      role: row.role,
+      scopeType: row.scope_type,
+      scopeId: row.scope_id,
+      grantedBy: row.granted_by,
+      createdAt: row.created_at,
+      expiresAt: row.expires_at,
+      principalStatus: "active",
+    };
+  }
+
+  /**
+   * Deletes one assignment inside a transaction.
+   *
+   * @param executor - Transaction executor.
+   * @param assignmentId - Assignment identifier.
+   */
+  public async deleteAssignment(executor: QueryExecutor, assignmentId: string): Promise<void> {
+    await executor.executeQuery("DELETE FROM role_assignments WHERE id = :assignmentId", {
+      assignmentId,
+    });
+  }
+
+  /**
+   * Counts active org administrators excluding one assignment.
+   *
+   * @param executor - Transaction executor.
+   * @param excludeAssignmentId - Assignment being removed.
+   * @returns Active administrator count.
+   */
+  public async countActiveOrgAdmins(
+    executor: QueryExecutor,
+    excludeAssignmentId: string,
+  ): Promise<number> {
+    const result = await executor.executeQuery<{ readonly count: number }>(
+      `SELECT count(*)::int AS count
+         FROM role_assignments r
+         JOIN principals p ON p.id = r.principal_id
+        WHERE r.role = 'org.admin'
+          AND r.scope_type = 'org'
+          AND r.scope_id = 'org'
+          AND r.id <> :excludeAssignmentId
+          AND (r.expires_at IS NULL OR r.expires_at > now())
+          AND p.status = 'active'`,
+      { excludeAssignmentId },
+    );
+    return result.records[0]?.count ?? 0;
+  }
+
+  /**
+   * Lists assignments visible to one caller.
+   *
+   * @param visibility - All projects or a project set.
+   * @param filters - Optional conjunctive filters.
+   * @returns Matching assignments, newest first.
+   */
+  public async listAssignments(
+    visibility: AssignmentVisibility,
+    filters: AssignmentFilters,
+  ): Promise<readonly AssignmentRecord[]> {
+    if (visibility.kind === "projects" && visibility.projectIds.length === 0) {
+      return [];
+    }
+    const conditions: string[] = [];
+    const params: Record<string, unknown> = {};
+    if (visibility.kind === "projects") {
+      params.projectIds = visibility.projectIds;
+      conditions.push(`(
+        (r.scope_type = 'project' AND r.scope_id = ANY(:projectIds))
+        OR (r.scope_type = 'object' AND (
+          EXISTS (SELECT 1 FROM secrets s WHERE s.id = r.scope_id AND s.project_id = ANY(:projectIds))
+          OR EXISTS (SELECT 1 FROM certificates c WHERE c.id = r.scope_id AND c.project_id = ANY(:projectIds))
+        ))
+      )`);
+    }
+    if (filters.principalId !== undefined) {
+      conditions.push("r.principal_id = :principalId");
+      params.principalId = filters.principalId;
+    }
+    if (filters.role !== undefined) {
+      conditions.push("r.role = :role");
+      params.role = filters.role;
+    }
+    if (filters.scopeType !== undefined) {
+      conditions.push("r.scope_type = :scopeType");
+      params.scopeType = filters.scopeType;
+    }
+    if (filters.scopeId !== undefined) {
+      conditions.push("r.scope_id = :scopeId");
+      params.scopeId = filters.scopeId;
+    }
+    const where = conditions.length === 0 ? "" : `WHERE ${conditions.join(" AND ")}`;
+    const result = await this.#database.executeQuery<{
+      readonly id: string;
+      readonly principal_id: string;
+      readonly role: string;
+      readonly scope_type: string;
+      readonly scope_id: string;
+      readonly granted_by: string;
+      readonly created_at: Date;
+      readonly expires_at: Date | null;
+      readonly principal_status: string;
+    }>(
+      `SELECT r.id, r.principal_id, r.role, r.scope_type, r.scope_id, r.granted_by,
+              r.created_at, r.expires_at, p.status AS principal_status
+         FROM role_assignments r
+         JOIN principals p ON p.id = r.principal_id
+         ${where}
+        ORDER BY r.created_at DESC, r.id DESC`,
+      params,
+    );
+    const assignments: AssignmentRecord[] = [];
+    for (const row of result.records) {
+      if (!isRole(row.role) || !isScopeType(row.scope_type)) {
+        continue;
+      }
+      assignments.push({
+        id: row.id,
+        principalId: row.principal_id,
+        role: row.role,
+        scopeType: row.scope_type,
+        scopeId: row.scope_id,
+        grantedBy: row.granted_by,
+        createdAt: row.created_at,
+        expiresAt: row.expires_at,
+        principalStatus: row.principal_status === "active" ? "active" : "disabled",
+      });
+    }
+    return assignments;
+  }
+
+  /**
+   * Loads active principals, their assignments, and consumer metadata.
+   *
+   * @returns One row per principal/assignment pair.
+   */
+  public async listExplainCandidates(): Promise<readonly ExplainCandidateRow[]> {
+    const result = await this.#database.executeQuery<{
+      readonly principal_id: string;
+      readonly name: string;
+      readonly kind: string;
+      readonly assignment_id: string | null;
+      readonly role: string | null;
+      readonly scope_type: string | null;
+      readonly scope_id: string | null;
+      readonly expires_at: Date | null;
+      readonly compose_project: string | null;
+      readonly compose_service: string | null;
+      readonly hostname: string | null;
+      readonly state: string | null;
+      readonly last_seen: Date | null;
+    }>(
+      `SELECT p.id AS principal_id, p.name, p.kind,
+              r.id AS assignment_id, r.role, r.scope_type, r.scope_id, r.expires_at,
+              c.compose_project, c.compose_service, c.hostname, c.state, c.last_seen
+         FROM principals p
+         LEFT JOIN role_assignments r ON r.principal_id = p.id
+         LEFT JOIN consumers c ON c.principal_id = p.id
+        WHERE p.status = 'active'
+        ORDER BY p.name, p.id, r.id`,
+    );
+    const rows: ExplainCandidateRow[] = [];
+    for (const row of result.records) {
+      if (!isPrincipalKind(row.kind)) {
+        continue;
+      }
+      rows.push({
+        principalId: row.principal_id,
+        name: row.name,
+        kind: row.kind,
+        assignmentId: row.assignment_id,
+        role: row.role,
+        scopeType: row.scope_type,
+        scopeId: row.scope_id,
+        expiresAt: row.expires_at,
+        composeProject: row.compose_project,
+        composeService: row.compose_service,
+        hostname: row.hostname,
+        state: row.state,
+        lastSeen: row.last_seen,
+      });
+    }
+    return rows;
   }
 }

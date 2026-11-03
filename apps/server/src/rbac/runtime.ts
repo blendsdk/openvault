@@ -1,8 +1,10 @@
 import type { PostgreSQLDatabase } from "blendsdk/postgresql";
 import type { Logger } from "blendsdk/webafx";
+import { AssignmentService } from "./assignment-service.js";
 import { LoggingPolicyAudit, type PolicyAuditPort } from "./audit.js";
 import { PolicyRepository } from "./policy-repository.js";
 import { PolicyService } from "./policy-service.js";
+import { createRbacRateLimitService, type RbacRateLimitService } from "./rate-limits.js";
 
 const silentLogger: Logger = {
   info: async () => undefined,
@@ -19,6 +21,10 @@ export interface PolicyRuntime {
   readonly audit: PolicyAuditPort;
   /** Decision engine. */
   readonly service: PolicyService;
+  /** Assignment administration. */
+  readonly assignments: AssignmentService;
+  /** Admin write/read limiters. */
+  readonly rateLimits: RbacRateLimitService;
 }
 
 /**
@@ -39,5 +45,11 @@ export function createPolicyRuntime(options: {
   const audit = new LoggingPolicyAudit(options.logger ?? silentLogger);
   const repository = new PolicyRepository(options.database);
   const service = options.service ?? new PolicyService({ repository, audit });
-  return { repository, audit, service };
+  const assignments = new AssignmentService({
+    database: options.database,
+    repository,
+    policy: service,
+    audit,
+  });
+  return { repository, audit, service, assignments, rateLimits: createRbacRateLimitService() };
 }
