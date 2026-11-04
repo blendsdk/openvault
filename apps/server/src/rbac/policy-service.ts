@@ -7,6 +7,7 @@ import {
   type RbacScopeType,
   type RoleCatalog,
 } from "@openvault/api-contract";
+import type { AuditQueryExecutor } from "../audit/types.js";
 import { ACTION_DEFINITIONS, isControlPlaneAction } from "./actions.js";
 import type { PolicyAuditContext, PolicyAuditPort, PolicyDecisionEvent } from "./audit.js";
 import { PolicyUnavailableError } from "./errors.js";
@@ -614,9 +615,10 @@ export class PolicyService {
   public async recordDecision(
     decision: PolicyDecision,
     context?: PolicyAuditContext,
+    tx?: AuditQueryExecutor,
   ): Promise<void> {
     try {
-      await this.#audit.recordDecision(this.#toEvent(decision, context));
+      await this.#audit.recordDecision(this.#toEvent(decision, context), tx);
     } catch {
       throw new PolicyUnavailableError();
     }
@@ -794,6 +796,7 @@ export class PolicyService {
       action: decision.action,
       scopeType: decision.scope.type,
       scopeId: decision.scope.id,
+      projectId: resourceProjectId(decision.resource) ?? null,
       objectType,
       objectId,
       result: decision.allowed ? "allow" : "deny",

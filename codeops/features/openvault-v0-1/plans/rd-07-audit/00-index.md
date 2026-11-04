@@ -38,6 +38,7 @@ RD-07 also wires the current emitters: RBAC decisions and assignment changes, id
 | 03-03 | [Audit Emitters](03-03-audit-emitters.md) | RBAC, identity, authentication, agent, and consumer integration |
 | 03-04 | [Retention and Operations](03-04-retention-operations.md) | Prune command, checkpoint export, credentials, docs, release note |
 | 07 | [Testing Strategy](07-testing-strategy.md) | Specification test cases and verification |
+| 05 | [Findings Ledger](05-findings.md) | Post-phase review rulings |
 | 99 | [Execution Plan](99-execution-plan.md) | Phases, sessions, and task checklist |
 
 ## Quick Reference

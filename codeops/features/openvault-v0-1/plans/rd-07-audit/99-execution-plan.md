@@ -2,8 +2,8 @@
 
 > **Document**: 99-execution-plan.md
 > **Parent**: [Index](00-index.md)
-> **Last Updated**: 2026-11-04 08:49
-> **Progress**: 0/73 tasks (0%)
+> **Last Updated**: 2026-11-04 13:20
+> **Progress**: 17/73 tasks (23%)
 > **CodeOps Artifact Schema**: 1
 
 ## Overview
@@ -41,7 +41,9 @@ Implement the persistent audit chain in four phases: the writer and policy adapt
 
 ## Phase 1: Audit Core
 
-> **Phase baseline tree**: _(recorded by the exec-plan skill from a temporary-index snapshot of committed, staged, unstaged, and untracked phase-start state)_
+> **Phase baseline tree**: 610682db0be37fb3b4aaf4c68adbd9f4c5d8b113
+> **Expected modification set**: `packages/api-contract/src/audit.ts`, `packages/api-contract/src/index.ts`, `apps/server/src/audit/**`, `apps/server/src/rbac/{audit,policy-service,assignment-service,runtime}.ts`, `apps/server/src/app.ts`, `apps/server/tests/audit/**`, `apps/server/tests/integration/audit-chain.*.test.ts`, `apps/server/tests/integration/helpers/fixtures.ts`, `apps/server/tests/integration/schema.spec.test.ts`, `apps/server/tests/integration/rbac-audit.impl.test.ts`, and the plan documents.
+> **Scope mode**: strict
 > **Reasoning**: high — hash-chain integrity, key wrapping, transaction boundaries, and fail-closed behavior are security-critical.
 
 ### Step 1.1: Specification Tests
@@ -49,42 +51,44 @@ Implement the persistent audit chain in four phases: the writer and policy adapt
 **Reference**: [03-01](03-01-audit-core.md) · [07](07-testing-strategy.md) ST-1–ST-22 · AR-5–AR-11, AR-16–AR-18, AR-24
 **Objective**: Define the expected chain, key, checkpoint, and canonical JSON behavior before implementation.
 
-- [ ] 1.1.1 [spec-author] Write canonical JSON and hashing spec tests — `apps/server/tests/audit/canonical-json.spec.test.ts` (ST-1–ST-8)
-- [ ] 1.1.2 [spec-author] Write chain, key, checkpoint, and policy adapter spec tests — `apps/server/tests/integration/audit-chain.spec.test.ts` (ST-9–ST-22, ST-91)
-- [ ] 1.1.3 Run the new spec tests and record the red phase — every ST case must fail for the expected missing behavior
+- [x] 1.1.1 [spec-author] Write canonical JSON and hashing spec tests — `apps/server/tests/audit/canonical-json.spec.test.ts` (ST-1–ST-8) ✅ (completed: 2026-11-04 12:59)
+- [x] 1.1.2 [spec-author] Write chain, key, checkpoint, and policy adapter spec tests — `apps/server/tests/integration/audit-chain.spec.test.ts` (ST-9–ST-22, ST-91) ✅ (completed: 2026-11-04 12:59)
+- [x] 1.1.3 Run the new spec tests and record the red phase — every ST case must fail for the expected missing behavior ✅ (completed: 2026-11-04 12:59)
 
 ### Step 1.2: Implementation
 
 **Reference**: [03-01](03-01-audit-core.md) §Implementation Details · AR-5–AR-11, AR-16–AR-18, AR-24
 **Objective**: Implement the canonical encoder, key store, writer, checkpoints, and persistent policy adapter.
 
-- [ ] 1.2.1 Add the audit response and export query contracts; normalize filters; require `objectType` with `objectId` — `packages/api-contract/src/audit.ts`, `packages/api-contract/src/index.ts`
-- [ ] 1.2.2 Add the server action catalog, details allowlists, shared types, and audit error hierarchy — `apps/server/src/audit/actions.ts`, `apps/server/src/audit/types.ts`, `apps/server/src/audit/errors.ts`
-- [ ] 1.2.3 Implement canonical JSON and hashing, including the fixed hash/HMAC vector — `apps/server/src/audit/canonical-json.ts`, `apps/server/src/audit/hashing.ts`
-- [ ] 1.2.4 Implement KEK wrap/unwrap and audit key selection — `apps/server/src/audit/audit-key-store.ts`
-- [ ] 1.2.5 Implement the writer, advisory lock, and checkpoint cadence — `apps/server/src/audit/audit-writer.ts`
-- [ ] 1.2.6 Implement the persistent policy adapter — `apps/server/src/audit/policy-audit.ts`
-- [ ] 1.2.7 Add decision and mutation `projectId`, mutation object fields, the transaction parameter, and the runtime audit option; update event fixtures — `apps/server/src/rbac/audit.ts`, `apps/server/src/rbac/policy-service.ts`, `apps/server/src/rbac/assignment-service.ts`, `apps/server/src/rbac/runtime.ts`, `apps/server/tests/integration/rbac-audit.impl.test.ts`
-- [ ] 1.2.8 Compose the audit runtime and accept the adapter in the application — `apps/server/src/audit/runtime.ts`, `apps/server/src/app.ts`
-- [ ] 1.2.9 Separate business fixtures from synthetic audit rows — `apps/server/tests/integration/helpers/fixtures.ts`, `apps/server/tests/integration/schema.spec.test.ts`
-- [ ] 1.2.10 Run the spec tests and reach the green phase
+- [x] 1.2.1 Add the audit response and export query contracts; normalize filters; require `objectType` with `objectId` — `packages/api-contract/src/audit.ts`, `packages/api-contract/src/index.ts` ✅ (completed: 2026-11-04 13:20)
+- [x] 1.2.2 Add the server action catalog, details allowlists, shared types, and audit error hierarchy — `apps/server/src/audit/actions.ts`, `apps/server/src/audit/types.ts`, `apps/server/src/audit/errors.ts` ✅ (completed: 2026-11-04 13:20)
+- [x] 1.2.3 Implement canonical JSON and hashing, including the fixed hash/HMAC vector — `apps/server/src/audit/canonical-json.ts`, `apps/server/src/audit/hashing.ts` ✅ (completed: 2026-11-04 13:20)
+- [x] 1.2.4 Implement KEK wrap/unwrap and audit key selection — `apps/server/src/audit/audit-key-store.ts` ✅ (completed: 2026-11-04 13:20)
+- [x] 1.2.5 Implement the writer, advisory lock, and checkpoint cadence — `apps/server/src/audit/audit-writer.ts` ✅ (completed: 2026-11-04 13:20)
+- [x] 1.2.6 Implement the persistent policy adapter — `apps/server/src/audit/policy-audit.ts` ✅ (completed: 2026-11-04 13:20)
+- [x] 1.2.7 Add decision and mutation `projectId`, mutation object fields, the transaction parameter, and the runtime audit option; update event fixtures — `apps/server/src/rbac/audit.ts`, `apps/server/src/rbac/policy-service.ts`, `apps/server/src/rbac/assignment-service.ts`, `apps/server/src/rbac/runtime.ts`, `apps/server/tests/integration/rbac-audit.impl.test.ts` ✅ (completed: 2026-11-04 13:20)
+- [x] 1.2.8 Compose the audit runtime and accept the adapter in the application — `apps/server/src/audit/runtime.ts`, `apps/server/src/app.ts` ✅ (completed: 2026-11-04 13:20)
+- [x] 1.2.9 Separate business fixtures from synthetic audit rows — `apps/server/tests/integration/helpers/fixtures.ts`, `apps/server/tests/integration/schema.spec.test.ts` ✅ (completed: 2026-11-04 13:20)
+- [x] 1.2.10 Run the spec tests and reach the green phase ✅ (completed: 2026-11-04 13:20)
 
 ### Step 1.3: Implementation Tests and Hardening
 
 **Reference**: [03-01](03-01-audit-core.md) §Testing Requirements · [07](07-testing-strategy.md)
 **Objective**: Cover concurrency, rollback, key edge cases, and serializer internals.
 
-- [ ] 1.3.1 Write chain implementation tests: concurrent inserts, sequence gaps, checkpoint boundaries, timestamp round-trip — `apps/server/tests/integration/audit-chain.impl.test.ts`
-- [ ] 1.3.2 Write canonical JSON implementation tests: escaping, depth, size, rejected values — `apps/server/tests/audit/canonical-json.impl.test.ts`
-- [ ] 1.3.3 Write rollback and atomicity implementation tests: decision survives, mutation rolls back, key failure — `apps/server/tests/integration/audit-chain.impl.test.ts`
-- [ ] 1.3.4 Full phase verification
+- [x] 1.3.1 Write chain implementation tests: concurrent inserts, sequence gaps, checkpoint boundaries, timestamp round-trip — `apps/server/tests/integration/audit-chain.impl.test.ts` ✅ (completed: 2026-11-04 13:20)
+- [x] 1.3.2 Write canonical JSON implementation tests: escaping, depth, size, rejected values — `apps/server/tests/audit/canonical-json.impl.test.ts` ✅ (completed: 2026-11-04 13:20)
+- [x] 1.3.3 Write rollback and atomicity implementation tests: decision survives, mutation rolls back, key failure — `apps/server/tests/integration/audit-chain.impl.test.ts` ✅ (completed: 2026-11-04 13:20)
+- [x] 1.3.4 Full phase verification ✅ (completed: 2026-11-04 13:20)
 
 **Deliverables**:
-- [ ] Canonical encoder, key store, writer, checkpoints, and policy adapter complete
-- [ ] All Phase 1 specification and implementation tests passing
-- [ ] All verification passing
+- [x] Canonical encoder, key store, writer, checkpoints, and policy adapter complete
+- [x] All Phase 1 specification and implementation tests passing
+- [x] All verification passing
 
 **Verify**: `pnpm verify && pnpm db:types:check && TEST_DATABASE_URL=postgres://openvault:test-password@127.0.0.1:5433/openvault_test OPENVAULT_TEST_DB=1 pnpm test:integration`
+
+> **Verification note (2026-11-04 13:34)**: `pnpm verify` and `pnpm db:types:check` pass. The integration suite reports 436 passed and one failure, `ca-x509.spec.test.ts > CA signer loading and issuance > should load a matching row, probe, and issue the fixed profile`; the same test also fails on the clean `82869de` baseline under this environment, so it is a pre-existing, unrelated failure.
 
 ---
 

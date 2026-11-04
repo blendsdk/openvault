@@ -4,6 +4,7 @@ import { createLoggerPlugin } from "blendsdk/webafx-pino";
 import type { AgentAuthenticator } from "./agent/agent-authenticator.js";
 import { agentAuthMiddleware } from "./agent/agent-middleware.js";
 import type { AgentProjectResolver } from "./agent/project-resolver.js";
+import { createAuditCore } from "./audit/runtime.js";
 import { createAuthPlugin } from "./auth/plugin.js";
 import type { OpenVaultConfig } from "./config/index.js";
 import { AgentController } from "./controllers/agent.js";
@@ -48,10 +49,27 @@ export function createApplication(
   const app = new SecureWebApplication(config, dependencies);
   const provider: PinoLoggerProvider =
     dependencies.logger ?? createLoggerProvider(config, dependencies.loggerDestination);
+  const usesBuiltInPolicyRuntime =
+    dependencies.agentRuntime === undefined && dependencies.identityRuntime === undefined;
+  const auditDatabase = usesBuiltInPolicyRuntime
+    ? new PostgreSQLDatabase({
+        ...config.database,
+        poolConfig: { max: 1, idleTimeoutMillis: 100 },
+        enableGracefulShutdown: false,
+      })
+    : undefined;
   const policyRuntime =
     dependencies.agentRuntime?.policyRuntime ??
     dependencies.identityRuntime?.policyRuntime ??
-    createPolicyRuntime({ database: dependencies.database, logger: provider });
+    createPolicyRuntime({
+      database: dependencies.database,
+      logger: provider,
+      audit: createAuditCore({
+        database: dependencies.database,
+        ...(auditDatabase === undefined ? {} : { independentDatabase: auditDatabase }),
+        keyring: dependencies.keyring,
+      }).policyAudit,
+    });
   const identityRuntime =
     dependencies.agentRuntime?.identityRuntime ??
     dependencies.identityRuntime ??
@@ -87,6 +105,18 @@ export function createApplication(
       }
     },
   });
+  if (auditDatabase !== undefined) {
+    app.registerService({
+      name: "auditDatabase",
+      type: "singleton",
+      factory: () => auditDatabase,
+      dispose: async (database) => {
+        if (database instanceof PostgreSQLDatabase) {
+          await database.disconnect();
+        }
+      },
+    });
+  }
   app.registerService({
     name: "keyring",
     type: "singleton",

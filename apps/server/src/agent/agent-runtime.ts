@@ -2,6 +2,7 @@ import type { PostgreSQLDatabase } from "blendsdk/postgresql";
 import type { Logger } from "blendsdk/webafx";
 import type { OpenVaultConfig } from "../config/index.js";
 import { createIdentityRuntime, type IdentityRuntime } from "../identity/identity-runtime.js";
+import type { PolicyAuditPort } from "../rbac/audit.js";
 import { createPolicyRuntime, type PolicyRuntime } from "../rbac/runtime.js";
 import { CaSigner } from "../security/ca.js";
 import type { KeyringProvider } from "../security/keyring.js";
@@ -63,6 +64,8 @@ export interface CreateAgentRuntimeOptions {
   readonly config: OpenVaultConfig;
   /** Shared structured logger; absent in unit-focused tests. */
   readonly logger?: Logger;
+  /** Persistent policy audit adapter; omitted only by isolated tests. */
+  readonly audit?: PolicyAuditPort;
   /** Injectable clock for authentication and renewal. */
   readonly now?: () => number;
   /** Test-only limiter thresholds; production leaves this empty. */
@@ -99,6 +102,7 @@ export async function createAgentRuntime(
   const policyRuntime = createPolicyRuntime({
     database: options.database,
     ...(options.logger === undefined ? {} : { logger: options.logger }),
+    ...(options.audit === undefined ? {} : { audit: options.audit }),
   });
   const caSigner = await CaSigner.load({
     database: options.database,

@@ -470,6 +470,8 @@ export class PersistentPolicyAudit implements PolicyAuditPort {
 
 `PolicyAuditPort.recordMutation` gains an optional transaction parameter. `LoggingPolicyAudit` accepts and ignores it. `AssignmentService.create` and `delete` pass their `tx` so the mutation row commits or rolls back with the assignment (AR-17).
 
+`PolicyAuditPort.recordDecision` also accepts an optional transaction. A normal decision is written independently. An allowed assignment decision is written through the assignment transaction, so it commits or rolls back with the assignment; a denied assignment decision is carried out of the failed transaction and written independently afterwards. One database handle cannot open a nested transaction, and this keeps exactly one decision event per attempt without a second pool.
+
 Decision mapping:
 
 | Audit field | Source |
@@ -491,6 +493,8 @@ Decision mapping:
 | `details` | `{ reason, policyVersion, denialCount? }` |
 
 Mutation mapping adds `projectId` from the new `PolicyMutationEvent.projectId`, `action: "assignment.grant" | "assignment.revoke"`, `result: "allow"`, `objectType: "assignment"`, `objectId: assignmentId`, and details `{ assignmentId, targetPrincipalId, role, policyVersion }`.
+
+A decision whose `projectId` has no `projects` row cannot satisfy the audit foreign key. The adapter records that decision at system scope with a null project id and keeps the requested object type and id, so the attempt still reaches the log. The check is skipped when the adapter has no database handle.
 
 `PolicyDecisionEvent` gains `projectId: string | null` so an object-scoped decision (a secret or certificate resource) can satisfy the database check that project and object scopes carry a project id. The policy service sets it from the evaluated resource; current secret and certificate decisions already use project scope, so the field is defensive but keeps the contract correct.
 

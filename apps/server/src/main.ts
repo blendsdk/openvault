@@ -3,6 +3,7 @@ import { PostgreSQLDatabase } from "blendsdk/postgresql";
 import { createAgentRuntime } from "./agent/agent-runtime.js";
 import { bootstrapAgentRuntime } from "./agent/bootstrap.js";
 import { createApplication } from "./app.js";
+import { createAuditCore } from "./audit/runtime.js";
 import { bootstrapAuthRuntime } from "./auth/bootstrap.js";
 import { ConfigError, loadConfig } from "./config/index.js";
 import { migrationConfigPath } from "./db/config.js";
@@ -26,8 +27,37 @@ try {
   });
 
   const logger = createLoggerProvider(config);
-  const agentRuntime = await createAgentRuntime({ database, keyring, tls, config, logger });
+  const auditDatabase = new PostgreSQLDatabase({
+    ...config.database,
+    poolConfig: { max: 1, idleTimeoutMillis: 100 },
+    enableGracefulShutdown: false,
+  });
+  const auditCore = createAuditCore({
+    database,
+    independentDatabase: auditDatabase,
+    keyring,
+  });
+  const agentRuntime = await createAgentRuntime({
+    database,
+    keyring,
+    tls,
+    config,
+    logger,
+    audit: auditCore.policyAudit,
+  });
   const app = createApplication(config, { database, tls, keyring, logger, agentRuntime });
+  app.registerService({
+    name: "auditDatabase",
+    type: "singleton",
+    factory: () => auditDatabase,
+    dispose: async (database) => {
+      if (database instanceof PostgreSQLDatabase) {
+        await database.disconnect();
+      }
+    },
+  });
+  // Resolve the singleton so the service container owns its shutdown.
+  await app.getService("auditDatabase");
   await app.prepare();
   await bootstrapAuthRuntime(app);
   await bootstrapAgentRuntime(app);
