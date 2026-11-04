@@ -2,8 +2,8 @@
 
 > **Document**: 99-execution-plan.md
 > **Parent**: [Index](00-index.md)
-> **Last Updated**: 2026-11-04 23:15
-> **Progress**: 61/74 tasks (82%)
+> **Last Updated**: 2026-11-04 23:40
+> **Progress**: 73/74 tasks (99%)
 > **CodeOps Artifact Schema**: 1
 
 ## Overview
@@ -286,30 +286,30 @@ tests, full verification.
 **Reference**: [00-index.md](00-index.md) · AR-4, AR-19, AR-23..AR-26
 **Objective**: Document the implemented certificate surface and release metadata.
 
-- [ ] 6.1.1 Update the API reference with all certificate routes, shapes, PATCH, and status codes — `docs/reference/api.md`
-- [ ] 6.1.2 Replace the target certificates guide with implemented behavior, expiry, webhook, and key handling — `docs/guide/certificates.md`
-- [ ] 6.1.3 Document the expiry settings, certificate size clamp, and the six-table purger grants — `docs/reference/configuration.md`, `docs/guide/secrets.md`
-- [ ] 6.1.4 Update the architecture crypto page with the certificate private-key envelope — `docs/architecture/crypto.md`
-- [ ] 6.1.5 Update the security limitations with chain trust, unsupported SAN types, webhook delivery, private-key memory, version limit, no idempotency, and request-body redaction — `docs/security/limitations.md`
-- [ ] 6.1.6 Document `certificate.expiry_warning` in the audit guide — `docs/guide/audit.md`
-- [ ] 6.1.7 Update the changelog and add a minor changeset — `docs/changelog.md`, `.changeset/certificates.md`
+- [x] 6.1.1 Update the API reference with all certificate routes, shapes, PATCH, and status codes — `docs/reference/api.md` ✅ (completed: 2026-11-04 23:40)
+- [x] 6.1.2 Replace the target certificates guide with implemented behavior, expiry, webhook, and key handling — `docs/guide/certificates.md` ✅ (completed: 2026-11-04 23:40)
+- [x] 6.1.3 Document the expiry settings, certificate size clamp, and the six-table purger grants — `docs/reference/configuration.md`, `docs/guide/secrets.md` ✅ (completed: 2026-11-04 23:40)
+- [x] 6.1.4 Update the architecture crypto page with the certificate private-key envelope — `docs/architecture/crypto.md` ✅ (completed: 2026-11-04 23:40)
+- [x] 6.1.5 Update the security limitations with chain trust, unsupported SAN types, webhook delivery, private-key memory, version limit, no idempotency, and request-body redaction — `docs/security/limitations.md` ✅ (completed: 2026-11-04 23:40)
+- [x] 6.1.6 Document `certificate.expiry_warning` in the audit guide — `docs/guide/audit.md` ✅ (completed: 2026-11-04 23:40)
+- [x] 6.1.7 Update the changelog and add a minor changeset — `docs/changelog.md`, `.changeset/certificates.md` ✅ (completed: 2026-11-04 23:40)
 
 ### Step 6.2: Release Verification
 
 **Reference**: [07-testing-strategy.md](07-testing-strategy.md) §Verification Checklist
 **Objective**: Prove the complete plan with every required gate.
 
-- [ ] 6.2.1 Run `pnpm verify`
-- [ ] 6.2.2 Run `pnpm db:migrate` and `pnpm db:types:check` with `OPENVAULT_DB_URL`
-- [ ] 6.2.3 Run the full integration suite on PostgreSQL 16
-- [ ] 6.2.4 Run the full integration suite on PostgreSQL 17
-- [ ] 6.2.5 Run `pnpm changeset status` and the docs build
-- [ ] 6.2.6 Remove temporary artifacts, confirm the clean worktree, and record the final summary
+- [x] 6.2.1 Run `pnpm verify` ✅ (completed: 2026-11-04 23:40)
+- [x] 6.2.2 Run `pnpm db:migrate` and `pnpm db:types:check` with `OPENVAULT_DB_URL` ✅ (completed: 2026-11-04 23:40)
+- [x] 6.2.3 Run the full integration suite on PostgreSQL 16 ✅ (completed: 2026-11-04 23:40)
+- [x] 6.2.4 Run the full integration suite on PostgreSQL 17 ✅ (completed: 2026-11-04 23:40)
+- [x] 6.2.5 Run `pnpm changeset status` and the docs build ✅ (completed: 2026-11-04 23:40)
+- [~] 6.2.6 Remove temporary artifacts, confirm the clean worktree, and record the final summary ⏳ (implemented: 2026-11-04 23:40)
 
 **Deliverables**:
-- [ ] Certificate routes complete with `certificate.*` enforcement and audit
-- [ ] Documentation and changeset complete
-- [ ] All verification passing
+- [x] Certificate routes complete with `certificate.*` enforcement and audit ✅
+- [x] Documentation and changeset complete ✅
+- [x] All verification passing ✅
 
 **Verify**: `pnpm verify && OPENVAULT_DB_URL=postgres://openvault:test-password@127.0.0.1:5433/openvault_test pnpm db:migrate && OPENVAULT_DB_URL=postgres://openvault:test-password@127.0.0.1:5433/openvault_test pnpm db:types:check && TEST_DATABASE_URL=postgres://openvault:test-password@127.0.0.1:5433/openvault_test OPENVAULT_TEST_DB=1 pnpm test:integration && pnpm changeset status`
 

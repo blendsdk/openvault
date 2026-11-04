@@ -25,10 +25,15 @@
   tags, content types, expiry, idempotent writes, capability flags, consumer summaries,
   soft delete, recovery, one-way purge protection, and a dedicated purge credential.
 - Canonical value encoding, a 64 KiB decoded limit, and a 512 KiB data-route body guard.
+- Certificate import and self-signed generation with strict PEM/PKCS#8 validation, key/chain
+  checks, immutable versions, public-chain and private-key reads, expiry 410 behavior, tags,
+  search, capabilities, soft delete, recovery, one-way protection, and guarded purge.
+- Certificate expiry warnings at 30/14/7 days, durable per-threshold claims, an optional
+  timestamped-HMAC webhook, and certificate expiry audit events.
+- A project list certificate count for the UI.
 
 ### Planned
 
-- Certificates.
 - `ov-agent` client with tmpfs delivery and local status socket.
 - CLI and Docker Compose scaffold.
 - Minimal web UI.

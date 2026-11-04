@@ -22,8 +22,11 @@ bind. The server requires Node.js 24.7 or newer (the built-in Argon2 API).
 | `OPENVAULT_OIDC_REDIRECT_URL` | `${BASE_URL}/v1/auth/callback` | no | HTTPS URL |
 | `OPENVAULT_OIDC_ALLOWED_DOMAINS` | none | no | Comma-separated domain allowlist |
 | `OPENVAULT_SECRET_MAX_BYTES` | `65536` | no | 1024–65536; decoded value limit enforced by the secret routes |
-| `OPENVAULT_PURGE_DB_URL` | none | no | Dedicated `openvault_purger` PostgreSQL URL used only by secret purge |
-| `OPENVAULT_CERT_MAX_BYTES` | `131072` | no | Product-value limit enforced by the certificate routes |
+| `OPENVAULT_PURGE_DB_URL` | none | no | Dedicated `openvault_purger` PostgreSQL URL used only by secret and certificate purge |
+| `OPENVAULT_CERT_MAX_BYTES` | `131072` | no | 1024–131072; combined public chain bound; the private key is separately limited to 16,384 bytes |
+| `OPENVAULT_CERT_EXPIRY_HOUR` | `3` | no | 0–23 UTC; daily expiry-scan hour |
+| `OPENVAULT_CERT_EXPIRY_WEBHOOK_URL` | none | no | HTTPS URL (loopback HTTP outside production); credentials, fragments, and production link-local/metadata targets are rejected |
+| `OPENVAULT_CERT_EXPIRY_WEBHOOK_SECRET` | none | no | 16–256 characters; adds `X-OpenVault-Timestamp` and an HMAC signature; never logged or redacted-exposed |
 | `OPENVAULT_SOFT_DELETE_DAYS` | `30` | no | 7–90 |
 | `OPENVAULT_AUDIT_RETENTION_DAYS` | `180` | no | 30–3650 |
 | `OPENVAULT_JOIN_TOKEN_TTL` | `15m` | no | 1m–24h; default join-token lifetime; an admin request may override it up to 24 hours |
@@ -70,22 +73,39 @@ authoritative check.
 
 Requests with a non-JSON body under `/v1` are rejected with `415`.
 
-## Secret purge
+## Secret and certificate purge
 
-Secret purge needs a dedicated login role named `openvault_purger`, because the database
-trigger rejects deletes from the application role. Set `OPENVAULT_PURGE_DB_URL` to that role's
-URL and grant:
+Secret and certificate purge need a dedicated login role named `openvault_purger`, because
+the database trigger rejects deletes from the application role. Set `OPENVAULT_PURGE_DB_URL` to
+that role's URL and grant:
 
 ```sql
 GRANT SELECT ON projects TO openvault_purger;
 GRANT SELECT, DELETE ON secrets TO openvault_purger;
 GRANT SELECT, DELETE ON secret_versions TO openvault_purger;
+GRANT SELECT, DELETE ON certificates TO openvault_purger;
+GRANT SELECT, DELETE ON certificate_versions TO openvault_purger;
+GRANT SELECT, DELETE ON certificate_expiry_notifications TO openvault_purger;
 ```
 
-Do not make the role a superuser, the table owner, or a member of either. The server verifies
-the database, session user, superuser status, ownership, and role memberships on every purge.
+Do not make the role a superuser, a table owner, or a member of any owner role. The server
+verifies the database, session user, current user, superuser status, ownership, and role
+memberships on every purge.
 Without a valid URL the server still starts and only purge returns 503. The URL is a high-value
 secret and is not included in the redacted configuration or logs.
+
+## Certificate expiry
+
+The expiry job runs once per UTC day at `OPENVAULT_CERT_EXPIRY_HOUR`. It considers only the
+current version of an active certificate in an active project and sends one warning per
+`(version, 30/14/7-day threshold)`. Set `OPENVAULT_CERT_EXPIRY_WEBHOOK_URL` to deliver warnings;
+without it, warnings are logged and audited with `webhook: "skipped"`.
+
+The webhook receives public metadata only. With `OPENVAULT_CERT_EXPIRY_WEBHOOK_SECRET`, the
+request carries `X-OpenVault-Timestamp` and `X-OpenVault-Signature:
+sha256=<HMAC-SHA256(secret, timestamp + "." + rawBody)>`. A failed delivery is retried on a
+later run. The notification table makes the claim durable; a crash after a claim is recovered
+after a one-hour lease on a later run.
 
 ## Keyring
 
