@@ -69,6 +69,8 @@ export interface PolicyDecisionEvent {
   readonly policyVersion: number;
   /** Per-process denial count for this actor, present on denials. */
   readonly denialCount?: number;
+  /** Additional action-specific evidence, already bounded by the writer. */
+  readonly details?: Readonly<Record<string, string | number>>;
   /** Optional request metadata. */
   readonly context?: PolicyAuditContext;
 }
@@ -114,12 +116,16 @@ export interface PolicyAuditPort {
   /**
    * Records exactly one authorization decision.
    *
-   * When a transaction is supplied, the decision commits independently of that
-   * transaction so it survives a later rollback. Record it before any event
-   * that joins the caller transaction, because the independent write needs the
-   * chain lock that the joined event will hold until commit.
+   * A supplied transaction normally commits independently so the decision
+   * survives a later rollback. Pass `{ independent: false }` when the decision
+   * must join the caller transaction; the caller must then take the audit
+   * chain lock before any data lock.
    */
-  recordDecision(event: PolicyDecisionEvent, tx?: AuditQueryExecutor): Promise<void>;
+  recordDecision(
+    event: PolicyDecisionEvent,
+    tx?: AuditQueryExecutor,
+    options?: { readonly independent?: boolean },
+  ): Promise<void>;
   /**
    * Records one successful assignment mutation.
    *
@@ -160,7 +166,11 @@ export class LoggingPolicyAudit implements PolicyAuditPort {
   }
 
   /** @inheritDoc */
-  public async recordDecision(event: PolicyDecisionEvent, _tx?: AuditQueryExecutor): Promise<void> {
+  public async recordDecision(
+    event: PolicyDecisionEvent,
+    _tx?: AuditQueryExecutor,
+    _options?: { readonly independent?: boolean },
+  ): Promise<void> {
     const denialCount =
       event.result === "deny" ? this.#denials.increment(event.actorId) : undefined;
     // Audit evidence must survive every supported log level. The error channel

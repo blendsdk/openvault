@@ -13,10 +13,13 @@ import {
 } from "../src/index.js";
 
 const aad: EnvelopeAad = {
-  projectId: "project-1",
-  objectId: "secret-1",
-  version: "version-1",
+  objectType: "secret",
+  projectId: "01ARZ3NDEKTSV4RRFFQ69G5FAV",
+  objectId: "01ARZ3NDEKTSV4RRFFQ69G5FAW",
+  version: "01ARZ3NDEKTSV4RRFFQ69G5FAX",
 };
+
+const limits = { maxCiphertextBytes: 65_536 };
 
 function withCiphertext(envelope: EncryptedValue, mutate: (bytes: Buffer) => void): EncryptedValue {
   const bytes = Buffer.from(envelope.ciphertext, "base64");
@@ -63,7 +66,9 @@ describe("envelope encryption", () => {
     const keyring = Keyring.generate();
     const plaintext = Buffer.from("correct horse battery staple", "utf8");
     const envelope = encryptValue(plaintext, keyring, aad);
-    expect(decryptValue(envelope, keyring, aad).toString("utf8")).toBe(plaintext.toString("utf8"));
+    expect(decryptValue(envelope, keyring, aad, limits).toString("utf8")).toBe(
+      plaintext.toString("utf8"),
+    );
   });
 
   it("rejects a tampered ciphertext", () => {
@@ -72,34 +77,36 @@ describe("envelope encryption", () => {
     const tampered = withCiphertext(envelope, (bytes) => {
       bytes[0] = (bytes[0] ?? 0) ^ 0x01;
     });
-    expect(() => decryptValue(tampered, keyring, aad)).toThrow(CryptoIntegrityError);
+    expect(() => decryptValue(tampered, keyring, aad, limits)).toThrow(CryptoIntegrityError);
   });
 
   it("rejects a different AAD", () => {
     const keyring = Keyring.generate();
     const envelope = encryptValue(Buffer.from("value"), keyring, aad);
-    expect(() => decryptValue(envelope, keyring, { ...aad, projectId: "project-2" })).toThrow(
-      CryptoIntegrityError,
-    );
+    expect(() =>
+      decryptValue(envelope, keyring, { ...aad, projectId: "01ARZ3NDEKTSV4RRFFQ69G5FAY" }, limits),
+    ).toThrow(CryptoIntegrityError);
   });
 
   it("rejects a different KEK with the same id", () => {
     const envelope = encryptValue(Buffer.from("value"), Keyring.generate("k1"), aad);
-    expect(() => decryptValue(envelope, Keyring.generate("k1"), aad)).toThrow(CryptoIntegrityError);
+    expect(() => decryptValue(envelope, Keyring.generate("k1"), aad, limits)).toThrow(
+      CryptoIntegrityError,
+    );
   });
 
   it("rejects moving an envelope to another object", () => {
     const keyring = Keyring.generate();
     const envelope = encryptValue(Buffer.from("value"), keyring, aad);
-    expect(() => decryptValue(envelope, keyring, { ...aad, objectId: "secret-2" })).toThrow(
-      CryptoIntegrityError,
-    );
+    expect(() =>
+      decryptValue(envelope, keyring, { ...aad, objectId: "01ARZ3NDEKTSV4RRFFQ69G5FAY" }, limits),
+    ).toThrow(CryptoIntegrityError);
   });
 
   it("rejects malformed envelopes before decryption", () => {
     const keyring = Keyring.generate();
     const envelope = encryptValue(Buffer.from("value"), keyring, aad);
-    expect(() => decryptValue({ ...envelope, nonce: "AA==" }, keyring, aad)).toThrow(
+    expect(() => decryptValue({ ...envelope, nonce: "AA==" }, keyring, aad, limits)).toThrow(
       CryptoInputError,
     );
   });
@@ -108,7 +115,7 @@ describe("envelope encryption", () => {
     const keyring = Keyring.generate("k1");
     const envelope = encryptValue(Buffer.from("value"), keyring, aad);
 
-    expect(() => decryptValue({ ...envelope, kekId: "k9" }, keyring, aad)).toThrow(
+    expect(() => decryptValue({ ...envelope, kekId: "k9" }, keyring, aad, limits)).toThrow(
       CryptoIntegrityError,
     );
   });
@@ -118,6 +125,6 @@ describe("envelope encryption", () => {
     const envelope = encryptValue(Buffer.from("value"), keyring, aad);
     keyring.destroy();
 
-    expect(() => decryptValue(envelope, keyring, aad)).toThrow(KeyringError);
+    expect(() => decryptValue(envelope, keyring, aad, limits)).toThrow(KeyringError);
   });
 });

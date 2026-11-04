@@ -66,3 +66,21 @@ These are accepted for v0.1. They are documented so reviewers do not mistake the
 25. **Renewal replay cache.** The five-minute renewal replay cache is process-local. A server
     restart or a retry after five minutes requires a new join token. The old certificate
     remains valid for data until expiry, but it cannot renew.
+26. **Project deletion.** A soft-deleted project hides its secrets and cannot be purged
+    through the API until an operator restores the project. There is no project-recovery route
+    in v0.1.
+27. **Protected deleted names.** Purge protection is one-way. A protected secret can never be
+    purged, so the name remains reserved permanently even after retention. Recover the secret
+    before retention or use a different name.
+28. **Purge evidence window.** The destructive purge runs on a dedicated `openvault_purger`
+    session, separate from the audit chain. A crash between the delete and its outcome event
+    leaves the deletion without evidence. The allow decision is not written before the delete.
+29. **Idempotency retention.** Idempotency rows expire after 24 hours but are not removed by a
+    scheduler; cleanup is an operational task. A KEK rotation invalidates outstanding keys and
+    returns 409 on replay.
+30. **Envelope v2 precondition.** Secret and certificate envelopes use the v2 AAD. This is a
+    one-way change for this pre-release repository: both version tables must be empty before
+    first boot. A database with v1 rows needs a migration or restore plan.
+31. **In-flight reads.** A value read that has already resolved the project and secret may
+    finish after a concurrent soft delete or purge commits. The delete is immediate for new
+    requests; a read already in flight can still return the value it decrypted.

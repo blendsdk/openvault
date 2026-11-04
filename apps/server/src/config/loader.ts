@@ -284,12 +284,8 @@ const configSchema = z
     OPENVAULT_OIDC_CLIENT_SECRET: optionalString,
     OPENVAULT_OIDC_REDIRECT_URL: optionalString,
     OPENVAULT_OIDC_ALLOWED_DOMAINS: optionalString,
-    OPENVAULT_SECRET_MAX_BYTES: integerField(
-      "OPENVAULT_SECRET_MAX_BYTES",
-      65_536,
-      1_024,
-      1_048_576,
-    ),
+    OPENVAULT_PURGE_DB_URL: optionalString,
+    OPENVAULT_SECRET_MAX_BYTES: integerField("OPENVAULT_SECRET_MAX_BYTES", 65_536, 1_024, 65_536),
     OPENVAULT_CERT_MAX_BYTES: integerField("OPENVAULT_CERT_MAX_BYTES", 131_072, 1_024, 2_097_152),
     OPENVAULT_SOFT_DELETE_DAYS: integerField("OPENVAULT_SOFT_DELETE_DAYS", 30, 7, 90),
     OPENVAULT_AUDIT_RETENTION_DAYS: integerField("OPENVAULT_AUDIT_RETENTION_DAYS", 180, 30, 3_650),
@@ -347,6 +343,9 @@ const configSchema = z
       envMode: value.ENV_MODE,
       databaseUrl: value.OPENVAULT_DB_URL.raw,
       database: Object.freeze(value.OPENVAULT_DB_URL.parsed),
+      ...(value.OPENVAULT_PURGE_DB_URL === undefined
+        ? {}
+        : { purgeDatabaseUrl: value.OPENVAULT_PURGE_DB_URL }),
       keyringPath: value.OPENVAULT_KEYRING,
       ...(value.OPENVAULT_KEYRING_PASSPHRASE_FILE === undefined
         ? {}

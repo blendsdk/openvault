@@ -21,7 +21,8 @@ bind. The server requires Node.js 24.7 or newer (the built-in Argon2 API).
 | `OPENVAULT_OIDC_CLIENT_ID` / `_SECRET` | none | with OIDC | Non-empty when an issuer is set |
 | `OPENVAULT_OIDC_REDIRECT_URL` | `${BASE_URL}/v1/auth/callback` | no | HTTPS URL |
 | `OPENVAULT_OIDC_ALLOWED_DOMAINS` | none | no | Comma-separated domain allowlist |
-| `OPENVAULT_SECRET_MAX_BYTES` | `65536` | no | Product-value limit enforced by the secret routes |
+| `OPENVAULT_SECRET_MAX_BYTES` | `65536` | no | 1024–65536; decoded value limit enforced by the secret routes |
+| `OPENVAULT_PURGE_DB_URL` | none | no | Dedicated `openvault_purger` PostgreSQL URL used only by secret purge |
 | `OPENVAULT_CERT_MAX_BYTES` | `131072` | no | Product-value limit enforced by the certificate routes |
 | `OPENVAULT_SOFT_DELETE_DAYS` | `30` | no | 7–90 |
 | `OPENVAULT_AUDIT_RETENTION_DAYS` | `180` | no | 30–3650 |
@@ -61,12 +62,30 @@ checks that its connection targets the same database that was verified and expor
 
 ## Body limits
 
-The transport boundary is fixed at 64 KiB for `/v1/secrets*` and 128 KiB for
-`/v1/certificates*` and other JSON under `/v1`. `OPENVAULT_SECRET_MAX_BYTES` and
-`OPENVAULT_CERT_MAX_BYTES` are product-value limits enforced by the secret and certificate
-secret and certificate routes; they do not widen or narrow the HTTP parser.
+The HTTP JSON parser accepts up to 1 MiB, with per-path guards: 64 KiB for the legacy
+`/v1/secrets*` paths, 512 KiB for `/v1/data*` (sized for worst-case JSON escaping of a 64 KiB
+value), and 128 KiB for other JSON under `/v1`. `OPENVAULT_SECRET_MAX_BYTES` and
+`OPENVAULT_CERT_MAX_BYTES` are decoded product-value limits; the decoded bytes remain the
+authoritative check.
 
 Requests with a non-JSON body under `/v1` are rejected with `415`.
+
+## Secret purge
+
+Secret purge needs a dedicated login role named `openvault_purger`, because the database
+trigger rejects deletes from the application role. Set `OPENVAULT_PURGE_DB_URL` to that role's
+URL and grant:
+
+```sql
+GRANT SELECT ON projects TO openvault_purger;
+GRANT SELECT, DELETE ON secrets TO openvault_purger;
+GRANT SELECT, DELETE ON secret_versions TO openvault_purger;
+```
+
+Do not make the role a superuser, the table owner, or a member of either. The server verifies
+the database, session user, superuser status, ownership, and role memberships on every purge.
+Without a valid URL the server still starts and only purge returns 503. The URL is a high-value
+secret and is not included in the redacted configuration or logs.
 
 ## Keyring
 

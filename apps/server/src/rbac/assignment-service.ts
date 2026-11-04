@@ -526,7 +526,7 @@ export class AssignmentService {
     if (input.scopeType === "project") {
       const project = await this.#repository.findProject(input.scopeId);
       if (project === undefined || project.deletedAt !== null) {
-        throw new RbacServiceError(422, "validation_error", "Validation failed");
+        throw new RbacServiceError(404, "resource_not_found", "Resource not found");
       }
       return { type: "project", id: input.scopeId };
     }
@@ -542,7 +542,7 @@ export class AssignmentService {
     }
     const object = await this.#repository.findObject(objectType, input.scopeId);
     if (object === undefined || object.deletedAt !== null) {
-      throw new RbacServiceError(422, "validation_error", "Validation failed");
+      throw new RbacServiceError(404, "resource_not_found", "Resource not found");
     }
     return objectType === "secret"
       ? { type: "secret", id: object.id, projectId: object.projectId }

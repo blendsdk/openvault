@@ -25,7 +25,6 @@ import {
   hashRefreshToken,
   normalizeUserAgent,
 } from "../auth/cli-sessions.js";
-import type { CredentialsRepository } from "../auth/credentials.js";
 import type { LocalLoginService } from "../auth/local-login.js";
 import {
   type AuthRateLimitService,
@@ -82,7 +81,6 @@ export class CliAuthController extends BaseController {
 
           const localLogin = await this.services.get<LocalLoginService>("localLogin");
           const cliAuth = await this.services.get<CliAuthService>("cliAuth");
-          const credentials = await this.services.get<CredentialsRepository>("credentials");
           const audit = await this.services.get<AuditService>("auditService");
           const context = auditRequestContext(req);
           const result = await localLogin.login(parsed.data, req.log);

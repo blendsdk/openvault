@@ -80,9 +80,9 @@ organization administrator is rejected.
 
 ## UI capabilities
 
-The policy layer computes per-object flags for the current principal. The data-plane endpoints
-will return them when the project, secret, and certificate API ships; the UI uses these flags
-and never derives permissions from client-side role math.
+The policy layer computes per-object flags for the current principal. Secret metadata and value
+responses return them today; the UI uses these flags and never derives permissions from
+client-side role math. Certificate responses will return them in a later release.
 
 ```json
 {

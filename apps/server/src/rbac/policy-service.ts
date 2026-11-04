@@ -83,6 +83,14 @@ export interface AuthorizeOptions {
   readonly audit?: boolean;
 }
 
+/** Controls how a decision is persisted and what extra evidence it carries. */
+export interface RecordDecisionOptions {
+  /** Set false to join the caller transaction. Defaults to independent. */
+  readonly independent?: boolean;
+  /** Additional bounded action evidence, such as a version id. */
+  readonly details?: Readonly<Record<string, string | number>>;
+}
+
 const SECRET_CAPABILITIES = {
   canRead: "secret.read",
   canWrite: "secret.write",
@@ -511,6 +519,48 @@ export class PolicyService {
   }
 
   /**
+   * Computes the five flags for many resources with one actor snapshot.
+   *
+   * List routes use this so a page does not load the same actor once per row.
+   *
+   * @param actorId - Principal identifier.
+   * @param resources - Secret or certificate resources.
+   * @returns A map keyed by resource id.
+   * @throws {PolicyUnavailableError} When policy state is unavailable.
+   */
+  public async capabilitiesForMany(
+    actorId: string,
+    resources: readonly Extract<PolicyResource, { type: "secret" | "certificate" }>[],
+  ): Promise<ReadonlyMap<string, CapabilityFlags>> {
+    const snapshot = await this.#repository.loadActorSnapshot(actorId);
+    const result = new Map<string, CapabilityFlags>();
+    if (snapshot === undefined || snapshot.status !== "active") {
+      for (const resource of resources) {
+        result.set(resource.id, {
+          canRead: false,
+          canWrite: false,
+          canDelete: false,
+          canPurge: false,
+          canManage: false,
+        });
+      }
+      return result;
+    }
+    const now = this.#now();
+    for (const resource of resources) {
+      const mapping = resource.type === "secret" ? SECRET_CAPABILITIES : CERTIFICATE_CAPABILITIES;
+      result.set(resource.id, {
+        canRead: this.#evaluate(snapshot, mapping.canRead, resource, now).allowed,
+        canWrite: this.#evaluate(snapshot, mapping.canWrite, resource, now).allowed,
+        canDelete: this.#evaluate(snapshot, mapping.canDelete, resource, now).allowed,
+        canPurge: this.#evaluate(snapshot, mapping.canPurge, resource, now).allowed,
+        canManage: this.#evaluate(snapshot, mapping.canManage, resource, now).allowed,
+      });
+    }
+    return result;
+  }
+
+  /**
    * Returns the distinct project ids where an actor holds an action.
    *
    * This is a non-auditing projection for identity list filtering.
@@ -622,9 +672,14 @@ export class PolicyService {
     decision: PolicyDecision,
     context?: PolicyAuditContext,
     tx?: AuditQueryExecutor,
+    options: RecordDecisionOptions = {},
   ): Promise<void> {
     try {
-      await this.#audit.recordDecision(this.#toEvent(decision, context), tx);
+      await this.#audit.recordDecision(
+        this.#toEvent(decision, context, options.details),
+        tx,
+        options.independent === undefined ? undefined : { independent: options.independent },
+      );
     } catch {
       throw new PolicyUnavailableError();
     }
@@ -787,7 +842,11 @@ export class PolicyService {
   }
 
   /** Builds the audit event for one decision. */
-  #toEvent(decision: PolicyDecision, context?: PolicyAuditContext): PolicyDecisionEvent {
+  #toEvent(
+    decision: PolicyDecision,
+    context?: PolicyAuditContext,
+    details?: Readonly<Record<string, string | number>>,
+  ): PolicyDecisionEvent {
     const system = decision.scope.type === "system";
     const objectType =
       system || decision.resource.type === "org"
@@ -802,12 +861,16 @@ export class PolicyService {
       action: decision.action,
       scopeType: decision.scope.type,
       scopeId: decision.scope.id,
-      projectId: resourceProjectId(decision.resource) ?? null,
+      projectId:
+        system || decision.scope.type === "org"
+          ? null
+          : (resourceProjectId(decision.resource) ?? null),
       objectType,
       objectId,
       result: decision.allowed ? "allow" : "deny",
       reason: decision.reason,
       policyVersion: decision.policyVersion,
+      ...(details === undefined ? {} : { details }),
       ...(context === undefined ? {} : { context }),
     };
   }

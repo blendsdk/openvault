@@ -192,7 +192,7 @@ describe("data-route guard", () => {
     });
 
     const matching = await send({
-      path: `/v1/data/${project.name}/secrets/db`,
+      path: `/v1/data/${project.name}/probe`,
       cert: client,
     });
     expect(matching.status).toBe(200);
@@ -203,13 +203,20 @@ describe("data-route guard", () => {
       agentKind: "agent",
     });
 
+    const listAttempt = await send({
+      path: `/v1/data/${project.name}/secrets`,
+      cert: client,
+    });
+    expect(listAttempt.status).toBe(401);
+    expect(errorCode(listAttempt)).toBe("authentication_required");
+
     for (const name of [other.name, deleted.name]) {
-      const denied = await send({ path: `/v1/data/${name}/secrets/db`, cert: client });
+      const denied = await send({ path: `/v1/data/${name}/probe`, cert: client });
       expect(denied.status, name).toBe(403);
       expect(errorCode(denied)).toBe("access_denied");
     }
 
-    const missing = await send({ path: `/v1/data/${project.name}/secrets/db` });
+    const missing = await send({ path: `/v1/data/${project.name}/probe` });
     expect(missing.status).toBe(401);
     expect(errorCode(missing)).toBe("authentication_required");
   });
@@ -368,7 +375,7 @@ describe("mixed credentials on the agent listener", () => {
     await insertCertificate(serviceId, client);
 
     const response = await send({
-      path: `/v1/data/${project.name}/secrets/db`,
+      path: `/v1/data/${project.name}/probe`,
       cert: client,
       headers: {
         cookie: "openvault_session=not-a-session",

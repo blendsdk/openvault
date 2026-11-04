@@ -34,7 +34,7 @@ describe("WebAFX settings bridge", () => {
     ]);
     expect(settings.CORS).toBe(false);
     expect(settings.TRUST_PROXY).toBe(false);
-    expect(settings.BODY_LIMIT).toBe("128kb");
+    expect(settings.BODY_LIMIT).toBe("1mb");
   });
 });
 

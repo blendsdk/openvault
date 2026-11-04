@@ -101,6 +101,15 @@ export class KeyringProvider {
   }
 
   /**
+   * Reports whether the provider is unloaded or destroyed.
+   *
+   * @returns True when no keyring is available.
+   */
+  public get destroyed(): boolean {
+    return this.#keyring === undefined;
+  }
+
+  /**
    * Runs a synchronous action with the current KEK.
    *
    * The callback receives the key bytes only for the duration of the call. It

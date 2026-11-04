@@ -658,7 +658,8 @@ describe.skipIf(trustedHost === undefined)("identity administration", () => {
       headers,
       body: {},
     });
-    expect(deleted.status).toBe(409);
+    expect(deleted.status).toBe(404);
+    expect(getErrorCode(deleted)).toBe("identity_not_found");
   });
 
   it("should not reveal or mutate a foreign identity", async () => {

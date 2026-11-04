@@ -155,6 +155,22 @@ export class AuditWriter {
   }
 
   /**
+   * Acquires the audit chain advisory lock for a caller transaction.
+   *
+   * A state-changing caller takes this lock before any data row lock so the
+   * joined decision cannot deadlock with an independent audit insert that
+   * needs a project or object foreign-key lock. The lock is transaction-scoped
+   * and re-entrant for the same session.
+   *
+   * @param tx - Caller transaction.
+   */
+  public async lockChain(tx: AuditQueryExecutor): Promise<void> {
+    await tx.executeQuery("SELECT pg_advisory_xact_lock(:lockId)", {
+      lockId: AUDIT_CHAIN_LOCK_ID,
+    });
+  }
+
+  /**
    * Appends one event, optionally inside a caller transaction.
    *
    * When a transaction is supplied, the event commits or rolls back with the

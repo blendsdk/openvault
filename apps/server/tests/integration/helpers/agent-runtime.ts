@@ -19,7 +19,7 @@ class AgentDataProbeController extends BaseController {
   public routes(): RouteDefinition[] {
     return [
       this.route()
-        .get("/:project/secrets/:name")
+        .get("/:project/probe")
         .handle(async (req: Request, res: Response) => {
           const context = requireAgent(req);
           probeOnEnter?.();

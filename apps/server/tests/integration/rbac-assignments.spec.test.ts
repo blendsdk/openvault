@@ -315,7 +315,7 @@ describe("assignment creation", () => {
         scopeType: "object",
         scopeId: testUlid(7_999),
       }),
-    ).rejects.toMatchObject({ statusCode: 422, code: "validation_error" });
+    ).rejects.toMatchObject({ statusCode: 404, code: "resource_not_found" });
   });
 });
 

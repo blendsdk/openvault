@@ -15,11 +15,17 @@ import { CliAuthController } from "./controllers/cli-auth.js";
 import { IdentityController } from "./controllers/identity.js";
 import { MetaController } from "./controllers/meta.js";
 import { OidcController } from "./controllers/oidc.js";
+import { ProjectsController } from "./controllers/projects.js";
 import { ReadyController } from "./controllers/ready.js";
+import { SecretsController } from "./controllers/secrets.js";
 import { createIdentityRuntime } from "./identity/identity-runtime.js";
 import { createLoggerProvider } from "./observability/logger.js";
+import { ProjectRepository } from "./projects/repository.js";
+import { ProjectService } from "./projects/service.js";
 import { createPolicyRuntime } from "./rbac/runtime.js";
 import { createProductionProbes, ReadinessService } from "./readiness/service.js";
+import { SecretPurger } from "./secrets/purge.js";
+import { createSecretRuntime } from "./secrets/runtime.js";
 import { KeyringProvider } from "./security/keyring.js";
 import { installPreStack, type PreStackOptions } from "./transport/pre-stack.js";
 import {
@@ -91,6 +97,27 @@ export function createApplication(
       database: dependencies.database,
       keyring: dependencies.keyring,
     });
+  const projectRepository = new ProjectRepository(dependencies.database);
+  const projectService = new ProjectService({
+    database: dependencies.database,
+    repository: projectRepository,
+    policy: policyRuntime.service,
+    audit: auditRuntime.writer,
+  });
+  const secretPurger = new SecretPurger({
+    ...(config.purgeDatabaseUrl === undefined ? {} : { url: config.purgeDatabaseUrl }),
+    appDatabase: config.database.database ?? "",
+  });
+  const secretRuntime = createSecretRuntime({
+    database: dependencies.database,
+    keyring: dependencies.keyring,
+    policy: policyRuntime.service,
+    audit: auditRuntime.writer,
+    projectRepository,
+    secretMaxBytes: config.secretMaxBytes,
+    softDeleteDays: config.softDeleteDays,
+    purger: secretPurger,
+  });
   const identityRuntime =
     dependencies.agentRuntime?.identityRuntime ??
     dependencies.identityRuntime ??
@@ -187,6 +214,41 @@ export function createApplication(
     name: "auditRuntime",
     type: "singleton",
     factory: () => auditRuntime,
+  });
+  app.registerService({
+    name: "projectRepository",
+    type: "singleton",
+    factory: () => projectRepository,
+  });
+  app.registerService({
+    name: "projectService",
+    type: "singleton",
+    factory: () => projectService,
+  });
+  app.registerService({
+    name: "secretRepository",
+    type: "singleton",
+    factory: () => secretRuntime.repository,
+  });
+  app.registerService({
+    name: "secretService",
+    type: "singleton",
+    factory: () => secretRuntime.service,
+  });
+  app.registerService({
+    name: "secretRateLimits",
+    type: "singleton",
+    factory: () => secretRuntime.rateLimits,
+  });
+  app.registerService({
+    name: "secretPurger",
+    type: "singleton",
+    factory: () => secretPurger,
+    dispose: async (value: unknown) => {
+      if (value instanceof SecretPurger) {
+        await value.close();
+      }
+    },
   });
   app.registerService({
     name: "identityRuntime",
@@ -288,6 +350,8 @@ export function createApplication(
   app.registerController("/v1/auth", AuthController);
   app.registerController("/v1/auth/cli", CliAuthController);
   app.registerController("/v1/auth", OidcController);
+  app.registerController("/v1/admin/projects", ProjectsController);
+  app.registerController("/v1/data", SecretsController);
   app.registerController("/v1/admin/identities", IdentityController);
   app.registerController("/v1/admin/assignments", AssignmentsController);
   app.registerController("/v1/admin/access-explain", AccessExplainController);

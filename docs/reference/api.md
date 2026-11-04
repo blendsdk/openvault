@@ -222,9 +222,8 @@ current `policyVersion`. It is public and contains no principals, assignments, o
 ```
 
 The policy layer computes the current principal's capability flags for a secret or
-certificate. The data-plane endpoints will return them when the project, secret, and
-certificate API ships; the UI uses these flags and never derives permissions from client-side
-role math.
+certificate. Secret metadata and value responses return them; the UI uses these flags and
+never derives permissions from client-side role math.
 
 ```json
 { "capabilities": { "canRead": true, "canWrite": false, "canDelete": false,
@@ -313,6 +312,25 @@ loaded key.
 | GET | `/v1/admin/access-explain` | `assignment.read` |
 | POST | `/v1/admin/kek/rotate` | `kek.rotate` |
 
+Project examples:
+
+```http
+POST /v1/admin/projects { "name": "payments" }
+-> 201 { "id": "01J...", "name": "payments",
+          "createdAt": "2026-11-04T12:00:00.000Z",
+          "updatedAt": "2026-11-04T12:00:00.000Z", "deletedAt": null }
+
+PATCH /v1/admin/projects/01J... { "name": "payments-prod" }
+-> 200 { "id": "01J...", "name": "payments-prod", ... }
+
+DELETE /v1/admin/projects/01J...
+-> 204
+```
+
+Project names match `^[a-z0-9][a-z0-9-]{1,38}[a-z0-9]$`. A duplicate active name returns 409
+`project_name_conflict`. A deleted project returns 404 and hides its secrets, certificates,
+identities, and assignments. There is no project-recovery route in v0.1.
+
 ### Data plane
 
 | Method | Path | Action |
@@ -335,6 +353,53 @@ loaded key.
 | DELETE | `/v1/data/:project/certificates/:name` | `certificate.delete` |
 | POST | `/v1/data/:project/certificates/:name/recover` | `certificate.recover` |
 | POST | `/v1/data/:project/certificates/:name/purge` | `certificate.purge` |
+
+Secret examples:
+
+```http
+POST /v1/data/payments/secrets
+Idempotency-Key: 6f1c2d3e
+{ "name": "db-password", "value": "s3cret", "encoding": "utf8",
+  "contentType": "text/plain", "tags": { "env": "prod" } }
+-> 201 { "id": "01J...", "projectId": "01J...", "name": "db-password",
+          "tags": { "env": "prod" }, "contentType": "text/plain", "status": "active",
+          "currentVersion": { "id": "01J...", "createdAt": "...", "createdBy": "01J...",
+                              "expiresAt": null },
+          "version": { "id": "01J...", ... }, "consumers": [],
+          "capabilities": { "canRead": true, "canWrite": true, "canDelete": true,
+                            "canPurge": true, "canManage": false } }
+
+GET /v1/data/payments/secrets/db-password
+-> 200 { "value": "s3cret", "encoding": "utf8", "version": { ... }, ... }
+
+GET /v1/data/payments/secrets?q=db&tagKey=env&tagValue=prod&limit=50
+-> 200 { "secrets": [ { "name": "db-password", ... } ], "nextCursor": null }
+
+PUT /v1/data/payments/secrets/db-password
+Idempotency-Key: 8a2b
+{ "value": "new-value" }
+-> 200 { "currentVersion": { ... }, "version": { ... }, ... }
+
+PATCH /v1/data/payments/secrets/db-password
+{ "tags": { "env": "prod", "team": "payments" }, "purgeProtected": true }
+-> 200 { ... }
+
+DELETE /v1/data/payments/secrets/db-password
+-> 204
+
+POST /v1/data/payments/secrets/db-password/recover
+-> 200 { "status": "active", ... }
+
+POST /v1/data/payments/secrets/db-password/purge
+-> 204
+```
+
+Values are at most 65,536 decoded bytes; empty and whitespace-only values return 422. A
+replayed `Idempotency-Key` returns the original written `version`. Metadata, lists, and errors
+never contain a value. Purge returns 409 until the retention boundary passes and protection is
+off, and 503 when `OPENVAULT_PURGE_DB_URL` is not configured. The full behavior is in the
+[secrets guide](/guide/secrets).
+
 
 ### Audit
 
