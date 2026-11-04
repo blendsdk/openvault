@@ -23,8 +23,10 @@ const POLICY_DETAIL_KEYS: ReadonlySet<string> = new Set([
   "policyVersion",
   "denialCount",
   "version",
-  "kekId",
 ]);
+
+/** Rotation is the only policy action that carries a key identifier. */
+const KEK_DETAIL_KEYS: ReadonlySet<string> = new Set([...POLICY_DETAIL_KEYS, "kekId"]);
 
 /** Details keys permitted on authentication success and failure events. */
 const LOGIN_DETAIL_KEYS: ReadonlySet<string> = new Set(["method", "client", "reason"]);
@@ -127,6 +129,8 @@ export function allowedDetailKeys(action: AuditAction): ReadonlySet<string> {
       return PRUNE_DETAIL_KEYS;
     case "backup.create":
       return BACKUP_DETAIL_KEYS;
+    case "kek.rotate":
+      return KEK_DETAIL_KEYS;
     default:
       if (POLICY_ACTIONS.has(action)) {
         return POLICY_DETAIL_KEYS;

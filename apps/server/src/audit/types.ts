@@ -102,3 +102,15 @@ export interface AuditQueryExecutor {
     params?: Record<string, unknown>,
   ): Promise<{ readonly records: readonly T[] }>;
 }
+
+/** Minimal writer surface used by business emitters. */
+export interface AuditRecorder {
+  /**
+   * Persists one event, optionally inside a caller transaction.
+   *
+   * @param draft - Event fields without identity or timestamp.
+   * @param tx - Caller transaction when the event must be atomic with a state change.
+   * @returns The persisted event.
+   */
+  record(draft: AuditEventDraft, tx?: AuditQueryExecutor): Promise<AuditEventRecord>;
+}

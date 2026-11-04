@@ -201,6 +201,48 @@ export class CredentialsRepository {
   }
 
   /**
+   * Clears a lock that was created by an attempt whose evidence could not be written.
+   *
+   * The failure counter is intentionally left in place; only the lock is
+   * compensated because the accepted counter exception does not cover locks.
+   *
+   * @param principalId - Principal identifier.
+   */
+  public async clearLock(principalId: string): Promise<void> {
+    await this.#database.executeQuery(
+      `UPDATE local_credentials
+          SET locked_until = NULL, updated_at = now()
+        WHERE principal_id = :principalId AND locked_until > now()`,
+      { principalId },
+    );
+  }
+
+  /**
+   * Restores the failure counter and lock state from before a successful login.
+   *
+   * Used only when the success evidence cannot be written, so a reset never
+   * survives without an audit row.
+   *
+   * @param principalId - Principal identifier.
+   * @param expectedHash - Hash that was verified for the login.
+   * @param failedCount - Previous failure count.
+   * @param lockedUntil - Previous lock expiry, or null.
+   */
+  public async restoreFailureState(
+    principalId: string,
+    expectedHash: string,
+    failedCount: number,
+    lockedUntil: Date | null,
+  ): Promise<void> {
+    await this.#database.executeQuery(
+      `UPDATE local_credentials
+          SET failed_count = :failedCount, locked_until = :lockedUntil, updated_at = now()
+        WHERE principal_id = :principalId AND password_hash = :expectedHash`,
+      { principalId, expectedHash, failedCount, lockedUntil },
+    );
+  }
+
+  /**
    * Resets the failure counter after a successful login.
    *
    * The update is a compare-and-swap on the verified hash and fails when the

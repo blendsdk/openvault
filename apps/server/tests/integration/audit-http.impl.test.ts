@@ -112,9 +112,26 @@ describe("audit HTTP routes", () => {
     await service.record(auditDraft(base));
     const response = await send("/v1/audit/events?action=project.read", orgCookie);
     expect(response.status).toBe(200);
-    const body = response.json as { data: { events: unknown[]; nextCursor: null } };
+    const body = response.json as {
+      data: {
+        events: {
+          eventId: string;
+          hash: string;
+          hmac: string;
+          prevHash: string;
+          projectId: string | null;
+        }[];
+        nextCursor: null;
+      };
+    };
     expect(body.data.events).toHaveLength(1);
     expect(body.data.nextCursor).toBeNull();
+    const event = body.data.events[0];
+    expect(event?.eventId).toMatch(/^[0-9A-HJKMNP-TV-Z]{26}$/);
+    expect(event?.hash).toMatch(/^[0-9a-f]{64}$/);
+    expect(event?.hmac).toMatch(/^[0-9a-f]{64}$/);
+    expect(event?.prevHash).toMatch(/^[0-9a-f]{64}$/);
+    expect(event?.projectId).toBe(base.projectId);
   });
 
   it("should reject an invalid limit with 422", async () => {

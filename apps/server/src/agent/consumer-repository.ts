@@ -81,6 +81,29 @@ export class ConsumerRepository {
   }
 
   /**
+   * Reads the current consumer row under a row lock.
+   *
+   * @param principalId - Service principal.
+   * @param tx - Join or renewal transaction; defaults to the repository database.
+   * @returns The persisted row, or undefined.
+   */
+  public async findForUpdate(
+    principalId: string,
+    tx: QueryExecutor = this.#database,
+  ): Promise<ConsumerRecord | undefined> {
+    const result = await tx.executeQuery<ConsumerRow>(
+      `SELECT id, principal_id, project_id, compose_project, compose_service, hostname,
+              manifest_hash, state, first_seen, last_seen
+         FROM consumers
+        WHERE principal_id = :principalId
+        FOR UPDATE`,
+      { principalId },
+    );
+    const row = result.records[0];
+    return row === undefined ? undefined : toRecord(row);
+  }
+
+  /**
    * Writes self-reported metadata and marks the consumer healthy.
    *
    * @param tx - Join or renewal transaction.
@@ -121,4 +144,46 @@ export class ConsumerRepository {
     }
     return toRecord(row);
   }
+}
+
+/** One audit-relevant consumer change. */
+export type ConsumerChange =
+  | { readonly kind: "register" }
+  | { readonly kind: "update"; readonly changed: readonly string[] };
+
+/**
+ * Compares persisted metadata with the row produced by an upsert.
+ *
+ * `last_seen` is intentionally ignored: a heartbeat that only refreshes it is
+ * not an audited metadata change. The returned field names are stable and
+ * ordered.
+ *
+ * @param previous - Row read before the upsert, or undefined.
+ * @param next - Row returned by the upsert.
+ * @returns The change, or null when only `last_seen` moved.
+ */
+export function classifyConsumerChange(
+  previous: ConsumerRecord | undefined,
+  next: ConsumerRecord,
+): ConsumerChange | null {
+  if (previous === undefined) {
+    return { kind: "register" };
+  }
+  const changed: string[] = [];
+  if (previous.composeProject !== next.composeProject) {
+    changed.push("composeProject");
+  }
+  if (previous.composeService !== next.composeService) {
+    changed.push("composeService");
+  }
+  if (previous.hostname !== next.hostname) {
+    changed.push("hostname");
+  }
+  if (previous.manifestHash !== next.manifestHash) {
+    changed.push("manifestHash");
+  }
+  if (previous.state !== next.state) {
+    changed.push("state");
+  }
+  return changed.length === 0 ? null : { kind: "update", changed };
 }

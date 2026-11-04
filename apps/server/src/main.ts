@@ -3,7 +3,7 @@ import { PostgreSQLDatabase } from "blendsdk/postgresql";
 import { createAgentRuntime } from "./agent/agent-runtime.js";
 import { bootstrapAgentRuntime } from "./agent/bootstrap.js";
 import { createApplication } from "./app.js";
-import { createAuditCore, createAuditRuntime } from "./audit/runtime.js";
+import { createAuditCore } from "./audit/runtime.js";
 import { bootstrapAuthRuntime } from "./auth/bootstrap.js";
 import { ConfigError, loadConfig } from "./config/index.js";
 import { migrationConfigPath } from "./db/config.js";
@@ -43,13 +43,7 @@ try {
     tls,
     config,
     logger,
-    audit: auditCore.policyAudit,
-  });
-  const auditRuntime = createAuditRuntime({
-    core: auditCore,
-    policy: agentRuntime.policyRuntime.service,
-    database,
-    keyring,
+    auditCore,
   });
   const app = createApplication(config, {
     database,
@@ -57,7 +51,7 @@ try {
     keyring,
     logger,
     agentRuntime,
-    auditRuntime,
+    auditRuntime: agentRuntime.auditRuntime,
   });
   app.registerService({
     name: "auditDatabase",

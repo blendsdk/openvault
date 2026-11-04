@@ -51,14 +51,15 @@ export function createApplication(
   const provider: PinoLoggerProvider =
     dependencies.logger ?? createLoggerProvider(config, dependencies.loggerDestination);
   const auditDatabase =
-    dependencies.auditRuntime === undefined
+    dependencies.auditRuntime === undefined && dependencies.agentRuntime?.auditRuntime === undefined
       ? new PostgreSQLDatabase({
           ...config.database,
           poolConfig: { max: 1, idleTimeoutMillis: 100 },
           enableGracefulShutdown: false,
         })
       : undefined;
-  let auditCore: ReturnType<typeof createAuditCore> | undefined = dependencies.auditRuntime;
+  let auditCore: ReturnType<typeof createAuditCore> | undefined =
+    dependencies.auditRuntime ?? dependencies.agentRuntime?.auditRuntime;
   const policyRuntime =
     dependencies.agentRuntime?.policyRuntime ??
     dependencies.identityRuntime?.policyRuntime ??
@@ -83,6 +84,7 @@ export function createApplication(
   }
   const auditRuntime =
     dependencies.auditRuntime ??
+    dependencies.agentRuntime?.auditRuntime ??
     createAuditRuntime({
       core: auditCore,
       policy: policyRuntime.service,

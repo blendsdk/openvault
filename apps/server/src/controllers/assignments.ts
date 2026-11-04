@@ -10,9 +10,9 @@ import {
 import type { RouteDefinition } from "blendsdk/webafx";
 import { ApiError, BaseController } from "blendsdk/webafx";
 import type { Request, Response } from "express";
+import { auditRequestContext } from "../audit/http.js";
 import { requirePrincipal } from "../auth/middleware.js";
 import type { AssignmentService } from "../rbac/assignment-service.js";
-import type { PolicyAuditContext } from "../rbac/audit.js";
 import { PolicyUnavailableError, RbacServiceError } from "../rbac/errors.js";
 import type { AssignmentRecord } from "../rbac/policy-repository.js";
 import { assignmentReadLimit, assignmentWriteLimit } from "../rbac/rate-limits.js";
@@ -30,17 +30,6 @@ async function execute<T>(action: () => Promise<T>): Promise<T> {
     }
     throw error;
   }
-}
-
-/** Builds request metadata for policy evidence. */
-function auditContext(req: Request): PolicyAuditContext {
-  return {
-    ...(req.id === undefined ? {} : { requestId: req.id }),
-    ...(req.ip === undefined ? {} : { sourceIp: req.ip }),
-    ...(typeof req.headers["user-agent"] === "string"
-      ? { userAgent: req.headers["user-agent"] }
-      : {}),
-  };
 }
 
 /** Serializes one assignment for the public contract. */
@@ -87,7 +76,7 @@ export class AssignmentsController extends BaseController {
           }
           const service = await this.services.get<AssignmentService>("assignmentService");
           const assignments = await execute(() =>
-            service.list(actor.user.id, parsed.data, auditContext(req)),
+            service.list(actor.user.id, parsed.data, auditRequestContext(req)),
           );
           this.ok(res, assignmentListSchema.parse({ assignments: assignments.map(toAssignment) }));
         }),
@@ -102,7 +91,7 @@ export class AssignmentsController extends BaseController {
           }
           const service = await this.services.get<AssignmentService>("assignmentService");
           const created = await execute(() =>
-            service.create(actor.user.id, parsed.data, auditContext(req)),
+            service.create(actor.user.id, parsed.data, auditRequestContext(req)),
           );
           this.created(res, assignmentSchema.parse(toAssignment(created)));
         }),
@@ -112,7 +101,9 @@ export class AssignmentsController extends BaseController {
         .handle(async (req: Request, res: Response) => {
           const actor = requirePrincipal(req);
           const service = await this.services.get<AssignmentService>("assignmentService");
-          await execute(() => service.delete(actor.user.id, assignmentId(req), auditContext(req)));
+          await execute(() =>
+            service.delete(actor.user.id, assignmentId(req), auditRequestContext(req)),
+          );
           this.noContent(res);
         }),
     ];
@@ -140,7 +131,7 @@ export class AccessExplainController extends BaseController {
           }
           const service = await this.services.get<AssignmentService>("assignmentService");
           const explanation = await execute(() =>
-            service.explain(actor.user.id, parsed.data, auditContext(req)),
+            service.explain(actor.user.id, parsed.data, auditRequestContext(req)),
           );
           this.ok(res, accessExplainResponseSchema.parse(explanation));
         }),

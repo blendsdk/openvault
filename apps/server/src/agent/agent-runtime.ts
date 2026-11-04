@@ -1,8 +1,13 @@
 import type { PostgreSQLDatabase } from "blendsdk/postgresql";
 import type { Logger } from "blendsdk/webafx";
+import {
+  type AuditCore,
+  type AuditRuntime,
+  createAuditCore,
+  createAuditRuntime,
+} from "../audit/runtime.js";
 import type { OpenVaultConfig } from "../config/index.js";
 import { createIdentityRuntime, type IdentityRuntime } from "../identity/identity-runtime.js";
-import type { PolicyAuditPort } from "../rbac/audit.js";
 import { createPolicyRuntime, type PolicyRuntime } from "../rbac/runtime.js";
 import { CaSigner } from "../security/ca.js";
 import type { KeyringProvider } from "../security/keyring.js";
@@ -42,6 +47,8 @@ export interface AgentRuntimeCore {
   readonly renewalCache: RenewalReplayCache;
   /** Shared policy runtime. */
   readonly policyRuntime: PolicyRuntime;
+  /** Shared audit runtime used by join and renewal. */
+  readonly auditRuntime: AuditRuntime;
 }
 
 /** The complete agent runtime, including maintenance and disposal. */
@@ -64,8 +71,8 @@ export interface CreateAgentRuntimeOptions {
   readonly config: OpenVaultConfig;
   /** Shared structured logger; absent in unit-focused tests. */
   readonly logger?: Logger;
-  /** Persistent policy audit adapter; omitted only by isolated tests. */
-  readonly audit?: PolicyAuditPort;
+  /** Prebuilt audit core; when absent the runtime builds one. */
+  readonly auditCore?: AuditCore;
   /** Injectable clock for authentication and renewal. */
   readonly now?: () => number;
   /** Test-only limiter thresholds; production leaves this empty. */
@@ -99,10 +106,18 @@ const silentLogger: Logger = {
 export async function createAgentRuntime(
   options: CreateAgentRuntimeOptions,
 ): Promise<AgentRuntime> {
+  const auditCore =
+    options.auditCore ?? createAuditCore({ database: options.database, keyring: options.keyring });
   const policyRuntime = createPolicyRuntime({
     database: options.database,
     ...(options.logger === undefined ? {} : { logger: options.logger }),
-    ...(options.audit === undefined ? {} : { audit: options.audit }),
+    audit: auditCore.policyAudit,
+  });
+  const auditRuntime = createAuditRuntime({
+    core: auditCore,
+    policy: policyRuntime.service,
+    database: options.database,
+    keyring: options.keyring,
   });
   const caSigner = await CaSigner.load({
     database: options.database,
@@ -125,6 +140,7 @@ export async function createAgentRuntime(
     signer: caSigner,
     config: options.config,
     cache: renewalCache,
+    audit: auditRuntime.service,
     ...(options.now === undefined ? {} : { now: options.now }),
   });
   const identityRuntime = createIdentityRuntime({
@@ -142,6 +158,7 @@ export async function createAgentRuntime(
     consumers,
     signer: caSigner,
     config: options.config,
+    audit: auditRuntime.service,
   });
 
   const maintenance = new AgentMaintenanceService({
@@ -165,6 +182,7 @@ export async function createAgentRuntime(
     rateLimits: createAgentRateLimitService(options.rateLimitOptions),
     renewalCache,
     policyRuntime,
+    auditRuntime,
     maintenance,
     async dispose(): Promise<void> {
       await maintenance.stop();

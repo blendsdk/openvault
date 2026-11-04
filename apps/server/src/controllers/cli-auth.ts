@@ -10,6 +10,14 @@ import {
 import type { RouteDefinition } from "blendsdk/webafx";
 import { ApiError, BaseController } from "blendsdk/webafx";
 import type { Request, Response } from "express";
+import type { AuditService } from "../audit/audit-service.js";
+import {
+  auditRequestContext,
+  mapAuditError,
+  recordAuditOr503,
+  recordLocalLoginFailure,
+  recordLoginAllow,
+} from "../audit/http.js";
 import type { CliAuthService } from "../auth/cli-auth-service.js";
 import {
   type CliRequestContext,
@@ -17,6 +25,7 @@ import {
   hashRefreshToken,
   normalizeUserAgent,
 } from "../auth/cli-sessions.js";
+import type { CredentialsRepository } from "../auth/credentials.js";
 import type { LocalLoginService } from "../auth/local-login.js";
 import {
   type AuthRateLimitService,
@@ -73,14 +82,39 @@ export class CliAuthController extends BaseController {
 
           const localLogin = await this.services.get<LocalLoginService>("localLogin");
           const cliAuth = await this.services.get<CliAuthService>("cliAuth");
+          const credentials = await this.services.get<CredentialsRepository>("credentials");
+          const audit = await this.services.get<AuditService>("auditService");
+          const context = auditRequestContext(req);
           const result = await localLogin.login(parsed.data, req.log);
           if (!result.ok) {
+            await recordAuditOr503(() => recordLocalLoginFailure(audit, result, context, "cli"));
             throw invalidCredentials();
           }
 
           const issued = await cliAuth.login(result.credential, requestContext(req));
           if (issued.kind === "credential_changed") {
+            await recordAuditOr503(() =>
+              recordLocalLoginFailure(
+                audit,
+                {
+                  ok: false,
+                  reason: "invalid_credentials",
+                  principalId: result.credential.principalId,
+                },
+                context,
+                "cli",
+              ),
+            );
             throw invalidCredentials();
+          }
+
+          try {
+            await recordLoginAllow(audit, result.credential.principalId, context, "local", "cli");
+          } catch (error) {
+            await cliAuth
+              .logout(hashRefreshToken(issued.response.refreshToken))
+              .catch(() => undefined);
+            throw mapAuditError(error);
           }
 
           this.ok(res, cliTokenResponseSchema.parse(issued.response));

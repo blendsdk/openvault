@@ -8,6 +8,7 @@ import type {
 import { newUlid } from "@openvault/core";
 import type { PostgreSQLDatabase } from "blendsdk/postgresql";
 import type { AgentTokenService } from "../agent/agent-token-service.js";
+import type { PolicyAuditContext } from "../rbac/audit.js";
 import { IdentityServiceError } from "./errors.js";
 import type { IdentityAction, IdentityAuthorizer } from "./identity-authorizer.js";
 import type {
@@ -100,17 +101,19 @@ export class IdentityService {
    *
    * @param actorId - Signed-in admin principal.
    * @param input - Name and optional project.
+   * @param context - Optional request metadata.
    * @returns The created summary.
    */
   public async create(
     actorId: string,
     input: { readonly name: string; readonly projectId?: string | undefined },
+    context?: PolicyAuditContext,
   ): Promise<IdentitySummary> {
     const projectId = input.projectId;
     if (projectId === undefined) {
       throw new IdentityServiceError(422, "validation_error", "Validation failed");
     }
-    await this.#assert("identity.create", actorId, projectId);
+    await this.#assert("identity.create", actorId, projectId, context);
 
     const name = input.name.trim();
     try {
@@ -138,21 +141,26 @@ export class IdentityService {
    *
    * @param actorId - Signed-in admin principal.
    * @param projectId - Optional exact project filter.
+   * @param context - Optional request metadata.
    * @returns Visible summaries, newest first.
    */
-  public async list(actorId: string, projectId?: string): Promise<readonly IdentitySummary[]> {
+  public async list(
+    actorId: string,
+    projectId?: string,
+    context?: PolicyAuditContext,
+  ): Promise<readonly IdentitySummary[]> {
     let scope: IdentityScope;
     if (projectId !== undefined) {
       const project = await this.#repository.findProject(projectId);
       if (project === undefined || project.deletedAt !== null) {
         throw new IdentityServiceError(403, "access_denied", "Access denied");
       }
-      await this.#assert("identity.read", actorId, projectId);
+      await this.#assert("identity.read", actorId, projectId, context);
       scope = (await this.#authorizer.canReadAll(actorId))
         ? "all"
         : await this.#authorizer.readableProjectIds(actorId);
     } else {
-      const visibility = await this.#authorizer.readScope(actorId);
+      const visibility = await this.#authorizer.readScope(actorId, context);
       if (visibility === undefined) {
         throw new IdentityServiceError(403, "access_denied", "Access denied");
       }
@@ -168,18 +176,33 @@ export class IdentityService {
    *
    * @param actorId - Signed-in admin principal.
    * @param id - Service principal identifier.
+   * @param context - Optional request metadata.
    * @returns The detail response.
    */
-  public async get(actorId: string, id: string): Promise<IdentityDetail> {
+  public async get(
+    actorId: string,
+    id: string,
+    context?: PolicyAuditContext,
+  ): Promise<IdentityDetail> {
     const identity = await this.#repository.findIdentity(id);
     if (identity === undefined || identity.projectDeletedAt !== null) {
       throw new IdentityServiceError(404, "identity_not_found", "Identity not found");
     }
-    if (!(await this.#authorizer.can("identity.read", actorId, identity.projectId))) {
-      if (!(await this.#authorizer.hasAny("identity.read", actorId))) {
-        throw new IdentityServiceError(403, "access_denied", "Access denied");
-      }
-      throw new IdentityServiceError(404, "identity_not_found", "Identity not found");
+    const decision = await this.#authorizer.decide(
+      "identity.read",
+      actorId,
+      { type: "identity", id, projectId: identity.projectId },
+      context,
+    );
+    if (!decision.allowed) {
+      const visible = await this.#authorizer.hasAny("identity.read", actorId, context, {
+        audit: false,
+      });
+      throw new IdentityServiceError(
+        visible ? 404 : 403,
+        visible ? "identity_not_found" : "access_denied",
+        visible ? "Identity not found" : "Access denied",
+      );
     }
 
     const certificates = await this.#repository.listCertificates(id);
@@ -199,17 +222,28 @@ export class IdentityService {
    *
    * @param actorId - Signed-in admin principal.
    * @param id - Service principal identifier.
+   * @param context - Optional request metadata.
    */
-  public async revoke(actorId: string, id: string): Promise<void> {
-    if (!(await this.#authorizer.hasAny("identity.revoke", actorId))) {
-      throw new IdentityServiceError(403, "access_denied", "Access denied");
-    }
+  public async revoke(actorId: string, id: string, context?: PolicyAuditContext): Promise<void> {
+    const visible = await this.#authorizer.hasAny("identity.revoke", actorId, context, {
+      audit: false,
+    });
     const identity = await this.#repository.findIdentity(id);
     if (identity === undefined || identity.projectDeletedAt !== null) {
       throw new IdentityServiceError(404, "identity_not_found", "Identity not found");
     }
-    if (!(await this.#authorizer.can("identity.revoke", actorId, identity.projectId))) {
-      throw new IdentityServiceError(404, "identity_not_found", "Identity not found");
+    const decision = await this.#authorizer.decide(
+      "identity.revoke",
+      actorId,
+      { type: "identity", id, projectId: identity.projectId },
+      context,
+    );
+    if (!decision.allowed) {
+      throw new IdentityServiceError(
+        visible ? 404 : 403,
+        visible ? "identity_not_found" : "access_denied",
+        visible ? "Identity not found" : "Access denied",
+      );
     }
 
     await this.#database.withTransaction(async (tx) => {
@@ -229,22 +263,34 @@ export class IdentityService {
    * @param actorId - Signed-in admin principal.
    * @param id - Service principal identifier.
    * @param ttlSeconds - Optional explicit lifetime.
+   * @param context - Optional request metadata.
    * @returns The raw token response.
    */
   public async issueJoinToken(
     actorId: string,
     id: string,
     ttlSeconds: number | undefined,
+    context?: PolicyAuditContext,
   ): Promise<JoinTokenResponse> {
-    if (!(await this.#authorizer.hasAny("identity.join_token", actorId))) {
-      throw new IdentityServiceError(403, "access_denied", "Access denied");
-    }
+    const visible = await this.#authorizer.hasAny("identity.join_token", actorId, context, {
+      audit: false,
+    });
     const identity = await this.#repository.findIdentity(id);
     if (identity === undefined) {
       throw new IdentityServiceError(404, "identity_not_found", "Identity not found");
     }
-    if (!(await this.#authorizer.can("identity.join_token", actorId, identity.projectId))) {
-      throw new IdentityServiceError(404, "identity_not_found", "Identity not found");
+    const decision = await this.#authorizer.decide(
+      "identity.join_token",
+      actorId,
+      { type: "identity", id, projectId: identity.projectId },
+      context,
+    );
+    if (!decision.allowed) {
+      throw new IdentityServiceError(
+        visible ? 404 : 403,
+        visible ? "identity_not_found" : "access_denied",
+        visible ? "Identity not found" : "Access denied",
+      );
     }
     if (identity.status !== "active" || identity.projectDeletedAt !== null) {
       throw new IdentityServiceError(409, "identity_inactive", "Identity is inactive");
@@ -263,8 +309,13 @@ export class IdentityService {
   }
 
   /** Enforces one action or raises the stable access-denied error. */
-  async #assert(action: IdentityAction, actorId: string, projectId: string): Promise<void> {
-    if (!(await this.#authorizer.can(action, actorId, projectId))) {
+  async #assert(
+    action: IdentityAction,
+    actorId: string,
+    projectId: string,
+    context?: PolicyAuditContext,
+  ): Promise<void> {
+    if (!(await this.#authorizer.can(action, actorId, projectId, context))) {
       throw new IdentityServiceError(403, "access_denied", "Access denied");
     }
   }
