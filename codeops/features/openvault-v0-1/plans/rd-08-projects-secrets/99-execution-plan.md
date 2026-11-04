@@ -2,8 +2,8 @@
 
 > **Document**: 99-execution-plan.md
 > **Parent**: [Index](00-index.md)
-> **Last Updated**: 2026-11-04 18:35
-> **Progress**: 56/65 tasks (86%)
+> **Last Updated**: 2026-11-04 18:55
+> **Progress**: 64/65 tasks (98%)
 > **CodeOps Artifact Schema**: 1
 
 ## Overview
@@ -206,29 +206,29 @@ implementation tests, full verification.
 **Reference**: [00-index.md](00-index.md) · AR-4, AR-7, AR-13, AR-14, AR-25
 **Objective**: Document the implemented behavior and release metadata.
 
-- [ ] 4.1.1 Update the API reference with project and secret routes, shapes, and status codes — `docs/reference/api.md`
-- [ ] 4.1.2 Add the secrets guide with encoding, versions, idempotency, retention, purge, and rename consequences — `docs/guide/secrets.md`
-- [ ] 4.1.3 Document `OPENVAULT_PURGE_DB_URL`, retention, value limit, and version limit — `docs/reference/configuration.md`
-- [ ] 4.1.4 Update the architecture crypto page with AAD v2 and the object-type/project binding — `docs/architecture/crypto.md`
-- [ ] 4.1.5 Add the secrets guide to the VitePress sidebar — `docs/.vitepress/config.ts`
-- [ ] 4.1.6 Update the security limitations with the purge credential, project-delete purge block, and v2 empty-table precondition — `docs/security/limitations.md`
-- [ ] 4.1.7 Update the changelog and add a minor changeset — `docs/changelog.md`, `.changeset/secrets.md`
-- [ ] 4.1.8 Document and run the envelope-v2 release precondition: both version tables must be empty before first boot — `docs/guide/secrets.md`
+- [x] 4.1.1 Update the API reference with project and secret routes, shapes, and status codes — `docs/reference/api.md` ✅ (completed: 2026-11-04 18:55)
+- [x] 4.1.2 Add the secrets guide with encoding, versions, idempotency, retention, purge, and rename consequences — `docs/guide/secrets.md` ✅ (completed: 2026-11-04 18:55)
+- [x] 4.1.3 Document `OPENVAULT_PURGE_DB_URL`, retention, value limit, and version limit — `docs/reference/configuration.md` ✅ (completed: 2026-11-04 18:55)
+- [x] 4.1.4 Update the architecture crypto page with AAD v2 and the object-type/project binding — `docs/architecture/crypto.md` ✅ (completed: 2026-11-04 18:55)
+- [x] 4.1.5 Add the secrets guide to the VitePress sidebar — `docs/.vitepress/config.ts` ✅ (completed: 2026-11-04 18:55)
+- [x] 4.1.6 Update the security limitations with the purge credential, project-delete purge block, and v2 empty-table precondition — `docs/security/limitations.md` ✅ (completed: 2026-11-04 18:55)
+- [x] 4.1.7 Update the changelog and add a minor changeset — `docs/changelog.md`, `.changeset/secrets.md` ✅ (completed: 2026-11-04 18:55)
+- [x] 4.1.8 Document and run the envelope-v2 release precondition: both version tables must be empty before first boot — `docs/guide/secrets.md` ✅ (completed: 2026-11-04 18:55)
 
 ### Step 4.2: Release Verification
 
 **Reference**: [07-testing-strategy.md](07-testing-strategy.md) §Verification Checklist
 **Objective**: Prove the complete plan with every required gate.
 
-- [ ] 4.2.1 Run `pnpm verify`
-- [ ] 4.2.2 Run `pnpm db:types:check`
-- [ ] 4.2.3 Run the full integration suite on PostgreSQL 16 and 17
-- [ ] 4.2.4 Run `pnpm changeset status` and the docs build
+- [x] 4.2.1 Run `pnpm verify` ✅ (completed: 2026-11-04 18:55)
+- [x] 4.2.2 Run `pnpm db:types:check` ✅ (completed: 2026-11-04 18:55)
+- [x] 4.2.3 Run the full integration suite on PostgreSQL 16 and 17 ✅ (completed: 2026-11-04 18:55)
+- [x] 4.2.4 Run `pnpm changeset status` and the docs build ✅ (completed: 2026-11-04 18:55)
 - [ ] 4.2.5 Remove temporary artifacts, confirm the clean worktree, and record the final summary
 
 **Deliverables**:
-- [ ] Project and secret routes complete with `project.*` and `secret.*` enforcement
-- [ ] Documentation and changeset complete
+- [x] Project and secret routes complete with `project.*` and `secret.*` enforcement
+- [x] Documentation and changeset complete
 - [ ] All verification passing
 
 **Verify**: `pnpm verify && pnpm db:types:check && TEST_DATABASE_URL=postgres://openvault:test-password@127.0.0.1:5433/openvault_test OPENVAULT_TEST_DB=1 pnpm test:integration && pnpm changeset status`

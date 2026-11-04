@@ -21,10 +21,14 @@
   cursor-paginated query, chain verification, NDJSON export, and explicit retention pruning.
 - Audit evidence for authorization, assignments, identity, local/CLI/OIDC authentication,
   lockouts, agent join/renew, and consumer metadata changes.
+- Project lifecycle and versioned secrets with AES-256-GCM envelopes, object-type AAD,
+  tags, content types, expiry, idempotent writes, capability flags, consumer summaries,
+  soft delete, recovery, one-way purge protection, and a dedicated purge credential.
+- Canonical value encoding, a 64 KiB decoded limit, and a 512 KiB data-route body guard.
 
 ### Planned
 
-- Secrets and certificates.
+- Certificates.
 - `ov-agent` client with tmpfs delivery and local status socket.
 - CLI and Docker Compose scaffold.
 - Minimal web UI.

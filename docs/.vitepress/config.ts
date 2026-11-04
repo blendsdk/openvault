@@ -8,6 +8,7 @@ const guide = [
   { text: "CLI", link: "/guide/cli" },
   { text: "Authentication", link: "/guide/authentication" },
   { text: "RBAC", link: "/guide/rbac" },
+  { text: "Projects and secrets", link: "/guide/secrets" },
   { text: "Certificates", link: "/guide/certificates" },
   { text: "Audit", link: "/guide/audit" },
   { text: "Backup and restore", link: "/guide/backup-restore" },

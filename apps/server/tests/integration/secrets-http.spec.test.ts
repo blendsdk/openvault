@@ -137,6 +137,58 @@ describe("secret HTTP core routes", () => {
     expect((read.json as { data: { value: string } }).data.value).toBe(value);
   }, 60_000);
 
+  it("should update metadata, delete, recover, and list versions over HTTP", async () => {
+    const service = await app.getService<SecretService>("secretService");
+    const created = await service.create(
+      actors.orgAdmin,
+      "foundation",
+      { name: "http-lifecycle", value: "one" },
+      { requestId: "http-create-lifecycle" },
+    );
+    const patched = await send(
+      "/v1/data/foundation/secrets/http-lifecycle",
+      "PATCH",
+      JSON.stringify({ tags: { env: "prod" }, contentType: "application/json" }),
+    );
+    expect(patched.status, patched.body).toBe(200);
+    expect((patched.json as { data: { tags: Record<string, string> } }).data.tags).toEqual({
+      env: "prod",
+    });
+    const deleted = await send("/v1/data/foundation/secrets/http-lifecycle", "DELETE");
+    expect(deleted.status).toBe(204);
+    expect((await send("/v1/data/foundation/secrets/http-lifecycle")).status).toBe(404);
+    const recovered = await send("/v1/data/foundation/secrets/http-lifecycle/recover", "POST");
+    expect(recovered.status, recovered.body).toBe(200);
+    expect((recovered.json as { data: { status: string } }).data.status).toBe("active");
+    const versions = await send("/v1/data/foundation/secrets/http-lifecycle/versions");
+    expect(versions.status).toBe(200);
+    expect((versions.json as { data: { versions: unknown[] } }).data.versions).toHaveLength(1);
+    expect(created.currentVersion).not.toBeNull();
+  });
+
+  it("should return 503 when purge is not configured", async () => {
+    const service = await app.getService<SecretService>("secretService");
+    const created = await service.create(
+      actors.orgAdmin,
+      "foundation",
+      { name: "http-purge", value: "one" },
+      { requestId: "http-create-purge" },
+    );
+    await service.delete(actors.orgAdmin, "foundation", "http-purge", {
+      requestId: "http-delete-purge",
+    });
+    await testDb.db.executeQuery(
+      `UPDATE secrets
+          SET deleted_at = '2020-01-01T00:00:00.000Z',
+              purge_after = '2020-01-02T00:00:00.000Z'
+        WHERE id = :id`,
+      { id: created.id },
+    );
+    const response = await send("/v1/data/foundation/secrets/http-purge/purge", "POST");
+    expect(response.status).toBe(503);
+    expect((response.json as { error: { code: string } }).error.code).toBe("service_unavailable");
+  });
+
   it("should reject an unknown create field with 422", async () => {
     const response = await send(
       "/v1/data/foundation/secrets",
