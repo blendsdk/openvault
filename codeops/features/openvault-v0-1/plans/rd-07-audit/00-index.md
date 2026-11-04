@@ -1,7 +1,7 @@
 # RD-07 Audit Implementation Plan
 
 > **Feature**: A persistent, append-only audit log with a SHA-256 hash chain, KEK-wrapped HMAC key, checkpoints, query/verify/export routes, fail-closed writes, and explicit retention pruning.
-> **Status**: Planning Complete
+> **Status**: Done
 > **Created**: 2026-11-04 00:16
 > **Implements**: openvault-v0-1/RD-07
 > **CodeOps Artifact Schema**: 1
