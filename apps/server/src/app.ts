@@ -4,11 +4,12 @@ import { createLoggerPlugin } from "blendsdk/webafx-pino";
 import type { AgentAuthenticator } from "./agent/agent-authenticator.js";
 import { agentAuthMiddleware } from "./agent/agent-middleware.js";
 import type { AgentProjectResolver } from "./agent/project-resolver.js";
-import { createAuditCore } from "./audit/runtime.js";
+import { createAuditCore, createAuditRuntime } from "./audit/runtime.js";
 import { createAuthPlugin } from "./auth/plugin.js";
 import type { OpenVaultConfig } from "./config/index.js";
 import { AgentController } from "./controllers/agent.js";
 import { AccessExplainController, AssignmentsController } from "./controllers/assignments.js";
+import { AuditController } from "./controllers/audit.js";
 import { AuthController } from "./controllers/auth.js";
 import { CliAuthController } from "./controllers/cli-auth.js";
 import { IdentityController } from "./controllers/identity.js";
@@ -49,26 +50,44 @@ export function createApplication(
   const app = new SecureWebApplication(config, dependencies);
   const provider: PinoLoggerProvider =
     dependencies.logger ?? createLoggerProvider(config, dependencies.loggerDestination);
-  const usesBuiltInPolicyRuntime =
-    dependencies.agentRuntime === undefined && dependencies.identityRuntime === undefined;
-  const auditDatabase = usesBuiltInPolicyRuntime
-    ? new PostgreSQLDatabase({
-        ...config.database,
-        poolConfig: { max: 1, idleTimeoutMillis: 100 },
-        enableGracefulShutdown: false,
-      })
-    : undefined;
+  const auditDatabase =
+    dependencies.auditRuntime === undefined
+      ? new PostgreSQLDatabase({
+          ...config.database,
+          poolConfig: { max: 1, idleTimeoutMillis: 100 },
+          enableGracefulShutdown: false,
+        })
+      : undefined;
+  let auditCore: ReturnType<typeof createAuditCore> | undefined = dependencies.auditRuntime;
   const policyRuntime =
     dependencies.agentRuntime?.policyRuntime ??
     dependencies.identityRuntime?.policyRuntime ??
-    createPolicyRuntime({
-      database: dependencies.database,
-      logger: provider,
-      audit: createAuditCore({
+    (() => {
+      auditCore ??= createAuditCore({
         database: dependencies.database,
         ...(auditDatabase === undefined ? {} : { independentDatabase: auditDatabase }),
         keyring: dependencies.keyring,
-      }).policyAudit,
+      });
+      return createPolicyRuntime({
+        database: dependencies.database,
+        logger: provider,
+        audit: auditCore.policyAudit,
+      });
+    })();
+  if (auditCore === undefined) {
+    auditCore = createAuditCore({
+      database: dependencies.database,
+      ...(auditDatabase === undefined ? {} : { independentDatabase: auditDatabase }),
+      keyring: dependencies.keyring,
+    });
+  }
+  const auditRuntime =
+    dependencies.auditRuntime ??
+    createAuditRuntime({
+      core: auditCore,
+      policy: policyRuntime.service,
+      database: dependencies.database,
+      keyring: dependencies.keyring,
     });
   const identityRuntime =
     dependencies.agentRuntime?.identityRuntime ??
@@ -151,6 +170,21 @@ export function createApplication(
     name: "rbacRateLimits",
     type: "singleton",
     factory: () => policyRuntime.rateLimits,
+  });
+  app.registerService({
+    name: "auditService",
+    type: "singleton",
+    factory: () => auditRuntime.service,
+  });
+  app.registerService({
+    name: "auditRateLimits",
+    type: "singleton",
+    factory: () => auditRuntime.rateLimits,
+  });
+  app.registerService({
+    name: "auditRuntime",
+    type: "singleton",
+    factory: () => auditRuntime,
   });
   app.registerService({
     name: "identityRuntime",
@@ -255,6 +289,7 @@ export function createApplication(
   app.registerController("/v1/admin/identities", IdentityController);
   app.registerController("/v1/admin/assignments", AssignmentsController);
   app.registerController("/v1/admin/access-explain", AccessExplainController);
+  app.registerController("/v1/audit", AuditController);
   if (dependencies.agentRuntime !== undefined) {
     app.registerController("/v1/agent", AgentController);
   }

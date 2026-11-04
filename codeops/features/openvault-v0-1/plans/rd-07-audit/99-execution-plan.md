@@ -2,8 +2,8 @@
 
 > **Document**: 99-execution-plan.md
 > **Parent**: [Index](00-index.md)
-> **Last Updated**: 2026-11-04 13:20
-> **Progress**: 17/73 tasks (23%)
+> **Last Updated**: 2026-11-04 13:58
+> **Progress**: 34/73 tasks (47%)
 > **CodeOps Artifact Schema**: 1
 
 ## Overview
@@ -94,7 +94,9 @@ Implement the persistent audit chain in four phases: the writer and policy adapt
 
 ## Phase 2: Audit API
 
-> **Phase baseline tree**: _(recorded by the exec-plan skill from a temporary-index snapshot of committed, staged, unstaged, and untracked phase-start state)_
+> **Phase baseline tree**: 7467f311c96eed6dacbb1be39a4299d378e6c2f4
+> **Expected modification set**: `packages/api-contract/src/audit.ts`, `apps/server/src/audit/{cursor,audit-query,audit-verify,audit-export,audit-service,audit-rate-limits,http,runtime}.ts`, `apps/server/src/controllers/audit.ts`, `apps/server/src/app.ts`, `apps/server/src/main.ts`, `apps/server/src/transport/secure-application.ts`, `apps/server/tests/integration/audit-*.test.ts`, `apps/server/tests/integration/helpers/audit-harness.ts`, and the plan documents.
+> **Scope mode**: strict
 > **Reasoning**: high — authorization scoping, cursor integrity, tamper reporting, and streaming behavior are security-sensitive.
 
 ### Step 2.1: Specification Tests
@@ -102,42 +104,44 @@ Implement the persistent audit chain in four phases: the writer and policy adapt
 **Reference**: [03-02](03-02-audit-api.md) · [07](07-testing-strategy.md) ST-23–ST-48, ST-92, ST-96 · AR-2, AR-6, AR-12–AR-15, AR-25
 **Objective**: Define filtering, pagination, verification, export, and authorization expectations.
 
-- [ ] 2.1.1 [spec-author] Write query, cursor, and authorization spec tests, including `objectId` without `objectType` — `apps/server/tests/integration/audit-query.spec.test.ts` (ST-23–ST-33)
-- [ ] 2.1.2 [spec-author] Write verification spec tests — `apps/server/tests/integration/audit-verify.spec.test.ts` (ST-34–ST-43, ST-92, ST-96)
-- [ ] 2.1.3 [spec-author] Write export spec tests — `apps/server/tests/integration/audit-export.spec.test.ts` (ST-44–ST-48)
-- [ ] 2.1.4 Run the new spec tests and record the red phase
+- [x] 2.1.1 [spec-author] Write query, cursor, and authorization spec tests, including `objectId` without `objectType` — `apps/server/tests/integration/audit-query.spec.test.ts` (ST-23–ST-33) ✅ (completed: 2026-11-04 13:58)
+- [x] 2.1.2 [spec-author] Write verification spec tests — `apps/server/tests/integration/audit-verify.spec.test.ts` (ST-34–ST-43, ST-92, ST-96) ✅ (completed: 2026-11-04 13:58)
+- [x] 2.1.3 [spec-author] Write export spec tests — `apps/server/tests/integration/audit-export.spec.test.ts` (ST-44–ST-48) ✅ (completed: 2026-11-04 13:58)
+- [x] 2.1.4 Run the new spec tests and record the red phase ✅ (completed: 2026-11-04 13:58)
 
 ### Step 2.2: Implementation
 
 **Reference**: [03-02](03-02-audit-api.md) §Implementation Details · AR-2, AR-6, AR-12–AR-15, AR-25
 **Objective**: Implement the cursor, query, verifier, exporter, service facade, rate limits, and controller.
 
-- [ ] 2.2.1 Implement the signed, filter-bound cursor — `apps/server/src/audit/cursor.ts`
-- [ ] 2.2.2 Implement the filtered keyset query and export stream — `apps/server/src/audit/audit-query.ts`
-- [ ] 2.2.3 Implement chain verification with first-event anchor rehashing, every-checkpoint tail detection, key-unavailable failure, and empty-plus-checkpoint detection — `apps/server/src/audit/audit-verify.ts`
-- [ ] 2.2.4 Implement the NDJSON exporter and the pre-header export attempt event — `apps/server/src/audit/audit-export.ts`
-- [ ] 2.2.5 Implement the audit service facade, `AuditUnavailableError` wrapping, and endpoint rate limits — `apps/server/src/audit/audit-service.ts`, `apps/server/src/audit/audit-rate-limits.ts`
-- [ ] 2.2.6 Implement the three routes and the export query schema — `apps/server/src/controllers/audit.ts`
-- [ ] 2.2.7 Register the controller, services, and limiter in the application — `apps/server/src/app.ts`
-- [ ] 2.2.8 Run the spec tests and reach the green phase
+- [x] 2.2.1 Implement the signed, filter-bound cursor — `apps/server/src/audit/cursor.ts` ✅ (completed: 2026-11-04 13:58)
+- [x] 2.2.2 Implement the filtered keyset query and export stream — `apps/server/src/audit/audit-query.ts` ✅ (completed: 2026-11-04 13:58)
+- [x] 2.2.3 Implement chain verification with first-event anchor rehashing, every-checkpoint tail detection, key-unavailable failure, and empty-plus-checkpoint detection — `apps/server/src/audit/audit-verify.ts` ✅ (completed: 2026-11-04 13:58)
+- [x] 2.2.4 Implement the NDJSON exporter and the pre-header export attempt event — `apps/server/src/audit/audit-export.ts` ✅ (completed: 2026-11-04 13:58)
+- [x] 2.2.5 Implement the audit service facade, `AuditUnavailableError` wrapping, and endpoint rate limits — `apps/server/src/audit/audit-service.ts`, `apps/server/src/audit/audit-rate-limits.ts` ✅ (completed: 2026-11-04 13:58)
+- [x] 2.2.6 Implement the three routes and the export query schema — `apps/server/src/controllers/audit.ts` ✅ (completed: 2026-11-04 13:58)
+- [x] 2.2.7 Register the controller, services, and limiter in the application — `apps/server/src/app.ts` ✅ (completed: 2026-11-04 13:58)
+- [x] 2.2.8 Run the spec tests and reach the green phase ✅ (completed: 2026-11-04 13:58)
 
 ### Step 2.3: Implementation Tests and Hardening
 
 **Reference**: [03-02](03-02-audit-api.md) §Testing Requirements · [07](07-testing-strategy.md)
 **Objective**: Cover pagination edges, checkpoint selection, streaming, and limiter isolation.
 
-- [ ] 2.3.1 Write query and cursor implementation tests — `apps/server/tests/integration/audit-query.impl.test.ts`
-- [ ] 2.3.2 Write verification implementation tests: batch boundaries and multiple checkpoints — `apps/server/tests/integration/audit-verify.impl.test.ts`
-- [ ] 2.3.3 Write export implementation tests: backpressure, disconnect, mid-stream failure — `apps/server/tests/integration/audit-export.impl.test.ts`
-- [ ] 2.3.4 Write rate-limit implementation tests — `apps/server/tests/integration/audit-rate-limits.impl.test.ts`
-- [ ] 2.3.5 Full phase verification
+- [x] 2.3.1 Write query and cursor implementation tests — `apps/server/tests/integration/audit-query.impl.test.ts` ✅ (completed: 2026-11-04 13:58)
+- [x] 2.3.2 Write verification implementation tests: batch boundaries and multiple checkpoints — `apps/server/tests/integration/audit-verify.impl.test.ts` ✅ (completed: 2026-11-04 13:58)
+- [x] 2.3.3 Write export implementation tests: backpressure, disconnect, mid-stream failure — `apps/server/tests/integration/audit-export.impl.test.ts` ✅ (completed: 2026-11-04 13:58)
+- [x] 2.3.4 Write rate-limit implementation tests — `apps/server/tests/integration/audit-rate-limits.impl.test.ts` ✅ (completed: 2026-11-04 13:58)
+- [x] 2.3.5 Full phase verification ✅ (completed: 2026-11-04 13:58)
 
 **Deliverables**:
-- [ ] Events, verify, and export routes complete with `audit.read` enforcement
-- [ ] All Phase 2 specification and implementation tests passing
-- [ ] All verification passing
+- [x] Events, verify, and export routes complete with `audit.read` enforcement
+- [x] All Phase 2 specification and implementation tests passing
+- [x] All verification passing
 
 **Verify**: `pnpm verify && pnpm db:types:check && TEST_DATABASE_URL=postgres://openvault:test-password@127.0.0.1:5433/openvault_test OPENVAULT_TEST_DB=1 pnpm test:integration`
+
+> **Verification note (2026-11-04 14:10)**: `pnpm verify` and `pnpm db:types:check` pass. The integration suite reports 477 passed and the same pre-existing `ca-x509.spec.test.ts` failure; it also fails on the clean baseline.
 
 ---
 

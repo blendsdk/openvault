@@ -40,8 +40,9 @@ export const hexHashSchema = z.string().regex(/^[0-9a-f]{64}$/, "Invalid hexadec
 /**
  * One stored event as returned by the API.
  *
- * Organization and system events have a null `projectId`; system events also
- * have a null `actorId` and `scopeId`.
+ * Organization and system scopes have a null `projectId`; a system scope also
+ * has a null `scopeId`. An `actorKind` of `system` has a null `actorId`, while
+ * a user or service actor can appear on a system-scope business event.
  */
 export const auditEventSchema = z.strictObject({
   eventId: ulidSchema,
@@ -147,15 +148,15 @@ const FILTER_KEYS = [
  * @returns A deterministic filter object.
  */
 export function normalizeAuditFilters(input: {
-  readonly from?: string;
-  readonly to?: string;
-  readonly actorId?: string;
-  readonly action?: string;
-  readonly objectType?: string;
-  readonly objectId?: string;
-  readonly result?: string;
-  readonly requestId?: string;
-  readonly projectId?: string;
+  readonly from?: string | undefined;
+  readonly to?: string | undefined;
+  readonly actorId?: string | undefined;
+  readonly action?: string | undefined;
+  readonly objectType?: string | undefined;
+  readonly objectId?: string | undefined;
+  readonly result?: string | undefined;
+  readonly requestId?: string | undefined;
+  readonly projectId?: string | undefined;
 }): Readonly<Record<string, string>> {
   const normalized: Record<string, string> = {};
   for (const key of FILTER_KEYS) {

@@ -80,6 +80,11 @@ export interface AuditEventRecord extends AuditEventInput {
   readonly auditKeyId: string;
 }
 
+/** Authorization visibility returned by the policy engine. */
+export type AuditVisibility =
+  | { readonly kind: "all" }
+  | { readonly kind: "projects"; readonly projectIds: readonly string[] };
+
 /**
  * Minimal database or transaction surface used by audit persistence.
  *
