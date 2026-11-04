@@ -3,7 +3,7 @@
 > **Feature-Set**: OpenVault v0.1
 > **Status**: In Progress
 > **Created**: 2026-10-29
-> **Last Updated**: 2026-11-04 19:30
+> **Last Updated**: 2026-11-04 21:00
 > **Progress**: 8 / 14 (57%)
 > **CodeOps Artifact Schema**: 1
 
@@ -23,7 +23,7 @@
 | RD-06 | RBAC | [RD-06](requirements/RD-06-rbac.md) | [rd-06-rbac](plans/rd-06-rbac/00-index.md) | Done | ✅ | 2026-11-03 | depends on RD-03, RD-05 |
 | RD-07 | Audit | [RD-07](requirements/RD-07-audit.md) | [rd-07-audit](plans/rd-07-audit/00-index.md) | Done | ✅ | 2026-11-04 | depends on RD-02, RD-03, RD-06 |
 | RD-08 | Projects and secrets | [RD-08](requirements/RD-08-projects-secrets.md) | [rd-08-projects-secrets](plans/rd-08-projects-secrets/00-index.md) | Done | ✅ | 2026-11-04 | depends on RD-06, RD-07 |
-| RD-09 | Certificates | [RD-09](requirements/RD-09-certificates.md) | — | RD Drafted | ✏️ | 2026-10-29 | depends on RD-08 |
+| RD-09 | Certificates | [RD-09](requirements/RD-09-certificates.md) | [rd-09-certificates](plans/rd-09-certificates/00-index.md) | Plan Preflighted | 🔬 | 2026-11-04 | depends on RD-08 |
 | RD-10 | Agent delivery and Compose | [RD-10](requirements/RD-10-agent-compose.md) | — | RD Drafted | ✏️ | 2026-10-29 | depends on RD-05, RD-07, RD-08 |
 | RD-11 | CLI | [RD-11](requirements/RD-11-cli.md) | — | RD Drafted | ✏️ | 2026-10-29 | depends on RD-04, RD-06, RD-08, RD-09, RD-10 |
 | RD-12 | Web UI | [RD-12](requirements/RD-12-web-ui.md) | — | RD Drafted | ✏️ | 2026-10-29 | depends on RD-03, RD-06, RD-08, RD-10 |

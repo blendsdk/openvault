@@ -1,5 +1,11 @@
 import type { QueryExecutor } from "../identity/identity-repository.js";
 
+/** A project list item with the active certificate count. */
+export interface ProjectListRecord extends ProjectRecord {
+  /** Active certificates in the project. */
+  readonly certificateCount: number;
+}
+
 /** A project row used by the admin lifecycle and data-plane resolution. */
 export interface ProjectRecord {
   /** Project identifier. */
@@ -20,6 +26,10 @@ interface ProjectRow {
   readonly created_at: Date;
   readonly updated_at: Date;
   readonly deleted_at: Date | null;
+}
+
+interface ProjectListRow extends ProjectRow {
+  readonly certificate_count: number;
 }
 
 /** Maps one database row to the public project shape. */
@@ -185,18 +195,23 @@ export class ProjectRepository {
   public async listVisible(
     executor: QueryExecutor = this.#database,
     visibility: "all" | readonly string[],
-  ): Promise<readonly ProjectRecord[]> {
+  ): Promise<readonly ProjectListRecord[]> {
     if (visibility !== "all" && visibility.length === 0) {
       return [];
     }
-    const condition = visibility === "all" ? "" : "AND id = ANY(:projectIds)";
-    const result = await executor.executeQuery<ProjectRow>(
-      `SELECT ${SELECT_COLUMNS}
-         FROM projects
-        WHERE deleted_at IS NULL ${condition}
-        ORDER BY name ASC, id ASC`,
+    const condition = visibility === "all" ? "" : "AND p.id = ANY(:projectIds)";
+    const result = await executor.executeQuery<ProjectListRow>(
+      `SELECT p.id, p.name, p.created_at, p.updated_at, p.deleted_at,
+              (SELECT count(*)::int FROM certificates c
+                WHERE c.project_id = p.id AND c.deleted_at IS NULL) AS certificate_count
+         FROM projects p
+        WHERE p.deleted_at IS NULL ${condition}
+        ORDER BY p.name ASC, p.id ASC`,
       visibility === "all" ? {} : { projectIds: [...visibility] },
     );
-    return result.records.map(toProject);
+    return result.records.map((row) => ({
+      ...toProject(row),
+      certificateCount: row.certificate_count,
+    }));
   }
 }

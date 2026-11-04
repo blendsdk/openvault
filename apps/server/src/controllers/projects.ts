@@ -12,7 +12,7 @@ import { AuditUnavailableError } from "../audit/errors.js";
 import { auditRequestContext } from "../audit/http.js";
 import { requirePrincipal } from "../auth/middleware.js";
 import { ProjectServiceError } from "../projects/errors.js";
-import type { ProjectRecord } from "../projects/repository.js";
+import type { ProjectListRecord, ProjectRecord } from "../projects/repository.js";
 import type { ProjectService } from "../projects/service.js";
 import { PolicyUnavailableError } from "../rbac/errors.js";
 
@@ -53,6 +53,18 @@ function toProjectResponse(project: ProjectRecord): {
   };
 }
 
+/** Converts one project list row to the public shape with the certificate count. */
+function toProjectListResponse(project: ProjectListRecord): {
+  readonly id: string;
+  readonly name: string;
+  readonly createdAt: string;
+  readonly updatedAt: string;
+  readonly deletedAt: string | null;
+  readonly certificateCount: number;
+} {
+  return { ...toProjectResponse(project), certificateCount: project.certificateCount };
+}
+
 /** Requires a syntactically valid project id or returns the stable not-found code. */
 function projectId(req: Request): string {
   const id = req.params.project;
@@ -80,7 +92,7 @@ export class ProjectsController extends BaseController {
           const projects = await execute(() =>
             service.list(actor.user.id, auditRequestContext(req)),
           );
-          this.ok(res, projectListSchema.parse({ projects: projects.map(toProjectResponse) }));
+          this.ok(res, projectListSchema.parse({ projects: projects.map(toProjectListResponse) }));
         }),
       this.route()
         .post("/")

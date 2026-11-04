@@ -78,6 +78,7 @@ describe("schema inventory", () => {
       "audit_keys",
       "blendsdk_migrations",
       "ca_keys",
+      "certificate_expiry_notifications",
       "certificate_versions",
       "certificates",
       "cli_sessions",
@@ -100,7 +101,7 @@ describe("schema inventory", () => {
 
   it("should create all declared foreign keys with their delete actions", async () => {
     const keys = await foreignKeys();
-    expect([...keys.values()].flat()).toHaveLength(24);
+    expect([...keys.values()].flat()).toHaveLength(26);
 
     expect(keys.get("principals")).toContain(
       "FOREIGN KEY (owner_project_id) REFERENCES projects(id) ON DELETE RESTRICT",

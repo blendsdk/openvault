@@ -6,7 +6,7 @@ import type { PolicyAuditContext } from "../rbac/audit.js";
 import { PolicyUnavailableError } from "../rbac/errors.js";
 import type { PolicyDecision, PolicyService } from "../rbac/policy-service.js";
 import { ProjectServiceError } from "./errors.js";
-import type { ProjectRecord, ProjectRepository } from "./repository.js";
+import type { ProjectListRecord, ProjectRecord, ProjectRepository } from "./repository.js";
 
 /** Options for {@link ProjectService}. */
 export interface ProjectServiceOptions {
@@ -121,7 +121,7 @@ export class ProjectService {
   public async list(
     actorId: string,
     context?: PolicyAuditContext,
-  ): Promise<readonly ProjectRecord[]> {
+  ): Promise<readonly ProjectListRecord[]> {
     const result = await this.#policy.authorizeList(
       actorId,
       "project.read",

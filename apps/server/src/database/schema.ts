@@ -393,6 +393,37 @@ certificateVersions
   .index()
   .indexName("certificate_versions_certificate_idx")
   .column("certificate_id", "created_at");
+certificateVersions.index().indexName("certificate_versions_not_after_idx").column("not_after");
+
+// ---------------------------------------------------------------------------
+// Certificate expiry notifications
+// ---------------------------------------------------------------------------
+
+const certificateExpiryNotifications = db.table("certificate_expiry_notifications");
+certificateExpiryNotifications.bigserial("id");
+certificateExpiryNotifications.text("certificate_id");
+certificateExpiryNotifications.text("version_id");
+certificateExpiryNotifications.integer("threshold_days").check("threshold_days IN (7, 14, 30)");
+certificateExpiryNotifications.integer("days_to_expiry").check("days_to_expiry BETWEEN 0 AND 30");
+certificateExpiryNotifications
+  .text("status")
+  .default("pending", true)
+  .check("status IN ('pending', 'sent')");
+certificateExpiryNotifications.text("audit_event_id").check(ulidExpression("audit_event_id"));
+certificateExpiryNotifications.timestamptz("created_at").default("now()");
+certificateExpiryNotifications.timestamptz("claimed_at").default("now()");
+certificateExpiryNotifications.timestamptz("sent_at").nullable();
+certificateExpiryNotifications.primaryKey().column("id");
+certificateExpiryNotifications.uniqueConstraint().column("version_id", "threshold_days");
+certificateExpiryNotifications.uniqueConstraint().column("audit_event_id");
+certificateExpiryNotifications
+  .index()
+  .indexName("certificate_expiry_notifications_certificate_idx")
+  .column("certificate_id");
+certificateExpiryNotifications
+  .index()
+  .indexName("certificate_expiry_notifications_status_idx")
+  .column("status", "created_at");
 
 // ---------------------------------------------------------------------------
 // Audit
@@ -602,6 +633,19 @@ certificates
   .onUpdate("NO ACTION")
   .onDelete("NO ACTION")
   .deferrable("DEFERRED");
+
+certificateExpiryNotifications
+  .foreignKeyConstraint(certificates)
+  .from("certificate_id")
+  .to("id")
+  .onUpdate("NO ACTION")
+  .onDelete("CASCADE");
+certificateExpiryNotifications
+  .foreignKeyConstraint(certificateVersions)
+  .from("certificate_id", "version_id")
+  .to("certificate_id", "id")
+  .onUpdate("NO ACTION")
+  .onDelete("CASCADE");
 
 auditEvents
   .foreignKeyConstraint(projects)
