@@ -24,6 +24,7 @@ import { ProjectRepository } from "./projects/repository.js";
 import { ProjectService } from "./projects/service.js";
 import { createPolicyRuntime } from "./rbac/runtime.js";
 import { createProductionProbes, ReadinessService } from "./readiness/service.js";
+import { SecretPurger } from "./secrets/purge.js";
 import { createSecretRuntime } from "./secrets/runtime.js";
 import { KeyringProvider } from "./security/keyring.js";
 import { installPreStack, type PreStackOptions } from "./transport/pre-stack.js";
@@ -103,6 +104,10 @@ export function createApplication(
     policy: policyRuntime.service,
     audit: auditRuntime.writer,
   });
+  const secretPurger = new SecretPurger({
+    ...(config.purgeDatabaseUrl === undefined ? {} : { url: config.purgeDatabaseUrl }),
+    appDatabase: config.database.database ?? "",
+  });
   const secretRuntime = createSecretRuntime({
     database: dependencies.database,
     keyring: dependencies.keyring,
@@ -110,6 +115,8 @@ export function createApplication(
     audit: auditRuntime.writer,
     projectRepository,
     secretMaxBytes: config.secretMaxBytes,
+    softDeleteDays: config.softDeleteDays,
+    purger: secretPurger,
   });
   const identityRuntime =
     dependencies.agentRuntime?.identityRuntime ??
@@ -232,6 +239,16 @@ export function createApplication(
     name: "secretRateLimits",
     type: "singleton",
     factory: () => secretRuntime.rateLimits,
+  });
+  app.registerService({
+    name: "secretPurger",
+    type: "singleton",
+    factory: () => secretPurger,
+    dispose: async (value: unknown) => {
+      if (value instanceof SecretPurger) {
+        await value.close();
+      }
+    },
   });
   app.registerService({
     name: "identityRuntime",

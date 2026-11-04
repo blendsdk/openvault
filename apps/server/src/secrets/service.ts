@@ -43,6 +43,7 @@ import {
   requestHash,
   validateIdempotencyKey,
 } from "./idempotency.js";
+import type { SecretPurger } from "./purge.js";
 import type {
   ConsumerSummary,
   ListCursor,
@@ -76,6 +77,10 @@ export interface SecretServiceOptions {
   readonly repository: SecretRepository;
   /** Decoded value limit. */
   readonly secretMaxBytes: number;
+  /** Soft-delete retention window in days. */
+  readonly softDeleteDays: number;
+  /** Dedicated purge executor, absent when purge is not configured. */
+  readonly purger?: SecretPurger;
   /** Injectable clock in milliseconds since the Unix epoch. */
   readonly now?: () => number;
 }
@@ -157,6 +162,8 @@ export class SecretService {
   readonly #projectRepository: ProjectRepository;
   readonly #repository: SecretRepository;
   readonly #secretMaxBytes: number;
+  readonly #softDeleteDays: number;
+  readonly #purger: SecretPurger | undefined;
   readonly #now: () => number;
 
   /**
@@ -170,6 +177,8 @@ export class SecretService {
     this.#projectRepository = options.projectRepository;
     this.#repository = options.repository;
     this.#secretMaxBytes = options.secretMaxBytes;
+    this.#softDeleteDays = options.softDeleteDays;
+    this.#purger = options.purger;
     this.#now = options.now ?? Date.now;
   }
 
@@ -723,6 +732,352 @@ export class SecretService {
     await this.#policy.recordDecision(decision, context);
     const consumers = await this.#repository.listConsumers(this.#database, project.id, [secret.id]);
     return (consumers.get(secret.id) ?? []).map((consumer) => this.#consumer(consumer));
+  }
+
+  /**
+   * Updates metadata without creating a version.
+   *
+   * @param actorId - Authenticated principal.
+   * @param projectName - Active project name.
+   * @param name - Secret name.
+   * @param input - Metadata changes.
+   * @param context - Optional request metadata.
+   * @returns The updated metadata.
+   */
+  public async updateMetadata(
+    actorId: string,
+    projectName: string,
+    name: string,
+    input: SecretMetadataUpdateRequest,
+    context?: PolicyAuditContext,
+  ): Promise<SecretMetadata> {
+    const project = await this.#activeProject(projectName);
+    const secret = await this.#repository.findActiveSecret(this.#database, project.id, name);
+    if (secret === undefined) {
+      throw new SecretServiceError(404, "secret_not_found", "Secret not found");
+    }
+    const decision = await this.#policy.authorize(
+      actorId,
+      "secret.write",
+      { type: "secret", id: secret.id, projectId: project.id },
+      context,
+      { audit: false },
+    );
+    if (!decision.allowed) {
+      await this.#policy.recordDecision(decision, context);
+      throw denialError(decision, "secret_not_found");
+    }
+
+    try {
+      await this.#database.withTransaction(async (tx) => {
+        await this.#audit.lockChain(tx);
+        if (!(await this.#repository.lockActiveProject(tx, project.id))) {
+          throw new SecretServiceError(404, "project_not_found", "Project not found");
+        }
+        await this.#repository.lockSecretName(tx, project.id, name);
+        const locked = await this.#repository.lockSecret(tx, secret.id);
+        if (locked === undefined || locked.deletedAt !== null) {
+          throw new SecretServiceError(404, "secret_not_found", "Secret not found");
+        }
+        if (input.purgeProtected === false && locked.purgeProtected) {
+          throw new SecretServiceError(
+            409,
+            "purge_protection_locked",
+            "Purge protection cannot be disabled",
+          );
+        }
+        const updated = await this.#repository.updateMetadata(tx, secret.id, {
+          tags: input.tags ?? locked.tags,
+          contentType: input.contentType ?? locked.contentType,
+          purgeProtected: input.purgeProtected === true ? true : locked.purgeProtected,
+        });
+        if (updated === undefined) {
+          throw new SecretServiceError(404, "secret_not_found", "Secret not found");
+        }
+        await this.#policy.recordDecision(decision, context, tx, { independent: false });
+      });
+    } catch (error) {
+      if (error instanceof SecretServiceError) {
+        await this.#recordError(
+          actorId,
+          decision,
+          "secret.write",
+          project.id,
+          secret.id,
+          error.code,
+          context,
+        );
+        throw error;
+      }
+      if (error instanceof PolicyUnavailableError) {
+        throw error;
+      }
+      throw new PolicyUnavailableError();
+    }
+    return this.#metadataResponse(actorId, secret.id);
+  }
+
+  /**
+   * Soft-deletes one active secret.
+   *
+   * @param actorId - Authenticated principal.
+   * @param projectName - Active project name.
+   * @param name - Secret name.
+   * @param context - Optional request metadata.
+   */
+  public async delete(
+    actorId: string,
+    projectName: string,
+    name: string,
+    context?: PolicyAuditContext,
+  ): Promise<void> {
+    const project = await this.#activeProject(projectName);
+    const secret = await this.#repository.findActiveSecret(this.#database, project.id, name);
+    if (secret === undefined) {
+      throw new SecretServiceError(404, "secret_not_found", "Secret not found");
+    }
+    const decision = await this.#policy.authorize(
+      actorId,
+      "secret.delete",
+      { type: "secret", id: secret.id, projectId: project.id },
+      context,
+      { audit: false },
+    );
+    if (!decision.allowed) {
+      await this.#policy.recordDecision(decision, context);
+      throw denialError(decision, "secret_not_found");
+    }
+    try {
+      await this.#database.withTransaction(async (tx) => {
+        await this.#audit.lockChain(tx);
+        if (!(await this.#repository.lockActiveProject(tx, project.id))) {
+          throw new SecretServiceError(404, "project_not_found", "Project not found");
+        }
+        await this.#repository.lockSecretName(tx, project.id, name);
+        const locked = await this.#repository.lockSecret(tx, secret.id);
+        if (locked === undefined || locked.deletedAt !== null) {
+          throw new SecretServiceError(404, "secret_not_found", "Secret not found");
+        }
+        const deleted = await this.#repository.softDelete(tx, secret.id, this.#softDeleteDays);
+        if (deleted === undefined) {
+          throw new SecretServiceError(404, "secret_not_found", "Secret not found");
+        }
+        await this.#policy.recordDecision(decision, context, tx, { independent: false });
+      });
+    } catch (error) {
+      if (error instanceof SecretServiceError) {
+        await this.#recordError(
+          actorId,
+          decision,
+          "secret.delete",
+          project.id,
+          secret.id,
+          error.code,
+          context,
+        );
+        throw error;
+      }
+      if (error instanceof PolicyUnavailableError) {
+        throw error;
+      }
+      throw new PolicyUnavailableError();
+    }
+  }
+
+  /**
+   * Recovers one deleted secret before retention expires.
+   *
+   * @param actorId - Authenticated principal.
+   * @param projectName - Active project name.
+   * @param name - Secret name.
+   * @param context - Optional request metadata.
+   * @returns The recovered metadata.
+   */
+  public async recover(
+    actorId: string,
+    projectName: string,
+    name: string,
+    context?: PolicyAuditContext,
+  ): Promise<SecretMetadata> {
+    const project = await this.#activeProject(projectName);
+    const secret = await this.#repository.findSecretByName(this.#database, project.id, name);
+    if (secret === undefined) {
+      throw new SecretServiceError(404, "secret_not_found", "Secret not found");
+    }
+    const decision = await this.#policy.authorize(
+      actorId,
+      "secret.recover",
+      { type: "secret", id: secret.id, projectId: project.id },
+      context,
+      { audit: false },
+    );
+    if (!decision.allowed) {
+      await this.#policy.recordDecision(decision, context);
+      throw denialError(decision, "secret_not_found");
+    }
+    try {
+      await this.#database.withTransaction(async (tx) => {
+        await this.#audit.lockChain(tx);
+        if (!(await this.#repository.lockActiveProject(tx, project.id))) {
+          throw new SecretServiceError(404, "project_not_found", "Project not found");
+        }
+        await this.#repository.lockSecretName(tx, project.id, name);
+        const recovered = await this.#repository.recover(tx, secret.id);
+        if (recovered === undefined) {
+          const current = await this.#repository.findSecretById(tx, secret.id);
+          if (current === undefined) {
+            throw new SecretServiceError(404, "secret_not_found", "Secret not found");
+          }
+          throw new SecretServiceError(
+            current.deletedAt === null ? 409 : 409,
+            current.deletedAt === null ? "secret_not_deleted" : "secret_not_recoverable",
+            current.deletedAt === null
+              ? "Secret is not deleted"
+              : "Secret can no longer be recovered",
+          );
+        }
+        await this.#policy.recordDecision(decision, context, tx, { independent: false });
+      });
+    } catch (error) {
+      if (error instanceof SecretServiceError) {
+        await this.#recordError(
+          actorId,
+          decision,
+          "secret.recover",
+          project.id,
+          secret.id,
+          error.code,
+          context,
+        );
+        throw error;
+      }
+      if (error instanceof PolicyUnavailableError) {
+        throw error;
+      }
+      throw new PolicyUnavailableError();
+    }
+    return this.#metadataResponse(actorId, secret.id);
+  }
+
+  /**
+   * Purges one deleted secret after retention when protection is off.
+   *
+   * @param actorId - Authenticated principal.
+   * @param projectName - Active project name.
+   * @param name - Secret name.
+   * @param context - Optional request metadata.
+   */
+  public async purge(
+    actorId: string,
+    projectName: string,
+    name: string,
+    context?: PolicyAuditContext,
+  ): Promise<void> {
+    const project = await this.#activeProject(projectName);
+    const secret = await this.#repository.findSecretByName(this.#database, project.id, name);
+    if (secret === undefined) {
+      throw new SecretServiceError(404, "secret_not_found", "Secret not found");
+    }
+    const decision = await this.#policy.authorize(
+      actorId,
+      "secret.purge",
+      { type: "secret", id: secret.id, projectId: project.id },
+      context,
+      { audit: false },
+    );
+    if (!decision.allowed) {
+      await this.#policy.recordDecision(decision, context);
+      throw denialError(decision, "secret_not_found");
+    }
+    const fail = async (
+      code:
+        | "secret_not_deleted"
+        | "purge_protection_locked"
+        | "secret_retention_active"
+        | "service_unavailable",
+      status: number,
+    ) => {
+      await this.#recordError(
+        actorId,
+        decision,
+        "secret.purge",
+        project.id,
+        secret.id,
+        code,
+        context,
+      );
+      throw new SecretServiceError(status, code, "Secret purge is not allowed");
+    };
+    if (secret.deletedAt === null) {
+      await fail("secret_not_deleted", 409);
+    }
+    if (secret.purgeProtected) {
+      await fail("purge_protection_locked", 409);
+    }
+    if (secret.purgeAfter === null || secret.purgeAfter.getTime() > this.#now()) {
+      await fail("secret_retention_active", 409);
+    }
+    const purger = this.#purger;
+    if (purger === undefined) {
+      await this.#recordError(
+        actorId,
+        decision,
+        "secret.purge",
+        project.id,
+        secret.id,
+        "service_unavailable",
+        context,
+      );
+      throw new SecretServiceError(503, "service_unavailable", "Service unavailable");
+    }
+    try {
+      await purger.delete(secret.id, project.id, name);
+    } catch (error) {
+      if (error instanceof SecretServiceError && error.code === "project_not_found") {
+        await this.#recordError(
+          actorId,
+          decision,
+          "secret.purge",
+          project.id,
+          secret.id,
+          error.code,
+          context,
+        );
+        throw error;
+      }
+      await this.#recordError(
+        actorId,
+        decision,
+        "secret.purge",
+        project.id,
+        secret.id,
+        "purge_failed",
+        context,
+      );
+      throw new SecretServiceError(503, "service_unavailable", "Service unavailable");
+    }
+    await this.#policy.recordDecision(decision, context);
+  }
+
+  /** Loads current metadata for a secret. */
+  async #metadataResponse(actorId: string, secretId: string): Promise<SecretMetadata> {
+    const secret = await this.#repository.findSecretById(this.#database, secretId);
+    if (secret === undefined) {
+      throw new SecretServiceError(404, "secret_not_found", "Secret not found");
+    }
+    const current =
+      secret.currentVersionId === null
+        ? null
+        : ((await this.#repository.findVersion(
+            this.#database,
+            secret.id,
+            secret.currentVersionId,
+          )) ?? null);
+    const consumers = await this.#repository.listConsumers(this.#database, secret.projectId, [
+      secret.id,
+    ]);
+    const capabilities = await this.#capabilities(actorId, secret);
+    return this.#metadata(secret, current, consumers.get(secret.id) ?? [], capabilities);
   }
 
   /** Resolves an active project by name. */

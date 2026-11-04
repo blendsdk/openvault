@@ -3,6 +3,7 @@ import type { AuditWriter } from "../audit/audit-writer.js";
 import type { ProjectRepository } from "../projects/repository.js";
 import type { PolicyService } from "../rbac/policy-service.js";
 import type { KeyringProvider } from "../security/keyring.js";
+import type { SecretPurger } from "./purge.js";
 import {
   createSecretRateLimitService,
   type SecretRateLimitOptions,
@@ -34,6 +35,8 @@ export function createSecretRuntime(options: {
   readonly audit: AuditWriter;
   readonly projectRepository: ProjectRepository;
   readonly secretMaxBytes: number;
+  readonly softDeleteDays: number;
+  readonly purger?: SecretPurger;
   readonly now?: () => number;
   readonly rateLimitOptions?: SecretRateLimitOptions;
 }): SecretRuntime {
@@ -46,6 +49,8 @@ export function createSecretRuntime(options: {
     projectRepository: options.projectRepository,
     repository,
     secretMaxBytes: options.secretMaxBytes,
+    softDeleteDays: options.softDeleteDays,
+    ...(options.purger === undefined ? {} : { purger: options.purger }),
     ...(options.now === undefined ? {} : { now: options.now }),
   });
   const rateLimits = createSecretRateLimitService(options.rateLimitOptions);

@@ -124,6 +124,19 @@ describe("secret HTTP core routes", () => {
     expect((response.json as { error: { code: string } }).error.code).toBe("validation_error");
   });
 
+  it("should accept a 64 KiB value with heavy JSON escaping", async () => {
+    const value = '"'.repeat(65_536);
+    const response = await send(
+      "/v1/data/foundation/secrets",
+      "POST",
+      JSON.stringify({ name: "http-escaped", value }),
+    );
+    expect(response.status, response.body).toBe(201);
+    const read = await send("/v1/data/foundation/secrets/http-escaped");
+    expect(read.status).toBe(200);
+    expect((read.json as { data: { value: string } }).data.value).toBe(value);
+  }, 60_000);
+
   it("should reject an unknown create field with 422", async () => {
     const response = await send(
       "/v1/data/foundation/secrets",

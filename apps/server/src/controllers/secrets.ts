@@ -4,6 +4,8 @@ import {
   secretCreateRequestSchema,
   secretListQuerySchema,
   secretListSchema,
+  secretMetadataSchema,
+  secretMetadataUpdateRequestSchema,
   secretNameSchema,
   secretReadQuerySchema,
   secretValueResponseSchema,
@@ -204,6 +206,60 @@ export class SecretsController extends BaseController {
             ),
           );
           this.ok(res, secretWriteResponseSchema.parse(result));
+        }),
+      this.route()
+        .patch("/:project/secrets/:name")
+        .middleware(secretRateLimit())
+        .handle(async (req: Request, res: Response) => {
+          const actor = principal(req);
+          const parsed = secretMetadataUpdateRequestSchema.safeParse(req.body);
+          if (!parsed.success) {
+            throw new ApiError(422, "validation_error", "Validation failed");
+          }
+          const service = await this.services.get<SecretService>("secretService");
+          const result = await execute(() =>
+            service.updateMetadata(
+              actor.id,
+              projectName(req),
+              secretName(req),
+              parsed.data,
+              auditRequestContext(req),
+            ),
+          );
+          this.ok(res, secretMetadataSchema.parse(result));
+        }),
+      this.route()
+        .delete("/:project/secrets/:name")
+        .middleware(secretRateLimit())
+        .handle(async (req: Request, res: Response) => {
+          const actor = principal(req);
+          const service = await this.services.get<SecretService>("secretService");
+          await execute(() =>
+            service.delete(actor.id, projectName(req), secretName(req), auditRequestContext(req)),
+          );
+          this.noContent(res);
+        }),
+      this.route()
+        .post("/:project/secrets/:name/recover")
+        .middleware(secretRateLimit())
+        .handle(async (req: Request, res: Response) => {
+          const actor = principal(req);
+          const service = await this.services.get<SecretService>("secretService");
+          const result = await execute(() =>
+            service.recover(actor.id, projectName(req), secretName(req), auditRequestContext(req)),
+          );
+          this.ok(res, secretMetadataSchema.parse(result));
+        }),
+      this.route()
+        .post("/:project/secrets/:name/purge")
+        .middleware(secretRateLimit())
+        .handle(async (req: Request, res: Response) => {
+          const actor = principal(req);
+          const service = await this.services.get<SecretService>("secretService");
+          await execute(() =>
+            service.purge(actor.id, projectName(req), secretName(req), auditRequestContext(req)),
+          );
+          this.noContent(res);
         }),
     ];
   }

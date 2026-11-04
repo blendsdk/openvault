@@ -38,6 +38,8 @@ export interface OpenVaultConfig {
   readonly envMode: EnvMode;
   readonly databaseUrl: string;
   readonly database: PostgreSQLConfig;
+  /** Raw dedicated purge URL; absent when purge is unavailable. */
+  readonly purgeDatabaseUrl?: string;
   readonly keyringPath: string;
   readonly keyringPassphrasePath?: string;
   readonly tlsCertPath: string;
@@ -104,7 +106,7 @@ export interface WebAfxSettings {
   readonly PORT: number;
   readonly ENV_MODE: EnvMode;
   readonly LOG_LEVEL: "ERROR" | "WARN" | "INFO" | "DEBUG";
-  readonly BODY_LIMIT: "128kb";
+  readonly BODY_LIMIT: "1mb";
   readonly CORS: false;
   readonly TRUST_PROXY: false;
 }

@@ -63,6 +63,7 @@ beforeAll(async () => {
     projectRepository: new ProjectRepository(testDb.db),
     repository,
     secretMaxBytes: 65_536,
+    softDeleteDays: 30,
     now: clock,
   });
 }, 60_000);

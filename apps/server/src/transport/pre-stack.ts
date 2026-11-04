@@ -21,6 +21,7 @@ import {
 const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const GLOBAL_BODY_LIMIT = 131_072;
 const SECRET_BODY_LIMIT = 65_536;
+const DATA_BODY_LIMIT = 524_288;
 
 function correlationMiddleware(
   req: express.Request,
@@ -143,9 +144,11 @@ function contentLengthGuardMiddleware(
   try {
     const path = normalizeRequestPath(req.originalUrl || req.url);
     const limit =
-      path === "/v1/secrets" || path.startsWith("/v1/secrets/")
-        ? SECRET_BODY_LIMIT
-        : GLOBAL_BODY_LIMIT;
+      path === "/v1/data" || path.startsWith("/v1/data/")
+        ? DATA_BODY_LIMIT
+        : path === "/v1/secrets" || path.startsWith("/v1/secrets/")
+          ? SECRET_BODY_LIMIT
+          : GLOBAL_BODY_LIMIT;
     const header = req.headers["content-length"];
     if (header !== undefined) {
       const length = Number(header);
@@ -162,13 +165,15 @@ function contentLengthGuardMiddleware(
 
 function jsonParserMiddleware(): express.RequestHandler {
   return express.json({
-    limit: "128kb",
+    limit: "1mb",
     verify: (req, _res, buffer) => {
       const path = normalizeRequestPath(req.url);
       const limit =
-        path === "/v1/secrets" || path.startsWith("/v1/secrets/")
-          ? SECRET_BODY_LIMIT
-          : GLOBAL_BODY_LIMIT;
+        path === "/v1/data" || path.startsWith("/v1/data/")
+          ? DATA_BODY_LIMIT
+          : path === "/v1/secrets" || path.startsWith("/v1/secrets/")
+            ? SECRET_BODY_LIMIT
+            : GLOBAL_BODY_LIMIT;
       if (buffer.length > limit) {
         throw new ApiError(413, "payload_too_large", "Payload too large");
       }

@@ -2,8 +2,8 @@
 
 > **Document**: 99-execution-plan.md
 > **Parent**: [Index](00-index.md)
-> **Last Updated**: 2026-11-04 18:05
-> **Progress**: 41/65 tasks (63%)
+> **Last Updated**: 2026-11-04 18:35
+> **Progress**: 56/65 tasks (86%)
 > **CodeOps Artifact Schema**: 1
 
 ## Overview
@@ -157,38 +157,38 @@ implementation tests, full verification.
 **Reference**: [07-testing-strategy.md](07-testing-strategy.md) ST-57..75, ST-87 · [03-04](03-04-lifecycle-purge.md) · AR-8, AR-13, AR-14, AR-19, AR-22, AR-28, AR-29, AR-32
 **Objective**: Define metadata update, delete, recovery, protection, expiry, and purge.
 
-- [ ] 3.1.1 [spec-author] Write lifecycle, expiry, purge, and leakage specification tests — `apps/server/tests/integration/secrets-lifecycle.spec.test.ts` (ST-57..75, ST-87)
-- [ ] 3.1.2 Add the disposable purge-role helper — `apps/server/tests/integration/helpers/purger.ts`
-- [ ] 3.1.3 Run the lifecycle spec tests and record the red phase
+- [x] 3.1.1 [spec-author] Write lifecycle, expiry, purge, and leakage specification tests — `apps/server/tests/integration/secrets-lifecycle.spec.test.ts` (ST-57..75, ST-87) ✅ (completed: 2026-11-04 18:35)
+- [x] 3.1.2 Add the disposable purge-role helper — `apps/server/tests/integration/helpers/purger.ts` ✅ (completed: 2026-11-04 18:35)
+- [x] 3.1.3 Run the lifecycle spec tests and record the red phase ✅ (completed: 2026-11-04 18:35)
 
 ### Step 3.2: Implementation
 
 **Reference**: [03-04 §Metadata Update](03-04-lifecycle-purge.md) · [03-04 §Purge](03-04-lifecycle-purge.md) · AR-8, AR-13, AR-14, AR-19, AR-22, AR-28, AR-29, AR-32
 **Objective**: Implement every post-create lifecycle rule and the dedicated purge path.
 
-- [ ] 3.2.1 Add optional `OPENVAULT_PURGE_DB_URL` and clamp the value limit — `apps/server/src/config/{types,loader,redact}.ts`
-- [ ] 3.2.2 Raise the JSON parser limit and apply the `/v1/data` and legacy per-path guards — `apps/server/src/transport/pre-stack.ts`, `apps/server/src/config/types.ts`
-- [ ] 3.2.3 Implement metadata update and protection transitions — `apps/server/src/secrets/service.ts`
-- [ ] 3.2.4 Implement soft delete and recovery with the retention boundary — `apps/server/src/secrets/service.ts`
-- [ ] 3.2.5 Implement expiry fallback, the one-event read outcome, and the retained-version limit — `apps/server/src/secrets/service.ts`, `apps/server/src/secrets/repository.ts`
-- [ ] 3.2.6 Add the purge connection with database/role-membership guards, project lock, and name lock — `apps/server/src/secrets/purge.ts`
-- [ ] 3.2.7 Implement the purge flow with exactly one outcome event — `apps/server/src/secrets/service.ts`
-- [ ] 3.2.8 Compose and dispose the purge pool in the application — `apps/server/src/app.ts`
-- [ ] 3.2.9 Add the lifecycle controller handlers — `apps/server/src/controllers/secrets.ts`
-- [ ] 3.2.10 Run the lifecycle spec tests and reach the green phase
+- [x] 3.2.1 Add optional `OPENVAULT_PURGE_DB_URL` and clamp the value limit — `apps/server/src/config/{types,loader,redact}.ts` ✅ (completed: 2026-11-04 18:35)
+- [x] 3.2.2 Raise the JSON parser limit and apply the `/v1/data` and legacy per-path guards — `apps/server/src/transport/pre-stack.ts`, `apps/server/src/config/types.ts` ✅ (completed: 2026-11-04 18:35)
+- [x] 3.2.3 Implement metadata update and protection transitions — `apps/server/src/secrets/service.ts` ✅ (completed: 2026-11-04 18:35)
+- [x] 3.2.4 Implement soft delete and recovery with the retention boundary — `apps/server/src/secrets/service.ts` ✅ (completed: 2026-11-04 18:35)
+- [x] 3.2.5 Implement expiry fallback, the one-event read outcome, and the retained-version limit — `apps/server/src/secrets/service.ts`, `apps/server/src/secrets/repository.ts` ✅ (completed: 2026-11-04 18:35)
+- [x] 3.2.6 Add the purge connection with database/role-membership guards, project lock, and name lock — `apps/server/src/secrets/purge.ts` ✅ (completed: 2026-11-04 18:35)
+- [x] 3.2.7 Implement the purge flow with exactly one outcome event — `apps/server/src/secrets/service.ts` ✅ (completed: 2026-11-04 18:35)
+- [x] 3.2.8 Compose and dispose the purge pool in the application — `apps/server/src/app.ts` ✅ (completed: 2026-11-04 18:35)
+- [x] 3.2.9 Add the lifecycle controller handlers — `apps/server/src/controllers/secrets.ts` ✅ (completed: 2026-11-04 18:35)
+- [x] 3.2.10 Run the lifecycle spec tests and reach the green phase ✅ (completed: 2026-11-04 18:35)
 
 ### Step 3.3: Implementation Tests and Verification
 
 **Reference**: [07-testing-strategy.md](07-testing-strategy.md) §Implementation Tests · AR-23
 **Objective**: Prove role guards, purge failures, expiry boundaries, and name reservation.
 
-- [ ] 3.3.1 Write lifecycle implementation tests — `apps/server/tests/integration/secrets-lifecycle.impl.test.ts`
-- [ ] 3.3.2 Full phase verification
+- [x] 3.3.1 Write lifecycle implementation tests — `apps/server/tests/integration/secrets-lifecycle.impl.test.ts` ✅ (completed: 2026-11-04 18:35)
+- [x] 3.3.2 Full phase verification ✅ (completed: 2026-11-04 18:35)
 
 **Deliverables**:
-- [ ] Metadata, delete, recovery, protection, expiry, version limit, and purge complete
-- [ ] All Phase 3 specification and implementation tests passing
-- [ ] `pnpm verify`, `pnpm db:types:check`, and the lifecycle integration tests passing
+- [x] Metadata, delete, recovery, protection, expiry, version limit, and purge complete
+- [x] All Phase 3 specification and implementation tests passing
+- [x] `pnpm verify`, `pnpm db:types:check`, and the lifecycle integration tests passing
 
 **Verify**: `pnpm verify && pnpm db:types:check && TEST_DATABASE_URL=postgres://openvault:test-password@127.0.0.1:5433/openvault_test OPENVAULT_TEST_DB=1 pnpm test:integration`
 
