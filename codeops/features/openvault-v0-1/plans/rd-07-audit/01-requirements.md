@@ -12,7 +12,7 @@
 - RD-07 Must Have: the exact hash formula, HMAC formula, transaction advisory lock, checkpoint rules, event field set, action strings for identity/agent/consumer, redaction-before-canonicalization, and project-scoped `audit.read`.
 - RD-07 Must Have: `GET /v1/audit/events`, `GET /v1/audit/verify`, `GET /v1/audit/export`, retention default 180 days, and an explicit prune command.
 - RD-07 Must Have: a secret read writes evidence before plaintext and fails closed. This plan ships the persistent writer and the fail-closed boundary; RD-08 and RD-09 call it from their data routes.
-- RD-07 Should Have: audit indexes (already present) and an explicit checkpoint export command for off-box anchoring.
+- RD-07 Should Have: the existing composite object index backs paired `objectType` + `objectId` filters (`objectId` without `objectType` is rejected), and an explicit checkpoint export command for off-box anchoring.
 - RD-07 Acceptance 1–13 for every surface that exists in this release.
 
 ### Deferred / out of this plan
@@ -38,8 +38,8 @@
 | Prune authority | `OPENVAULT_PRUNE_DB_URL` with `openvault_pruner` session | AR-4 |
 | Verify scope | Org-scoped `audit.read` only | AR-14 |
 | Checkpoint cadence | First event, 1,000 events, lazy daily, maintenance | AR-11 |
-| Failure mode | Every audited action fails closed | AR-17 |
-| Schema change | None; reuse existing tables and triggers | AR-24 |
+| Failure mode | Fail closed; one accepted credential-counter exception | AR-17 |
+| Schema change | None; reuse existing tables and triggers; `objectId` requires `objectType` | AR-24 |
 
 ## Acceptance Criteria
 
@@ -53,5 +53,8 @@ The RD owns its acceptance criteria. This plan adds only these local completion 
 6. [ ] Export is valid NDJSON and produces an `audit.export` event.
 7. [ ] Prune exports, checkpoints before deleting, records `audit.prune`, and verification still passes from the retained anchor.
 8. [ ] No secret value, token, cookie, password, private key, CSR, or certificate body appears in any event field.
-9. [ ] `pnpm verify`, the PostgreSQL 16 and 17 integration suites, and `db:types:check` pass.
+9. [ ] `pnpm verify`, the PostgreSQL 16 and 17 integration suites, `db:types:check`, and `pnpm changeset status` pass.
 10. [ ] The checkpoint export command writes the latest checkpoint as mode-`0600` JSON for off-box anchoring.
+11. [ ] Verification includes the first retained anchor event, checks every checkpoint at or after the retained window, and reports an empty event table with a surviving checkpoint as tamper.
+12. [ ] Prune verifies the retained chain before deleting and uses a `SELECT, DELETE` pruner role.
+13. [ ] Audit failures map to 503 across the authentication, CLI, OIDC, agent, identity, assignment, and audit surfaces.

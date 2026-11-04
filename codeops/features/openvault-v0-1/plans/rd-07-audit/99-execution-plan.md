@@ -2,7 +2,7 @@
 
 > **Document**: 99-execution-plan.md
 > **Parent**: [Index](00-index.md)
-> **Last Updated**: 2026-11-04 00:16
+> **Last Updated**: 2026-11-04 08:49
 > **Progress**: 0/73 tasks (0%)
 > **CodeOps Artifact Schema**: 1
 
@@ -58,13 +58,13 @@ Implement the persistent audit chain in four phases: the writer and policy adapt
 **Reference**: [03-01](03-01-audit-core.md) §Implementation Details · AR-5–AR-11, AR-16–AR-18, AR-24
 **Objective**: Implement the canonical encoder, key store, writer, checkpoints, and persistent policy adapter.
 
-- [ ] 1.2.1 Add the audit response contracts — `packages/api-contract/src/audit.ts`, `packages/api-contract/src/index.ts`
-- [ ] 1.2.2 Add the server action catalog, details allowlists, and shared types — `apps/server/src/audit/actions.ts`, `apps/server/src/audit/types.ts`
-- [ ] 1.2.3 Implement canonical JSON and hashing — `apps/server/src/audit/canonical-json.ts`, `apps/server/src/audit/hashing.ts`
+- [ ] 1.2.1 Add the audit response and export query contracts; normalize filters; require `objectType` with `objectId` — `packages/api-contract/src/audit.ts`, `packages/api-contract/src/index.ts`
+- [ ] 1.2.2 Add the server action catalog, details allowlists, shared types, and audit error hierarchy — `apps/server/src/audit/actions.ts`, `apps/server/src/audit/types.ts`, `apps/server/src/audit/errors.ts`
+- [ ] 1.2.3 Implement canonical JSON and hashing, including the fixed hash/HMAC vector — `apps/server/src/audit/canonical-json.ts`, `apps/server/src/audit/hashing.ts`
 - [ ] 1.2.4 Implement KEK wrap/unwrap and audit key selection — `apps/server/src/audit/audit-key-store.ts`
 - [ ] 1.2.5 Implement the writer, advisory lock, and checkpoint cadence — `apps/server/src/audit/audit-writer.ts`
 - [ ] 1.2.6 Implement the persistent policy adapter — `apps/server/src/audit/policy-audit.ts`
-- [ ] 1.2.7 Add mutation `projectId`, the transaction parameter, and the runtime audit option; update mutation fixtures — `apps/server/src/rbac/audit.ts`, `apps/server/src/rbac/assignment-service.ts`, `apps/server/src/rbac/runtime.ts`, `apps/server/tests/integration/rbac-audit.impl.test.ts`
+- [ ] 1.2.7 Add decision and mutation `projectId`, mutation object fields, the transaction parameter, and the runtime audit option; update event fixtures — `apps/server/src/rbac/audit.ts`, `apps/server/src/rbac/policy-service.ts`, `apps/server/src/rbac/assignment-service.ts`, `apps/server/src/rbac/runtime.ts`, `apps/server/tests/integration/rbac-audit.impl.test.ts`
 - [ ] 1.2.8 Compose the audit runtime and accept the adapter in the application — `apps/server/src/audit/runtime.ts`, `apps/server/src/app.ts`
 - [ ] 1.2.9 Separate business fixtures from synthetic audit rows — `apps/server/tests/integration/helpers/fixtures.ts`, `apps/server/tests/integration/schema.spec.test.ts`
 - [ ] 1.2.10 Run the spec tests and reach the green phase
@@ -95,11 +95,11 @@ Implement the persistent audit chain in four phases: the writer and policy adapt
 
 ### Step 2.1: Specification Tests
 
-**Reference**: [03-02](03-02-audit-api.md) · [07](07-testing-strategy.md) ST-23–ST-48 · AR-2, AR-6, AR-12–AR-15, AR-25
+**Reference**: [03-02](03-02-audit-api.md) · [07](07-testing-strategy.md) ST-23–ST-48, ST-92, ST-96 · AR-2, AR-6, AR-12–AR-15, AR-25
 **Objective**: Define filtering, pagination, verification, export, and authorization expectations.
 
-- [ ] 2.1.1 [spec-author] Write query, cursor, and authorization spec tests — `apps/server/tests/integration/audit-query.spec.test.ts` (ST-23–ST-33)
-- [ ] 2.1.2 [spec-author] Write verification spec tests — `apps/server/tests/integration/audit-verify.spec.test.ts` (ST-34–ST-43, ST-92)
+- [ ] 2.1.1 [spec-author] Write query, cursor, and authorization spec tests, including `objectId` without `objectType` — `apps/server/tests/integration/audit-query.spec.test.ts` (ST-23–ST-33)
+- [ ] 2.1.2 [spec-author] Write verification spec tests — `apps/server/tests/integration/audit-verify.spec.test.ts` (ST-34–ST-43, ST-92, ST-96)
 - [ ] 2.1.3 [spec-author] Write export spec tests — `apps/server/tests/integration/audit-export.spec.test.ts` (ST-44–ST-48)
 - [ ] 2.1.4 Run the new spec tests and record the red phase
 
@@ -110,10 +110,10 @@ Implement the persistent audit chain in four phases: the writer and policy adapt
 
 - [ ] 2.2.1 Implement the signed, filter-bound cursor — `apps/server/src/audit/cursor.ts`
 - [ ] 2.2.2 Implement the filtered keyset query and export stream — `apps/server/src/audit/audit-query.ts`
-- [ ] 2.2.3 Implement chain verification with checkpoint anchoring and tail detection — `apps/server/src/audit/audit-verify.ts`
-- [ ] 2.2.4 Implement the NDJSON exporter — `apps/server/src/audit/audit-export.ts`
-- [ ] 2.2.5 Implement the audit service facade and endpoint rate limits — `apps/server/src/audit/audit-service.ts`, `apps/server/src/audit/audit-rate-limits.ts`
-- [ ] 2.2.6 Implement the three routes — `apps/server/src/controllers/audit.ts`
+- [ ] 2.2.3 Implement chain verification with first-event anchor rehashing, every-checkpoint tail detection, key-unavailable failure, and empty-plus-checkpoint detection — `apps/server/src/audit/audit-verify.ts`
+- [ ] 2.2.4 Implement the NDJSON exporter and the pre-header export attempt event — `apps/server/src/audit/audit-export.ts`
+- [ ] 2.2.5 Implement the audit service facade, `AuditUnavailableError` wrapping, and endpoint rate limits — `apps/server/src/audit/audit-service.ts`, `apps/server/src/audit/audit-rate-limits.ts`
+- [ ] 2.2.6 Implement the three routes and the export query schema — `apps/server/src/controllers/audit.ts`
 - [ ] 2.2.7 Register the controller, services, and limiter in the application — `apps/server/src/app.ts`
 - [ ] 2.2.8 Run the spec tests and reach the green phase
 
@@ -144,11 +144,11 @@ Implement the persistent audit chain in four phases: the writer and policy adapt
 
 ### Step 3.1: Specification Tests
 
-**Reference**: [03-03](03-03-audit-emitters.md) · [07](07-testing-strategy.md) ST-49–ST-87 · AR-1, AR-3, AR-17–AR-22
+**Reference**: [03-03](03-03-audit-emitters.md) · [07](07-testing-strategy.md) ST-49–ST-87, ST-94, ST-98 · AR-1, AR-3, AR-17–AR-22
 **Objective**: Define event counts, actor attribution, reason codes, redaction, and fail-closed behavior.
 
 - [ ] 3.1.1 [spec-author] Write policy and identity emitter spec tests — `apps/server/tests/integration/audit-emitters.spec.test.ts` (ST-49–ST-55)
-- [ ] 3.1.2 [spec-author] Write authentication emitter spec tests — `apps/server/tests/integration/audit-auth.spec.test.ts` (ST-56–ST-62)
+- [ ] 3.1.2 [spec-author] Write authentication emitter spec tests — `apps/server/tests/integration/audit-auth.spec.test.ts` (ST-56–ST-62, ST-98)
 - [ ] 3.1.3 [spec-author] Write agent and consumer emitter spec tests — `apps/server/tests/integration/audit-agent.spec.test.ts` (ST-63–ST-73)
 - [ ] 3.1.4 [spec-author] Write fail-closed, redaction, and contract spec tests — `apps/server/tests/integration/audit-security.spec.test.ts` (ST-82–ST-87, ST-94)
 - [ ] 3.1.5 Run the new spec tests and record the red phase
@@ -158,15 +158,15 @@ Implement the persistent audit chain in four phases: the writer and policy adapt
 **Reference**: [03-03](03-03-audit-emitters.md) §Implementation Details · AR-1, AR-3, AR-17–AR-22
 **Objective**: Wire every current emitter with one evidence record per attempt.
 
-- [ ] 3.2.1 Add the shared request-context helper; refactor the assignment controller — `apps/server/src/audit/http.ts`, `apps/server/src/controllers/assignments.ts`
+- [ ] 3.2.1 Add the shared request-context helper and the audit-error mapping helper; refactor the assignment controller — `apps/server/src/audit/http.ts`, `apps/server/src/audit/errors.ts`, `apps/server/src/controllers/assignments.ts`
 - [ ] 3.2.2 Finish the persistent policy adapter: denial counter, runtime wiring, logger fallback — `apps/server/src/audit/policy-audit.ts`, `apps/server/src/rbac/audit.ts`, `apps/server/src/rbac/runtime.ts`
 - [ ] 3.2.3 Add identity `decide` and the non-auditing policy option — `apps/server/src/identity/identity-authorizer.ts`, `apps/server/src/rbac/policy-service.ts`
 - [ ] 3.2.4 Apply one decision per identity attempt; pass request context — `apps/server/src/identity/identity-service.ts`, `apps/server/src/controllers/identity.ts`
 - [ ] 3.2.5 Add local login reasons and lockout reporting; update the local-login unit tests for the new result shape — `apps/server/src/auth/local-login.ts`, `apps/server/tests/auth/local-login.impl.test.ts`
-- [ ] 3.2.6 Emit browser and CLI login events — `apps/server/src/controllers/auth.ts`, `apps/server/src/controllers/cli-auth.ts`
-- [ ] 3.2.7 Emit OIDC login success and failure events — `apps/server/src/controllers/oidc.ts`
-- [ ] 3.2.8 Emit agent join success and failure events — `apps/server/src/agent/agent-join-service.ts`, `apps/server/src/controllers/agent.ts`
-- [ ] 3.2.9 Emit agent renewal success and failure events — `apps/server/src/agent/agent-renew-service.ts`
+- [ ] 3.2.6 Emit browser and CLI login events with final-outcome ordering, credential-race deny handling, and 503 mapping — `apps/server/src/controllers/auth.ts`, `apps/server/src/controllers/cli-auth.ts`
+- [ ] 3.2.7 Emit OIDC login success and failure events with final-outcome ordering and 503 mapping — `apps/server/src/controllers/oidc.ts`
+- [ ] 3.2.8 Emit agent join success and failure events, map audit failures to 503, and update direct-construction tests — `apps/server/src/agent/agent-join-service.ts`, `apps/server/src/controllers/agent.ts`, `apps/server/tests/integration/agent-join.impl.test.ts`
+- [ ] 3.2.9 Emit agent renewal success and independent failure events, handle replay without a duplicate event, and update direct-construction tests — `apps/server/src/agent/agent-renew-service.ts`, `apps/server/tests/integration/agent-renew.impl.test.ts`, `apps/server/tests/integration/agent-renew.spec.test.ts`
 - [ ] 3.2.10 Add consumer change detection and use the repository's constructor database as the default `findForUpdate` executor — `apps/server/src/agent/consumer-repository.ts`
 - [ ] 3.2.11 Wire consumer register/update events into join and renew — `apps/server/src/agent/agent-join-service.ts`, `apps/server/src/agent/agent-renew-service.ts`
 - [ ] 3.2.12 Pass one audit runtime through the agent and identity runtimes — `apps/server/src/agent/agent-runtime.ts`, `apps/server/src/identity/identity-runtime.ts`
@@ -201,10 +201,10 @@ Implement the persistent audit chain in four phases: the writer and policy adapt
 
 ### Step 4.1: Specification Tests
 
-**Reference**: [03-04](03-04-retention-operations.md) · [07](07-testing-strategy.md) ST-74–ST-81 · AR-4, AR-23, AR-27
+**Reference**: [03-04](03-04-retention-operations.md) · [07](07-testing-strategy.md) ST-74–ST-81, ST-88–ST-90, ST-93, ST-95, ST-97 · AR-4, AR-23, AR-27
 **Objective**: Define export, checkpoint, delete, dry-run, and credential behavior.
 
-- [ ] 4.1.1 [spec-author] Write prune and checkpoint export spec tests — `apps/server/tests/integration/audit-prune.spec.test.ts` (ST-74–ST-81, ST-88–ST-90, ST-93, ST-95)
+- [ ] 4.1.1 [spec-author] Write prune and checkpoint export spec tests — `apps/server/tests/integration/audit-prune.spec.test.ts` (ST-74–ST-81, ST-88–ST-90, ST-93, ST-95, ST-97)
 - [ ] 4.1.2 Run the new spec tests and record the red phase
 
 ### Step 4.2: Implementation
@@ -213,8 +213,8 @@ Implement the persistent audit chain in four phases: the writer and policy adapt
 **Objective**: Implement the checkpoint-at-boundary writer, prune service, pruner connection, CLI, and test role.
 
 - [ ] 4.2.1 Add `checkpointAt` to the writer — `apps/server/src/audit/audit-writer.ts`
-- [ ] 4.2.2 Implement the prune service — `apps/server/src/audit/audit-prune.ts`
-- [ ] 4.2.3 Implement the pruner connection guard — `apps/server/src/audit/prune-connection.ts`
+- [ ] 4.2.2 Implement the prune service with a pre-prune chain verification gate — `apps/server/src/audit/audit-prune.ts`
+- [ ] 4.2.3 Implement the pruner connection guard with `SELECT, DELETE` privilege checks — `apps/server/src/audit/prune-connection.ts`
 - [ ] 4.2.4 Implement the prune CLI entry point and package script — `apps/server/src/audit/cli.ts`, `apps/server/package.json`
 - [ ] 4.2.5 Implement the checkpoint export CLI and package script — `apps/server/src/audit/checkpoint-cli.ts`, `apps/server/package.json`
 - [ ] 4.2.6 Add the integration-test pruner role helper — `apps/server/tests/integration/helpers/pruner.ts`
@@ -226,7 +226,7 @@ Implement the persistent audit chain in four phases: the writer and policy adapt
 **Objective**: Prove prune safety, document the operational contract, and produce the release note.
 
 - [ ] 4.3.1 Write prune and checkpoint export implementation tests: role guard, partial-file cleanup, checkpoint idempotence, wrong URL, existing output — `apps/server/tests/integration/audit-prune.impl.test.ts`
-- [ ] 4.3.2 Update the API reference and audit guide — `docs/reference/api.md`, `docs/guide/audit.md`
+- [ ] 4.3.2 Update the API reference, audit guide, and security limitations — `docs/reference/api.md`, `docs/guide/audit.md`, `docs/security/limitations.md`
 - [ ] 4.3.3 Update configuration, CLI reference, and changelog — `docs/reference/configuration.md`, `docs/reference/cli.md`, `docs/changelog.md`
 - [ ] 4.3.4 Add the minor changeset — `.changeset/audit.md`
 - [ ] 4.3.5 Full verification on PostgreSQL 16 and 17, generated types, docs, and changeset status
@@ -266,7 +266,7 @@ Phase 2 depends on the writer and contracts from Phase 1. Phase 3 depends on the
 2. ✅ All verification passing (`pnpm verify`, PostgreSQL 16 and 17 integration, `db:types:check`, docs build, changeset status)
 3. ✅ No warnings or errors
 4. ✅ No dead code — no unused parameters, functions, classes, or modules
-5. ✅ Security hardened — fail-closed writes, allowlisted details, scoped reads, rate limits, no secret material
+5. ✅ Security hardened — fail-closed writes, allowlisted details, scoped reads, rate limits, no secret material, pre-prune verification, and evidence-preserving credential races
 6. ✅ Documentation updated
 7. ✅ Security and concurrency review completed for the chain and emitter phases
 8. ✅ Post-completion project re-analysis (handled by the exec-plan skill)
