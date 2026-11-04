@@ -97,7 +97,9 @@ These are accepted for v0.1. They are documented so reviewers do not mistake the
     zeroed on every success and failure path, and the key is never logged or cached.
 35. **Expiry delivery.** The webhook is at-least-once: a crash after send but before mark-sent
     can duplicate a warning. The payload carries a stable `eventId` for receiver dedupe. A
-    failed delivery is retried on a later run, normally the next daily run. DNS rebinding is
+    failed delivery is retried on a later run, normally the next daily run. The scan rechecks
+    eligibility after claiming, but a delete or renewal can still commit immediately before the
+    webhook, so one extra warning is possible; new scans exclude the resource. DNS rebinding is
     possible for an operator-configured URL; the URL is not user-controlled and is never logged.
 36. **Expiry webhook trust.** The optional HMAC signature proves possession of the shared
     secret and includes a timestamp, but the receiver must enforce its own replay window and

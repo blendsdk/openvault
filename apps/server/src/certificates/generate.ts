@@ -2,7 +2,7 @@ import { createHash, createPrivateKey, randomBytes } from "node:crypto";
 import type { CertificateKeyType, CertificateWarning } from "@openvault/api-contract";
 import { x509 } from "../security/x509.js";
 import { CertificateServiceError } from "./errors.js";
-import { canonicalizeSan } from "./pem.js";
+import { canonicalizeSan, uniqueSans } from "./pem.js";
 
 const DAY_MS = 86_400_000;
 const NOT_BEFORE_SKEW_MS = 30_000;
@@ -113,11 +113,16 @@ export async function generateSelfSignedCertificate(input: {
   readonly sans: readonly string[];
   readonly keyType: CertificateKeyType;
   readonly validityDays: number;
+  readonly maximumBytes: number;
   readonly now: number;
 }): Promise<GeneratedCertificate> {
   assertSubject(input.subject);
-  const sans = [...new Set(input.sans.map(canonicalizeSan))];
-  if (sans.length === 0) {
+  const sans = uniqueSans(input.sans.map(canonicalizeSan));
+  if (
+    sans.length === 0 ||
+    sans.length > 100 ||
+    sans.reduce((total, value) => total + value.length, 0) > 8_192
+  ) {
     throw new CertificateServiceError(422, "validation_error", "Validation failed");
   }
   const { algorithm, usages } = keyAlgorithm(input.keyType);
@@ -181,8 +186,13 @@ export async function generateSelfSignedCertificate(input: {
     throw new CertificateServiceError(422, "validation_error", "Validation failed");
   }
 
+  const certificatePem = certificate.toString("pem");
+  if (Buffer.byteLength(certificatePem, "utf8") > input.maximumBytes) {
+    privateKeyBytes.fill(0);
+    throw new CertificateServiceError(413, "certificate_too_large", "Certificate is too large");
+  }
   return {
-    certificatePem: certificate.toString("pem"),
+    certificatePem,
     privateKeyPem,
     privateKeyBytes,
     keyType: input.keyType,

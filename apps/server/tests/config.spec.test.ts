@@ -360,6 +360,16 @@ describe("configuration defaults", () => {
         }),
       ).key,
     ).toBe("OPENVAULT_CERT_EXPIRY_WEBHOOK_URL");
+    for (const url of [
+      "https://[fe80::1]/expiry",
+      "https://[::ffff:169.254.169.254]/expiry",
+      `https://hooks.example.test/${"a".repeat(2_050)}`,
+    ]) {
+      expect(
+        requireConfigError(() => loadConfig({ ...env, OPENVAULT_CERT_EXPIRY_WEBHOOK_URL: url }))
+          .key,
+      ).toBe("OPENVAULT_CERT_EXPIRY_WEBHOOK_URL");
+    }
     expect(
       requireConfigError(() => loadConfig({ ...env, OPENVAULT_CERT_EXPIRY_HOUR: "24" })).key,
     ).toBe("OPENVAULT_CERT_EXPIRY_HOUR");

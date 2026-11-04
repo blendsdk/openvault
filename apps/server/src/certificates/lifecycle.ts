@@ -343,13 +343,17 @@ export class CertificateLifecycle {
       );
       throw new CertificateServiceError(status, code, "Certificate purge is not allowed");
     };
-    if (certificate.deletedAt === null) {
+    const state = await this.#repository.purgeState(this.#database, certificate.id);
+    if (state === undefined) {
+      throw new CertificateServiceError(404, "certificate_not_found", "Certificate not found");
+    }
+    if (state.deletedAt === null) {
       await fail("certificate_not_deleted", 409);
     }
-    if (certificate.purgeProtected) {
+    if (state.purgeProtected) {
       await fail("purge_protection_locked", 409);
     }
-    if (certificate.purgeAfter === null || certificate.purgeAfter.getTime() > this.#now()) {
+    if (state.purgeAfter === null || state.purgeAfter.getTime() > state.databaseNow.getTime()) {
       await fail("certificate_retention_active", 409);
     }
     const purger = this.#purger;
@@ -360,7 +364,7 @@ export class CertificateLifecycle {
     try {
       await purger.deleteCertificate(certificate.id, project.id, name);
     } catch (error) {
-      const latest = await this.#repository.findCertificateById(this.#database, certificate.id);
+      const latest = await this.#repository.purgeState(this.#database, certificate.id);
       if (latest === undefined) {
         await this.#recordError(
           actorId,
@@ -379,7 +383,10 @@ export class CertificateLifecycle {
       if (latest.purgeProtected) {
         await fail("purge_protection_locked", 409);
       }
-      if (latest.purgeAfter !== null && latest.purgeAfter.getTime() > this.#now()) {
+      if (
+        latest.purgeAfter === null ||
+        latest.purgeAfter.getTime() > latest.databaseNow.getTime()
+      ) {
         await fail("certificate_retention_active", 409);
       }
       if (

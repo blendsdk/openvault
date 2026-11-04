@@ -109,6 +109,18 @@ export interface CertificateListRow extends CertificateRecord {
   readonly currentVersion: CertificateVersionMetadata | null;
 }
 
+/** Database-clock purge state. */
+export interface CertificatePurgeState {
+  /** Soft-delete time, or null. */
+  readonly deletedAt: Date | null;
+  /** Purge protection flag. */
+  readonly purgeProtected: boolean;
+  /** Earliest purge time, or null. */
+  readonly purgeAfter: Date | null;
+  /** Database clock at read time. */
+  readonly databaseNow: Date;
+}
+
 /** Decoded list cursor. */
 export interface CertificateCursor {
   /** Last name on the previous page. */
@@ -594,6 +606,57 @@ export class CertificateRepository {
     );
     const row = result.records[0];
     return row === undefined ? undefined : toCertificate(row);
+  }
+
+  /**
+   * Deletes expiry-notification rows for superseded versions.
+   *
+   * @param executor - Transaction.
+   * @param certificateId - Certificate identifier.
+   * @param currentVersionId - Newly current version.
+   */
+  public async deleteSupersededNotifications(
+    executor: QueryExecutor,
+    certificateId: string,
+    currentVersionId: string,
+  ): Promise<void> {
+    await executor.executeQuery(
+      `DELETE FROM certificate_expiry_notifications
+        WHERE certificate_id = :certificateId AND version_id <> :currentVersionId`,
+      { certificateId, currentVersionId },
+    );
+  }
+
+  /**
+   * Reads purge eligibility using the database clock.
+   *
+   * @param executor - Database or transaction.
+   * @param id - Certificate identifier.
+   * @returns The state, or undefined.
+   */
+  public async purgeState(
+    executor: QueryExecutor,
+    id: string,
+  ): Promise<CertificatePurgeState | undefined> {
+    const result = await executor.executeQuery<{
+      deleted_at: Date | null;
+      purge_protected: boolean;
+      purge_after: Date | null;
+      database_now: Date;
+    }>(
+      `SELECT deleted_at, purge_protected, purge_after, now() AS database_now
+         FROM certificates WHERE id = :id`,
+      { id },
+    );
+    const row = result.records[0];
+    return row === undefined
+      ? undefined
+      : {
+          deletedAt: row.deleted_at,
+          purgeProtected: row.purge_protected,
+          purgeAfter: row.purge_after,
+          databaseNow: row.database_now,
+        };
   }
 
   /**

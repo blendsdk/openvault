@@ -180,15 +180,29 @@ export class CertificateService {
     context?: PolicyAuditContext,
   ): Promise<CertificateWriteResult> {
     const project = await this.#activeProject(projectName);
-    await this.#preAuthorizeProject(actorId, "certificate.write", project.id, context);
-    const material = await parseCertificateMaterial({
-      certificatePem: input.certificatePem,
-      ...(input.chainPem === undefined ? {} : { chainPem: input.chainPem }),
-      privateKeyPem: input.privateKeyPem,
-      allowNotYetValid: input.allowNotYetValid ?? false,
-      now: this.#now(),
-      maximumBytes: this.#certMaxBytes,
-    });
+    const pre = await this.#preAuthorizeProject(actorId, "certificate.write", project.id, context);
+    let material: ParsedCertificateMaterial;
+    try {
+      material = await parseCertificateMaterial({
+        certificatePem: input.certificatePem,
+        ...(input.chainPem === undefined ? {} : { chainPem: input.chainPem }),
+        privateKeyPem: input.privateKeyPem,
+        allowNotYetValid: input.allowNotYetValid ?? false,
+        now: this.#now(),
+        maximumBytes: this.#certMaxBytes,
+      });
+    } catch (error) {
+      await this.#recordError(
+        actorId,
+        pre,
+        "certificate.write",
+        project.id,
+        newUlid(),
+        error instanceof CertificateServiceError ? error.code : "validation_error",
+        context,
+      );
+      throw error;
+    }
     try {
       return await this.#write(actorId, project.id, projectName, input.name, material, {
         mode: "import",
@@ -217,14 +231,29 @@ export class CertificateService {
     context?: PolicyAuditContext,
   ): Promise<CertificateWriteResult> {
     const project = await this.#activeProject(projectName);
-    await this.#preAuthorizeProject(actorId, "certificate.write", project.id, context);
-    const generated = await generateSelfSignedCertificate({
-      subject: input.subject,
-      sans: input.sans,
-      keyType: input.keyType ?? "ec-p256",
-      validityDays: input.validityDays ?? 365,
-      now: this.#now(),
-    });
+    const pre = await this.#preAuthorizeProject(actorId, "certificate.write", project.id, context);
+    let generated: Awaited<ReturnType<typeof generateSelfSignedCertificate>>;
+    try {
+      generated = await generateSelfSignedCertificate({
+        subject: input.subject,
+        sans: input.sans,
+        keyType: input.keyType ?? "ec-p256",
+        validityDays: input.validityDays ?? 365,
+        maximumBytes: this.#certMaxBytes,
+        now: this.#now(),
+      });
+    } catch (error) {
+      await this.#recordError(
+        actorId,
+        pre,
+        "certificate.write",
+        project.id,
+        newUlid(),
+        error instanceof CertificateServiceError ? error.code : "validation_error",
+        context,
+      );
+      throw error;
+    }
     const material: ParsedCertificateMaterial = {
       leafPem: generated.certificatePem,
       certificateChainPem: generated.certificatePem,
@@ -363,6 +392,7 @@ export class CertificateService {
           createdBy: actorId,
         });
         await this.#repository.updateCurrentVersion(tx, certificate.id, versionId);
+        await this.#repository.deleteSupersededNotifications(tx, certificate.id, versionId);
         let updated = certificate;
         if (current !== undefined && options.tags !== undefined) {
           const metadata = await this.#repository.updateMetadata(tx, certificate.id, {
@@ -446,8 +476,8 @@ export class CertificateService {
     query: CertificateReadQuery,
     context?: PolicyAuditContext,
   ): Promise<CertificatePublicResponse> {
-    const project = await this.#activeProject(projectName);
     await this.#requireAnyRead(actorId, context);
+    const project = await this.#readProject(projectName);
     const certificate = await this.#activeCertificate(project.id, name);
     const decision = await this.#policy.authorize(
       actorId,
@@ -474,19 +504,29 @@ export class CertificateService {
       );
       throw new CertificateServiceError(410, "certificate_expired", "Certificate expired");
     }
-    await this.#policy.recordDecision(decision, context, undefined, {
-      details: { version: version.id },
-    });
     let chain: ReturnType<typeof splitChainPem>;
     try {
       chain = splitChainPem(version.chainPem);
     } catch {
+      await this.#recordError(
+        actorId,
+        decision,
+        "certificate.read",
+        project.id,
+        certificate.id,
+        "certificate_integrity_failed",
+        context,
+        version.id,
+      );
       throw new CertificateServiceError(
         500,
         "certificate_integrity_failed",
         "Certificate is unavailable",
       );
     }
+    await this.#policy.recordDecision(decision, context, undefined, {
+      details: { version: version.id },
+    });
     const capabilities = await this.#capabilities(actorId, certificate);
     return {
       ...this.#metadata(certificate, version, capabilities),
@@ -512,8 +552,8 @@ export class CertificateService {
     query: CertificateReadQuery,
     context?: PolicyAuditContext,
   ): Promise<CertificatePrivateKeyResponse> {
-    const project = await this.#activeProject(projectName);
     await this.#requireAnyRead(actorId, context);
+    const project = await this.#readProject(projectName);
     const certificate = await this.#activeCertificate(project.id, name);
     const decision = await this.#policy.authorize(
       actorId,
@@ -584,28 +624,44 @@ export class CertificateService {
       );
     }
     try {
-      await this.#policy.recordDecision(decision, context, undefined, {
-        details: { version: version.id },
-      });
-      const capabilities = await this.#capabilities(actorId, certificate);
-      const exported = createPrivateKey({
-        key: bytes,
-        format: "der",
-        type: "pkcs8",
-      }).export({ format: "pem", type: "pkcs8" });
-      if (typeof exported !== "string") {
+      let privateKeyPem: string;
+      try {
+        const exported = createPrivateKey({
+          key: bytes,
+          format: "der",
+          type: "pkcs8",
+        }).export({ format: "pem", type: "pkcs8" });
+        if (typeof exported !== "string") {
+          throw new Error("Private key export failed");
+        }
+        privateKeyPem = exported;
+      } catch {
+        await this.#recordError(
+          actorId,
+          decision,
+          "certificate.read_private",
+          project.id,
+          certificate.id,
+          "certificate_integrity_failed",
+          context,
+          version.id,
+        );
         throw new CertificateServiceError(
           500,
           "certificate_integrity_failed",
           "Certificate is unavailable",
         );
       }
+      await this.#policy.recordDecision(decision, context, undefined, {
+        details: { version: version.id },
+      });
+      const capabilities = await this.#capabilities(actorId, certificate);
       return {
         id: certificate.id,
         projectId: project.id,
         name: certificate.name,
         fingerprint: version.fingerprint,
-        privateKeyPem: exported,
+        privateKeyPem,
         version: this.#version(version),
         capabilities,
       };
@@ -630,6 +686,7 @@ export class CertificateService {
     context?: PolicyAuditContext,
   ): Promise<CertificateList> {
     const project = await this.#activeProject(projectName);
+    const cursor = decodeCursor(query.cursor);
     const result = await this.#policy.authorizeList(
       actorId,
       "certificate.list",
@@ -639,7 +696,6 @@ export class CertificateService {
     if (!result.decision.allowed) {
       throw denialError(result.decision, "project_not_found");
     }
-    const cursor = decodeCursor(query.cursor);
     const rows = await this.#repository.listActiveCertificates(this.#database, project.id, {
       q: query.q,
       san: query.san,
@@ -758,7 +814,7 @@ export class CertificateService {
     action: "certificate.write",
     projectId: string,
     context?: PolicyAuditContext,
-  ): Promise<void> {
+  ): Promise<PolicyDecision> {
     const decision = await this.#policy.authorize(
       actorId,
       action,
@@ -769,6 +825,19 @@ export class CertificateService {
     if (!decision.allowed) {
       await this.#policy.recordDecision(decision, context);
       throw denialError(decision, "project_not_found");
+    }
+    return decision;
+  }
+
+  /** Resolves a project for a read path, mapping missing/inaccessible to the data-plane 404. */
+  async #readProject(name: string) {
+    try {
+      return await this.#activeProject(name);
+    } catch (error) {
+      if (error instanceof CertificateServiceError) {
+        throw new CertificateServiceError(404, "certificate_not_found", "Resource not found");
+      }
+      throw error;
     }
   }
 

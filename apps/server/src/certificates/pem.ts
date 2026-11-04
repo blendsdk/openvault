@@ -13,7 +13,8 @@ const CANONICAL_BASE64 = /^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9
 const PEM_BLOCK = /-----BEGIN ([A-Z0-9 ]+)-----([\s\S]*?)-----END \1-----/g;
 const DNS_PATTERN =
   /^(?:\*\.)?(?=.{1,253}$)(?:[A-Za-z0-9](?:[A-Za-z0-9-]{0,61}[A-Za-z0-9])?\.)*[A-Za-z0-9](?:[A-Za-z0-9-]{0,61}[A-Za-z0-9])?$/;
-const EMAIL_PATTERN = /^[A-Za-z0-9.!#$%&'*+/=?^_`{|}~-]+@[A-Za-z0-9-]+(?:\.[A-Za-z0-9-]+)+$/;
+const EMAIL_PATTERN =
+  /^[A-Za-z0-9.!#$%&'*+/=?^_`{|}~-]+@(?:[A-Za-z0-9](?:[A-Za-z0-9-]{0,61}[A-Za-z0-9])?\.)+[A-Za-z]{2,63}$/;
 
 /** One normalized PEM block. */
 export interface PemBlock {
@@ -97,29 +98,39 @@ export function parsePemBlocks(
     throw new CertificateServiceError(422, "validation_error", "Validation failed");
   }
   const blocks: PemBlock[] = [];
+  let success = false;
   let remainder = normalized;
-  for (const match of normalized.matchAll(PEM_BLOCK)) {
-    const label = match[1];
-    const rawBody = match[2] ?? "";
-    if (label === undefined || !options.labels.includes(label)) {
+  try {
+    for (const match of normalized.matchAll(PEM_BLOCK)) {
+      const label = match[1];
+      const rawBody = match[2] ?? "";
+      if (label === undefined || !options.labels.includes(label)) {
+        throw new CertificateServiceError(422, "validation_error", "Validation failed");
+      }
+      const body = rawBody.replace(/\s+/g, "");
+      if (body.length === 0 || !CANONICAL_BASE64.test(body)) {
+        throw new CertificateServiceError(422, "validation_error", "Validation failed");
+      }
+      const der = Buffer.from(body, "base64");
+      if (der.toString("base64") !== body) {
+        der.fill(0);
+        throw new CertificateServiceError(422, "validation_error", "Validation failed");
+      }
+      blocks.push({ label, body, pem: armor(label, body), der });
+      remainder = remainder.replace(match[0], "");
+    }
+    if (remainder.trim().length > 0 || blocks.length === 0) {
       throw new CertificateServiceError(422, "validation_error", "Validation failed");
     }
-    const body = rawBody.replace(/\s+/g, "");
-    if (body.length === 0 || !CANONICAL_BASE64.test(body)) {
-      throw new CertificateServiceError(422, "validation_error", "Validation failed");
+    success = true;
+    return blocks;
+  } finally {
+    if (!success) {
+      for (const block of blocks) {
+        block.der.fill(0);
+      }
     }
-    const der = Buffer.from(body, "base64");
-    if (der.toString("base64") !== body) {
-      der.fill(0);
-      throw new CertificateServiceError(422, "validation_error", "Validation failed");
-    }
-    blocks.push({ label, body, pem: armor(label, body), der });
-    remainder = remainder.replace(match[0], "");
   }
-  if (remainder.trim().length > 0 || blocks.length === 0) {
-    throw new CertificateServiceError(422, "validation_error", "Validation failed");
-  }
-  return blocks;
 }
 
 /** Canonicalizes one typed SAN and validates its grammar. */
@@ -163,14 +174,28 @@ export function canonicalizeSan(value: string): string {
       return `URI:${body}`;
     }
     case "email": {
-      if (!EMAIL_PATTERN.test(body)) {
+      if (body.length > 320 || !EMAIL_PATTERN.test(body)) {
         throw new CertificateServiceError(422, "validation_error", "Validation failed");
       }
-      return `email:${body}`;
+      return `email:${body.toLowerCase()}`;
     }
     default:
       throw new CertificateServiceError(422, "validation_error", "Validation failed");
   }
+}
+
+/** Removes SAN duplicates case-insensitively while preserving the first spelling. */
+export function uniqueSans(values: readonly string[]): readonly string[] {
+  const seen = new Set<string>();
+  const result: string[] = [];
+  for (const value of values) {
+    const key = value.toLowerCase();
+    if (!seen.has(key)) {
+      seen.add(key);
+      result.push(value);
+    }
+  }
+  return result;
 }
 
 /** Returns true when a certificate verifies its own signature. */
@@ -221,7 +246,7 @@ function readSans(certificate: x509.X509Certificate): readonly string[] {
         throw new CertificateServiceError(422, "validation_error", "Validation failed");
     }
   }
-  return [...new Set(sans)];
+  return uniqueSans(sans);
 }
 
 /** Validates one key and returns its profile plus its public KeyObject. */
@@ -287,6 +312,9 @@ export async function parseCertificateMaterial(input: {
     labels: ["PRIVATE KEY"],
   });
   if (keyBlocks.length !== 1) {
+    for (const block of keyBlocks) {
+      block.der.fill(0);
+    }
     throw new CertificateServiceError(422, "validation_error", "Validation failed");
   }
   const leafBlock = leafBlocks[0];
@@ -299,6 +327,7 @@ export async function parseCertificateMaterial(input: {
       chainBlocks.reduce((total, block) => total + Buffer.byteLength(block.pem, "utf8"), 0) >
     input.maximumBytes
   ) {
+    keyBlock.der.fill(0);
     throw new CertificateServiceError(
       413,
       "certificate_too_large",
@@ -312,140 +341,149 @@ export async function parseCertificateMaterial(input: {
     leaf = new x509.X509Certificate(leafBlock.pem);
     chain = chainBlocks.map((block) => new x509.X509Certificate(block.pem));
   } catch {
+    keyBlock.der.fill(0);
     throw new CertificateServiceError(422, "validation_error", "Validation failed");
   }
 
-  const { publicKey, keyType } = readPrivateKey(keyBlock.der);
-  const leafSpki = Buffer.from(leaf.publicKey.rawData);
-  const keySpki = publicKey.export({ type: "spki", format: "der" });
-  if (!leafSpki.equals(keySpki)) {
-    throw new CertificateServiceError(422, "validation_error", "Validation failed");
-  }
-
-  const warnings: CertificateWarning[] = [];
-  const usedChain: x509.X509Certificate[] = [];
-  if (chain.length > 0) {
-    const first = chain[0];
-    if (first === undefined) {
+  try {
+    const { publicKey, keyType } = readPrivateKey(keyBlock.der);
+    const leafSpki = Buffer.from(leaf.publicKey.rawData);
+    const keySpki = publicKey.export({ type: "spki", format: "der" });
+    if (!leafSpki.equals(keySpki)) {
       throw new CertificateServiceError(422, "validation_error", "Validation failed");
     }
-    const verifiesLeaf = await leaf.verify({
-      publicKey: first.publicKey,
-      signatureOnly: true,
-    });
-    if (!verifiesLeaf) {
-      if (leaf.issuer === first.subject) {
+
+    const warnings: CertificateWarning[] = [];
+    const usedChain: x509.X509Certificate[] = [];
+    if (chain.length > 0) {
+      const first = chain[0];
+      if (first === undefined) {
         throw new CertificateServiceError(422, "validation_error", "Validation failed");
       }
-      warnings.push({
-        code: "missing_intermediate",
-        message: "The supplied chain does not contain the certificate issuer",
+      const verifiesLeaf = await leaf.verify({
+        publicKey: first.publicKey,
+        signatureOnly: true,
       });
-    } else {
-      usedChain.push(first);
-      for (let index = 1; index < chain.length; index += 1) {
-        const previous = chain[index - 1];
-        const parent = chain[index];
-        if (previous === undefined || parent === undefined) {
-          break;
+      if (!verifiesLeaf) {
+        if (leaf.issuer === first.subject) {
+          throw new CertificateServiceError(422, "validation_error", "Validation failed");
         }
-        const verified = await previous.verify({
-          publicKey: parent.publicKey,
-          signatureOnly: true,
-        });
-        if (!verified) {
-          if (previous.issuer === parent.subject) {
-            throw new CertificateServiceError(422, "validation_error", "Validation failed");
-          }
-          warnings.push({
-            code: "missing_intermediate",
-            message: "The supplied chain has a gap",
-          });
-          break;
-        }
-        usedChain.push(parent);
-      }
-      for (const intermediate of usedChain) {
-        assertIntermediate(intermediate);
-        if (intermediate.notAfter.getTime() <= input.now) {
-          warnings.push({
-            code: "expired_intermediate",
-            message: "A chain certificate has expired",
-          });
-        } else if (intermediate.notBefore.getTime() > input.now) {
-          warnings.push({
-            code: "not_yet_valid_intermediate",
-            message: "A chain certificate is not yet valid",
-          });
-        }
-      }
-      const top = usedChain[usedChain.length - 1];
-      if (top !== undefined && !(await isSelfSigned(top))) {
         warnings.push({
           code: "missing_intermediate",
-          message: "The supplied chain does not reach a self-signed root",
+          message: "The supplied chain does not contain the certificate issuer",
         });
+      } else {
+        usedChain.push(first);
+        for (let index = 1; index < chain.length; index += 1) {
+          const previous = chain[index - 1];
+          const parent = chain[index];
+          if (previous === undefined || parent === undefined) {
+            break;
+          }
+          const verified = await previous.verify({
+            publicKey: parent.publicKey,
+            signatureOnly: true,
+          });
+          if (!verified) {
+            if (previous.issuer === parent.subject) {
+              throw new CertificateServiceError(422, "validation_error", "Validation failed");
+            }
+            warnings.push({
+              code: "missing_intermediate",
+              message: "The supplied chain has a gap",
+            });
+            break;
+          }
+          usedChain.push(parent);
+        }
+        for (const intermediate of usedChain) {
+          assertIntermediate(intermediate);
+          if (intermediate.notAfter.getTime() <= input.now) {
+            warnings.push({
+              code: "expired_intermediate",
+              message: "A chain certificate has expired",
+            });
+          } else if (intermediate.notBefore.getTime() > input.now) {
+            warnings.push({
+              code: "not_yet_valid_intermediate",
+              message: "A chain certificate is not yet valid",
+            });
+          }
+        }
+        const top = usedChain[usedChain.length - 1];
+        if (top !== undefined && !(await isSelfSigned(top))) {
+          warnings.push({
+            code: "missing_intermediate",
+            message: "The supplied chain does not reach a self-signed root",
+          });
+        }
       }
+    } else if (!(await isSelfSigned(leaf))) {
+      warnings.push({
+        code: "missing_intermediate",
+        message: "No intermediate chain was supplied",
+      });
     }
-  } else if (!(await isSelfSigned(leaf))) {
-    warnings.push({
-      code: "missing_intermediate",
-      message: "No intermediate chain was supplied",
-    });
-  }
 
-  if (leaf.notBefore.getTime() > input.now && !input.allowNotYetValid) {
-    throw new CertificateServiceError(422, "validation_error", "Validation failed");
-  }
-  if (leaf.notBefore.getTime() > input.now) {
-    warnings.push({ code: "not_yet_valid", message: "Certificate is not yet valid" });
-  }
-  if (leaf.notAfter.getTime() <= input.now) {
-    warnings.push({ code: "expired", message: "Certificate has expired" });
-  }
-  if (leaf.notAfter.getTime() <= leaf.notBefore.getTime()) {
-    throw new CertificateServiceError(422, "validation_error", "Validation failed");
-  }
+    if (leaf.notBefore.getTime() > input.now && !input.allowNotYetValid) {
+      throw new CertificateServiceError(422, "validation_error", "Validation failed");
+    }
+    if (leaf.notBefore.getTime() > input.now) {
+      warnings.push({ code: "not_yet_valid", message: "Certificate is not yet valid" });
+    }
+    if (leaf.notAfter.getTime() <= input.now) {
+      warnings.push({ code: "expired", message: "Certificate has expired" });
+    }
+    if (leaf.notAfter.getTime() <= leaf.notBefore.getTime()) {
+      throw new CertificateServiceError(422, "validation_error", "Validation failed");
+    }
 
-  const subject = leaf.subject;
-  const issuer = leaf.issuer;
-  const serial = leaf.serialNumber.toLowerCase();
-  if (
-    subject.length > 1_024 ||
-    issuer.length > 1_024 ||
-    serial.length === 0 ||
-    serial.length > 128
-  ) {
-    throw new CertificateServiceError(422, "validation_error", "Validation failed");
-  }
-  const sans = readSans(leaf);
-  if (
-    sans.length > MAX_SANS ||
-    sans.reduce((total, value) => total + value.length, 0) > MAX_SAN_TEXT
-  ) {
-    throw new CertificateServiceError(422, "validation_error", "Validation failed");
-  }
-  const fingerprint = createHash("sha256").update(Buffer.from(leaf.rawData)).digest("hex");
-  const chainPem = usedChain.map((certificate) => certificate.toString("pem")).join("\n");
-  const certificateChainPem =
-    chainPem.length === 0 ? leafBlock.pem : `${leafBlock.pem}\n${chainPem}`;
+    const subject = leaf.subject;
+    const issuer = leaf.issuer;
+    const serial = leaf.serialNumber.toLowerCase();
+    if (
+      subject.length > 1_024 ||
+      issuer.length > 1_024 ||
+      serial.length === 0 ||
+      serial.length > 128
+    ) {
+      throw new CertificateServiceError(422, "validation_error", "Validation failed");
+    }
+    const sans = readSans(leaf);
+    if (
+      sans.length > MAX_SANS ||
+      sans.reduce((total, value) => total + value.length, 0) > MAX_SAN_TEXT
+    ) {
+      throw new CertificateServiceError(422, "validation_error", "Validation failed");
+    }
+    const fingerprint = createHash("sha256").update(Buffer.from(leaf.rawData)).digest("hex");
+    const chainPem = usedChain.map((certificate) => certificate.toString("pem")).join("\n");
+    const certificateChainPem =
+      chainPem.length === 0 ? leafBlock.pem : `${leafBlock.pem}\n${chainPem}`;
 
-  return {
-    leafPem: leafBlock.pem,
-    certificateChainPem,
-    chainLength: 1 + usedChain.length,
-    warnings,
-    subject,
-    sans,
-    issuer,
-    serial,
-    fingerprint,
-    notBefore: leaf.notBefore,
-    notAfter: leaf.notAfter,
-    privateKeyPem: keyBlock.pem,
-    privateKeyBytes: keyBlock.der,
-    privateKeyType: keyType,
-  };
+    return {
+      leafPem: leafBlock.pem,
+      certificateChainPem,
+      chainLength: 1 + usedChain.length,
+      warnings,
+      subject,
+      sans,
+      issuer,
+      serial,
+      fingerprint,
+      notBefore: leaf.notBefore,
+      notAfter: leaf.notAfter,
+      privateKeyPem: keyBlock.pem,
+      privateKeyBytes: keyBlock.der,
+      privateKeyType: keyType,
+    };
+  } catch (error) {
+    keyBlock.der.fill(0);
+    if (error instanceof CertificateServiceError) {
+      throw error;
+    }
+    throw new CertificateServiceError(422, "validation_error", "Validation failed");
+  }
 }
 
 /** Converts a stored chain back to leaf and non-leaf PEM. */

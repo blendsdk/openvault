@@ -16,6 +16,14 @@ export interface ExpiringCertificate {
   readonly notAfter: Date;
 }
 
+/** Keyset cursor for the expiry scan. */
+export interface ExpiryCursor {
+  /** Last not-after value. */
+  readonly notAfter: Date;
+  /** Last certificate identifier. */
+  readonly certificateId: string;
+}
+
 /** One durable warning claim. */
 export interface NotificationClaim {
   /** Notification row identifier (bigint as a string). */
@@ -60,8 +68,22 @@ export class CertificateExpiryRepository {
   public async listExpiring(
     executor: QueryExecutor,
     now: Date,
+    cursor?: ExpiryCursor,
+    limit = 500,
   ): Promise<readonly ExpiringCertificate[]> {
     const until = new Date(now.getTime() + 30 * 86_400_000);
+    const conditions = [
+      "c.deleted_at IS NULL",
+      "p.deleted_at IS NULL",
+      "v.not_after > :now",
+      "v.not_after <= :until",
+    ];
+    const params: Record<string, unknown> = { now, until, limit };
+    if (cursor !== undefined) {
+      conditions.push("(v.not_after, c.id) > (:afterNotAfter, :afterId)");
+      params.afterNotAfter = cursor.notAfter;
+      params.afterId = cursor.certificateId;
+    }
     const result = await executor.executeQuery<{
       certificate_id: string;
       project_id: string;
@@ -75,12 +97,10 @@ export class CertificateExpiryRepository {
          FROM certificates c
          JOIN projects p ON p.id = c.project_id
          JOIN certificate_versions v ON v.id = c.current_version_id
-        WHERE c.deleted_at IS NULL
-          AND p.deleted_at IS NULL
-          AND v.not_after > :now
-          AND v.not_after <= :until
-        ORDER BY v.not_after ASC, c.id ASC`,
-      { now, until },
+        WHERE ${conditions.join(" AND ")}
+        ORDER BY v.not_after ASC, c.id ASC
+        LIMIT :limit`,
+      params,
     );
     return result.records.map((row) => ({
       certificateId: row.certificate_id,
@@ -90,6 +110,36 @@ export class CertificateExpiryRepository {
       fingerprint: row.fingerprint,
       notAfter: row.not_after,
     }));
+  }
+
+  /**
+   * Re-checks that the certificate and version are still active and current.
+   *
+   * @param executor - Database.
+   * @param certificateId - Certificate identifier.
+   * @param versionId - Version identifier.
+   * @param now - Service clock.
+   * @returns True when the warning is still eligible.
+   */
+  public async isEligible(
+    executor: QueryExecutor,
+    certificateId: string,
+    versionId: string,
+    now: Date,
+  ): Promise<boolean> {
+    const result = await executor.executeQuery<{ id: string }>(
+      `SELECT c.id
+         FROM certificates c
+         JOIN projects p ON p.id = c.project_id
+         JOIN certificate_versions v ON v.id = c.current_version_id
+        WHERE c.id = :certificateId
+          AND c.current_version_id = :versionId
+          AND c.deleted_at IS NULL
+          AND p.deleted_at IS NULL
+          AND v.not_after > :now`,
+      { certificateId, versionId, now },
+    );
+    return result.records.length === 1;
   }
 
   /**
@@ -171,6 +221,24 @@ export class CertificateExpiryRepository {
     );
     const claim = updated.records[0];
     return claim === undefined ? undefined : this.#toClaim(claim);
+  }
+
+  /**
+   * Stores a newly generated audit event id on a claim.
+   *
+   * @param executor - Database or transaction.
+   * @param claimId - Notification row identifier.
+   * @param auditEventId - New audit event identifier.
+   */
+  public async setAuditEventId(
+    executor: QueryExecutor,
+    claimId: string,
+    auditEventId: string,
+  ): Promise<void> {
+    await executor.executeQuery(
+      "UPDATE certificate_expiry_notifications SET audit_event_id = :auditEventId WHERE id = :claimId",
+      { claimId, auditEventId },
+    );
   }
 
   /**

@@ -6,6 +6,7 @@ import type { CertificateExpiryWebhook, ExpiryWebhookPayload } from "./webhook.j
 
 const DAY_MS = 86_400_000;
 const LEASE_MS = 3_600_000;
+const EXPIRY_BATCH = 500;
 
 /** Minimal logger surface used by the expiry job. */
 export interface ExpiryLogger {
@@ -95,124 +96,154 @@ export class CertificateExpiryService {
     const now = new Date(this.#now());
     const runId = newUlid();
     const requestId = `certificate-expiry-${runId}`;
-    const rows = await this.#repository.listExpiring(this.#database, now);
+    let cursor: { readonly notAfter: Date; readonly certificateId: string } | undefined;
+    let scanned = 0;
     let claimed = 0;
     let sent = 0;
     let failed = 0;
     let skipped = 0;
 
-    for (const row of rows) {
-      const remaining = row.notAfter.getTime() - now.getTime();
-      const thresholdDays = thresholdFor(remaining);
-      if (thresholdDays === undefined) {
-        skipped += 1;
-        continue;
-      }
-      const daysToExpiry = Math.ceil(remaining / DAY_MS);
-      const claim = await this.#claim(row, thresholdDays, daysToExpiry, now);
-      if (claim === undefined) {
-        skipped += 1;
-        continue;
-      }
-      claimed += 1;
-      const payload: ExpiryWebhookPayload = {
-        event: "certificate.expiry_warning",
-        eventId: `${row.certificateId}:${row.versionId}:${thresholdDays}`,
-        certificateId: row.certificateId,
-        projectId: row.projectId,
-        name: row.name,
-        versionId: row.versionId,
-        fingerprint: row.fingerprint,
-        notAfter: row.notAfter.toISOString(),
-        daysToExpiry,
-        thresholdDays,
-        occurredAt: now.toISOString(),
-      };
-      try {
-        if (this.#webhook !== undefined) {
-          await this.#webhook.send(payload);
+    do {
+      const rows = await this.#repository.listExpiring(this.#database, now, cursor, EXPIRY_BATCH);
+      scanned += rows.length;
+      for (const row of rows) {
+        const remaining = row.notAfter.getTime() - now.getTime();
+        const thresholdDays = thresholdFor(remaining);
+        if (thresholdDays === undefined) {
+          skipped += 1;
+          continue;
         }
-      } catch {
-        failed += 1;
-        await this.#logger.error("certificate expiry delivery failed", {
+        const daysToExpiry = Math.ceil(remaining / DAY_MS);
+        const claim = await this.#claim(row, thresholdDays, daysToExpiry, now);
+        if (claim === undefined) {
+          skipped += 1;
+          continue;
+        }
+        claimed += 1;
+        if (
+          !(await this.#repository.isEligible(
+            this.#database,
+            row.certificateId,
+            row.versionId,
+            now,
+          ))
+        ) {
+          skipped += 1;
+          try {
+            await this.#database.withTransaction(async (tx) =>
+              this.#repository.deleteClaim(tx, claim.id),
+            );
+          } catch {
+            // A stale pending claim is reclaimed after the lease.
+          }
+          continue;
+        }
+        const payload: ExpiryWebhookPayload = {
+          event: "certificate.expiry_warning",
+          eventId: `${row.certificateId}:${row.versionId}:${thresholdDays}`,
+          certificateId: row.certificateId,
+          projectId: row.projectId,
+          name: row.name,
+          versionId: row.versionId,
+          fingerprint: row.fingerprint,
+          notAfter: row.notAfter.toISOString(),
+          daysToExpiry,
+          thresholdDays,
+          occurredAt: now.toISOString(),
+        };
+        try {
+          if (this.#webhook !== undefined) {
+            await this.#webhook.send(payload);
+          }
+        } catch {
+          failed += 1;
+          await this.#logger.error("certificate expiry delivery failed", {
+            certificateId: row.certificateId,
+            versionId: row.versionId,
+            thresholdDays,
+            daysToExpiry,
+            reason: "webhook_failed",
+          });
+          try {
+            await this.#writeAudit(
+              claim,
+              requestId,
+              row.projectId,
+              {
+                thresholdDays,
+                daysToExpiry,
+                version: row.versionId,
+                webhook: "failed",
+                reason: "webhook_failed",
+              },
+              "error",
+            );
+          } catch {
+            // The claim is still removed so a later run can retry.
+          }
+          try {
+            await this.#database.withTransaction(async (tx) =>
+              this.#repository.deleteClaim(tx, claim.id),
+            );
+          } catch {
+            // A stale pending claim is reclaimed after the lease.
+          }
+          continue;
+        }
+        try {
+          await this.#writeAudit(claim, requestId, row.projectId, {
+            thresholdDays,
+            daysToExpiry,
+            version: row.versionId,
+            webhook: this.#webhook === undefined ? "skipped" : "sent",
+          });
+        } catch {
+          failed += 1;
+          await this.#logger.error("certificate expiry audit failed", {
+            certificateId: row.certificateId,
+            versionId: row.versionId,
+            thresholdDays,
+            reason: "audit_failed",
+          });
+          try {
+            await this.#database.withTransaction(async (tx) =>
+              this.#repository.deleteClaim(tx, claim.id),
+            );
+          } catch {
+            // A stale pending claim is reclaimed after the lease.
+          }
+          continue;
+        }
+        try {
+          await this.#database.withTransaction(async (tx) =>
+            this.#repository.markSent(tx, claim.id),
+          );
+        } catch {
+          failed += 1;
+          await this.#logger.error("certificate expiry mark-sent failed", {
+            certificateId: row.certificateId,
+            versionId: row.versionId,
+            thresholdDays,
+            reason: "mark_sent_failed",
+          });
+          continue;
+        }
+        sent += 1;
+        await this.#logger.info("certificate expiry warning", {
           certificateId: row.certificateId,
           versionId: row.versionId,
           thresholdDays,
           daysToExpiry,
-          reason: "webhook_failed",
-        });
-        try {
-          await this.#writeAudit(
-            claim,
-            requestId,
-            row.projectId,
-            {
-              thresholdDays,
-              daysToExpiry,
-              version: row.versionId,
-              webhook: "failed",
-              reason: "webhook_failed",
-            },
-            "error",
-          );
-        } catch {
-          // The claim is still removed so a later run can retry.
-        }
-        try {
-          await this.#database.withTransaction(async (tx) =>
-            this.#repository.deleteClaim(tx, claim.id),
-          );
-        } catch {
-          // A stale pending claim is reclaimed after the lease.
-        }
-        continue;
-      }
-      try {
-        await this.#writeAudit(claim, requestId, row.projectId, {
-          thresholdDays,
-          daysToExpiry,
-          version: row.versionId,
           webhook: this.#webhook === undefined ? "skipped" : "sent",
         });
-      } catch {
-        failed += 1;
-        await this.#logger.error("certificate expiry audit failed", {
-          certificateId: row.certificateId,
-          versionId: row.versionId,
-          thresholdDays,
-          reason: "audit_failed",
-        });
-        try {
-          await this.#database.withTransaction(async (tx) =>
-            this.#repository.deleteClaim(tx, claim.id),
-          );
-        } catch {
-          // A stale pending claim is reclaimed after the lease.
-        }
-        continue;
       }
-      try {
-        await this.#database.withTransaction(async (tx) => this.#repository.markSent(tx, claim.id));
-      } catch {
-        failed += 1;
-        await this.#logger.error("certificate expiry mark-sent failed", {
-          certificateId: row.certificateId,
-          versionId: row.versionId,
-          thresholdDays,
-          reason: "mark_sent_failed",
-        });
-        continue;
-      }
-      sent += 1;
-      await this.#logger.info("certificate expiry warning", {
-        certificateId: row.certificateId,
-        versionId: row.versionId,
-        thresholdDays,
-        daysToExpiry,
-        webhook: this.#webhook === undefined ? "skipped" : "sent",
-      });
-    }
-    return { scanned: rows.length, claimed, sent, failed, skipped };
+      const last = rows[rows.length - 1];
+      cursor =
+        rows.length === EXPIRY_BATCH && last !== undefined
+          ? { notAfter: last.notAfter, certificateId: last.certificateId }
+          : undefined;
+    } while (cursor !== undefined);
+    return { scanned, claimed, sent, failed, skipped };
   }
 
   /** Claims one row in a short transaction, reclaiming a stale pending row. */
@@ -248,10 +279,10 @@ export class CertificateExpiryService {
     result: "allow" | "error" = "allow",
   ): Promise<void> {
     const prior = await this.#repository.auditEventResult(this.#database, claim.auditEventId);
-    if (prior === "allow") {
+    if (prior === "allow" && result === "allow") {
       return;
     }
-    const eventId = prior === "error" ? newUlid() : claim.auditEventId;
+    const eventId = prior === undefined ? claim.auditEventId : newUlid();
     await this.#audit.record({
       eventId,
       ts: new Date(this.#now()),
@@ -269,5 +300,8 @@ export class CertificateExpiryService {
       userAgent: null,
       details: { ...details },
     });
+    if (eventId !== claim.auditEventId && result === "allow") {
+      await this.#repository.setAuditEventId(this.#database, claim.id, eventId);
+    }
   }
 }

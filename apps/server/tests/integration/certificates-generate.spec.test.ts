@@ -14,6 +14,7 @@ describe("self-signed certificate generation", () => {
         sans: ["DNS:generated.example.test", "IP:127.0.0.1"],
         keyType,
         validityDays: 30,
+        maximumBytes: 131_072,
         now: NOW,
       });
       const certificate = new x509.X509Certificate(generated.certificatePem);
@@ -41,6 +42,7 @@ describe("self-signed certificate generation", () => {
         sans: ["DNS:generated.example.test"],
         keyType: "ec-p256",
         validityDays: 30,
+        maximumBytes: 131_072,
         now: NOW,
       }),
     ).rejects.toMatchObject({ statusCode: 422 });
@@ -53,6 +55,7 @@ describe("self-signed certificate generation", () => {
         sans: ["IP:999.1.1.1"],
         keyType: "ec-p256",
         validityDays: 30,
+        maximumBytes: 131_072,
         now: NOW,
       }),
     ).rejects.toMatchObject({ statusCode: 422 });

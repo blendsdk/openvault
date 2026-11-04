@@ -1,4 +1,4 @@
-import { createPrivateKey } from "node:crypto";
+import { createPrivateKey, generateKeyPairSync } from "node:crypto";
 import { describe, expect, it } from "vitest";
 import { canonicalizeSan, parseCertificateMaterial } from "../../src/certificates/pem.js";
 import {
@@ -159,8 +159,29 @@ describe("certificate PEM parsing", () => {
     ).rejects.toMatchObject({ statusCode: 413 });
   });
 
+  it("should reject RSA 4096, RSA-PSS, and EC P-384 keys", async () => {
+    const fixture = await createSelfSignedFixture({ now: NOW });
+    const cases = [
+      generateKeyPairSync("rsa", { modulusLength: 4096 }).privateKey,
+      generateKeyPairSync("rsa-pss", { modulusLength: 2048 }).privateKey,
+      generateKeyPairSync("ec", { namedCurve: "secp384r1" }).privateKey,
+    ];
+    for (const key of cases) {
+      const pem = key.export({ format: "pem", type: "pkcs8" });
+      if (typeof pem !== "string") {
+        throw new Error("key export failed");
+      }
+      await expect(
+        parse({ certificatePem: fixture.certificatePem, privateKeyPem: pem }),
+      ).rejects.toMatchObject({ statusCode: 422 });
+    }
+  });
+
   it("should validate SAN grammar", () => {
     expect(canonicalizeSan("DNS:Example.COM")).toBe("DNS:example.com");
+    expect(canonicalizeSan("email:OPS@EXAMPLE.TEST")).toBe("email:ops@example.test");
+    expect(() => canonicalizeSan(`email:${"a".repeat(310)}@example.test`)).toThrow();
+    expect(() => canonicalizeSan("email:ops@-example.test")).toThrow();
     expect(canonicalizeSan("DNS:*.example.com")).toBe("DNS:*.example.com");
     expect(canonicalizeSan("IP:127.0.0.1")).toBe("IP:127.0.0.1");
     expect(canonicalizeSan("IP:::1")).toBe("IP:::1");

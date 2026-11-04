@@ -35,6 +35,14 @@ function parseWebhookUrl(
   if (value === undefined) {
     return undefined;
   }
+  if (value.length > 2_048) {
+    context.addIssue({
+      code: "custom",
+      path: ["OPENVAULT_CERT_EXPIRY_WEBHOOK_URL"],
+      message: "must be at most 2048 characters",
+    });
+    return undefined;
+  }
   let url: URL;
   try {
     url = new URL(value);
@@ -71,8 +79,15 @@ function parseWebhookUrl(
     return undefined;
   }
   if (envMode === "production") {
-    const address = url.hostname.replace(/^\[|\]$/g, "");
-    if ((isIP(address) === 4 && address.startsWith("169.254.")) || address === "fd00:ec2::254") {
+    const address = url.hostname.replace(/^\[|\]$/g, "").toLowerCase();
+    const mapped = address.startsWith("::ffff:") ? address.slice(7) : undefined;
+    const linkLocalV4 = isIP(address) === 4 && address.startsWith("169.254.");
+    const linkLocalV6 = isIP(address) === 6 && /^fe[89ab]/.test(address);
+    const metadata =
+      address === "fd00:ec2::254" ||
+      mapped?.startsWith("169.254.") === true ||
+      mapped?.startsWith("a9fe:") === true;
+    if (linkLocalV4 || linkLocalV6 || metadata) {
       context.addIssue({
         code: "custom",
         path: ["OPENVAULT_CERT_EXPIRY_WEBHOOK_URL"],

@@ -196,11 +196,13 @@ attempt writes an error outcome.
 
 ## Audit and errors
 
-Every route writes an authorization decision. Import/generate/renew write one joined
-`certificate.write` allow with the mode and renewal flag. Public reads write `certificate.read`;
-private reads decrypt first, then write `certificate.read_private`. Delete, recovery, and purge
-write their actions. A denied request writes one deny; a failed state change writes one error
-outcome.
+Every authenticated route writes an authorization decision after the target project or
+object is resolved. Import/generate/renew write one joined `certificate.write` allow with the
+mode and renewal flag. Public reads write `certificate.read`; private reads decrypt and export
+the key first, then write `certificate.read_private`. Delete, recovery, and purge write their
+actions. A denied request writes one deny. A parse, generation, or state-change failure after
+authorization writes one independent error outcome; a missing target or malformed request
+before an object decision returns 404/422 without an allow event.
 
 | Status | Meaning |
 |---|---|

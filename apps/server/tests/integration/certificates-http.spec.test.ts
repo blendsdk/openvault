@@ -1,4 +1,5 @@
 import { networkInterfaces } from "node:os";
+import { newUlid } from "@openvault/core";
 import { PostgreSQLDatabase } from "blendsdk/postgresql";
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
 import { createTestApplication } from "../../src/app.js";
@@ -79,7 +80,13 @@ beforeEach(async () => {
   await resetAuditTables(testDb.db);
 });
 
-async function send(path: string, method = "GET", body?: string): Promise<TestResponse> {
+async function sendAs(
+  cookieValue: string,
+  csrfValue: string,
+  path: string,
+  method = "GET",
+  body?: string,
+): Promise<TestResponse> {
   return testRequest({
     port: handle.adminPort,
     path,
@@ -88,13 +95,17 @@ async function send(path: string, method = "GET", body?: string): Promise<TestRe
     ca: environment.tls.caPem,
     servername: "localhost",
     headers: {
-      cookie,
+      cookie: cookieValue,
       origin: environment.config.baseUrl.origin,
-      ...(method === "GET" ? {} : { "x-csrf-token": csrf }),
+      ...(method === "GET" ? {} : { "x-csrf-token": csrfValue }),
       ...(body === undefined ? {} : { "content-type": "application/json" }),
     },
     ...(body === undefined ? {} : { body }),
   });
+}
+
+async function send(path: string, method = "GET", body?: string): Promise<TestResponse> {
+  return sendAs(cookie, csrf, path, method, body);
 }
 
 describe("certificate HTTP routes", () => {
@@ -197,6 +208,52 @@ describe("certificate HTTP routes", () => {
     });
     expect(response.status).toBe(401);
   });
+
+  it("should limit import/generate and private-key reads", async () => {
+    const userId = newUlid();
+    await testDb.db.executeQuery(
+      `INSERT INTO principals (id, kind, name, email, status)
+       VALUES (:id, 'user', 'Rate Limit User', :email, 'active')`,
+      { id: userId, email: `${userId.toLowerCase()}@example.test` },
+    );
+    const sessions = await app.getService<SessionService>("sessions");
+    const session = await sessions.create({ principalId: userId, authMethod: "local" });
+    const userCookie = `${SESSION_COOKIE_NAME}=${session.secretId}`;
+    const userCsrf = session.record.csrfToken;
+    for (let index = 0; index < 10; index += 1) {
+      const response = await sendAs(
+        userCookie,
+        userCsrf,
+        "/v1/data/foundation/certificates/import",
+        "POST",
+        JSON.stringify({}),
+      );
+      expect(response.status).toBe(422);
+    }
+    const limitedWrite = await sendAs(
+      userCookie,
+      userCsrf,
+      "/v1/data/foundation/certificates/import",
+      "POST",
+      JSON.stringify({}),
+    );
+    expect(limitedWrite.status).toBe(429);
+
+    for (let index = 0; index < 30; index += 1) {
+      const response = await sendAs(
+        userCookie,
+        userCsrf,
+        "/v1/data/foundation/certificates/missing/private-key",
+      );
+      expect(response.status).toBe(403);
+    }
+    const limitedPrivate = await sendAs(
+      userCookie,
+      userCsrf,
+      "/v1/data/foundation/certificates/missing/private-key",
+    );
+    expect(limitedPrivate.status).toBe(429);
+  }, 60_000);
 
   it("should return 503 when purge is not configured", async () => {
     const service = await app.getService<CertificateService>("certificateService");

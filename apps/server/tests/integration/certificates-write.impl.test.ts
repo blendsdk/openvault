@@ -29,6 +29,15 @@ function certificateName(prefix: string): string {
   return `${prefix}-${newUlid().slice(-10).toLowerCase()}`;
 }
 
+async function importSelfSigned(name: string) {
+  const fixture = await createSelfSignedFixture();
+  return service.import(actors.orgAdmin, "foundation", {
+    name,
+    certificatePem: fixture.certificatePem,
+    privateKeyPem: fixture.privateKeyPem,
+  });
+}
+
 beforeAll(async () => {
   testDb = await createTestDatabase();
   await applyMigrations(testDb);
@@ -139,6 +148,32 @@ describe("certificate write internals", () => {
       "SELECT count(*)::int AS count FROM audit_events WHERE action = 'certificate.write' AND result = 'allow'",
     );
     expect(allows.records[0]?.count).toBe(0);
+  });
+
+  it("should remove notification rows for superseded versions on renewal", async () => {
+    const name = certificateName("cleanup");
+    const first = await importSelfSigned(name);
+    await testDb.db.executeQuery(
+      `INSERT INTO certificate_expiry_notifications
+         (certificate_id, version_id, threshold_days, days_to_expiry, audit_event_id)
+       VALUES (:certificateId, :versionId, 30, 30, :auditEventId)`,
+      {
+        certificateId: first.response.id,
+        versionId: first.response.version.id,
+        auditEventId: newUlid(),
+      },
+    );
+    const fixture = await createSelfSignedFixture();
+    await service.import(actors.orgAdmin, "foundation", {
+      name,
+      certificatePem: fixture.certificatePem,
+      privateKeyPem: fixture.privateKeyPem,
+    });
+    const rows = await testDb.db.executeQuery<{ count: number }>(
+      "SELECT count(*)::int AS count FROM certificate_expiry_notifications WHERE certificate_id = :id",
+      { id: first.response.id },
+    );
+    expect(rows.records[0]?.count).toBe(0);
   });
 
   it("should reject a write at the retained version limit", async () => {

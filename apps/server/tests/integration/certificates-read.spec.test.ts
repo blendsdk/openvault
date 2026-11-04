@@ -117,6 +117,10 @@ describe("certificate reads and lists", () => {
     expect(Buffer.from(cert.publicKey.export({ type: "spki", format: "der" })).equals(spki)).toBe(
       true,
     );
+    const events = await testDb.db.executeQuery<{ details: unknown }>(
+      "SELECT details FROM audit_events WHERE action = 'certificate.read_private'",
+    );
+    expect(JSON.stringify(events.records)).not.toContain("BEGIN PRIVATE KEY");
   });
 
   it("should return 403 for a public reader without read_private", async () => {

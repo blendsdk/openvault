@@ -216,6 +216,25 @@ describe("certificate expiry", () => {
     expect(webhookServer.requests).toHaveLength(0);
   });
 
+  it("should not warn for a superseded version", async () => {
+    const name = certificateName("superseded");
+    await importAt(name, 7);
+    const renewal = await createSelfSignedFixture({
+      now: NOW,
+      notBefore: new Date(NOW - DAY),
+      notAfter: new Date(NOW + 60 * DAY),
+    });
+    await service.import(actors.orgAdmin, "foundation", {
+      name,
+      certificatePem: renewal.certificatePem,
+      privateKeyPem: renewal.privateKeyPem,
+    });
+    const expiry = expiryService(new CertificateExpiryWebhook({ url: new URL(webhookServer.url) }));
+    const summary = await expiry.runOnce();
+    expect(summary.sent).toBe(0);
+    expect(webhookServer.requests).toHaveLength(0);
+  });
+
   it("should send once when two scans run concurrently", async () => {
     await importAt(certificateName("concurrent"), 7);
     const expiry = expiryService(new CertificateExpiryWebhook({ url: new URL(webhookServer.url) }));
