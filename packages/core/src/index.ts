@@ -4,6 +4,9 @@ export {
   decryptValue,
   type EncryptedValue,
   type EnvelopeAad,
+  type EnvelopeKeyring,
+  type EnvelopeLimits,
+  type EnvelopeObjectType,
   encryptValue,
 } from "./crypto.js";
 export { isUlid, newUlid, ULID_PATTERN, type Ulid } from "./ids.js";

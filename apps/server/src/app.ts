@@ -15,9 +15,12 @@ import { CliAuthController } from "./controllers/cli-auth.js";
 import { IdentityController } from "./controllers/identity.js";
 import { MetaController } from "./controllers/meta.js";
 import { OidcController } from "./controllers/oidc.js";
+import { ProjectsController } from "./controllers/projects.js";
 import { ReadyController } from "./controllers/ready.js";
 import { createIdentityRuntime } from "./identity/identity-runtime.js";
 import { createLoggerProvider } from "./observability/logger.js";
+import { ProjectRepository } from "./projects/repository.js";
+import { ProjectService } from "./projects/service.js";
 import { createPolicyRuntime } from "./rbac/runtime.js";
 import { createProductionProbes, ReadinessService } from "./readiness/service.js";
 import { KeyringProvider } from "./security/keyring.js";
@@ -91,6 +94,13 @@ export function createApplication(
       database: dependencies.database,
       keyring: dependencies.keyring,
     });
+  const projectRepository = new ProjectRepository(dependencies.database);
+  const projectService = new ProjectService({
+    database: dependencies.database,
+    repository: projectRepository,
+    policy: policyRuntime.service,
+    audit: auditRuntime.writer,
+  });
   const identityRuntime =
     dependencies.agentRuntime?.identityRuntime ??
     dependencies.identityRuntime ??
@@ -187,6 +197,16 @@ export function createApplication(
     name: "auditRuntime",
     type: "singleton",
     factory: () => auditRuntime,
+  });
+  app.registerService({
+    name: "projectRepository",
+    type: "singleton",
+    factory: () => projectRepository,
+  });
+  app.registerService({
+    name: "projectService",
+    type: "singleton",
+    factory: () => projectService,
   });
   app.registerService({
     name: "identityRuntime",
@@ -288,6 +308,7 @@ export function createApplication(
   app.registerController("/v1/auth", AuthController);
   app.registerController("/v1/auth/cli", CliAuthController);
   app.registerController("/v1/auth", OidcController);
+  app.registerController("/v1/admin/projects", ProjectsController);
   app.registerController("/v1/admin/identities", IdentityController);
   app.registerController("/v1/admin/assignments", AssignmentsController);
   app.registerController("/v1/admin/access-explain", AccessExplainController);

@@ -3,7 +3,7 @@ import type { PostgreSQLDatabase } from "blendsdk/postgresql";
 import type { KeyringProvider } from "../security/keyring.js";
 import { loadAuditKey, withAuditKey } from "./audit-key-store.js";
 import { decodeCursor, filterHash, signCursor, verifyCursor } from "./cursor.js";
-import { AuditKeyUnavailableError, AuditQueryError } from "./errors.js";
+import { AuditKeyUnavailableError } from "./errors.js";
 import type { AuditEventRecord, AuditVisibility } from "./types.js";
 
 const DEFAULT_BATCH = 500;

@@ -31,15 +31,20 @@ export class PersistentPolicyAudit implements PolicyAuditPort {
   /**
    * Records one decision.
    *
-   * A supplied transaction means the caller is already inside a transaction;
-   * the decision is written through the independent audit pool so it commits
-   * on its own. Record it before a mutation event that joins the caller
-   * transaction, otherwise the independent write waits on the chain lock.
+   * A supplied transaction normally writes through the independent audit pool
+   * so the decision survives a later rollback. Pass `{ independent: false }`
+   * when the caller takes the chain lock and joins the decision to its
+   * transaction.
    *
    * @param event - Decision to persist.
-   * @param tx - Caller transaction that must not receive a nested write.
+   * @param tx - Caller transaction.
+   * @param options - Independence override.
    */
-  public async recordDecision(event: PolicyDecisionEvent, tx?: AuditQueryExecutor): Promise<void> {
+  public async recordDecision(
+    event: PolicyDecisionEvent,
+    tx?: AuditQueryExecutor,
+    options?: { readonly independent?: boolean },
+  ): Promise<void> {
     const denialCount =
       event.result === "deny"
         ? (event.denialCount ?? this.#denials.increment(event.actorId))
@@ -62,6 +67,9 @@ export class PersistentPolicyAudit implements PolicyAuditPort {
     if (denialCount !== undefined) {
       details.denialCount = denialCount;
     }
+    for (const [key, value] of Object.entries(event.details ?? {})) {
+      details[key] = value;
+    }
     const draft: AuditEventInput = {
       eventId: newUlid(),
       ts: new Date(this.#now()),
@@ -79,10 +87,14 @@ export class PersistentPolicyAudit implements PolicyAuditPort {
       userAgent: event.context?.userAgent ?? null,
       details,
     };
-    if (tx === undefined) {
-      await this.#writer.record(draft);
+    if (tx === undefined || options?.independent !== false) {
+      if (tx === undefined) {
+        await this.#writer.record(draft);
+      } else {
+        await this.#writer.recordIndependent(draft);
+      }
     } else {
-      await this.#writer.recordIndependent(draft);
+      await this.#writer.record(draft, tx);
     }
   }
 

@@ -105,7 +105,11 @@ describe("decision reason selection", () => {
     ).toBe("no_assignment");
 
     const wrongScope = await insertUser();
-    await assign(wrongScope, "secrets.reader", "project", testUlid(6_100));
+    const otherProject = testUlid(6_100);
+    await testDb.db.executeQuery("INSERT INTO projects (id, name) VALUES (:id, 'policy-other')", {
+      id: otherProject,
+    });
+    await assign(wrongScope, "secrets.reader", "project", otherProject);
     expect(
       (await policy.authorize(wrongScope, "secret.read", secret(base.secretId, base.projectId)))
         .reason,

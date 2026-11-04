@@ -5,6 +5,34 @@ import { PolicyUnavailableError } from "./errors.js";
 const ROLE_SET: ReadonlySet<string> = new Set(RBAC_ROLES);
 const SCOPE_SET: ReadonlySet<string> = new Set(["org", "project", "object"]);
 
+/**
+ * SQL predicate that keeps an assignment effective only while its target is
+ * reachable. Org assignments always apply. Project and object assignments
+ * require a live project; an object also requires a live parent object.
+ */
+const LIVE_ASSIGNMENT = `(
+  r.scope_type = 'org'
+  OR (r.scope_type = 'project' AND EXISTS (
+    SELECT 1 FROM projects ap WHERE ap.id = r.scope_id AND ap.deleted_at IS NULL
+  ))
+  OR (r.scope_type = 'object' AND (
+    EXISTS (
+      SELECT 1 FROM secrets asec
+        JOIN projects ap ON ap.id = asec.project_id
+       WHERE asec.id = r.scope_id AND asec.deleted_at IS NULL AND ap.deleted_at IS NULL
+    )
+    OR EXISTS (
+      SELECT 1 FROM certificates acet
+        JOIN projects ap ON ap.id = acet.project_id
+       WHERE acet.id = r.scope_id AND acet.deleted_at IS NULL AND ap.deleted_at IS NULL
+    )
+    OR (
+      NOT EXISTS (SELECT 1 FROM secrets msec WHERE msec.id = r.scope_id)
+      AND NOT EXISTS (SELECT 1 FROM certificates mcet WHERE mcet.id = r.scope_id)
+    )
+  ))
+)`;
+
 /** One assignment loaded into an actor snapshot. */
 export interface ActorAssignment {
   /** Assignment row identifier. */
@@ -280,7 +308,7 @@ export class PolicyRepository {
                 (SELECT version FROM policy_state WHERE id = 1) AS policy_version,
                 r.id AS assignment_id, r.role, r.scope_type, r.scope_id, r.expires_at
            FROM principals p
-           LEFT JOIN role_assignments r ON r.principal_id = p.id
+           LEFT JOIN role_assignments r ON r.principal_id = p.id AND ${LIVE_ASSIGNMENT}
           WHERE p.id = :actorId`,
         { actorId },
       );
@@ -379,8 +407,14 @@ export class PolicyRepository {
   ): Promise<ObjectRecord | undefined> {
     const query =
       type === "secret"
-        ? "SELECT id, project_id, deleted_at FROM secrets WHERE id = :objectId"
-        : "SELECT id, project_id, deleted_at FROM certificates WHERE id = :objectId";
+        ? `SELECT s.id, s.project_id, s.deleted_at
+             FROM secrets s
+             JOIN projects p ON p.id = s.project_id
+            WHERE s.id = :objectId AND s.deleted_at IS NULL AND p.deleted_at IS NULL`
+        : `SELECT c.id, c.project_id, c.deleted_at
+             FROM certificates c
+             JOIN projects p ON p.id = c.project_id
+            WHERE c.id = :objectId AND c.deleted_at IS NULL AND p.deleted_at IS NULL`;
     const result = await this.#query<{
       readonly id: string;
       readonly project_id: string;
@@ -452,7 +486,7 @@ export class PolicyRepository {
               p.status AS principal_status
          FROM role_assignments r
          JOIN principals p ON p.id = r.principal_id
-        WHERE r.id = :assignmentId`,
+        WHERE r.id = :assignmentId AND ${LIVE_ASSIGNMENT}`,
       { assignmentId },
     );
     const row = result.records[0];
@@ -584,7 +618,7 @@ export class PolicyRepository {
     if (visibility.kind === "projects" && visibility.projectIds.length === 0) {
       return [];
     }
-    const conditions: string[] = [];
+    const conditions: string[] = [LIVE_ASSIGNMENT];
     const params: Record<string, unknown> = {};
     if (visibility.kind === "projects") {
       params.projectIds = visibility.projectIds;
@@ -685,9 +719,13 @@ export class PolicyRepository {
               r.id AS assignment_id, r.role, r.scope_type, r.scope_id, r.expires_at,
               c.compose_project, c.compose_service, c.hostname, c.state, c.last_seen
          FROM principals p
-         LEFT JOIN role_assignments r ON r.principal_id = p.id
+         LEFT JOIN role_assignments r ON r.principal_id = p.id AND ${LIVE_ASSIGNMENT}
          LEFT JOIN consumers c ON c.principal_id = p.id
         WHERE p.status = 'active'
+          AND (p.kind = 'user' OR EXISTS (
+            SELECT 1 FROM projects op
+             WHERE op.id = p.owner_project_id AND op.deleted_at IS NULL
+          ))
         ORDER BY p.name, p.id, r.id`,
     );
     const first = result.records[0];
