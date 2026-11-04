@@ -35,6 +35,22 @@ The `ov` binary is part of v0.1.
 | `ov backup` / `ov restore` | Back up and restore |
 | `ov kek rotate` | Rotate the KEK |
 
+## Audit maintenance commands
+
+The `ov audit` commands are the client surface. The server package also ships two
+maintenance commands for the vault host. Run `pnpm build` first so the compiled entry points
+exist:
+
+| Command | Purpose |
+|---|---|
+| `pnpm --filter @openvault/server audit:prune -- --out <absolute-path> [--dry-run]` | Verify, export, checkpoint, and delete the prefix past `OPENVAULT_AUDIT_RETENTION_DAYS` |
+| `pnpm --filter @openvault/server audit:checkpoint -- --out <absolute-path>` | Write the newest checkpoint as JSON for off-box anchoring |
+
+`audit:prune` requires `OPENVAULT_PRUNE_DB_URL` and a session user named
+`openvault_pruner`; load the URL from a mode-`0600` environment file rather than inline in a
+shell command. Both commands refuse a relative or existing output path. The prune
+command prints `pruned=<n> exported=<n> checkpoint=<id|none> dryRun=<true|false>`.
+
 ## Credentials
 
 The CLI stores tokens in an OS-specific config directory: `$XDG_CONFIG_HOME/openvault/` or

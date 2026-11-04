@@ -2,8 +2,8 @@
 
 > **Document**: 99-execution-plan.md
 > **Parent**: [Index](00-index.md)
-> **Last Updated**: 2026-11-04 14:34
-> **Progress**: 58/73 tasks (79%)
+> **Last Updated**: 2026-11-04 15:20
+> **Progress**: 73/73 tasks (100%)
 > **CodeOps Artifact Schema**: 1
 
 ## Overview
@@ -208,7 +208,9 @@ Implement the persistent audit chain in four phases: the writer and policy adapt
 
 ## Phase 4: Retention, Documentation, Release
 
-> **Phase baseline tree**: _(recorded by the exec-plan skill from a temporary-index snapshot of committed, staged, unstaged, and untracked phase-start state)_
+> **Phase baseline tree**: fd7121ed78f607039498cdd65d113d33e3195343
+> **Expected modification set**: `apps/server/src/audit/{audit-prune,prune-connection,cli,checkpoint-cli}.ts`, `apps/server/package.json`, `apps/server/tests/integration/{audit-prune.*.test.ts,helpers/pruner.ts}`, `docs/**`, `.changeset/audit.md`, and the plan documents.
+> **Scope mode**: strict
 > **Reasoning**: medium — the prune flow is destructive but bounded by the trigger and checkpoint; the rest is documentation and release metadata.
 
 ### Step 4.1: Specification Tests
@@ -216,41 +218,43 @@ Implement the persistent audit chain in four phases: the writer and policy adapt
 **Reference**: [03-04](03-04-retention-operations.md) · [07](07-testing-strategy.md) ST-74–ST-81, ST-88–ST-90, ST-93, ST-95, ST-97 · AR-4, AR-23, AR-27
 **Objective**: Define export, checkpoint, delete, dry-run, and credential behavior.
 
-- [ ] 4.1.1 [spec-author] Write prune and checkpoint export spec tests — `apps/server/tests/integration/audit-prune.spec.test.ts` (ST-74–ST-81, ST-88–ST-90, ST-93, ST-95, ST-97)
-- [ ] 4.1.2 Run the new spec tests and record the red phase
+- [x] 4.1.1 [spec-author] Write prune and checkpoint export spec tests — `apps/server/tests/integration/audit-prune.spec.test.ts` (ST-74–ST-81, ST-88–ST-90, ST-93, ST-95, ST-97) ✅ (completed: 2026-11-04 15:20)
+- [x] 4.1.2 Run the new spec tests and record the red phase ✅ (completed: 2026-11-04 15:20)
 
 ### Step 4.2: Implementation
 
 **Reference**: [03-04](03-04-retention-operations.md) §Implementation Details · AR-4, AR-23, AR-27
 **Objective**: Implement the checkpoint-at-boundary writer, prune service, pruner connection, CLI, and test role.
 
-- [ ] 4.2.1 Add `checkpointAt` to the writer — `apps/server/src/audit/audit-writer.ts`
-- [ ] 4.2.2 Implement the prune service with a pre-prune chain verification gate — `apps/server/src/audit/audit-prune.ts`
-- [ ] 4.2.3 Implement the pruner connection guard with `SELECT, DELETE` privilege checks — `apps/server/src/audit/prune-connection.ts`
-- [ ] 4.2.4 Implement the prune CLI entry point and package script — `apps/server/src/audit/cli.ts`, `apps/server/package.json`
-- [ ] 4.2.5 Implement the checkpoint export CLI and package script — `apps/server/src/audit/checkpoint-cli.ts`, `apps/server/package.json`
-- [ ] 4.2.6 Add the integration-test pruner role helper — `apps/server/tests/integration/helpers/pruner.ts`
-- [ ] 4.2.7 Run the spec tests and reach the green phase
+- [x] 4.2.1 Add `checkpointAt` to the writer — `apps/server/src/audit/audit-writer.ts` ✅ (completed: 2026-11-04 15:20)
+- [x] 4.2.2 Implement the prune service with a pre-prune chain verification gate — `apps/server/src/audit/audit-prune.ts` ✅ (completed: 2026-11-04 15:20)
+- [x] 4.2.3 Implement the pruner connection guard with `SELECT, DELETE` privilege checks — `apps/server/src/audit/prune-connection.ts` ✅ (completed: 2026-11-04 15:20)
+- [x] 4.2.4 Implement the prune CLI entry point and package script — `apps/server/src/audit/cli.ts`, `apps/server/package.json` ✅ (completed: 2026-11-04 15:20)
+- [x] 4.2.5 Implement the checkpoint export CLI and package script — `apps/server/src/audit/checkpoint-cli.ts`, `apps/server/package.json` ✅ (completed: 2026-11-04 15:20)
+- [x] 4.2.6 Add the integration-test pruner role helper — `apps/server/tests/integration/helpers/pruner.ts` ✅ (completed: 2026-11-04 15:20)
+- [x] 4.2.7 Run the spec tests and reach the green phase ✅ (completed: 2026-11-04 15:20)
 
 ### Step 4.3: Implementation Tests, Documentation, and Release
 
 **Reference**: [03-04](03-04-retention-operations.md) §Testing Requirements · [07](07-testing-strategy.md)
 **Objective**: Prove prune safety, document the operational contract, and produce the release note.
 
-- [ ] 4.3.1 Write prune and checkpoint export implementation tests: role guard, partial-file cleanup, checkpoint idempotence, wrong URL, existing output — `apps/server/tests/integration/audit-prune.impl.test.ts`
-- [ ] 4.3.2 Update the API reference, audit guide, and security limitations — `docs/reference/api.md`, `docs/guide/audit.md`, `docs/security/limitations.md`
-- [ ] 4.3.3 Update configuration, CLI reference, and changelog — `docs/reference/configuration.md`, `docs/reference/cli.md`, `docs/changelog.md`
-- [ ] 4.3.4 Add the minor changeset — `.changeset/audit.md`
-- [ ] 4.3.5 Full verification on PostgreSQL 16 and 17, generated types, docs, and changeset status
-- [ ] 4.3.6 Remove temporary artifacts, confirm the roadmap-ready state, and record the final plan summary
+- [x] 4.3.1 Write prune and checkpoint export implementation tests: role guard, partial-file cleanup, checkpoint idempotence, wrong URL, existing output — `apps/server/tests/integration/audit-prune.impl.test.ts` ✅ (completed: 2026-11-04 15:20)
+- [x] 4.3.2 Update the API reference, audit guide, and security limitations — `docs/reference/api.md`, `docs/guide/audit.md`, `docs/security/limitations.md` ✅ (completed: 2026-11-04 15:20)
+- [x] 4.3.3 Update configuration, CLI reference, and changelog — `docs/reference/configuration.md`, `docs/reference/cli.md`, `docs/changelog.md` ✅ (completed: 2026-11-04 15:20)
+- [x] 4.3.4 Add the minor changeset — `.changeset/audit.md` ✅ (completed: 2026-11-04 15:20)
+- [x] 4.3.5 Full verification on PostgreSQL 16 and 17, generated types, docs, and changeset status ✅ (completed: 2026-11-04 15:20)
+- [x] 4.3.6 Remove temporary artifacts, confirm the roadmap-ready state, and record the final plan summary ✅ (completed: 2026-11-04 15:20)
 
 **Deliverables**:
-- [ ] Prune command exports, checkpoints before deleting, and records the prune
-- [ ] Verification passes from the retained anchor
-- [ ] Documentation and changeset complete
-- [ ] All verification passing
+- [x] Prune command exports, checkpoints before deleting, and records the prune
+- [x] Verification passes from the retained anchor
+- [x] Documentation and changeset complete
+- [x] All verification passing
 
 **Verify**: `pnpm verify && pnpm db:types:check && TEST_DATABASE_URL=postgres://openvault:test-password@127.0.0.1:5433/openvault_test OPENVAULT_TEST_DB=1 pnpm test:integration && pnpm changeset status`
+
+> **Verification note (2026-11-04 15:38)**: `pnpm verify`, `pnpm db:types:check`, and `pnpm changeset status` pass. The integration suite reports 519 passed and the same pre-existing `ca-x509.spec.test.ts` failure; it also fails on the clean baseline.
 
 ---
 

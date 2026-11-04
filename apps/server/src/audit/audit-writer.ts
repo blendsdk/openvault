@@ -1,3 +1,4 @@
+import { timingSafeEqual } from "node:crypto";
 import { isIP } from "node:net";
 import type { PostgreSQLDatabase } from "blendsdk/postgresql";
 import type { KeyringProvider } from "../security/keyring.js";
@@ -469,8 +470,13 @@ export class AuditWriter {
     if (stored === undefined) {
       throw new AuditUnavailableError("Checkpoint insert returned no row");
     }
-    if (!stored.last_hash.equals(event.hash)) {
-      throw new AuditUnavailableError("Checkpoint conflicts with the stored hash");
+    if (
+      stored.audit_key_id !== keyRow.id ||
+      !stored.last_hash.equals(event.hash) ||
+      stored.hmac.length !== hmac.length ||
+      !timingSafeEqual(stored.hmac, hmac)
+    ) {
+      throw new AuditUnavailableError("Checkpoint conflicts with the stored anchor");
     }
     return toCheckpointRecord(stored);
   }

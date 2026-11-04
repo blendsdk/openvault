@@ -1,61 +1,107 @@
 # Audit
 
-Every allow and every denial is an audit event. The log is append-only, hash-chained, and
-HMAC-protected with a key wrapped by the KEK.
+Every authorization decision, assignment change, authentication attempt, agent lifecycle
+event, and consumer metadata change is written to an append-only log. Each row contains a
+SHA-256 hash of the previous row plus its canonical fields, and an HMAC-SHA256 computed with
+a key wrapped by the KEK.
 
 ## Event fields
 
 | Field | Meaning |
 |---|---|
 | `eventId` | ULID |
-| `ts` | Timestamp |
+| `ts` | Millisecond timestamp |
+| `projectId` | Owning project, or null for organization and system events |
 | `requestId` | Correlates with operational logs |
-| `actorId` | Principal |
-| `action` | `secret.read`, `assignment.write`, … |
-| `scope` | Organization, project, or object |
-| `object` | Secret or certificate id |
+| `actorId` | Principal, or null for a system actor |
+| `actorKind` | `user`, `service`, or `system` |
+| `action` | Frozen action name such as `secret.read` or `assignment.write` |
+| `scopeType` | `org`, `project`, `object`, or `system` |
+| `scopeId` | Scope identifier, or null for a system scope |
+| `objectType` / `objectId` | Resource the event is about, when applicable |
 | `result` | `allow`, `deny`, or `error` |
-| `sourceIp` | Caller address |
-| `details` | Allowlisted metadata, never values |
-
-## Verify
-
-```bash
-ov audit verify
-```
-
-The verifier recomputes the chain and reports the first broken event. Editing a row breaks
-the chain at that row.
+| `sourceIp` | Canonical caller address |
+| `userAgent` | Truncated client user agent |
+| `details` | Per-action allowlisted metadata; never a secret value |
+| `prevHash`, `hash`, `hmac` | Lowercase hexadecimal chain fields |
+| `auditKeyId` | Key that produced the HMAC |
 
 ## Query
 
-```bash
-ov audit --project payments --action secret.read --from 2026-10-01
-ov audit --actor payments-api --result deny
-ov audit --request-id 6f1c...
+```http
+GET /v1/audit/events?action=secret.read&result=deny&from=2026-10-01T00:00:00.000Z&limit=50
 ```
+
+Filters are `from`, `to`, `actorId`, `action`, `objectType`, `objectId`, `result`,
+`requestId`, and `projectId`. Results are newest first. A full page returns `nextCursor`;
+pass it back as `cursor` with the same filters. `objectId` requires `objectType`.
+
+An organization auditor sees every project. A project auditor sees only projects covered by
+an `audit.read` assignment; organization and system events stay hidden. Verification requires
+organization scope.
+
+## Verify
+
+```http
+GET /v1/audit/verify
+```
+
+The verifier walks every retained event from the first retained row, recomputes its canonical
+hash and HMAC, and checks every checkpoint at or after that row. Editing a row or deleting a
+middle row is reported with `ok: false` and a stable reason. Tail deletion is detected only
+while a surviving checkpoint or a newer event still references the deleted row. A checkpoint
+immediately below the first retained row is treated as a legitimate prune boundary. An empty
+log with no checkpoints is a clean empty chain. Verification is itself audited.
 
 ## Export
 
-```bash
-ov audit export --format ndjson --out audit.ndjson
+```http
+GET /v1/audit/export?projectId=01J...
 ```
 
-Export itself is audited.
+The response is NDJSON with one event per line in ascending order. The export attempt is
+recorded before the first byte. A failure before streaming returns `503`; a failure after
+streaming starts destroys the response, and the client must discard the partial file.
 
-## Retention
+## Retention and pruning
 
-The default retention is 180 days. Pruning is an explicit maintenance command:
+The retention window defaults to 180 days (`OPENVAULT_AUDIT_RETENTION_DAYS`). Pruning is an
+explicit maintenance command, not a background job:
 
-1. Export the range.
-2. Write a checkpoint.
-3. Delete events older than the retention window.
-4. Keep the checkpoint as a trusted anchor.
+Build the server package first, then load the pruner URL from a mode-`0600` environment file
+so the password never enters shell history or the process argument list:
+
+```bash
+pnpm build
+set -a
+. /etc/openvault/prune.env
+set +a
+pnpm --filter @openvault/server audit:prune -- --out /secure/audit-2026-11-04.ndjson
+```
+
+The command verifies the retained chain first, writes the deletable prefix to an exclusive
+mode-`0600` file, writes a checkpoint at its last event, deletes the prefix through the
+`openvault_pruner` session, and records the prune. `--dry-run` exports and checkpoints without
+deleting. The pruner role needs `SELECT, DELETE` on `audit_events`.
+
+Export the newest checkpoint for off-box anchoring:
+
+```bash
+pnpm --filter @openvault/server audit:checkpoint -- --out /secure/audit-checkpoint.json
+```
+
+Store that file outside the vault host. It is a trusted hash anchor for the event it names;
+export it immediately after a prune to record the boundary before later checkpoints replace
+it in the database. It is not a complete replacement for the database chain.
 
 ## Limits
 
-A database administrator can truncate the audit table. The HMAC chain detects it only if a
-checkpoint survives or was exported off-box. Export checkpoints regularly.
+A database administrator who can disable triggers can rewrite or delete rows. The chain and
+checkpoints detect tail deletion while a surviving anchor references the deleted row, and
+the verifier rejects a missing event when a newer checkpoint claims it. Prefix deletion at a
+legitimate prune boundary cannot be distinguished without an off-box anchor. The application
+role must not own the audit tables or be a superuser; ownership or superuser access bypasses
+the append-only trigger.
 
 ## Next
 

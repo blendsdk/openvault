@@ -302,6 +302,21 @@ export class AuditEventQuery {
   }
 
   /**
+   * Reads one event by sequence id.
+   *
+   * @param sequenceId - Decimal sequence id.
+   * @returns The event, or undefined.
+   */
+  public async findEvent(sequenceId: string): Promise<AuditEventRecord | undefined> {
+    const result = await this.#database.executeQuery<AuditEventRow>(
+      `SELECT ${SELECT_COLUMNS} FROM audit_events WHERE id = CAST(:id AS bigint)`,
+      { id: sequenceId },
+    );
+    const row = result.records[0];
+    return row === undefined ? undefined : mapAuditEventRow(row);
+  }
+
+  /**
    * Returns true when a project row exists.
    *
    * @param projectId - Project identifier.
