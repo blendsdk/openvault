@@ -89,7 +89,6 @@ export class ProjectService {
         const created = await this.#repository.insert(tx, { id, name: input.name });
         await this.#policy.recordDecision(decision, context, tx, {
           independent: false,
-          details: { version: 1 },
         });
         return created;
       });
@@ -204,7 +203,6 @@ export class ProjectService {
         }
         await this.#policy.recordDecision(decision, context, tx, {
           independent: false,
-          details: { version: 1 },
         });
         return updated;
       });
@@ -268,7 +266,6 @@ export class ProjectService {
         }
         await this.#policy.recordDecision(decision, context, tx, {
           independent: false,
-          details: { version: 1 },
         });
       });
     } catch (error) {

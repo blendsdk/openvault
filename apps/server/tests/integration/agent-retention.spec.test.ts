@@ -356,7 +356,7 @@ describe("admission-time delivery bound", () => {
     try {
       const pending = testRequest({
         port: limited.handle.agentPort,
-        path: `/v1/data/${project.name}/secrets/db`,
+        path: `/v1/data/${project.name}/probe`,
         host: "127.0.0.1",
         ca: environment.tls.caPem,
         servername: "localhost",

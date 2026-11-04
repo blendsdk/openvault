@@ -2,8 +2,8 @@
 
 > **Document**: 99-execution-plan.md
 > **Parent**: [Index](00-index.md)
-> **Last Updated**: 2026-11-04 17:35
-> **Progress**: 19/65 tasks (29%)
+> **Last Updated**: 2026-11-04 18:05
+> **Progress**: 41/65 tasks (63%)
 > **CodeOps Artifact Schema**: 1
 
 ## Overview
@@ -105,41 +105,41 @@ implementation tests, full verification.
 **Reference**: [07-testing-strategy.md](07-testing-strategy.md) ST-28..56, ST-76..86 · [03-03](03-03-secrets.md) · AR-5..12, AR-15..18, AR-25, AR-29..31
 **Objective**: Define secret create/write/read/list, idempotency, consumers, capabilities, and routes.
 
-- [ ] 2.1.1 [spec-author] Write secret core specification tests — `apps/server/tests/integration/secrets.spec.test.ts` (ST-28..47, ST-76..81)
-- [ ] 2.1.2 [spec-author] Write idempotency specification tests — `apps/server/tests/integration/secrets-idempotency.spec.test.ts` (ST-48..56)
-- [ ] 2.1.3 [spec-author] Write HTTP route specification tests — `apps/server/tests/integration/secrets-http.spec.test.ts` (ST-82..86)
-- [ ] 2.1.4 Run the new spec tests and record the red phase
+- [x] 2.1.1 [spec-author] Write secret core specification tests — `apps/server/tests/integration/secrets.spec.test.ts` (ST-28..47, ST-76..81) ✅ (completed: 2026-11-04 17:45)
+- [x] 2.1.2 [spec-author] Write idempotency specification tests — `apps/server/tests/integration/secrets-idempotency.spec.test.ts` (ST-48..56) ✅ (completed: 2026-11-04 17:45)
+- [x] 2.1.3 [spec-author] Write HTTP route specification tests — `apps/server/tests/integration/secrets-http.spec.test.ts` (ST-82..86) ✅ (completed: 2026-11-04 17:45)
+- [x] 2.1.4 Run the new spec tests and record the red phase ✅ (completed: 2026-11-04 17:45)
 
 ### Step 2.2: Implementation
 
 **Reference**: [03-03 §Repository](03-03-secrets.md) · [03-03 §Idempotency](03-03-secrets.md) · AR-5..12, AR-15..18, AR-25, AR-29..31
 **Objective**: Implement secret storage, encryption, read/write flows, list, versions, capabilities, and idempotency.
 
-- [ ] 2.2.1 Add the secret repository with name reservation, active versions, consumers, and list filters — `apps/server/src/secrets/repository.ts`
-- [ ] 2.2.2 Add value decoding, response encoding, and envelope mapping — `apps/server/src/secrets/envelope.ts`
-- [ ] 2.2.3 Add the HKDF-derived KEK-HMAC idempotency claim and replay helper — `apps/server/src/secrets/idempotency.ts`
-- [ ] 2.2.4 Add the secret domain errors — `apps/server/src/secrets/errors.ts`
-- [ ] 2.2.5 Add multi-resource capability projection — `apps/server/src/rbac/policy-service.ts`
-- [ ] 2.2.6 Implement create, value write, read, list, and versions with version-detail audit events and the agent consumer touch — `apps/server/src/secrets/service.ts`
-- [ ] 2.2.7 Implement consumer summaries and capability attachment — `apps/server/src/secrets/service.ts`
-- [ ] 2.2.8 Add the data-plane rate limiter — `apps/server/src/secrets/rate-limits.ts`
-- [ ] 2.2.9 Add the secret controller with the agent value-read branch — `apps/server/src/controllers/secrets.ts`
-- [ ] 2.2.10 Compose the data runtime and register services/controllers — `apps/server/src/secrets/runtime.ts`, `apps/server/src/app.ts`
-- [ ] 2.2.11 Run the spec tests and reach the green phase
+- [x] 2.2.1 Add the secret repository with name reservation, active versions, consumers, and list filters — `apps/server/src/secrets/repository.ts` ✅ (completed: 2026-11-04 18:05)
+- [x] 2.2.2 Add value decoding, response encoding, and envelope mapping — `apps/server/src/secrets/envelope.ts` ✅ (completed: 2026-11-04 18:05)
+- [x] 2.2.3 Add the HKDF-derived KEK-HMAC idempotency claim and replay helper — `apps/server/src/secrets/idempotency.ts` ✅ (completed: 2026-11-04 18:05)
+- [x] 2.2.4 Add the secret domain errors — `apps/server/src/secrets/errors.ts` ✅ (completed: 2026-11-04 18:05)
+- [x] 2.2.5 Add multi-resource capability projection — `apps/server/src/rbac/policy-service.ts` ✅ (completed: 2026-11-04 18:05)
+- [x] 2.2.6 Implement create, value write, read, list, and versions with version-detail audit events and the agent consumer touch — `apps/server/src/secrets/service.ts` ✅ (completed: 2026-11-04 18:05)
+- [x] 2.2.7 Implement consumer summaries and capability attachment — `apps/server/src/secrets/service.ts` ✅ (completed: 2026-11-04 18:05)
+- [x] 2.2.8 Add the data-plane rate limiter — `apps/server/src/secrets/rate-limits.ts` ✅ (completed: 2026-11-04 18:05)
+- [x] 2.2.9 Add the secret controller with the agent value-read branch — `apps/server/src/controllers/secrets.ts` ✅ (completed: 2026-11-04 18:05)
+- [x] 2.2.10 Compose the data runtime and register services/controllers — `apps/server/src/secrets/runtime.ts`, `apps/server/src/app.ts` ✅ (completed: 2026-11-04 18:05)
+- [x] 2.2.11 Run the spec tests and reach the green phase ✅ (completed: 2026-11-04 18:05)
 
 ### Step 2.3: Implementation Tests and Verification
 
 **Reference**: [07-testing-strategy.md](07-testing-strategy.md) §Implementation Tests · AR-23
 **Objective**: Cover repository, envelope, concurrency, and idempotency edges.
 
-- [ ] 2.3.1 Write secret core implementation tests — `apps/server/tests/integration/secrets.impl.test.ts`
-- [ ] 2.3.2 Write secret contract implementation tests — `packages/api-contract/tests/secrets.impl.test.ts`
-- [ ] 2.3.3 Full phase verification
+- [x] 2.3.1 Write secret core implementation tests — `apps/server/tests/integration/secrets.impl.test.ts` ✅ (completed: 2026-11-04 18:05)
+- [x] 2.3.2 Write secret contract implementation tests — `packages/api-contract/tests/secrets.impl.test.ts` ✅ (completed: 2026-11-04 18:05)
+- [x] 2.3.3 Full phase verification ✅ (completed: 2026-11-04 18:05)
 
 **Deliverables**:
-- [ ] Create, write, read, list, versions, capabilities, consumers, and idempotency complete
-- [ ] All Phase 2 specification and implementation tests passing
-- [ ] `pnpm verify`, `pnpm db:types:check`, and the secret integration tests passing
+- [x] Create, write, read, list, versions, capabilities, consumers, and idempotency complete
+- [x] All Phase 2 specification and implementation tests passing
+- [x] `pnpm verify`, `pnpm db:types:check`, and the secret integration tests passing
 
 **Verify**: `pnpm verify && pnpm db:types:check && TEST_DATABASE_URL=postgres://openvault:test-password@127.0.0.1:5433/openvault_test OPENVAULT_TEST_DB=1 pnpm test:integration`
 

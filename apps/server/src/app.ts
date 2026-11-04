@@ -17,12 +17,14 @@ import { MetaController } from "./controllers/meta.js";
 import { OidcController } from "./controllers/oidc.js";
 import { ProjectsController } from "./controllers/projects.js";
 import { ReadyController } from "./controllers/ready.js";
+import { SecretsController } from "./controllers/secrets.js";
 import { createIdentityRuntime } from "./identity/identity-runtime.js";
 import { createLoggerProvider } from "./observability/logger.js";
 import { ProjectRepository } from "./projects/repository.js";
 import { ProjectService } from "./projects/service.js";
 import { createPolicyRuntime } from "./rbac/runtime.js";
 import { createProductionProbes, ReadinessService } from "./readiness/service.js";
+import { createSecretRuntime } from "./secrets/runtime.js";
 import { KeyringProvider } from "./security/keyring.js";
 import { installPreStack, type PreStackOptions } from "./transport/pre-stack.js";
 import {
@@ -100,6 +102,14 @@ export function createApplication(
     repository: projectRepository,
     policy: policyRuntime.service,
     audit: auditRuntime.writer,
+  });
+  const secretRuntime = createSecretRuntime({
+    database: dependencies.database,
+    keyring: dependencies.keyring,
+    policy: policyRuntime.service,
+    audit: auditRuntime.writer,
+    projectRepository,
+    secretMaxBytes: config.secretMaxBytes,
   });
   const identityRuntime =
     dependencies.agentRuntime?.identityRuntime ??
@@ -209,6 +219,21 @@ export function createApplication(
     factory: () => projectService,
   });
   app.registerService({
+    name: "secretRepository",
+    type: "singleton",
+    factory: () => secretRuntime.repository,
+  });
+  app.registerService({
+    name: "secretService",
+    type: "singleton",
+    factory: () => secretRuntime.service,
+  });
+  app.registerService({
+    name: "secretRateLimits",
+    type: "singleton",
+    factory: () => secretRuntime.rateLimits,
+  });
+  app.registerService({
     name: "identityRuntime",
     type: "singleton",
     factory: () => identityRuntime,
@@ -309,6 +334,7 @@ export function createApplication(
   app.registerController("/v1/auth/cli", CliAuthController);
   app.registerController("/v1/auth", OidcController);
   app.registerController("/v1/admin/projects", ProjectsController);
+  app.registerController("/v1/data", SecretsController);
   app.registerController("/v1/admin/identities", IdentityController);
   app.registerController("/v1/admin/assignments", AssignmentsController);
   app.registerController("/v1/admin/access-explain", AccessExplainController);

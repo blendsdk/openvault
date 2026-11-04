@@ -182,8 +182,12 @@ export type SecretMetadata = z.infer<typeof secretMetadataSchema>;
 export type SecretWriteResponse = z.infer<typeof secretWriteResponseSchema>;
 /** Inferred create request. */
 export type SecretCreateRequest = z.infer<typeof secretCreateRequestSchema>;
+/** Raw create input accepted by the service before defaults are applied. */
+export type SecretCreateInput = z.input<typeof secretCreateRequestSchema>;
 /** Inferred value write request. */
 export type SecretValueWriteRequest = z.infer<typeof secretValueWriteRequestSchema>;
+/** Raw value write input accepted by the service before defaults are applied. */
+export type SecretValueWriteInput = z.input<typeof secretValueWriteRequestSchema>;
 /** Inferred metadata update request. */
 export type SecretMetadataUpdateRequest = z.infer<typeof secretMetadataUpdateRequestSchema>;
 /** Inferred value read query. */
