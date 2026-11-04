@@ -52,6 +52,9 @@ export interface OpenVaultConfig {
   readonly auditRetentionDays: number;
   readonly joinTokenTtlMs: number;
   readonly certTtlDays: number;
+  readonly certExpiryHour: number;
+  readonly certExpiryWebhookUrl?: string;
+  readonly certExpiryWebhookSecret?: string;
   readonly sessionTtlHours: number;
   readonly trustProxy: boolean;
   readonly proxyCidrs: readonly Cidr[];
@@ -95,6 +98,8 @@ export interface RedactedOpenVaultConfig {
   readonly auditRetentionDays: number;
   readonly joinTokenTtlMs: number;
   readonly certTtlDays: number;
+  readonly certExpiryHour: number;
+  readonly webhookConfigured: boolean;
   readonly sessionTtlHours: number;
   readonly trustProxy: boolean;
   readonly proxyCidrs: readonly string[];

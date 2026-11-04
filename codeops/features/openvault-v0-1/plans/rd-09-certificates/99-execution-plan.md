@@ -2,8 +2,8 @@
 
 > **Document**: 99-execution-plan.md
 > **Parent**: [Index](00-index.md)
-> **Last Updated**: 2026-11-04 22:15
-> **Progress**: 17/74 tasks (23%)
+> **Last Updated**: 2026-11-04 23:15
+> **Progress**: 61/74 tasks (82%)
 > **CodeOps Artifact Schema**: 1
 
 ## Overview
@@ -105,33 +105,33 @@ tests, full verification.
 **Reference**: [07-testing-strategy.md](07-testing-strategy.md) ST-35..41, ST-40a..b · [03-02](03-02-certificates.md) · AR-2, AR-11, AR-12, AR-21
 **Objective**: Define create, renewal, versioning, name reservation, and the version limit.
 
-- [ ] 2.1.1 [spec-author] Write import/generate/renew specification tests — `apps/server/tests/integration/certificates-write.spec.test.ts` (ST-35..41, ST-40a..b)
-- [ ] 2.1.2 Run the new spec tests and record the red phase
+- [x] 2.1.1 [spec-author] Write import/generate/renew specification tests — `apps/server/tests/integration/certificates-write.spec.test.ts` (ST-35..41, ST-40a..b) ✅ (completed: 2026-11-04 23:15)
+- [x] 2.1.2 Run the new spec tests and record the red phase ✅ (completed: 2026-11-04 23:15)
 
 ### Step 2.2: Implementation
 
 **Reference**: [03-02 §Repository](03-02-certificates.md) · [03-02 §Import](03-02-certificates.md) · AR-2, AR-11, AR-12, AR-21, AR-25
 **Objective**: Implement certificate persistence and the create-or-renew write path.
 
-- [ ] 2.2.1 Add the certificate repository and list query — `apps/server/src/certificates/repository.ts`
-- [ ] 2.2.2 Add the v2 envelope mapping for certificate versions — `apps/server/src/certificates/envelope.ts`
-- [ ] 2.2.3 Implement import, generation, and renewal with chain-first joined decisions and the `expectedVersionId` guard — `apps/server/src/certificates/service.ts`, `apps/server/src/audit/actions.ts`
-- [ ] 2.2.4 Add the import/generate controller routes, the 10/min write limiter, and error mapping — `apps/server/src/controllers/certificates.ts`, `apps/server/src/certificates/rate-limits.ts`
-- [ ] 2.2.5 Compose the certificate runtime, register the service/controller, and add private-key request-body redaction — `apps/server/src/certificates/runtime.ts`, `apps/server/src/observability/logger.ts`, `apps/server/src/app.ts`
-- [ ] 2.2.6 Run the write spec tests and reach the green phase
+- [x] 2.2.1 Add the certificate repository and list query — `apps/server/src/certificates/repository.ts` ✅ (completed: 2026-11-04 23:15)
+- [x] 2.2.2 Add the v2 envelope mapping for certificate versions — `apps/server/src/certificates/envelope.ts` ✅ (completed: 2026-11-04 23:15)
+- [x] 2.2.3 Implement import, generation, and renewal with chain-first joined decisions and the `expectedVersionId` guard — `apps/server/src/certificates/service.ts`, `apps/server/src/audit/actions.ts` ✅ (completed: 2026-11-04 23:15)
+- [x] 2.2.4 Add the import/generate controller routes, the 10/min write limiter, and error mapping — `apps/server/src/controllers/certificates.ts`, `apps/server/src/certificates/rate-limits.ts` ✅ (completed: 2026-11-04 23:15)
+- [x] 2.2.5 Compose the certificate runtime, register the service/controller, and add private-key request-body redaction — `apps/server/src/certificates/runtime.ts`, `apps/server/src/observability/logger.ts`, `apps/server/src/app.ts` ✅ (completed: 2026-11-04 23:15)
+- [x] 2.2.6 Run the write spec tests and reach the green phase ✅ (completed: 2026-11-04 23:15)
 
 ### Step 2.3: Implementation Tests and Verification
 
 **Reference**: [07-testing-strategy.md](07-testing-strategy.md) §Implementation Tests · AR-21
 **Objective**: Prove concurrency, rollback, and envelope behavior.
 
-- [ ] 2.3.1 Write write-path implementation tests — `apps/server/tests/integration/certificates-write.impl.test.ts` (concurrent renewal, rollback, version limit, `expectedVersionId`, tags on renewal)
-- [ ] 2.3.2 Run `pnpm verify`, `pnpm db:types:check`, and the certificate write tests
+- [x] 2.3.1 Write write-path implementation tests — `apps/server/tests/integration/certificates-write.impl.test.ts` (concurrent renewal, rollback, version limit, `expectedVersionId`, tags on renewal) ✅ (completed: 2026-11-04 23:15)
+- [x] 2.3.2 Run `pnpm verify`, `pnpm db:types:check`, and the certificate write tests ✅ (completed: 2026-11-04 23:15)
 
 **Deliverables**:
 - [ ] Import, generation, and renewal complete with immutable versions
 - [ ] Private keys encrypted with the certificate AAD; no key in any response
-- [ ] All Phase 2 specification and implementation tests passing
+- [x] All Phase 2 specification and implementation tests passing ✅
 
 **Verify**: `pnpm verify && OPENVAULT_DB_URL=postgres://openvault:test-password@127.0.0.1:5433/openvault_test pnpm db:migrate && OPENVAULT_DB_URL=postgres://openvault:test-password@127.0.0.1:5433/openvault_test pnpm db:types:check && TEST_DATABASE_URL=postgres://openvault:test-password@127.0.0.1:5433/openvault_test OPENVAULT_TEST_DB=1 pnpm test:integration`
 
@@ -149,35 +149,35 @@ tests, full verification.
 **Reference**: [07-testing-strategy.md](07-testing-strategy.md) ST-42..61, ST-43a..b, ST-48, ST-95, ST-97 · [03-02 §Public Read](03-02-certificates.md) · AR-4, AR-21..AR-25, AR-31, AR-34
 **Objective**: Define public/private reads, expired-version behavior, list/search, and capabilities.
 
-- [ ] 3.1.1 [spec-author] Write read/list/private-key/expiry/AAD specification tests — `apps/server/tests/integration/certificates-read.spec.test.ts` (ST-42..61, ST-43a..b, ST-48, ST-95, ST-97)
-- [ ] 3.1.2 [spec-author] Write HTTP, authorization-matrix, tenant-isolation, and leakage specification tests — `apps/server/tests/integration/certificates-http.spec.test.ts` (ST-86..92, ST-88a, ST-96)
-- [ ] 3.1.3 Run the new spec tests and record the red phase
+- [x] 3.1.1 [spec-author] Write read/list/private-key/expiry/AAD specification tests — `apps/server/tests/integration/certificates-read.spec.test.ts` (ST-42..61, ST-43a..b, ST-48, ST-95, ST-97) ✅ (completed: 2026-11-04 23:15)
+- [x] 3.1.2 [spec-author] Write HTTP, authorization-matrix, tenant-isolation, and leakage specification tests — `apps/server/tests/integration/certificates-http.spec.test.ts` (ST-86..92, ST-88a, ST-96) ✅ (completed: 2026-11-04 23:15)
+- [x] 3.1.3 Run the new spec tests and record the red phase ✅ (completed: 2026-11-04 23:15)
 
 ### Step 3.2: Implementation
 
 **Reference**: [03-02 §Public Read](03-02-certificates.md) · [03-02 §Private-Key Read](03-02-certificates.md) · [03-02 §List and Search](03-02-certificates.md) · AR-4, AR-21..AR-25, AR-31, AR-34
 **Objective**: Implement the read surface, search, capabilities, and the private-read limiter.
 
-- [ ] 3.2.1 Implement public and private reads with visibility pre-checks, one outcome event, decrypt-before-audit for private keys, and expiry rules — `apps/server/src/certificates/service.ts`
-- [ ] 3.2.2 Implement list, subject/SAN/expiry filters, and cursor pagination — `apps/server/src/certificates/service.ts`, `apps/server/src/certificates/repository.ts`
-- [ ] 3.2.3 Attach capabilities from one actor snapshot — `apps/server/src/certificates/service.ts`
-- [ ] 3.2.4 Add the 30/min private-key limiter — `apps/server/src/certificates/rate-limits.ts`
-- [ ] 3.2.5 Add the read/list/private-key controller routes and the transport-level 413 path — `apps/server/src/controllers/certificates.ts`, `packages/api-contract/src/certificates.ts`
-- [ ] 3.2.6 Run the read spec tests and reach the green phase
+- [x] 3.2.1 Implement public and private reads with visibility pre-checks, one outcome event, decrypt-before-audit for private keys, and expiry rules — `apps/server/src/certificates/service.ts` ✅ (completed: 2026-11-04 23:15)
+- [x] 3.2.2 Implement list, subject/SAN/expiry filters, and cursor pagination — `apps/server/src/certificates/service.ts`, `apps/server/src/certificates/repository.ts` ✅ (completed: 2026-11-04 23:15)
+- [x] 3.2.3 Attach capabilities from one actor snapshot — `apps/server/src/certificates/service.ts` ✅ (completed: 2026-11-04 23:15)
+- [x] 3.2.4 Add the 30/min private-key limiter — `apps/server/src/certificates/rate-limits.ts` ✅ (completed: 2026-11-04 23:15)
+- [x] 3.2.5 Add the read/list/private-key controller routes and the transport-level 413 path — `apps/server/src/controllers/certificates.ts`, `packages/api-contract/src/certificates.ts` ✅ (completed: 2026-11-04 23:15)
+- [x] 3.2.6 Run the read spec tests and reach the green phase ✅ (completed: 2026-11-04 23:15)
 
 ### Step 3.3: Implementation Tests and Verification
 
 **Reference**: [07-testing-strategy.md](07-testing-strategy.md) §Implementation Tests · AR-22..AR-25
 **Objective**: Prove AAD separation, cursor edges, wildcard search, and leakage safety.
 
-- [ ] 3.3.1 Write read implementation tests — `apps/server/tests/integration/certificates-read.impl.test.ts` (AAD separation, wildcard search, cursor continuation, agent listener, rate limit, read-evidence failure)
-- [ ] 3.3.2 Run `pnpm verify`, `pnpm db:types:check`, and the certificate read tests
+- [x] 3.3.1 Write read implementation tests — `apps/server/tests/integration/certificates-read.impl.test.ts` (AAD separation, wildcard search, cursor continuation, agent listener, rate limit, read-evidence failure) ✅ (completed: 2026-11-04 23:15)
+- [x] 3.3.2 Run `pnpm verify`, `pnpm db:types:check`, and the certificate read tests ✅ (completed: 2026-11-04 23:15)
 
 **Deliverables**:
-- [ ] Public/private reads, list, search, and capabilities complete
-- [ ] Expired reads return 410 unless `?version=` is explicit
-- [ ] No PEM or key material in metadata, lists, logs, errors, or audit events
-- [ ] All Phase 3 specification and implementation tests passing
+- [x] Public/private reads, list, search, and capabilities complete ✅
+- [x] Expired reads return 410 unless `?version=` is explicit ✅
+- [x] No PEM or key material in metadata, lists, logs, errors, or audit events ✅
+- [x] All Phase 3 specification and implementation tests passing ✅
 
 **Verify**: `pnpm verify && OPENVAULT_DB_URL=postgres://openvault:test-password@127.0.0.1:5433/openvault_test pnpm db:migrate && OPENVAULT_DB_URL=postgres://openvault:test-password@127.0.0.1:5433/openvault_test pnpm db:types:check && TEST_DATABASE_URL=postgres://openvault:test-password@127.0.0.1:5433/openvault_test OPENVAULT_TEST_DB=1 pnpm test:integration`
 
@@ -195,33 +195,33 @@ tests, full verification.
 **Reference**: [07-testing-strategy.md](07-testing-strategy.md) ST-62..74, ST-62a, ST-93, ST-94 · [03-03](03-03-lifecycle-purge.md) · AR-11..AR-15
 **Objective**: Define metadata update, delete, recovery, protection, retention, purge, and the RD-08 parity.
 
-- [ ] 4.1.1 [spec-author] Write lifecycle specification tests — `apps/server/tests/integration/certificates-lifecycle.spec.test.ts` (ST-62..74, ST-62a, ST-93, ST-94)
-- [ ] 4.1.2 Run the lifecycle spec tests and record the red phase
+- [x] 4.1.1 [spec-author] Write lifecycle specification tests — `apps/server/tests/integration/certificates-lifecycle.spec.test.ts` (ST-62..74, ST-62a, ST-93, ST-94) ✅ (completed: 2026-11-04 23:15)
+- [x] 4.1.2 Run the lifecycle spec tests and record the red phase ✅ (completed: 2026-11-04 23:15)
 
 ### Step 4.2: Implementation
 
 **Reference**: [03-03 §Generalized Purger](03-03-lifecycle-purge.md) · [03-03 §Purge](03-03-lifecycle-purge.md) · AR-11..AR-15
 **Objective**: Generalize the purger and implement the complete certificate lifecycle.
 
-- [ ] 4.2.1 Generalize `SecretPurger` into `VaultPurger` with both families, project/name/id predicates, the five-owner guard, a stable error type, and one pool — `apps/server/src/purge/{vault-purger,errors}.ts`
-- [ ] 4.2.2 Switch the secret runtime/service/app wiring to `VaultPurger`, update the two RD-08 lifecycle test files, and preserve their behavior — `apps/server/src/secrets/{purge,runtime,service}.ts`, `apps/server/src/app.ts`, `apps/server/tests/integration/secrets-lifecycle.{spec,impl}.test.ts`
-- [ ] 4.2.3 Implement PATCH with a locked deleted check, auth-before-state purge, delete, recovery, and purge with joined/error outcomes — `apps/server/src/certificates/lifecycle.ts`, `apps/server/src/certificates/service.ts`
-- [ ] 4.2.4 Add the PATCH/lifecycle controller routes and their visibility pre-checks — `apps/server/src/controllers/certificates.ts`
-- [ ] 4.2.5 Extend the disposable purge role with all certificate and notification grants — `apps/server/tests/integration/helpers/purger.ts`
-- [ ] 4.2.6 Run the lifecycle spec tests and reach the green phase
+- [x] 4.2.1 Generalize `SecretPurger` into `VaultPurger` with both families, project/name/id predicates, the five-owner guard, a stable error type, and one pool — `apps/server/src/purge/{vault-purger,errors}.ts` ✅ (completed: 2026-11-04 23:15)
+- [x] 4.2.2 Switch the secret runtime/service/app wiring to `VaultPurger`, update the two RD-08 lifecycle test files, and preserve their behavior — `apps/server/src/secrets/{purge,runtime,service}.ts`, `apps/server/src/app.ts`, `apps/server/tests/integration/secrets-lifecycle.{spec,impl}.test.ts` ✅ (completed: 2026-11-04 23:15)
+- [x] 4.2.3 Implement PATCH with a locked deleted check, auth-before-state purge, delete, recovery, and purge with joined/error outcomes — `apps/server/src/certificates/lifecycle.ts`, `apps/server/src/certificates/service.ts` ✅ (completed: 2026-11-04 23:15)
+- [x] 4.2.4 Add the PATCH/lifecycle controller routes and their visibility pre-checks — `apps/server/src/controllers/certificates.ts` ✅ (completed: 2026-11-04 23:15)
+- [x] 4.2.5 Extend the disposable purge role with all certificate and notification grants — `apps/server/tests/integration/helpers/purger.ts` ✅ (completed: 2026-11-04 23:15)
+- [x] 4.2.6 Run the lifecycle spec tests and reach the green phase ✅ (completed: 2026-11-04 23:15)
 
 ### Step 4.3: Implementation Tests and Verification
 
 **Reference**: [07-testing-strategy.md](07-testing-strategy.md) §Implementation Tests · AR-13..AR-15
 **Objective**: Prove purge guards, notification cleanup, and name reservation.
 
-- [ ] 4.3.1 Write lifecycle implementation tests — `apps/server/tests/integration/certificates-lifecycle.impl.test.ts` (purger guards, notification cleanup, name reservation, concurrent delete/recover, RD-08 secret purge)
-- [ ] 4.3.2 Run `pnpm verify`, `pnpm db:types:check`, and the lifecycle tests
+- [x] 4.3.1 Write lifecycle implementation tests — `apps/server/tests/integration/certificates-lifecycle.impl.test.ts` (purger guards, notification cleanup, name reservation, concurrent delete/recover, RD-08 secret purge) ✅ (completed: 2026-11-04 23:15)
+- [x] 4.3.2 Run `pnpm verify`, `pnpm db:types:check`, and the lifecycle tests ✅ (completed: 2026-11-04 23:15)
 
 **Deliverables**:
-- [ ] Metadata, delete, recovery, one-way protection, retention, and purge complete
-- [ ] One verified `VaultPurger` handles both families and removes notification rows
-- [ ] All Phase 4 specification and implementation tests passing
+- [x] Metadata, delete, recovery, one-way protection, retention, and purge complete ✅
+- [x] One verified `VaultPurger` handles both families and removes notification rows ✅
+- [x] All Phase 4 specification and implementation tests passing ✅
 
 **Verify**: `pnpm verify && OPENVAULT_DB_URL=postgres://openvault:test-password@127.0.0.1:5433/openvault_test pnpm db:migrate && OPENVAULT_DB_URL=postgres://openvault:test-password@127.0.0.1:5433/openvault_test pnpm db:types:check && TEST_DATABASE_URL=postgres://openvault:test-password@127.0.0.1:5433/openvault_test OPENVAULT_TEST_DB=1 pnpm test:integration`
 
@@ -239,36 +239,36 @@ tests, full verification.
 **Reference**: [07-testing-strategy.md](07-testing-strategy.md) ST-75..85, ST-75a, ST-77a..c, ST-82a, ST-85a..b · [03-04](03-04-expiry.md) · AR-16..AR-21, AR-26
 **Objective**: Define thresholds, idempotency, retry, payload, audit, and scheduling.
 
-- [ ] 5.1.1 [spec-author] Write expiry specification tests — `apps/server/tests/integration/certificates-expiry.spec.test.ts` (ST-75..85, ST-75a, ST-77a..c, ST-82a, ST-85a..b)
-- [ ] 5.1.2 Add the local webhook test server helper — `apps/server/tests/integration/helpers/webhook.ts`
-- [ ] 5.1.3 Run the expiry spec tests and record the red phase
+- [x] 5.1.1 [spec-author] Write expiry specification tests — `apps/server/tests/integration/certificates-expiry.spec.test.ts` (ST-75..85, ST-75a, ST-77a..c, ST-82a, ST-85a..b) ✅ (completed: 2026-11-04 23:15)
+- [x] 5.1.2 Add the local webhook test server helper — `apps/server/tests/integration/helpers/webhook.ts` ✅ (completed: 2026-11-04 23:15)
+- [x] 5.1.3 Run the expiry spec tests and record the red phase ✅ (completed: 2026-11-04 23:15)
 
 ### Step 5.2: Implementation
 
 **Reference**: [03-04 §Expiry Repository](03-04-expiry.md) · [03-04 §Webhook](03-04-expiry.md) · [03-04 §Scheduler](03-04-expiry.md) · AR-16..AR-21, AR-26
 **Objective**: Implement the daily scan, durable claims, webhook, schedule, and audit action.
 
-- [ ] 5.2.1 Add `certificate.expiry_warning` to the audit catalog and details allowlist — `packages/api-contract/src/audit.ts`, `apps/server/src/audit/actions.ts`
-- [ ] 5.2.2 Add the expiry repository with `listExpiring`, lease-aware `claim`, `markSent`, `deleteClaim`, and `hasAuditEvent` — `apps/server/src/certificates/expiry/repository.ts`
-- [ ] 5.2.3 Add the timestamped HMAC webhook sender with timeout and no redirects — `apps/server/src/certificates/expiry/webhook.ts`
-- [ ] 5.2.4 Implement `runOnce` with raw-millisecond thresholds, short transactions, stale-lease reclaim, audit-event dedupe, the version detail, and retry semantics — `apps/server/src/certificates/expiry/service.ts`
-- [ ] 5.2.5 Add the UTC daily scheduler with catch/finally next-run scheduling — `apps/server/src/certificates/expiry/scheduler.ts`
-- [ ] 5.2.6 Add the UTC expiry hour and webhook settings; reject credentials, fragments, and production link-local/metadata URLs; redact the URL and secret — `apps/server/src/config/{types,loader,redact}.ts`
-- [ ] 5.2.7 Compose and dispose the expiry service and scheduler; add `disableBackgroundJobs` to the dependency type and set it in the test application — `apps/server/src/app.ts`, `apps/server/src/transport/secure-application.ts`
-- [ ] 5.2.8 Run the expiry spec tests and reach the green phase
+- [x] 5.2.1 Add `certificate.expiry_warning` to the audit catalog and details allowlist — `packages/api-contract/src/audit.ts`, `apps/server/src/audit/actions.ts` ✅ (completed: 2026-11-04 23:15)
+- [x] 5.2.2 Add the expiry repository with `listExpiring`, lease-aware `claim`, `markSent`, `deleteClaim`, and `hasAuditEvent` — `apps/server/src/certificates/expiry/repository.ts` ✅ (completed: 2026-11-04 23:15)
+- [x] 5.2.3 Add the timestamped HMAC webhook sender with timeout and no redirects — `apps/server/src/certificates/expiry/webhook.ts` ✅ (completed: 2026-11-04 23:15)
+- [x] 5.2.4 Implement `runOnce` with raw-millisecond thresholds, short transactions, stale-lease reclaim, audit-event dedupe, the version detail, and retry semantics — `apps/server/src/certificates/expiry/service.ts` ✅ (completed: 2026-11-04 23:15)
+- [x] 5.2.5 Add the UTC daily scheduler with catch/finally next-run scheduling — `apps/server/src/certificates/expiry/scheduler.ts` ✅ (completed: 2026-11-04 23:15)
+- [x] 5.2.6 Add the UTC expiry hour and webhook settings; reject credentials, fragments, and production link-local/metadata URLs; redact the URL and secret — `apps/server/src/config/{types,loader,redact}.ts` ✅ (completed: 2026-11-04 23:15)
+- [x] 5.2.7 Compose and dispose the expiry service and scheduler; add `disableBackgroundJobs` to the dependency type and set it in the test application — `apps/server/src/app.ts`, `apps/server/src/transport/secure-application.ts` ✅ (completed: 2026-11-04 23:15)
+- [x] 5.2.8 Run the expiry spec tests and reach the green phase ✅ (completed: 2026-11-04 23:15)
 
 ### Step 5.3: Implementation Tests and Verification
 
 **Reference**: [07-testing-strategy.md](07-testing-strategy.md) §Implementation Tests · AR-18..AR-20
 **Objective**: Prove claim races, HMAC, retries, and scheduler math.
 
-- [ ] 5.3.1 Write expiry implementation tests — `apps/server/tests/integration/certificates-expiry.impl.test.ts` (concurrent runs, stale-lease reclaim, crash-after-claim, mark-sent failure, audit dedupe, HMAC timestamp, timeout, redirect, malformed claims, next-run math)
-- [ ] 5.3.2 Run `pnpm verify`, `pnpm db:types:check`, and the expiry tests
+- [x] 5.3.1 Write expiry implementation tests — `apps/server/tests/integration/certificates-expiry.impl.test.ts` (concurrent runs, stale-lease reclaim, crash-after-claim, mark-sent failure, audit dedupe, HMAC timestamp, timeout, redirect, malformed claims, next-run math) ✅ (completed: 2026-11-04 23:15)
+- [x] 5.3.2 Run `pnpm verify`, `pnpm db:types:check`, and the expiry tests ✅ (completed: 2026-11-04 23:15)
 
 **Deliverables**:
-- [ ] Daily expiry scan, durable claims, webhook delivery, retry, and audit complete
-- [ ] One warning per `(version, threshold)` in normal operation
-- [ ] All Phase 5 specification and implementation tests passing
+- [x] Daily expiry scan, durable claims, webhook delivery, retry, and audit complete ✅
+- [x] One warning per `(version, threshold)` in normal operation ✅
+- [x] All Phase 5 specification and implementation tests passing ✅
 
 **Verify**: `pnpm verify && OPENVAULT_DB_URL=postgres://openvault:test-password@127.0.0.1:5433/openvault_test pnpm db:migrate && OPENVAULT_DB_URL=postgres://openvault:test-password@127.0.0.1:5433/openvault_test pnpm db:types:check && TEST_DATABASE_URL=postgres://openvault:test-password@127.0.0.1:5433/openvault_test OPENVAULT_TEST_DB=1 pnpm test:integration`
 

@@ -1,3 +1,4 @@
+import { isIP } from "node:net";
 import { z } from "zod";
 import { DatabaseUrlError, parseDatabaseUrl } from "../db/url.js";
 import { parseCidrList } from "./cidr.js";
@@ -24,6 +25,64 @@ function blankToUndefined(value: unknown): unknown {
 
 /** Treats a blank optional value the same way an absent value is treated. */
 const optionalString = z.preprocess(blankToUndefined, z.string().optional());
+
+/** Validates the optional expiry webhook URL. */
+function parseWebhookUrl(
+  value: string | undefined,
+  envMode: EnvMode,
+  context: z.RefinementCtx,
+): string | undefined {
+  if (value === undefined) {
+    return undefined;
+  }
+  let url: URL;
+  try {
+    url = new URL(value);
+  } catch {
+    context.addIssue({
+      code: "custom",
+      path: ["OPENVAULT_CERT_EXPIRY_WEBHOOK_URL"],
+      message: "must be an absolute URL",
+    });
+    return undefined;
+  }
+  const loopback =
+    url.hostname === "localhost" ||
+    url.hostname === "127.0.0.1" ||
+    url.hostname === "::1" ||
+    url.hostname === "[::1]";
+  if (
+    url.protocol !== "https:" &&
+    !(envMode !== "production" && url.protocol === "http:" && loopback)
+  ) {
+    context.addIssue({
+      code: "custom",
+      path: ["OPENVAULT_CERT_EXPIRY_WEBHOOK_URL"],
+      message: "must use HTTPS",
+    });
+    return undefined;
+  }
+  if (url.username !== "" || url.password !== "" || url.hash !== "") {
+    context.addIssue({
+      code: "custom",
+      path: ["OPENVAULT_CERT_EXPIRY_WEBHOOK_URL"],
+      message: "must not contain credentials or a fragment",
+    });
+    return undefined;
+  }
+  if (envMode === "production") {
+    const address = url.hostname.replace(/^\[|\]$/g, "");
+    if ((isIP(address) === 4 && address.startsWith("169.254.")) || address === "fd00:ec2::254") {
+      context.addIssue({
+        code: "custom",
+        path: ["OPENVAULT_CERT_EXPIRY_WEBHOOK_URL"],
+        message: "must not target a link-local address",
+      });
+      return undefined;
+    }
+  }
+  return url.toString();
+}
 
 /**
  * Wraps a field parser so a {@link ConfigError} becomes a Zod issue on that
@@ -285,6 +344,12 @@ const configSchema = z
     OPENVAULT_OIDC_REDIRECT_URL: optionalString,
     OPENVAULT_OIDC_ALLOWED_DOMAINS: optionalString,
     OPENVAULT_PURGE_DB_URL: optionalString,
+    OPENVAULT_CERT_EXPIRY_HOUR: integerField("OPENVAULT_CERT_EXPIRY_HOUR", 3, 0, 23),
+    OPENVAULT_CERT_EXPIRY_WEBHOOK_URL: optionalString,
+    OPENVAULT_CERT_EXPIRY_WEBHOOK_SECRET: z.preprocess(
+      blankToUndefined,
+      z.string().min(16).max(256).optional(),
+    ),
     OPENVAULT_SECRET_MAX_BYTES: integerField("OPENVAULT_SECRET_MAX_BYTES", 65_536, 1_024, 65_536),
     OPENVAULT_CERT_MAX_BYTES: integerField("OPENVAULT_CERT_MAX_BYTES", 131_072, 1_024, 131_072),
     OPENVAULT_SOFT_DELETE_DAYS: integerField("OPENVAULT_SOFT_DELETE_DAYS", 30, 7, 90),
@@ -336,6 +401,12 @@ const configSchema = z
       context,
     );
 
+    const certExpiryWebhookUrl = parseWebhookUrl(
+      value.OPENVAULT_CERT_EXPIRY_WEBHOOK_URL,
+      value.ENV_MODE,
+      context,
+    );
+
     return Object.freeze({
       baseUrl: value.OPENVAULT_BASE_URL,
       adminPort,
@@ -360,6 +431,11 @@ const configSchema = z
       auditRetentionDays: value.OPENVAULT_AUDIT_RETENTION_DAYS,
       joinTokenTtlMs: value.OPENVAULT_JOIN_TOKEN_TTL,
       certTtlDays: value.OPENVAULT_CERT_TTL_DAYS,
+      certExpiryHour: value.OPENVAULT_CERT_EXPIRY_HOUR,
+      ...(certExpiryWebhookUrl === undefined ? {} : { certExpiryWebhookUrl }),
+      ...(value.OPENVAULT_CERT_EXPIRY_WEBHOOK_SECRET === undefined
+        ? {}
+        : { certExpiryWebhookSecret: value.OPENVAULT_CERT_EXPIRY_WEBHOOK_SECRET }),
       sessionTtlHours: value.OPENVAULT_SESSION_TTL_HOURS,
       trustProxy: value.OPENVAULT_TRUST_PROXY,
       proxyCidrs: value.OPENVAULT_PROXY_CIDRS,

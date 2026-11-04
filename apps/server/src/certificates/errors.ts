@@ -10,6 +10,7 @@ export type CertificateErrorCode =
   | "certificate_retention_active"
   | "certificate_too_large"
   | "certificate_version_conflict"
+  | "certificate_version_not_found"
   | "certificate_version_limit"
   | "idempotency_conflict"
   | "project_not_found"

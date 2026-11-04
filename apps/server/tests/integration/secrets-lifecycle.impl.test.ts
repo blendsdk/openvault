@@ -2,9 +2,9 @@ import { newUlid } from "@openvault/core";
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
 import { createAuditCore } from "../../src/audit/runtime.js";
 import { ProjectRepository } from "../../src/projects/repository.js";
+import { VaultPurger } from "../../src/purge/vault-purger.js";
 import { PolicyRepository } from "../../src/rbac/policy-repository.js";
 import { PolicyService } from "../../src/rbac/policy-service.js";
-import { SecretPurger } from "../../src/secrets/purge.js";
 import { SecretRepository } from "../../src/secrets/repository.js";
 import { SecretService } from "../../src/secrets/service.js";
 import { KeyringProvider } from "../../src/security/keyring.js";
@@ -21,7 +21,7 @@ let environment: ReturnType<typeof createServerEnvironment>;
 let keyring: KeyringProvider;
 let secrets: SecretService;
 let policy: PolicyService;
-let purger: SecretPurger | undefined;
+let purger: VaultPurger | undefined;
 
 function secretName(prefix: string): string {
   return `${prefix}-${newUlid().slice(-10).toLowerCase()}`;
@@ -53,7 +53,7 @@ beforeAll(async () => {
   purger =
     purgeUrl === undefined
       ? undefined
-      : new SecretPurger({ url: purgeUrl, appDatabase: testDb.name });
+      : new VaultPurger({ url: purgeUrl, appDatabase: testDb.name });
   secrets = new SecretService({
     database: testDb.db,
     keyring,
@@ -85,7 +85,7 @@ describe("secret lifecycle implementation", () => {
     await secrets.delete(actors.orgAdmin, "foundation", name);
     await makePurgeable(created.id);
 
-    const appRole = new SecretPurger({ url: testDb.url, appDatabase: testDb.name });
+    const appRole = new VaultPurger({ url: testDb.url, appDatabase: testDb.name });
     try {
       const service = new SecretService({
         database: testDb.db,
@@ -109,7 +109,7 @@ describe("secret lifecycle implementation", () => {
     if (purger === undefined) {
       return;
     }
-    const wrongDatabase = new SecretPurger({
+    const wrongDatabase = new VaultPurger({
       url: testDb.url.replace(/\/openvault_test_[^/?]+/, "/openvault_test_missing"),
       appDatabase: "openvault_test_missing",
     });

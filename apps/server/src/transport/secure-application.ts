@@ -60,6 +60,8 @@ export interface SecureApplicationDependencies {
   readonly agentOverrides?: AgentTestOverrides;
   /** Shared logger provider; created by the caller when absent. */
   readonly logger?: PinoLoggerProvider;
+  /** Test-only switch that prevents background timers from starting. */
+  readonly disableBackgroundJobs?: boolean;
 }
 
 /** Test-only agent collaborations for offline listener tests. */
