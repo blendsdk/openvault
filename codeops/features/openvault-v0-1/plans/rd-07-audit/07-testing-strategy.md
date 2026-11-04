@@ -33,7 +33,7 @@
 | ST-5 | Value `undefined`, a function, or a bigint | Throws `CanonicalJsonError` | 03-01 §Canonical JSON |
 | ST-6 | `NaN`, `Infinity`, or `-Infinity` | Throws `CanonicalJsonError` | 03-01 §Canonical JSON |
 | ST-7 | Object nested nine levels deep | Throws `CanonicalJsonError` at depth 9 | 03-01 §Canonical JSON |
-| ST-8 | Full event canonical object with a 32-byte previous hash and key id | Hash equals `SHA-256(prevHashBytes || canonicalUtf8)`; HMAC equals `HMAC-SHA256(key, hash)` | 03-01 §Hash and HMAC, AR-8 |
+| ST-8 | Full event canonical object with a 32-byte previous hash and key id; fixed primitive vector: canonical `{"a":1}`, 32 zero previous-hash bytes, 32-byte key of `0x01` | Hash equals `SHA-256(prevHashBytes || canonicalUtf8)`; HMAC equals `HMAC-SHA256(key, hash)`. Fixed vector: hash `b06a229070741292512e8760f470dd7a4c46ccfdf253df781d88dabe58c1ccb1`, HMAC `8c7b84a570485cb48ee49ba770b376011aa92022a3e866b8a62bc0fc494093e0` | 03-01 §Hash and HMAC, AR-8 |
 
 ### Chain, Keys, and Checkpoints
 
@@ -45,7 +45,7 @@
 | ST-12 | Record two events with identical business fields | Different `event_id`, `ts`, `hash`, and `hmac`; both retained | 03-01 §Writer |
 | ST-13 | Record after a key already exists | The existing key id is reused; `audit_keys` still has one row | 03-01 §Audit Key Store, AR-9 |
 | ST-14 | Record while the keyring does not contain the row's KEK | Throws `AuditKeyUnavailableError`; no `audit_events` row | 03-01 §Audit Key Store, AR-9 |
-| ST-15 | Record 1,000 events with the default cadence | Checkpoints exist at the first event and at event 1,000; no checkpoint at event 999 | 03-01 §Checkpoints, AR-11 |
+| ST-15 | Record 1,001 events with the default cadence | Checkpoints exist at the first event and at event 1,001; no checkpoint at event 1,000 | 03-01 §Checkpoints, AR-11 |
 | ST-16 | Record one event, advance the injected clock 24 hours, record another | A checkpoint is written at the second event | 03-01 §Checkpoints, AR-11 |
 | ST-17 | Record with a `details` key not in the action allowlist, e.g. `token` | Throws `AuditInputError`; no row | 03-01 §Action Catalog, AR-16 |
 | ST-18 | Record with 17 KiB of details | Throws `AuditInputError`; no row | 03-01 §Action Catalog, AR-16 |
@@ -66,7 +66,7 @@
 | ST-28 | Combined `actorId`, `objectType`, and `objectId` filters | Only the matching rows | 03-02 §Query Service |
 | ST-29 | Use a valid cursor with a different `action` filter | 422 `validation_error`; no rows returned | 03-02 §Cursor, AR-13 |
 | ST-30 | Tamper with one cursor character | 422 `validation_error` | 03-02 §Cursor, AR-13 |
-| ST-31 | `limit=0` or `limit=501` | 422 `validation_error` | 03-02 §Public Contracts, AR-13 |
+| ST-31 | `limit=0` or `limit=501`; `objectId` without `objectType` | 422 `validation_error` | 03-02 §Public Contracts, AR-13 |
 | ST-32 | Project auditor queries without a project filter | Only rows for granted projects; another project's row and org/system rows are absent | 03-02 §Authorization, AR-14 |
 | ST-33 | Project auditor queries a project outside the grant | 403 `access_denied`; no rows | 03-02 §Authorization, AR-14 |
 
@@ -75,16 +75,17 @@
 | # | Input / Scenario | Expected Output / Behavior | Source |
 |---|---|---|---|
 | ST-34 | Verify a clean chain | `ok: true`; `checkedRange` covers the first through last event; `reason: "ok"` | 03-02 §Verify Service, AR-12 |
-| ST-35 | Edit an event's `result` with triggers disabled | `ok: false`; `firstBrokenEventId` is that event; `reason: "hash_mismatch"`; one `audit.verify` event with result `error` | 03-02 §Verify Service, AR-12, AR-17 |
+| ST-35 | Edit the first retained event's `result` while its checkpoint exists, with triggers disabled | `ok: false`; `firstBrokenEventId` is that event; `reason: "hash_mismatch"`; the anchor event is rehashed, not trusted from its stored hash; one `audit.verify` event with result `error` | 03-02 §Verify Service, AR-12, AR-17 |
 | ST-36 | Edit an event's `details` with triggers disabled | `ok: false` at that event; `reason: "hash_mismatch"` | 03-02 §Verify Service, AR-12 |
 | ST-37 | Edit an event's `hash` with triggers disabled | `ok: false` at that event; `reason: "hash_mismatch"` | 03-02 §Verify Service, AR-12 |
 | ST-38 | Delete a middle event with triggers disabled | `ok: false` at the next retained event; `reason: "prev_hash_mismatch"` | 03-02 §Verify Service, AR-12 |
-| ST-39 | Record 1,000 events so the latest checkpoint anchors the tail, then delete the last event with triggers disabled | `ok: false`; `reason: "tail_truncated"`; `firstBrokenEventId` null | 03-02 §Verify Service, AR-12 |
+| ST-39 | Record 1,001 events so the latest checkpoint anchors the tail, delete the last event with triggers disabled, then add a newer checkpoint | `ok: false`; `reason: "tail_truncated"`; the older checkpoint is still checked, so a newer checkpoint cannot mask the deletion; `firstBrokenEventId` null | 03-02 §Verify Service, AR-12 |
 | ST-40 | Remove all checkpoints and delete the genesis event | `ok: false`; `reason: "missing_checkpoint"` at the first retained event | 03-02 §Verify Service, AR-12 |
-| ST-41 | Verify an empty chain | `ok: true`; `checkedRange: null`; `reason: "empty_chain"` | 03-02 §Verify Service, AR-12 |
+| ST-41 | Verify an empty chain with no checkpoints | `ok: true`; `checkedRange: null`; `reason: "empty_chain"` | 03-02 §Verify Service, AR-12 |
 | ST-42 | Project auditor calls verify | 403 `access_denied`; no chain details | 03-02 §Authorization, AR-14 |
 | ST-43 | Org auditor calls verify | 200; one `audit.read` allow event and one `audit.verify` event | 03-02 §Authorization, AR-1, AR-14 |
-| ST-92 | Remove the KEK that unwraps one event's audit key, then verify | `ok: false`; `firstBrokenEventId` is that event; `reason: "key_unavailable"` | 03-02 §Verify Service, AR-12 |
+| ST-92 | Remove the KEK that unwraps one event's audit key and the latest checkpoint's key, then verify | `ok: false`; `firstBrokenEventId` is the event whose key is missing, or null for a checkpoint-level failure; `reason: "key_unavailable"`; no checkpoint is skipped | 03-02 §Verify Service, AR-12 |
+| ST-96 | Empty `audit_events` table with a surviving checkpoint | `ok: false`; `checkedRange: null`; `firstBrokenEventId: null`; `reason: "tail_truncated"` | 03-02 §Verify Service, AR-12 |
 
 ### Export
 
@@ -104,7 +105,7 @@
 | ST-50 | Successful `identity.revoke` | Exactly one allow decision with object type `identity` and the identity id | 03-03 §Identity, AR-19 |
 | ST-51 | Denied `identity.revoke` | Exactly one deny decision; no duplicate `hasAny` event; 403 or 404 per visibility | 03-03 §Identity, AR-19 |
 | ST-52 | Successful join-token issue | Exactly one allow decision with action `identity.join_token` | 03-03 §Identity, AR-19 |
-| ST-53 | Successful assignment grant | One `assignment.write` allow decision plus one `assignment.grant` mutation with `projectId` | 03-03 §Policy Adapter, AR-1, AR-18 |
+| ST-53 | Successful assignment grant | One `assignment.write` allow decision plus one `assignment.grant` mutation with `projectId`, `objectType: "assignment"`, and `objectId` equal to the assignment id | 03-03 §Policy Adapter, AR-1, AR-18 |
 | ST-54 | Denied assignment grant | One allow/deny decision; no mutation event | 03-03 §Policy Adapter, AR-1 |
 | ST-55 | Last-org-admin revoke denial | One deny decision with reason `last_org_admin`; no mutation event | 03-03 §Policy Adapter, AR-1 |
 
@@ -112,13 +113,14 @@
 
 | # | Input / Scenario | Expected Output / Behavior | Source |
 |---|---|---|---|
-| ST-56 | Browser local login with valid credentials | One `auth.login` allow; `method=local`, `client=browser`, actor id set; no password field | 03-03 §Authentication, AR-20 |
+| ST-56 | Browser local login with valid credentials | One `auth.login` allow; `method=local`, `client=browser`, actor id set; no password field; no deny event | 03-03 §Authentication, AR-20 |
 | ST-57 | Unknown identifier | One `auth.login` deny; `actorKind=system`, actor null, reason `unknown_credentials`; HTTP 401 generic | 03-03 §Authentication, AR-20 |
 | ST-58 | Wrong password five times | Five deny events; the fifth also writes one `auth.lockout` with `lockSeconds=900` | 03-03 §Authentication, AR-20 |
 | ST-59 | Login while already locked | One deny with reason `locked`; no new `auth.lockout` | 03-03 §Authentication, AR-20 |
-| ST-60 | CLI local login success | One allow with `client=cli` | 03-03 §Authentication, AR-20 |
+| ST-60 | CLI local login success | One allow with `client=cli`; no deny event | 03-03 §Authentication, AR-20 |
 | ST-61 | OIDC success | One allow with `method=oidc`; no subject or token in details | 03-03 §Authentication, AR-20 |
 | ST-62 | OIDC state failure, provider error, exchange failure, access denial | One deny each with `oidc_flow`, `oidc_flow`, `oidc_flow`, or `access_denied`/`link_collision` | 03-03 §Authentication, AR-20 |
+| ST-98 | Credential changes after verification but before delivery (browser and CLI) | Exactly one `auth.login` deny with `invalid_credentials`; no allow event; no session or token returned | 03-03 §Authentication, AR-20 |
 
 ### Agent and Consumer Emitters
 
@@ -131,25 +133,26 @@
 | ST-67 | Join with a revoked token | One deny; service actor; reason `join_token_revoked` | 03-03 §Agent Join, AR-21 |
 | ST-68 | Join with an inactive principal or deleted project | One deny; system actor; reason `principal_inactive` or `project_inactive` | 03-03 §Agent Join, AR-21 |
 | ST-69 | Join with an invalid CSR | One deny; system actor; reason `invalid_csr` | 03-03 §Agent Join, AR-21 |
-| ST-70 | Successful renewal with changed compose service | One `agent.renew` allow and one `consumer.update` with `changed=["composeService"]` | 03-03 §Consumer, AR-22 |
+| ST-70 | Successful renewal with changed compose service | One `agent.renew` allow and one `consumer.update` with `changed=["composeService"]`; a replay of the same request writes no additional event | 03-03 §Consumer, AR-22 |
 | ST-71 | Rejoin with unchanged metadata | One `agent.join` allow; no `consumer.register` or `consumer.update` | 03-03 §Consumer, AR-22 |
 | ST-72 | Renewal changes state from `degraded` to `ok` | One `consumer.update` with `changed=["state"]` | 03-03 §Consumer, AR-22 |
-| ST-73 | Renewal fails because it is not due | One `agent.renew` deny; service actor; reason `renewal_not_due` | 03-03 §Agent Renewal, AR-21 |
+| ST-73 | Renewal fails because it is not due | One `agent.renew` deny; service actor; reason `renewal_not_due`; the event is written after the transaction rolls back and survives | 03-03 §Agent Renewal, AR-21 |
 
 ### Prune
 
 | # | Input / Scenario | Expected Output / Behavior | Source |
 |---|---|---|---|
-| ST-74 | Events from 200 days ago and today; prune with 180-day retention | Old prefix exported as NDJSON; checkpoint at the prefix's last event; old rows deleted; recent rows retained; verify returns `ok` | 03-04 §Prune Service, AR-23 |
+| ST-74 | Events from 200 days ago and today; prune with 180-day retention | Prune verifies the retained chain first; old prefix exported as NDJSON; checkpoint at the prefix's last event; old rows deleted; recent rows retained; verify returns `ok` | 03-04 §Prune Service, AR-23 |
 | ST-75 | Prune with `--dry-run` | Export file written; checkpoint written; no rows deleted; `audit.prune` has `dryRun=true` and `deletedCount=0` | 03-04 §Prune Service, AR-23 |
-| ST-76 | Prune with no rows older than retention | `audit.prune` with zero counts; no checkpoint change; exit 0 | 03-04 §Prune Service, AR-23 |
+| ST-76 | Prune with no rows older than retention | `audit.prune` with zero counts; no boundary checkpoint change; exit 0 | 03-04 §Prune Service, AR-23 |
 | ST-77 | Missing `OPENVAULT_PRUNE_DB_URL` | Error before any file or database write; exit 1 | 03-04 §Prune Connection, AR-4 |
 | ST-78 | Relative output path | Usage error; exit 2; no file | 03-04 §CLI, AR-23 |
 | ST-79 | Output path already exists | Error; existing file unchanged | 03-04 §CLI, AR-23 |
 | ST-80 | Delete as the application role | Trigger rejects with `audit rows are append-only` | 03-04 §Prune Connection, AR-4 |
-| ST-81 | Delete through the pruner connection with the setting on | Rows deleted; no trigger error | 03-04 §Prune Connection, AR-4 |
+| ST-81 | Delete through the pruner connection with `SELECT, DELETE` grants and the setting on | Rows deleted; no trigger error | 03-04 §Prune Connection, AR-4 |
 | ST-93 | Pre-create a boundary checkpoint with a bad HMAC, then prune | Abort before delete; the prefix remains | 03-04 §Prune Service, AR-23 |
-| ST-95 | Prune every event, leaving only the prune event | The prune event's `prev_hash` equals the boundary checkpoint's `lastHash`; verify returns `ok` | 03-04 §Prune Service, AR-23 |
+| ST-95 | Prune every event, leaving only the prune event | The prune event's `prev_hash` equals the boundary checkpoint's `lastHash`; verify returns `ok`; a later normal event also links to the checkpoint hash and verifies | 03-04 §Prune Service, AR-23 |
+| ST-97 | Tamper a prefix event with triggers disabled, then prune | Abort before export, checkpoint, or delete; the prefix remains; `audit.prune` is not written | 03-04 §Prune Service, AR-23 |
 
 ### Checkpoint Export
 
@@ -170,7 +173,7 @@
 | ST-86 | Record an event with a user agent over 512 characters | Stored value is truncated to 512 characters; no insert failure | 03-01 §Hash and HMAC, AR-8 |
 | ST-87 | Read an event through the API | Hashes are 64 lowercase hex characters; `eventId` is a ULID; `projectId` is present or null | 03-02 §Public Contracts, AR-6 |
 | ST-91 | Record with `sourceIp` `"2001:0db8::1"` | Stored and returned value is the canonical `"2001:db8::1"`; the chain verifies | 03-01 §Writer, AR-8 |
-| ST-94 | Force the audit insert to fail on a wrong-password login | 503; no session cookie; the credential failure counter may be one higher | 03-03 §Error Handling, AR-17 |
+| ST-94 | Force the audit insert to fail on a wrong-password login | 503; no session cookie; no allow event; the credential failure counter may be one higher | 03-03 §Error Handling, AR-17 |
 
 ## Test Categories
 
@@ -181,12 +184,12 @@
 | `apps/server/tests/audit/canonical-json.spec.test.ts` | ST-1–ST-8 | Canonical JSON and hashing |
 | `apps/server/tests/integration/audit-chain.spec.test.ts` | ST-9–ST-22, ST-91 | Writer, keys, checkpoints, policy adapter |
 | `apps/server/tests/integration/audit-query.spec.test.ts` | ST-23–ST-33 | Query, cursor, authorization |
-| `apps/server/tests/integration/audit-verify.spec.test.ts` | ST-34–ST-43, ST-92 | Verification and verify authorization |
+| `apps/server/tests/integration/audit-verify.spec.test.ts` | ST-34–ST-43, ST-92, ST-96 | Verification and verify authorization |
 | `apps/server/tests/integration/audit-export.spec.test.ts` | ST-44–ST-48 | NDJSON export |
 | `apps/server/tests/integration/audit-emitters.spec.test.ts` | ST-49–ST-55 | Policy and identity emitters |
-| `apps/server/tests/integration/audit-auth.spec.test.ts` | ST-56–ST-62 | Authentication emitters |
+| `apps/server/tests/integration/audit-auth.spec.test.ts` | ST-56–ST-62, ST-98 | Authentication emitters |
 | `apps/server/tests/integration/audit-agent.spec.test.ts` | ST-63–ST-73 | Agent and consumer emitters |
-| `apps/server/tests/integration/audit-prune.spec.test.ts` | ST-74–ST-81, ST-88–ST-90, ST-93, ST-95 | Retention, prune, checkpoint export |
+| `apps/server/tests/integration/audit-prune.spec.test.ts` | ST-74–ST-81, ST-88–ST-90, ST-93, ST-95, ST-97 | Retention, prune, checkpoint export |
 | `apps/server/tests/integration/audit-security.spec.test.ts` | ST-82–ST-87, ST-94 | Fail-closed, redaction, contracts |
 
 ### Implementation Tests
@@ -222,7 +225,7 @@ The HTTP route tests exercise the full path: TLS-less in-process application, au
 - A keyring with one KEK (`k1`) from `createServerEnvironment`.
 - Directly seeded org admin, project admin, auditor, and project rows, following the RD-06 test pattern.
 - A deterministic clock for cadence and prune tests.
-- The pruner role from `ensurePrunerRole`, when the test user is a superuser.
+- The pruner role from `ensurePrunerRole`, with `SELECT, DELETE`, when the test user is a superuser.
 
 ### Mocks
 
@@ -233,7 +236,7 @@ The HTTP route tests exercise the full path: TLS-less in-process application, au
 
 ### Tamper Tests
 
-The append-only trigger prevents normal UPDATE and DELETE. Tamper tests disable the specific trigger as the superuser test role, perform the mutation, and restore the trigger in `finally`. This simulates a database administrator with table access, which is the threat model in `docs/security/threat-model.md`.
+The append-only trigger prevents normal UPDATE and DELETE. Tamper tests disable the specific trigger as the superuser test role, perform the mutation, and restore the trigger in `finally`. This simulates a database administrator with table access, which is the threat model in `docs/security/threat-model.md`. The prune tamper test also asserts that `AuditPruner` calls the verifier before export, checkpoint, or delete.
 
 ## Verification Checklist
 
@@ -243,6 +246,9 @@ The append-only trigger prevents normal UPDATE and DELETE. Tamper tests disable 
 - [ ] Specification tests verified to FAIL before implementation (red phase)
 - [ ] All specification tests pass after implementation (green phase)
 - [ ] Implementation tests written for edge cases and internals
+- [ ] Verification includes the first retained anchor event and every checkpoint at or after the window
+- [ ] Prune verifies the retained chain before export, checkpoint, or delete
+- [ ] Credential races write one deny event and no allow event
 - [ ] All unit and integration tests pass on PostgreSQL 16 and 17
 - [ ] No regressions in existing tests
 - [ ] `pnpm verify` passes

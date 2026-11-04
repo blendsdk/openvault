@@ -5,7 +5,7 @@
 
 ## Overview
 
-This component owns the durable event model: the deterministic serializer, the frozen action and details catalog, the KEK-wrapped HMAC key, the chain writer, checkpoint creation, and the persistent adapter behind the existing policy audit port. It writes to the tables that already exist and does not change the schema.
+This component owns the durable event model: the deterministic serializer, the frozen action and details catalog, the KEK-wrapped HMAC key, the chain writer, checkpoint creation, and the persistent adapter behind the existing policy audit port. It reuses the existing tables and triggers and requires no migration. The API restricts object filters to the existing composite `(object_type, object_id)` index, as described in the API document.
 
 **Governing decisions:** AR-5, AR-6, AR-7, AR-8, AR-9, AR-10, AR-11, AR-16, AR-17, AR-18, AR-24.
 
@@ -95,46 +95,75 @@ export interface AuditEventRecord extends AuditEventInput {
 
 `AuditEventInput.ts` is a `Date`; the writer converts it to a millisecond ISO string exactly once. `sequenceId` is a string because JavaScript cannot represent a PostgreSQL `bigint` safely.
 
+The transaction/query surface used by audit persistence is deliberately narrow, so audit modules do not import an unrelated repository layer:
+
+```ts
+/** Minimal database or transaction surface used by audit persistence. */
+export interface AuditQueryExecutor {
+  executeQuery<T>(query: string, params?: Record<string, unknown>): Promise<{
+    readonly records: readonly T[];
+  }>;
+}
+```
+
+`PostgreSQLDatabase` satisfies this interface directly; `withTransaction` callbacks satisfy it through their transaction handle.
+
+File: `apps/server/src/audit/errors.ts`
+
+```ts
+/** Base class for audit domain failures. */
+export class AuditError extends Error {}
+
+/** Invalid caller input that must not be written. */
+export class AuditInputError extends AuditError {}
+
+/** Canonical JSON rejected a value. */
+export class CanonicalJsonError extends AuditError {}
+
+/** Audit persistence or an audit key is unavailable. */
+export class AuditUnavailableError extends AuditError {}
+
+/** A required audit key cannot be unwrapped. */
+export class AuditKeyUnavailableError extends AuditUnavailableError {}
+
+/** A query filter, limit, or cursor is invalid. */
+export class AuditQueryError extends AuditError {}
+
+/** The caller may not read the requested audit scope. */
+export class AuditAccessDeniedError extends AuditError {}
+
+/** The prune command is misconfigured. */
+export class AuditPruneConfigError extends AuditError {}
+```
+
 ### Action Catalog
 
 Files: `packages/api-contract/src/audit.ts` (the frozen list) and `apps/server/src/audit/actions.ts` (details allowlists and helpers).
 
-The catalog is a closed list of every action the API accepts as a filter and every action the writer accepts for a write. The public contract owns the strings; the server module owns the per-action details rules. Every other module imports from these two places.
+The catalog is a closed list of every action the API accepts as a filter and every action the writer accepts for a write. The public contract owns the strings; the server module owns the per-action details rules. Every other module imports from these two places. The catalog derives the policy actions from `RBAC_ACTIONS` so a future policy action cannot silently become unfilterable.
 
 ```ts
 // packages/api-contract/src/audit.ts
-export const AUDIT_ACTIONS = [
-  // authentication
+import { RBAC_ACTIONS } from "./rbac.js";
+
+/** Actions that are not part of the fixed RBAC action catalog. */
+export const BUSINESS_AUDIT_ACTIONS = [
   "auth.login",
   "auth.lockout",
-  // authorization (subset shown; all RBAC_ACTIONS are included)
-  "project.create",
-  "project.read",
-  "secret.read",
-  "secret.write",
-  "certificate.read",
-  "certificate.read_private",
-  "audit.read",
-  "kek.rotate",
-  // assignment
   "assignment.grant",
   "assignment.revoke",
-  // identity
-  "identity.create",
-  "identity.revoke",
-  "identity.join_token",
-  // agent and consumer
   "agent.join",
   "agent.renew",
   "consumer.register",
   "consumer.update",
-  // audit operations
   "audit.verify",
   "audit.export",
   "audit.prune",
-  // future operations
   "backup.create",
 ] as const;
+
+/** Every RBAC action plus the business audit actions. */
+export const AUDIT_ACTIONS = [...RBAC_ACTIONS, ...BUSINESS_AUDIT_ACTIONS] as const;
 
 export type AuditAction = (typeof AUDIT_ACTIONS)[number];
 ```
@@ -232,7 +261,8 @@ export interface CanonicalAuditEvent {
 }
 
 export function canonicalEventForHash(event: AuditEventInput, prevHash: Buffer, auditKeyId: string): CanonicalAuditEvent;
-export function computeEventHash(canonical: string, prevHash: Buffer): Buffer;
+/** Hashes raw previous-hash bytes followed by the already-serialized canonical UTF-8 string. */
+export function computeEventHash(canonicalJson: string, prevHash: Buffer): Buffer;
 export function computeEventHmac(key: Readonly<Buffer>, hash: Buffer): Buffer;
 ```
 
@@ -240,7 +270,8 @@ export function computeEventHmac(key: Readonly<Buffer>, hash: Buffer): Buffer;
 - `auditKeyId` is included so moving a row to another key changes the hash.
 - `projectId` is included so re-scoping a row breaks the chain.
 - `ts` is `event.ts.toISOString()` with millisecond precision. The writer inserts this exact `Date`, so `pg` returns the same millisecond value on read.
-- `hash = SHA-256(Buffer.concat([prevHash, Buffer.from(canonicalJson(canonical), "utf8")]))`.
+- `canonicalJson` in `computeEventHash` is the string returned by `canonicalJson(canonicalEventForHash(...))`; the function does not serialize a second time.
+- `hash = SHA-256(Buffer.concat([prevHash, Buffer.from(canonicalJson, "utf8")]))`.
 - `hmac = HMAC-SHA256(key, hash)`.
 - The first event uses 32 zero bytes for `prevHash`.
 
@@ -348,12 +379,12 @@ export class AuditWriter {
 
 `record` steps:
 
-1. Validate the action, details, and field bounds: request id 1–100 characters, object type and object id at most 64, user agent at most 512, and a non-null actor only for user/service kinds (AR-16).
+1. Validate the action, details, and public field bounds. `userAgent` is truncated to 512 characters (matching the request helper and the database check); `requestId` must be 1–100 characters; `scopeId`, `objectType`, and `objectId` must be 1–64 characters when non-null; `eventId`, `projectId`, and `actorId` must be ULIDs when non-null. A non-null actor is allowed only for user and service kinds. Reject any other out-of-range value as `AuditInputError` (AR-16).
 2. If `tx` is provided, run inside it; otherwise open one transaction.
 3. Normalize a non-null `sourceIp` with `SELECT CAST(:ip AS inet)` and use the driver's canonical text (no mask) for both the canonical object and the insert. This keeps IPv4-mapped and compressed IPv6 values stable across write and read.
 4. `SELECT pg_advisory_xact_lock(:lockId)` with `AUDIT_CHAIN_LOCK_ID`.
 5. `selectOrCreateAuditKey`.
-6. `SELECT id, hash FROM audit_events ORDER BY id DESC LIMIT 1` under the lock. No row means the previous hash is 32 zero bytes.
+6. `SELECT id, hash FROM audit_events ORDER BY id DESC LIMIT 1` under the lock. If a row exists, use its hash. If no row exists, use `options.previousHash` when provided; otherwise use the latest checkpoint's `last_hash` when a checkpoint exists; otherwise use 32 zero bytes. This keeps any first event after a fully pruned table linked to the retained anchor.
 7. Build the canonical object with the selected key id, compute the hash and HMAC, and insert:
    ```sql
    INSERT INTO audit_events
@@ -366,13 +397,13 @@ export class AuditWriter {
       :prevHash, :hash, :hmac, :auditKeyId)
    RETURNING id;
    ```
-7. `#maybeCheckpoint(tx, inserted, keyRow, now)`.
-8. Return the record with the sequence id.
-9. Zero the unwrapped key buffer in `finally`.
+8. `#maybeCheckpoint(tx, inserted, keyRow, now)`.
+9. Return the record with the sequence id.
+10. Zero the unwrapped key buffer in `finally`.
 
 The advisory lock is transaction-scoped, so it is released at commit. A decision event always uses its own transaction (AR-10, AR-17), which means the lock is held only for one insert and commit. A mutation or agent event uses the caller transaction and holds the lock until that transaction commits; those operations are rate-limited and infrequent. The writer relies on PostgreSQL's default READ COMMITTED isolation so the previous-hash read sees the last committed link; a caller must not wrap an audited mutation in a snapshot-isolation transaction.
 
-`previousHash` is used only when the table has no retained events; it lets the prune completion event link to the last deleted event's checkpoint. If a retained tail exists, the writer ignores the override and uses the tail to avoid a fork.
+`previousHash` is used only when the table has no retained events; it lets the prune completion event link to the last deleted event's checkpoint. If a retained tail exists, the writer ignores the override and uses the tail to avoid a fork. When the table is empty and no override is supplied, the writer automatically uses the latest checkpoint's `last_hash`, so a normal event after a fully pruned table (or after a failed prune-event write) does not start a zero-hash fork.
 
 `ensureCheckpoint` takes the same lock, reads the latest event and latest checkpoint, and inserts a checkpoint only when the cadence is due. It is called after every event insert and by verify/export/prune. It never creates a checkpoint when the table is empty.
 
@@ -401,7 +432,7 @@ Cadence (AR-11):
 | Age | `now - latest.created_at` is at least 24 hours |
 | Maintenance | `ensureCheckpoint` after verify/export/prune |
 
-The count query uses the primary key index. Sequence gaps from rolled-back inserts do not affect it.
+The count query uses the primary key index. Sequence gaps from rolled-back inserts do not affect it. Because the first event writes a checkpoint immediately, the next count checkpoint is event 1,001: there are 1,000 further events after the first checkpoint.
 
 Checkpoint HMAC:
 
@@ -445,7 +476,7 @@ Decision mapping:
 |---|---|
 | `eventId` | `newUlid()` |
 | `ts` | adapter clock |
-| `projectId` | `scopeType === "project" ? scopeId : null` |
+| `projectId` | `event.projectId` (the owning project for project/object resources, null for org/system) |
 | `requestId` | `context.requestId ?? "internal"` |
 | `actorId` | `event.actorId` |
 | `actorKind` | `event.actorKind` |
@@ -459,7 +490,9 @@ Decision mapping:
 | `userAgent` | `context.userAgent?.slice(0, 512) ?? null` |
 | `details` | `{ reason, policyVersion, denialCount? }` |
 
-Mutation mapping adds `projectId` from the new `PolicyMutationEvent.projectId`, `action: "assignment.grant" | "assignment.revoke"`, `result: "allow"`, and details `{ assignmentId, targetPrincipalId, role, policyVersion }`.
+Mutation mapping adds `projectId` from the new `PolicyMutationEvent.projectId`, `action: "assignment.grant" | "assignment.revoke"`, `result: "allow"`, `objectType: "assignment"`, `objectId: assignmentId`, and details `{ assignmentId, targetPrincipalId, role, policyVersion }`.
+
+`PolicyDecisionEvent` gains `projectId: string | null` so an object-scoped decision (a secret or certificate resource) can satisfy the database check that project and object scopes carry a project id. The policy service sets it from the evaluated resource; current secret and certificate decisions already use project scope, so the field is defensive but keeps the contract correct.
 
 The bounded denial counter moves into a shared `DenialCounter` class in `apps/server/src/rbac/audit.ts` so both the logger adapter and the persistent adapter keep the RD-06 Should Have behavior. It is process-local, bounded at 1,024 principals, and included only on denial events.
 
@@ -527,7 +560,7 @@ The split avoids a cycle: the policy engine needs the persistent adapter, and th
 | Unknown action or details key | `AuditInputError`; no insert | AR-16 |
 | Unsupported canonical value, cycle, lone surrogate, size bound | `CanonicalJsonError`; no insert | AR-7 |
 | Keyring unavailable or wrong KEK | `AuditKeyUnavailableError` → 503 | AR-9 |
-| Database insert fails | Propagate; caller maps to 503 or rolls back | AR-17 |
+| Database or transaction failure | Wrap in `AuditUnavailableError`; caller maps to 503 or rolls back | AR-17 |
 | Checkpoint insert fails | Same transaction rolls back; no event without its checkpoint when due | AR-11 |
 | Advisory lock wait | Normal PostgreSQL wait; statement timeout applies | AR-10 |
 | Bigint sequence id | Parse and emit as a decimal string | AR-6 |
@@ -535,7 +568,13 @@ The split avoids a cycle: the policy engine needs the persistent adapter, and th
 ## Testing Requirements
 
 - Unit tests for canonical JSON determinism, key order, escaping, lone surrogates, depth, size, and rejected values.
+- A fixed hash/HMAC vector for an already-serialized canonical string, so the `computeEventHash` contract cannot be double-encoded.
 - Integration tests for chain linkage, first-event zero hash, HMAC verification, key creation and reuse, checkpoint triggers, concurrency ordering, and rollback behavior.
+- A verification test that edits the first retained event's details while its checkpoint exists; the walk must recompute the anchor event's hash and HMAC and fail at that event.
+- A verification test with an empty event table and a surviving checkpoint; the result must be `tail_truncated`, not `empty_chain`.
+- A verification test that deletes a tail event and then adds a newer checkpoint; every checkpoint at or after the retained window must still be checked, so the older deletion is not masked.
+- A writer test that records an event after every event has been deleted but a boundary checkpoint remains; the new event must link to the checkpoint hash and verification must pass.
+- A policy-adapter test that an object-scoped decision carries the owning project id.
 - A compile-time or runtime test that every `RBAC_ACTIONS` value exists in `AUDIT_ACTIONS`.
 - A test that a denied policy decision survives a rolled-back assignment transaction.
 - A test that a mutation event rolls back with its assignment.

@@ -9,7 +9,7 @@
 
 | Area | Current state |
 |---|---|
-| Schema | `audit_events`, `audit_keys`, and `audit_checkpoints` exist with every required column, check, index, and foreign key. `audit_events.id` is a `bigserial`; `event_id` is a unique ULID. `audit_checkpoints.last_event_id` is a unique `bigint` sequence reference. See `apps/server/src/database/schema.ts:397-455`. |
+| Schema | `audit_events`, `audit_keys`, and `audit_checkpoints` exist with every required column, check, index, and foreign key. `audit_events.id` is a `bigserial`; `event_id` is a unique ULID. `audit_checkpoints.last_event_id` is a unique `bigint` sequence reference. The object index is composite `(object_type, object_id)`; the plan rejects `objectId` without `objectType` rather than adding a migration. See `apps/server/src/database/schema.ts:397-455`. |
 | Append-only | `reject_audit_mutation` blocks UPDATE and DELETE on both audit tables. DELETE is allowed only when `openvault.allow_audit_prune = 'on'` **and** `session_user = 'openvault_pruner'`. TRUNCATE is blocked. See `apps/server/migrations/20261030094213_triggers-and-seed.up.sql:9-27` and `:130-133`. |
 | Policy port | `PolicyAuditPort` has `recordDecision` and `recordMutation`. The only implementation is `LoggingPolicyAudit`, which writes to the logger's error channel and keeps a bounded per-principal denial counter. See `apps/server/src/rbac/audit.ts:81-170`. |
 | Policy callers | `PolicyService.authorize`, `authorizeList`, `hasAny`, and `recordDecision` audit decisions; `capabilitiesFor` and projection methods do not. `AssignmentService.create/delete` record a decision and a mutation. See `apps/server/src/rbac/policy-service.ts:614-623` and `apps/server/src/rbac/assignment-service.ts:163-225`. |
@@ -46,11 +46,13 @@
 | `apps/server/src/agent/agent-renew-service.ts` | Renew | Emit one renew event and one consumer change event |
 | `apps/server/src/agent/consumer-repository.ts` | Consumer upsert | Add a locked comparison read |
 | `apps/server/src/app.ts` | Application composition | Create the audit runtime, register services and controller |
+| `apps/server/src/transport/secure-application.ts` | Runtime dependency contract | Add optional audit runtime |
 | `apps/server/src/main.ts` | Process startup | Create the audit runtime before the agent runtime |
 | `packages/api-contract/src/audit.ts` | New contracts | Create |
-| `apps/server/src/audit/` | New writer, query, verify, export, prune modules | Create |
+| `apps/server/src/audit/` | New writer, query, verify, export, prune modules | Create; `errors.ts` owns the audit error hierarchy |
 | `apps/server/src/controllers/audit.ts` | New routes | Create |
 | `apps/server/tests/integration/helpers/fixtures.ts` | Test data | Stop inserting synthetic audit rows by default |
+| `apps/server/tests/integration/agent-join.impl.test.ts`, `agent-renew.impl.test.ts`, `agent-renew.spec.test.ts` | Existing direct constructions | Update for the audit recorder and optional context |
 | `docs/reference/api.md`, `docs/guide/audit.md`, `docs/reference/configuration.md`, `docs/reference/cli.md` | Documentation | Update with the implemented behavior |
 
 ### Code Analysis

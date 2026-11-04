@@ -10,7 +10,7 @@
 
 OpenVault already defines the audit tables, their append-only triggers, and a narrow policy audit port. Every authorization decision and assignment mutation reaches a structured logger, but nothing durable is written. RD-07 replaces that logger adapter with a persistent writer and turns the existing schema into the system of record.
 
-The writer serializes every insert under one transaction-scoped advisory lock, reads the previous hash, and stores a SHA-256 chain plus an HMAC-SHA256 computed with a key wrapped by the KEK. It checkpoints the tail at the first event, every 1,000 events, and after a day without a checkpoint. Three routes expose the log: a filtered, cursor-paginated event list; a chain verifier anchored at the checkpoint immediately before the retained window; and an NDJSON export that is itself audited. A maintenance command exports, checkpoints, and deletes rows past the 180-day retention window.
+The writer serializes every insert under one transaction-scoped advisory lock, reads the previous hash, and stores a SHA-256 chain plus an HMAC-SHA256 computed with a key wrapped by the KEK. It checkpoints the tail at the first event, after every 1,000 further events, and after a day without a checkpoint. Three routes expose the log: a filtered, cursor-paginated event list; a chain verifier that anchors at the checkpoint immediately before the retained window (or includes the first event), checks every checkpoint, and detects tampering; and an NDJSON export that is itself audited. A maintenance command verifies, exports, checkpoints, and deletes rows past the 180-day retention window.
 
 RD-07 also wires the current emitters: RBAC decisions and assignment changes, identity attempts, local/CLI/OIDC logins and lockouts, agent join and renewal, and consumer metadata changes. Future data-plane routes in RD-08 and RD-09 inherit the same policy port; their secret and certificate reads are already decision events once those routes authorize. RD-07 does not implement those routes, KEK rotation, backup, or the CLI and web clients.
 
@@ -18,7 +18,7 @@ RD-07 also wires the current emitters: RBAC decisions and assignment changes, id
 
 **Original goal:** Persist every security-relevant action in a tamper-evident, queryable, verifiable log, and fail closed when evidence cannot be written.
 
-**Smallest viable design:** Reuse the existing `audit_events`, `audit_keys`, and `audit_checkpoints` tables and their triggers. Add one canonical JSON encoder, one writer with a fixed advisory lock, one key-unwrap helper over the existing keyring, one policy adapter behind the existing port, three thin routes, and two maintenance commands. Add no migration, no scheduler, no external service, and no new dependency.
+**Smallest viable design:** Reuse the existing `audit_events`, `audit_keys`, and `audit_checkpoints` tables and their triggers. Add one canonical JSON encoder, one writer with a fixed advisory lock, one key-unwrap helper over the existing keyring, one policy adapter behind the existing port, three thin routes, a pre-prune verification gate, and two maintenance commands. Add no migration, no scheduler, no external service, and no new dependency.
 
 **Excluded machinery:** A background checkpoint scheduler, SIEM forwarding, alerting, row-level audit encryption, external transparency logs, a separate audit database, a queue, and a custom cryptographic library. See [AR-11](00-ambiguity-register.md#resolution-notes) and [AR-24](00-ambiguity-register.md#resolution-notes).
 
@@ -29,6 +29,7 @@ RD-07 also wires the current emitters: RBAC decisions and assignment changes, id
 | # | Document | Description |
 |---|---|---|
 | AR | [Ambiguity Register](00-ambiguity-register.md) | Zero-Ambiguity Gate decisions and provenance |
+| PF | [Preflight Report](00-preflight-report.md) | Codebase-grounded quality audit and resolutions |
 | 00 | [Index](00-index.md) | This document — overview and navigation |
 | 01 | [Requirements](01-requirements.md) | Thin delta view of RD-07 |
 | 02 | [Current State](02-current-state.md) | Existing schema, port, emitters, and gaps |
@@ -96,23 +97,23 @@ pnpm --filter @openvault/server audit:checkpoint -- --out /secure/audit-checkpoi
 | Hash input | Hex canonical object, raw previous-hash prefix, millisecond timestamp | AR-8 |
 | Audit key | Created on first write under the chain lock, KEK-wrapped, unwrapped per operation | AR-9 |
 | Chain order | Fixed transaction advisory lock `780217001` | AR-10 |
-| Checkpoints | First event, every 1,000, lazy daily, maintenance; HMAC over id and hash | AR-11 |
-| Verification | Anchor at the checkpoint before the retained window; edit, middle delete, and tail delete detection | AR-12 |
+| Checkpoints | First event, 1,000 further events, lazy daily, maintenance; HMAC over id and hash | AR-11 |
+| Verification | Anchor at the checkpoint before the retained window or include the first event; check every checkpoint; edit, middle delete, tail delete, and empty-plus-checkpoint detection | AR-12 |
 | Pagination | Descending sequence id with a signed, filter-bound cursor | AR-13 |
 | Project scope | Query/export scoped; verify requires org scope | AR-14 |
-| Export | Streamed NDJSON; export event before first byte | AR-15 |
+| Export | Streamed NDJSON; export attempt event before first byte | AR-15 |
 | Details | Per-action allowlist, reject unknown keys before hashing | AR-16 |
 | Failure mode | Fail closed; one accepted credential-counter exception | AR-17 |
 | Policy port | Persistent adapter behind the existing interface | AR-18 |
 | Identity attempts | One audited decision; non-auditing visibility checks | AR-19 |
-| Authentication events | `auth.login` plus `auth.lockout`, no credentials | AR-20 |
-| Agent failures | System actor for unknown/expired/inactive; token owner for used/revoked | AR-21 |
+| Authentication events | `auth.login` plus `auth.lockout`, no credentials; allow only after the final credential recheck | AR-20 |
+| Agent failures | System actor for unknown/expired/inactive; token owner for used/revoked; independent renew failure write; replay writes no duplicate | AR-21 |
 | Consumer changes | Register on first row, update on metadata change, nothing for `last_seen` | AR-22 |
-| Prune flow | Export, checkpoint at the last deleted event, delete, record | AR-23 |
-| Schema | Reuse existing tables and triggers; no migration | AR-24 |
-| Error mapping | 503 unavailable, 422 invalid, 403 denied, 200 `ok:false` tamper | AR-25 |
-| Test data | Fresh chain databases and a provisioned pruner role | AR-26 |
-| Documentation | API, guide, configuration, CLI, changelog, changeset | AR-27 |
+| Prune flow | Verify, export, checkpoint at the last deleted event, delete, record; pruner has `SELECT, DELETE` | AR-23 |
+| Schema | Reuse existing tables and triggers; no migration; `objectId` requires `objectType` | AR-24 |
+| Error mapping | 503 unavailable across all controllers, 422 invalid, 403 denied, 200 `ok:false` tamper | AR-25 |
+| Test data | Fresh chain databases and a provisioned `SELECT, DELETE` pruner role | AR-26 |
+| Documentation | API, guide, configuration, CLI, security limitations, changelog, changeset | AR-27 |
 | Specialist | None — existing lenses cover the domain | AR-28 |
 
 ## Cross-RD Acceptance Ownership
@@ -139,6 +140,8 @@ _Detection evidence: the audit key hierarchy is already documented at `docs/arch
 | `packages/api-contract/src/audit.ts` | Event, query, verify, and action contracts |
 | `packages/api-contract/src/index.ts` | Export the audit contracts |
 | `apps/server/src/audit/actions.ts` | Per-action details allowlists and action helpers |
+| `apps/server/src/audit/types.ts` | Shared event, request, and query-executor types |
+| `apps/server/src/audit/errors.ts` | Audit error hierarchy and 503 mapping classes |
 | `apps/server/src/audit/canonical-json.ts` | Deterministic serializer |
 | `apps/server/src/audit/audit-key-store.ts` | KEK wrap/unwrap and key selection |
 | `apps/server/src/audit/audit-writer.ts` | Chain insert, advisory lock, checkpoints |
@@ -169,12 +172,17 @@ _Detection evidence: the audit key hierarchy is already documented at `docs/arch
 | `apps/server/src/rbac/runtime.ts` | Accept the persistent adapter |
 | `apps/server/src/rbac/policy-service.ts` | Non-auditing `hasAny` option |
 | `apps/server/src/app.ts` | Audit runtime, services, controller |
+| `apps/server/src/transport/secure-application.ts` | Optional audit runtime dependency |
 | `apps/server/src/main.ts` | Audit runtime before the agent runtime |
 | `apps/server/package.json` | `audit:prune` script |
 | `apps/server/tests/integration/helpers/fixtures.ts` | Remove synthetic audit rows |
-| `apps/server/tests/integration/helpers/pruner.ts` | Test role provisioning |
+| `apps/server/tests/integration/helpers/pruner.ts` | Test role provisioning with `SELECT, DELETE` |
+| `apps/server/tests/integration/agent-join.impl.test.ts` | Audit recorder and optional context |
+| `apps/server/tests/integration/agent-renew.impl.test.ts` | Audit recorder and optional context |
+| `apps/server/tests/integration/agent-renew.spec.test.ts` | Audit recorder and optional context |
 | `docs/reference/api.md` | Audit routes and examples |
 | `docs/reference/configuration.md` | Prune URL and role |
-| `docs/reference/cli.md` | Prune command |
+| `docs/reference/cli.md` | Prune and checkpoint commands |
 | `docs/guide/audit.md` | Verify, export, retention |
+| `docs/security/limitations.md` | Tail versus prefix truncation |
 | `docs/changelog.md`, `.changeset/` | User-visible release note |
