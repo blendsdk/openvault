@@ -11,6 +11,8 @@ import { requireAgent } from "../agent/agent-middleware.js";
 import { joinIpLimit, renewIpLimit, renewPrincipalLimit } from "../agent/agent-rate-limits.js";
 import type { AgentRenewService } from "../agent/agent-renew-service.js";
 import { AgentServiceError } from "../agent/errors.js";
+import { AuditUnavailableError } from "../audit/errors.js";
+import { auditRequestContext } from "../audit/http.js";
 
 /** Converts a domain error into the stable WebAFX envelope. */
 async function execute<T>(action: () => Promise<T>): Promise<T> {
@@ -19,6 +21,9 @@ async function execute<T>(action: () => Promise<T>): Promise<T> {
   } catch (error) {
     if (error instanceof AgentServiceError) {
       throw new ApiError(error.statusCode, error.code, error.message);
+    }
+    if (error instanceof AuditUnavailableError) {
+      throw new ApiError(503, "service_unavailable", "Service unavailable");
     }
     throw error;
   }
@@ -52,7 +57,7 @@ export class AgentController extends BaseController {
             throw new ApiError(statusCode, "validation_error", "Validation failed");
           }
           const service = await this.services.get<AgentJoinService>("agentJoinService");
-          const response = await execute(() => service.join(parsed.data));
+          const response = await execute(() => service.join(parsed.data, auditRequestContext(req)));
           this.ok(res, agentCertificateResponseSchema.parse(response));
         }),
       this.route()
@@ -66,7 +71,9 @@ export class AgentController extends BaseController {
             throw new ApiError(422, "validation_error", "Validation failed");
           }
           const service = await this.services.get<AgentRenewService>("agentRenewService");
-          const response = await execute(() => service.renew(context, parsed.data));
+          const response = await execute(() =>
+            service.renew(context, parsed.data, auditRequestContext(req)),
+          );
           this.ok(res, agentCertificateResponseSchema.parse(response));
         }),
     ];

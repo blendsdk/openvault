@@ -30,19 +30,22 @@ export interface PolicyRuntime {
 /**
  * Builds the policy runtime.
  *
- * The logger adapter is the only audit implementation in this release; the
- * persistent writer replaces it without changing the policy service.
+ * When a persistent audit adapter is supplied, every decision and mutation is
+ * written to the audit chain. Isolated tests that do not need persistence keep
+ * the structured-logger adapter.
  *
- * @param options - Database and optional structured logger.
+ * @param options - Database, optional logger, audit adapter, and existing engine.
  * @returns The composed runtime.
  */
 export function createPolicyRuntime(options: {
   readonly database: PostgreSQLDatabase;
   readonly logger?: Logger;
+  /** Persistent adapter, or the logger adapter when omitted. */
+  readonly audit?: PolicyAuditPort;
   /** Reuse an existing engine when the caller already owns one. */
   readonly service?: PolicyService;
 }): PolicyRuntime {
-  const audit = new LoggingPolicyAudit(options.logger ?? silentLogger);
+  const audit = options.audit ?? new LoggingPolicyAudit(options.logger ?? silentLogger);
   const repository = new PolicyRepository(options.database);
   const service = options.service ?? new PolicyService({ repository, audit });
   const assignments = new AssignmentService({

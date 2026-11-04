@@ -9,6 +9,25 @@ export {
   agentRenewRequestSchema,
 } from "./agents.js";
 export {
+  AUDIT_ACTIONS,
+  AUDIT_VERIFY_REASONS,
+  type AuditAction,
+  type AuditEvent,
+  type AuditEventList,
+  type AuditExportQuery,
+  type AuditQuery,
+  type AuditVerifyReason,
+  type AuditVerifyResponse,
+  auditEventListSchema,
+  auditEventSchema,
+  auditExportQuerySchema,
+  auditQuerySchema,
+  auditVerifyResponseSchema,
+  BUSINESS_AUDIT_ACTIONS,
+  hexHashSchema,
+  normalizeAuditFilters,
+} from "./audit.js";
+export {
   type AuthMethod,
   type AuthUser,
   authMethodSchema,

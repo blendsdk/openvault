@@ -1,9 +1,37 @@
 import type { RbacAction, RbacRole, RbacScopeType } from "@openvault/api-contract";
 import type { Logger } from "blendsdk/webafx";
+import type { AuditQueryExecutor } from "../audit/types.js";
 import type { DecisionReason } from "./reasons.js";
 
 /** Maximum principals retained by the process-local denial counter. */
 const DENIAL_COUNTER_LIMIT = 1_024;
+
+/** Bounded process-local per-principal denial counter. */
+export class DenialCounter {
+  readonly #counts = new Map<string, number>();
+
+  /**
+   * Increments and returns the denial count for one actor.
+   *
+   * The oldest actor is evicted when the bound is reached, so memory cannot
+   * grow without limit under a denial flood.
+   *
+   * @param actorId - Principal identifier.
+   * @returns The new count.
+   */
+  public increment(actorId: string): number {
+    const current = this.#counts.get(actorId) ?? 0;
+    if (!this.#counts.has(actorId) && this.#counts.size >= DENIAL_COUNTER_LIMIT) {
+      const oldest = this.#counts.keys().next().value;
+      if (oldest !== undefined) {
+        this.#counts.delete(oldest);
+      }
+    }
+    const next = current + 1;
+    this.#counts.set(actorId, next);
+    return next;
+  }
+}
 
 /** Request metadata attached to an audit event when available. */
 export interface PolicyAuditContext {
@@ -27,6 +55,8 @@ export interface PolicyDecisionEvent {
   readonly scopeType: RbacScopeType | "system";
   /** Scope identifier, or null for a system check. */
   readonly scopeId: string | null;
+  /** Owning project for a project or object resource, or null. */
+  readonly projectId: string | null;
   /** Resource type, or null for a system check. */
   readonly objectType: "project" | "identity" | "secret" | "certificate" | null;
   /** Resource identifier, or null for a system check. */
@@ -61,6 +91,8 @@ export interface PolicyMutationEvent {
   readonly scopeType: RbacScopeType;
   /** Assignment scope identifier. */
   readonly scopeId: string;
+  /** Owning project for a project or object scope, or null for the organization. */
+  readonly projectId: string | null;
   /** Mutation result; only successful mutations are recorded. */
   readonly result: "allow";
   /** Stable reason code. */
@@ -79,10 +111,22 @@ export interface PolicyMutationEvent {
  * keys, tokens, cookies, CSRs, or request bodies.
  */
 export interface PolicyAuditPort {
-  /** Records exactly one authorization decision. */
-  recordDecision(event: PolicyDecisionEvent): Promise<void>;
-  /** Records one successful assignment mutation. */
-  recordMutation(event: PolicyMutationEvent): Promise<void>;
+  /**
+   * Records exactly one authorization decision.
+   *
+   * When a transaction is supplied, the decision commits independently of that
+   * transaction so it survives a later rollback. Record it before any event
+   * that joins the caller transaction, because the independent write needs the
+   * chain lock that the joined event will hold until commit.
+   */
+  recordDecision(event: PolicyDecisionEvent, tx?: AuditQueryExecutor): Promise<void>;
+  /**
+   * Records one successful assignment mutation.
+   *
+   * When a transaction is supplied, the event commits or rolls back with the
+   * assignment that produced it.
+   */
+  recordMutation(event: PolicyMutationEvent, tx?: AuditQueryExecutor): Promise<void>;
 }
 
 /** Flattens optional request metadata into the log object. */
@@ -106,7 +150,7 @@ function contextFields(context: PolicyAuditContext | undefined): Record<string, 
  */
 export class LoggingPolicyAudit implements PolicyAuditPort {
   readonly #logger: Logger;
-  readonly #denials = new Map<string, number>();
+  readonly #denials = new DenialCounter();
 
   /**
    * @param logger - Application logger.
@@ -116,8 +160,9 @@ export class LoggingPolicyAudit implements PolicyAuditPort {
   }
 
   /** @inheritDoc */
-  public async recordDecision(event: PolicyDecisionEvent): Promise<void> {
-    const denialCount = event.result === "deny" ? this.#incrementDenial(event.actorId) : undefined;
+  public async recordDecision(event: PolicyDecisionEvent, _tx?: AuditQueryExecutor): Promise<void> {
+    const denialCount =
+      event.result === "deny" ? this.#denials.increment(event.actorId) : undefined;
     // Audit evidence must survive every supported log level. The error channel
     // is emitted at all levels; the payload contains identifiers only.
     await this.#logger.error("policy decision", {
@@ -126,6 +171,7 @@ export class LoggingPolicyAudit implements PolicyAuditPort {
       action: event.action,
       scopeType: event.scopeType,
       scopeId: event.scopeId,
+      projectId: event.projectId,
       objectType: event.objectType,
       objectId: event.objectId,
       result: event.result,
@@ -137,7 +183,7 @@ export class LoggingPolicyAudit implements PolicyAuditPort {
   }
 
   /** @inheritDoc */
-  public async recordMutation(event: PolicyMutationEvent): Promise<void> {
+  public async recordMutation(event: PolicyMutationEvent, _tx?: AuditQueryExecutor): Promise<void> {
     await this.#logger.error("policy mutation", {
       actorId: event.actorId,
       actorKind: event.actorKind,
@@ -147,24 +193,11 @@ export class LoggingPolicyAudit implements PolicyAuditPort {
       role: event.role,
       scopeType: event.scopeType,
       scopeId: event.scopeId,
+      projectId: event.projectId,
       result: event.result,
       reason: event.reason,
       policyVersion: event.policyVersion,
       ...contextFields(event.context),
     });
-  }
-
-  /** Increments and bounds the denial counter for one actor. */
-  #incrementDenial(actorId: string): number {
-    const current = this.#denials.get(actorId) ?? 0;
-    if (!this.#denials.has(actorId) && this.#denials.size >= DENIAL_COUNTER_LIMIT) {
-      const oldest = this.#denials.keys().next().value;
-      if (oldest !== undefined) {
-        this.#denials.delete(oldest);
-      }
-    }
-    const next = current + 1;
-    this.#denials.set(actorId, next);
-    return next;
   }
 }

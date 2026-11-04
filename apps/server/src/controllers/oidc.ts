@@ -2,6 +2,15 @@ import { createHash } from "node:crypto";
 import type { RouteDefinition } from "blendsdk/webafx";
 import { ApiError, BaseController, rateLimitMiddleware } from "blendsdk/webafx";
 import type { Request, Response } from "express";
+import type { AuditService } from "../audit/audit-service.js";
+import { AuditUnavailableError } from "../audit/errors.js";
+import {
+  auditRequestContext,
+  mapAuditError,
+  recordAuditOr503,
+  recordLoginAllow,
+  recordOidcFailure,
+} from "../audit/http.js";
 import {
   clearOidcBindingCookie,
   readOidcBindingCookie,
@@ -39,6 +48,22 @@ function toOidcApiError(error: unknown): ApiError {
   return error instanceof ApiError
     ? error
     : new ApiError(500, "INTERNAL_SERVER_ERROR", "Internal error");
+}
+
+/** Maps one callback failure to the stable internal reason. */
+export function oidcFailureReason(
+  error: unknown,
+): "oidc_flow" | "oidc_unavailable" | "access_denied" | "link_collision" {
+  if (error instanceof OidcUnavailableError) {
+    return "oidc_unavailable";
+  }
+  if (error instanceof OidcAccessDeniedError) {
+    return "access_denied";
+  }
+  if (error instanceof OidcLinkCollisionError) {
+    return "link_collision";
+  }
+  return "oidc_flow";
 }
 
 /**
@@ -87,86 +112,110 @@ export class OidcController extends BaseController {
         .get("/callback")
         .middleware(ipLimit)
         .handle(async (req: Request, res: Response) => {
-          const { oidc } = await this.requireOidcConfig();
-          const client = await this.services.get<OidcClient>("oidc");
-          const states = await this.services.get<OidcStateStore>("oidcState");
-          const identities = await this.services.get<OidcIdentityService>("oidcIdentities");
-          const sessions = await this.services.get<SessionService>("sessions");
+          const audit = await this.services.get<AuditService>("auditService");
+          const context = auditRequestContext(req);
+          let allowWritten = false;
+          let auditFailureReason: ReturnType<typeof oidcFailureReason> | undefined;
+          try {
+            const { oidc } = await this.requireOidcConfig();
+            const client = await this.services.get<OidcClient>("oidc");
+            const states = await this.services.get<OidcStateStore>("oidcState");
+            const identities = await this.services.get<OidcIdentityService>("oidcIdentities");
+            const sessions = await this.services.get<SessionService>("sessions");
 
-          const stateParam = typeof req.query.state === "string" ? req.query.state : undefined;
-          const code = typeof req.query.code === "string" ? req.query.code : undefined;
-          if (stateParam === undefined || stateParam.length === 0) {
-            throw new ApiError(400, "oidc_callback_failed", "Sign-in failed");
-          }
-
-          const state = await states.take(stateParam);
-          if (state === undefined) {
-            clearOidcBindingCookie(res);
-            throw new ApiError(400, "oidc_callback_failed", "Sign-in failed");
-          }
-          if (!oidcBindingMatches(readOidcBindingCookie(req), state.bindingHash)) {
-            clearOidcBindingCookie(res);
-            throw new ApiError(400, "oidc_callback_failed", "Sign-in failed");
-          }
-          clearOidcBindingCookie(res);
-
-          if (typeof req.query.error === "string") {
-            const providerError = /^[a-z_]{1,64}$/.test(req.query.error)
-              ? req.query.error
-              : "invalid";
-            await req.log?.warn("oidc_provider_error", { error: providerError });
-            throw new ApiError(400, "oidc_callback_failed", "Sign-in failed");
-          }
-          if (code === undefined || code.length === 0) {
-            throw new ApiError(400, "oidc_callback_failed", "Sign-in failed");
-          }
-
-          const callbackUrl = new URL(oidc.redirectUrl.href);
-          for (const [key, value] of Object.entries(req.query)) {
-            if (typeof value === "string") {
-              callbackUrl.searchParams.set(key, value);
+            const stateParam = typeof req.query.state === "string" ? req.query.state : undefined;
+            const code = typeof req.query.code === "string" ? req.query.code : undefined;
+            if (stateParam === undefined || stateParam.length === 0) {
+              throw new ApiError(400, "oidc_callback_failed", "Sign-in failed");
             }
-          }
 
-          let exchanged: Awaited<ReturnType<OidcClient["exchangeCode"]>>;
-          try {
-            exchanged = await client.exchangeCode({
-              callbackUrl,
-              codeVerifier: state.codeVerifier,
-              nonce: state.nonce,
-            });
-          } catch (error) {
-            throw toOidcApiError(error);
-          }
+            const state = await states.take(stateParam);
+            if (state === undefined) {
+              clearOidcBindingCookie(res);
+              throw new ApiError(400, "oidc_callback_failed", "Sign-in failed");
+            }
+            if (!oidcBindingMatches(readOidcBindingCookie(req), state.bindingHash)) {
+              clearOidcBindingCookie(res);
+              throw new ApiError(400, "oidc_callback_failed", "Sign-in failed");
+            }
+            clearOidcBindingCookie(res);
 
-          let identity: Awaited<ReturnType<OidcIdentityService["resolve"]>>;
-          try {
-            identity = await identities.resolve({
-              issuer: oidc.issuer.href,
-              subject: exchanged.subject,
-              claims: exchanged.claims,
-              userInfo: exchanged.userInfo,
-              allowedDomains: oidc.allowedDomains,
-            });
-          } catch (error) {
-            if (error instanceof OidcLinkCollisionError) {
-              await req.log?.warn("oidc_link_collision", {
-                issuer: oidc.issuer.href,
-                subjectHash: createHash("sha256")
-                  .update(exchanged.subject, "utf8")
-                  .digest("hex")
-                  .slice(0, 16),
+            if (typeof req.query.error === "string") {
+              const providerError = /^[a-z_]{1,64}$/.test(req.query.error)
+                ? req.query.error
+                : "invalid";
+              await req.log?.warn("oidc_provider_error", { error: providerError });
+              throw new ApiError(400, "oidc_callback_failed", "Sign-in failed");
+            }
+            if (code === undefined || code.length === 0) {
+              throw new ApiError(400, "oidc_callback_failed", "Sign-in failed");
+            }
+
+            const callbackUrl = new URL(oidc.redirectUrl.href);
+            for (const [key, value] of Object.entries(req.query)) {
+              if (typeof value === "string") {
+                callbackUrl.searchParams.set(key, value);
+              }
+            }
+
+            let exchanged: Awaited<ReturnType<OidcClient["exchangeCode"]>>;
+            try {
+              exchanged = await client.exchangeCode({
+                callbackUrl,
+                codeVerifier: state.codeVerifier,
+                nonce: state.nonce,
               });
+            } catch (error) {
+              auditFailureReason = oidcFailureReason(error);
+              throw toOidcApiError(error);
             }
-            throw toOidcApiError(error);
-          }
 
-          const issued = await sessions.create({
-            principalId: identity.principalId,
-            authMethod: "oidc",
-          });
-          setSessionCookie(res, issued.secretId, sessions.remainingSeconds(issued.record));
-          res.redirect(302, sanitizeReturnTo(state.returnTo, oidc.redirectUrl));
+            let identity: Awaited<ReturnType<OidcIdentityService["resolve"]>>;
+            try {
+              identity = await identities.resolve(
+                {
+                  issuer: oidc.issuer.href,
+                  subject: exchanged.subject,
+                  claims: exchanged.claims,
+                  userInfo: exchanged.userInfo,
+                  allowedDomains: oidc.allowedDomains,
+                },
+                async (tx, principalId) => {
+                  await recordLoginAllow(audit, principalId, context, "oidc", "browser", tx);
+                },
+              );
+            } catch (error) {
+              auditFailureReason = oidcFailureReason(error);
+              if (error instanceof OidcLinkCollisionError) {
+                await req.log?.warn("oidc_link_collision", {
+                  issuer: oidc.issuer.href,
+                  subjectHash: createHash("sha256")
+                    .update(exchanged.subject, "utf8")
+                    .digest("hex")
+                    .slice(0, 16),
+                });
+              }
+              throw toOidcApiError(error);
+            }
+
+            allowWritten = true;
+            const issued = await sessions.create({
+              principalId: identity.principalId,
+              authMethod: "oidc",
+            });
+            setSessionCookie(res, issued.secretId, sessions.remainingSeconds(issued.record));
+            res.redirect(302, sanitizeReturnTo(state.returnTo, oidc.redirectUrl));
+          } catch (error) {
+            if (error instanceof AuditUnavailableError) {
+              throw mapAuditError(error);
+            }
+            if (!allowWritten) {
+              await recordAuditOr503(() =>
+                recordOidcFailure(audit, context, auditFailureReason ?? oidcFailureReason(error)),
+              );
+            }
+            throw error;
+          }
         }),
     ];
   }

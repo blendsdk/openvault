@@ -9,6 +9,13 @@ import type { PostgreSQLDatabase } from "blendsdk/postgresql";
 import type { RouteDefinition } from "blendsdk/webafx";
 import { ApiError, BaseController, NotFoundError, rateLimitMiddleware } from "blendsdk/webafx";
 import type { Request, Response } from "express";
+import type { AuditService } from "../audit/audit-service.js";
+import {
+  auditRequestContext,
+  recordAuditOr503,
+  recordLocalLoginFailure,
+  recordLoginAllow,
+} from "../audit/http.js";
 import type { CliSessionRepository } from "../auth/cli-sessions.js";
 import { clearSessionCookie, readSessionCookie, setSessionCookie } from "../auth/cookie.js";
 import type { CredentialsRepository } from "../auth/credentials.js";
@@ -76,20 +83,59 @@ export class AuthController extends BaseController {
 
           const localLogin = await this.services.get<LocalLoginService>("localLogin");
           const sessions = await this.services.get<SessionService>("sessions");
+          const credentials = await this.services.get<CredentialsRepository>("credentials");
+          const audit = await this.services.get<AuditService>("auditService");
+          const context = auditRequestContext(req);
           const result = await localLogin.login(parsed.data, req.log);
           if (!result.ok) {
+            try {
+              await recordAuditOr503(() =>
+                recordLocalLoginFailure(audit, result, context, "browser"),
+              );
+            } catch (error) {
+              if (result.principalId !== undefined && result.lockedUntil !== undefined) {
+                await credentials.clearLock(result.principalId).catch(() => undefined);
+              }
+              throw error;
+            }
             throw invalidCredentials();
           }
           const credential = result.credential;
 
+          if (!(await localLogin.revalidate(credential.principalId, credential.passwordHash))) {
+            await recordAuditOr503(() =>
+              recordLocalLoginFailure(
+                audit,
+                {
+                  ok: false,
+                  reason: "invalid_credentials",
+                  principalId: credential.principalId,
+                },
+                context,
+                "browser",
+              ),
+            );
+            throw invalidCredentials();
+          }
+          try {
+            await recordAuditOr503(() =>
+              recordLoginAllow(audit, credential.principalId, context, "local", "browser"),
+            );
+          } catch (error) {
+            await credentials
+              .restoreFailureState(
+                credential.principalId,
+                credential.passwordHash,
+                credential.previousFailedCount,
+                credential.previousLockedUntil,
+              )
+              .catch(() => undefined);
+            throw error;
+          }
           const issued = await sessions.create({
             principalId: credential.principalId,
             authMethod: "local",
           });
-          if (!(await localLogin.revalidate(credential.principalId, credential.passwordHash))) {
-            await sessions.revoke(issued.record.publicId, credential.principalId);
-            throw invalidCredentials();
-          }
           setSessionCookie(res, issued.secretId, sessions.remainingSeconds(issued.record));
           this.ok(
             res,

@@ -98,26 +98,39 @@ describe("shared local login", () => {
       password: TEST_PASSWORD,
     });
 
-    expect(result).toEqual({ ok: false });
+    expect(result).toEqual({ ok: false, reason: "unknown_credentials" });
     expect(credentials.state.failureCalls).toBe(0);
     expect(credentials.state.successCalls).toBe(0);
   });
 
-  it("should reject a disabled or locked credential generically", async () => {
-    for (const state of [
-      credential({ status: "disabled" }),
-      credential({ lockedUntil: new Date(Date.now() + 60_000), failedCount: 5 }),
-    ]) {
-      const credentials = new FakeCredentials({ credential: state });
-      await expect(
-        new LocalLoginService({ credentials }).login({
-          identifier: "local@example.test",
-          password: TEST_PASSWORD,
-        }),
-      ).resolves.toEqual({ ok: false });
-      expect(credentials.state.failureCalls).toBe(0);
-      expect(credentials.state.successCalls).toBe(0);
-    }
+  it("should reject a disabled or locked credential with an internal reason", async () => {
+    const disabled = new FakeCredentials({ credential: credential({ status: "disabled" }) });
+    await expect(
+      new LocalLoginService({ credentials: disabled }).login({
+        identifier: "local@example.test",
+        password: TEST_PASSWORD,
+      }),
+    ).resolves.toEqual({
+      ok: false,
+      reason: "inactive_principal",
+      principalId: "01ARZ3NDEKTSV4RRFFQ69G5FAV",
+    });
+
+    const locked = new FakeCredentials({
+      credential: credential({ lockedUntil: new Date(Date.now() + 60_000), failedCount: 5 }),
+    });
+    await expect(
+      new LocalLoginService({ credentials: locked }).login({
+        identifier: "local@example.test",
+        password: TEST_PASSWORD,
+      }),
+    ).resolves.toEqual({
+      ok: false,
+      reason: "locked",
+      principalId: "01ARZ3NDEKTSV4RRFFQ69G5FAV",
+    });
+    expect(disabled.state.failureCalls).toBe(0);
+    expect(locked.state.failureCalls).toBe(0);
   });
 
   it("should reject an out-of-policy stored hash and log only the principal id", async () => {
@@ -130,7 +143,11 @@ describe("shared local login", () => {
       logger(warnings),
     );
 
-    expect(result).toEqual({ ok: false });
+    expect(result).toEqual({
+      ok: false,
+      reason: "invalid_hash",
+      principalId: "01ARZ3NDEKTSV4RRFFQ69G5FAV",
+    });
     expect(warnings).toEqual(["stored password hash rejected"]);
     expect(credentials.state.failureCalls).toBe(0);
   });
@@ -142,7 +159,11 @@ describe("shared local login", () => {
       password: "wrong password",
     });
 
-    expect(result).toEqual({ ok: false });
+    expect(result).toEqual({
+      ok: false,
+      reason: "invalid_credentials",
+      principalId: "01ARZ3NDEKTSV4RRFFQ69G5FAV",
+    });
     expect(credentials.state.failureCalls).toBe(1);
     expect(credentials.state.successCalls).toBe(0);
   });
@@ -162,6 +183,8 @@ describe("shared local login", () => {
         email: "local@example.test",
         mustChange: true,
         passwordHash: TEST_PASSWORD_HASH,
+        previousFailedCount: 0,
+        previousLockedUntil: null,
       },
     });
     expect(credentials.state.successCalls).toBe(1);
@@ -178,7 +201,11 @@ describe("shared local login", () => {
         identifier: "local@example.test",
         password: TEST_PASSWORD,
       }),
-    ).resolves.toEqual({ ok: false });
+    ).resolves.toEqual({
+      ok: false,
+      reason: "invalid_credentials",
+      principalId: "01ARZ3NDEKTSV4RRFFQ69G5FAV",
+    });
   });
 
   it("should revalidate only an unchanged stored hash", async () => {

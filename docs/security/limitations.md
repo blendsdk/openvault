@@ -10,8 +10,12 @@ These are accepted for v0.1. They are documented so reviewers do not mistake the
 3. **Host root.** Root on the vault host can read the KEK, tmpfs files, and plaintext in
    memory. External KMS/HSM is the future answer.
 4. **Swap.** tmpfs can be swapped. Disable swap or use encrypted swap on the vault host.
-5. **Audit truncation.** A database administrator can truncate the audit table. The HMAC
-   chain detects it only if a checkpoint survives or was exported off-box.
+5. **Audit truncation.** Tail truncation is detected while a surviving checkpoint or a newer
+   event/checkpoint still references the deleted tail. Deleting the prefix at a legitimate
+   prune boundary looks the same as an authorized prune; only an off-box checkpoint anchor
+   distinguishes the two. A database administrator who deletes every event and every
+   checkpoint leaves an empty chain that cannot prove prior existence. The append-only
+   trigger only defends against a role that is not the table owner and not a superuser.
 6. **Single node.** No high availability. RPO 24 hours with daily backups; RTO 1 hour.
 7. **Environment injection.** Environment variables cannot update a running process and
    leak through `/proc`, children, and crash dumps. Prefer files.
@@ -22,7 +26,9 @@ These are accepted for v0.1. They are documented so reviewers do not mistake the
 11. **Certificate UI.** Certificate management is API/CLI in v0.1; screens are v0.2.
 12. **Remote hosts.** Agents must run on the same Docker host as the vault in v0.1.
 13. **Kubernetes and KMS.** Later phases.
-14. **Audit pruning.** Pruning with off-box checkpoints is a manual maintenance command.
+14. **Audit pruning.** Pruning is a manual maintenance command. It verifies the retained
+    chain, exports the prefix, writes a boundary checkpoint, and then deletes under a
+    dedicated `openvault_pruner` session. Export checkpoints off-box to anchor the boundary.
 15. **TypeScript 7.** The stack is verified in this repository, but the ecosystem around
     the native compiler is still maturing. Biome replaces typescript-eslint.
 16. **Single-instance sessions.** Browser sessions, OIDC transient state, and login/refresh

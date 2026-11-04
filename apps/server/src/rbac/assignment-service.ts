@@ -21,11 +21,47 @@ import {
   isScopeType,
   type PolicyRepository,
 } from "./policy-repository.js";
-import type { PolicyResource, PolicyService } from "./policy-service.js";
+import type { PolicyDecision, PolicyResource, PolicyService } from "./policy-service.js";
 import { ROLE_DEFINITIONS } from "./roles.js";
 
 const SECRET_READER_ROLE = "secrets.reader";
 const CERTIFICATE_READER_ROLE = "certificates.reader";
+
+/** Scope and project values for a mutation event, derived from the resolved resource. */
+function mutationScopeForResource(resource: PolicyResource): {
+  readonly scopeType: RbacScopeType;
+  readonly scopeId: string;
+  readonly projectId: string | null;
+} {
+  switch (resource.type) {
+    case "org":
+      return { scopeType: "org", scopeId: "org", projectId: null };
+    case "project":
+      return { scopeType: "project", scopeId: resource.id, projectId: resource.id };
+    case "identity":
+      return resource.projectId === undefined
+        ? { scopeType: "org", scopeId: "org", projectId: null }
+        : { scopeType: "project", scopeId: resource.projectId, projectId: resource.projectId };
+    case "secret":
+    case "certificate":
+      return { scopeType: "object", scopeId: resource.id, projectId: resource.projectId };
+  }
+}
+
+/** A denied decision that must be recorded after its transaction rolls back. */
+class DeferredAssignmentDecision extends Error {
+  public readonly decision: PolicyDecision;
+  public readonly policyVersion: number;
+  public readonly original: Error;
+
+  public constructor(decision: PolicyDecision, policyVersion: number, original: Error) {
+    super("deferred assignment decision");
+    this.name = "DeferredAssignmentDecision";
+    this.decision = decision;
+    this.policyVersion = policyVersion;
+    this.original = original;
+  }
+}
 
 /** Options for {@link AssignmentService}. */
 export interface AssignmentServiceOptions {
@@ -160,69 +196,88 @@ export class AssignmentService {
       throw new RbacServiceError(422, "validation_error", "Validation failed");
     }
 
-    return this.#database.withTransaction(async (tx) => {
-      const version = await this.#repository.bumpPolicyVersion(tx);
-      const decisionVersion = version - 1;
-      const principal = await this.#repository.findPrincipal(input.principalId);
-      if (principal === undefined) {
-        throw new RbacServiceError(422, "validation_error", "Validation failed");
-      }
-      const resource = await this.#resolveCreateResource(input);
-      if (principal.kind === "service" && roleHasControlPlane(input.role)) {
-        throw new RbacServiceError(
-          422,
-          "service_control_plane",
-          "Control-plane roles cannot be granted to service identities",
-        );
-      }
-      const decision = await this.#policy.authorizeGrant(actorId, input.role, resource, context);
-      await this.#policy.recordDecision({ ...decision, policyVersion: decisionVersion }, context);
-      if (!decision.allowed) {
-        throw this.#grantError(decision.reason);
-      }
+    return this.#recordDeferredDecision(
+      () =>
+        this.#database.withTransaction(async (tx) => {
+          const version = await this.#repository.bumpPolicyVersion(tx);
+          const decisionVersion = version - 1;
+          const principal = await this.#repository.findPrincipal(input.principalId);
+          if (principal === undefined) {
+            throw new RbacServiceError(422, "validation_error", "Validation failed");
+          }
+          const resource = await this.#resolveCreateResource(input);
+          if (principal.kind === "service" && roleHasControlPlane(input.role)) {
+            throw new RbacServiceError(
+              422,
+              "service_control_plane",
+              "Control-plane roles cannot be granted to service identities",
+            );
+          }
+          const decision = await this.#policy.authorizeGrant(
+            actorId,
+            input.role,
+            resource,
+            context,
+          );
+          if (!decision.allowed) {
+            throw new DeferredAssignmentDecision(
+              decision,
+              decisionVersion,
+              this.#grantError(decision.reason),
+            );
+          }
+          await this.#policy.recordDecision(
+            { ...decision, policyVersion: decisionVersion },
+            context,
+            tx,
+          );
 
-      let created: AssignmentRecord;
-      try {
-        created = await this.#repository.insertAssignment(tx, {
-          id: newUlid(),
-          principalId: input.principalId,
-          role: input.role,
-          scopeType: input.scopeType,
-          scopeId: input.scopeId,
-          grantedBy: actorId,
-          expiresAt,
-          principalKind: principal.kind,
-        });
-      } catch (error) {
-        if (isDuplicateAssignment(error)) {
-          throw new RbacServiceError(409, "assignment_conflict", "Assignment conflict");
-        }
-        if (error instanceof PolicyUnavailableError) {
-          throw error;
-        }
-        throw new PolicyUnavailableError();
-      }
+          let created: AssignmentRecord;
+          try {
+            created = await this.#repository.insertAssignment(tx, {
+              id: newUlid(),
+              principalId: input.principalId,
+              role: input.role,
+              scopeType: input.scopeType,
+              scopeId: input.scopeId,
+              grantedBy: actorId,
+              expiresAt,
+              principalKind: principal.kind,
+            });
+          } catch (error) {
+            if (isDuplicateAssignment(error)) {
+              throw new RbacServiceError(409, "assignment_conflict", "Assignment conflict");
+            }
+            if (error instanceof PolicyUnavailableError) {
+              throw error;
+            }
+            throw new PolicyUnavailableError();
+          }
 
-      try {
-        await this.#audit.recordMutation({
-          actorId,
-          actorKind: "user",
-          action: "assignment.grant",
-          assignmentId: created.id,
-          targetPrincipalId: input.principalId,
-          role: input.role,
-          scopeType: input.scopeType,
-          scopeId: input.scopeId,
-          result: "allow",
-          reason: "allowed",
-          policyVersion: version,
-          ...(context === undefined ? {} : { context }),
-        });
-      } catch {
-        throw new PolicyUnavailableError();
-      }
-      return created;
-    });
+          try {
+            await this.#audit.recordMutation(
+              {
+                actorId,
+                actorKind: "user",
+                action: "assignment.grant",
+                assignmentId: created.id,
+                targetPrincipalId: input.principalId,
+                role: input.role,
+                ...mutationScopeForResource(resource),
+                result: "allow",
+                reason: "allowed",
+                policyVersion: version,
+                ...(context === undefined ? {} : { context }),
+              },
+              tx,
+            );
+          } catch {
+            throw new PolicyUnavailableError();
+          }
+          return created;
+        }),
+      context,
+    );
   }
 
   /**
@@ -269,84 +324,96 @@ export class AssignmentService {
     assignmentId: string,
     context?: PolicyAuditContext,
   ): Promise<void> {
-    await this.#database.withTransaction(async (tx) => {
-      const version = await this.#repository.bumpPolicyVersion(tx);
-      const decisionVersion = version - 1;
-      const now = this.#now();
-      const assignment = await this.#repository.findAssignment(tx, assignmentId);
-      if (assignment === undefined) {
-        throw new RbacServiceError(404, "assignment_not_found", "Assignment not found");
-      }
-      const resource = await this.#resolveDeleteResource(assignment);
-      const decision = await this.#policy.authorize(
-        actorId,
-        "assignment.write",
-        resource,
-        context,
-        { audit: false },
-      );
-      if (!decision.allowed) {
-        const visible = await this.#policy.authorize(
-          actorId,
-          "assignment.read",
-          resource,
-          context,
-          { audit: false },
-        );
-        await this.#policy.recordDecision({ ...decision, policyVersion: decisionVersion }, context);
-        throw visible.allowed
-          ? new RbacServiceError(403, "access_denied", "Access denied")
-          : new RbacServiceError(404, "assignment_not_found", "Assignment not found");
-      }
-
-      const expiresAt = assignment.expiresAt;
-      const active =
-        assignment.role === "org.admin" &&
-        assignment.scopeType === "org" &&
-        assignment.principalKind === "user" &&
-        assignment.principalStatus === "active" &&
-        (expiresAt === null || expiresAt.getTime() > now);
-      if (active) {
-        const others = await this.#repository.countActiveOrgAdmins(tx, assignmentId, new Date(now));
-        if (others === 0) {
-          await this.#policy.recordDecision(
-            {
-              ...decision,
-              allowed: false,
-              reason: "last_org_admin",
-              policyVersion: decisionVersion,
-            },
+    await this.#recordDeferredDecision(
+      () =>
+        this.#database.withTransaction(async (tx) => {
+          const version = await this.#repository.bumpPolicyVersion(tx);
+          const decisionVersion = version - 1;
+          const now = this.#now();
+          const assignment = await this.#repository.findAssignment(tx, assignmentId);
+          if (assignment === undefined) {
+            throw new RbacServiceError(404, "assignment_not_found", "Assignment not found");
+          }
+          const resource = await this.#resolveDeleteResource(assignment);
+          const decision = await this.#policy.authorize(
+            actorId,
+            "assignment.write",
+            resource,
             context,
+            { audit: false },
           );
-          throw new RbacServiceError(
-            409,
-            "last_org_admin",
-            "Cannot remove the last organization administrator",
-          );
-        }
-      }
+          if (!decision.allowed) {
+            const visible = await this.#policy.authorize(
+              actorId,
+              "assignment.read",
+              resource,
+              context,
+              { audit: false },
+            );
+            throw new DeferredAssignmentDecision(
+              decision,
+              decisionVersion,
+              visible.allowed
+                ? new RbacServiceError(403, "access_denied", "Access denied")
+                : new RbacServiceError(404, "assignment_not_found", "Assignment not found"),
+            );
+          }
 
-      await this.#policy.recordDecision({ ...decision, policyVersion: decisionVersion }, context);
-      await this.#repository.deleteAssignment(tx, assignmentId);
-      try {
-        await this.#audit.recordMutation({
-          actorId,
-          actorKind: "user",
-          action: "assignment.revoke",
-          assignmentId,
-          targetPrincipalId: assignment.principalId,
-          role: assignment.role,
-          scopeType: assignment.scopeType,
-          scopeId: assignment.scopeId,
-          result: "allow",
-          reason: "allowed",
-          policyVersion: version,
-          ...(context === undefined ? {} : { context }),
-        });
-      } catch {
-        throw new PolicyUnavailableError();
-      }
-    });
+          const expiresAt = assignment.expiresAt;
+          const active =
+            assignment.role === "org.admin" &&
+            assignment.scopeType === "org" &&
+            assignment.principalKind === "user" &&
+            assignment.principalStatus === "active" &&
+            (expiresAt === null || expiresAt.getTime() > now);
+          if (active) {
+            const others = await this.#repository.countActiveOrgAdmins(
+              tx,
+              assignmentId,
+              new Date(now),
+            );
+            if (others === 0) {
+              throw new DeferredAssignmentDecision(
+                { ...decision, allowed: false, reason: "last_org_admin" },
+                decisionVersion,
+                new RbacServiceError(
+                  409,
+                  "last_org_admin",
+                  "Cannot remove the last organization administrator",
+                ),
+              );
+            }
+          }
+
+          await this.#policy.recordDecision(
+            { ...decision, policyVersion: decisionVersion },
+            context,
+            tx,
+          );
+          await this.#repository.deleteAssignment(tx, assignmentId);
+          try {
+            await this.#audit.recordMutation(
+              {
+                actorId,
+                actorKind: "user",
+                action: "assignment.revoke",
+                assignmentId,
+                targetPrincipalId: assignment.principalId,
+                role: assignment.role,
+                ...mutationScopeForResource(resource),
+                result: "allow",
+                reason: "allowed",
+                policyVersion: version,
+                ...(context === undefined ? {} : { context }),
+              },
+              tx,
+            );
+          } catch {
+            throw new PolicyUnavailableError();
+          }
+        }),
+      context,
+    );
   }
 
   /**
@@ -568,6 +635,32 @@ export class AssignmentService {
           resource: { type: "certificate", id: object.id, projectId: object.projectId },
           responseScope: { type: "object", id: object.id },
         };
+  }
+
+  /**
+   * Runs an assignment transaction and records a denied decision after rollback.
+   *
+   * An allowed decision is written through the independent audit pool so it
+   * survives a later rollback of the assignment transaction. A denied decision
+   * is carried out of the failed transaction and written afterwards; both use
+   * the same independent path.
+   */
+  async #recordDeferredDecision<T>(
+    action: () => Promise<T>,
+    context: PolicyAuditContext | undefined,
+  ): Promise<T> {
+    try {
+      return await action();
+    } catch (error) {
+      if (error instanceof DeferredAssignmentDecision) {
+        await this.#policy.recordDecision(
+          { ...error.decision, policyVersion: error.policyVersion },
+          context,
+        );
+        throw error.original;
+      }
+      throw error;
+    }
   }
 
   /** Maps a mutable grant denial to the public error family. */

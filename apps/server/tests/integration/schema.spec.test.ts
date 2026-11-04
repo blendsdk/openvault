@@ -1,5 +1,13 @@
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
-import { type BaseFixture, bytes32, nonce, seedBase, tag, testUlid } from "./helpers/fixtures.js";
+import {
+  type BaseFixture,
+  bytes32,
+  nonce,
+  seedAuditFixture,
+  seedBase,
+  tag,
+  testUlid,
+} from "./helpers/fixtures.js";
 import { applyMigrations, createTestDatabase, type TestDatabase } from "./helpers/test-database.js";
 
 let testDb: TestDatabase;
@@ -9,6 +17,7 @@ beforeAll(async () => {
   testDb = await createTestDatabase();
   await applyMigrations(testDb);
   base = await seedBase(testDb.db);
+  await seedAuditFixture(testDb.db, base);
 });
 
 afterAll(async () => {

@@ -1,12 +1,19 @@
 import type { AgentCertificateResponse, AgentConsumer } from "@openvault/api-contract";
 import { newUlid } from "@openvault/core";
 import type { PostgreSQLDatabase } from "blendsdk/postgresql";
+import { AuditUnavailableError } from "../audit/errors.js";
+import type { AuditRecorder, AuditRequestContext } from "../audit/types.js";
 import type { OpenVaultConfig } from "../config/index.js";
 import type { QueryExecutor } from "../identity/identity-repository.js";
 import { type CaSigner, CaSignerUnavailableError } from "../security/ca.js";
 import { CsrValidationError, parseAgentCsr } from "../security/x509.js";
 import { CERTIFICATE_ATTEMPTS, isCertificateConflict } from "./certificate-retry.js";
-import type { ConsumerRepository } from "./consumer-repository.js";
+import {
+  type ConsumerChange,
+  type ConsumerRecord,
+  type ConsumerRepository,
+  classifyConsumerChange,
+} from "./consumer-repository.js";
 import { AgentServiceError } from "./errors.js";
 import type { AgentAuthContext } from "./types.js";
 
@@ -146,6 +153,12 @@ export interface AgentRenewInput {
   readonly consumer: AgentConsumer;
 }
 
+/** Mutable state captured for one renewal failure event. */
+interface RenewAuditState {
+  readonly principalId: string;
+  projectId?: string;
+}
+
 /**
  * Renews one authenticated agent certificate.
  *
@@ -161,6 +174,7 @@ export class AgentRenewService {
   readonly #config: Pick<OpenVaultConfig, "certTtlDays">;
   readonly #cache: RenewalReplayCache;
   readonly #now: () => number;
+  readonly #audit: AuditRecorder | undefined;
   readonly #queues = new Map<string, Promise<void>>();
 
   /**
@@ -173,9 +187,12 @@ export class AgentRenewService {
     readonly config: Pick<OpenVaultConfig, "certTtlDays">;
     readonly cache?: RenewalReplayCache;
     readonly now?: () => number;
+    /** Persistent audit sink; omitted only by isolated unit tests. */
+    readonly audit?: AuditRecorder;
   }) {
     this.#database = options.database;
     this.#consumers = options.consumers;
+    this.#audit = options.audit;
     this.#signer = options.signer;
     this.#config = options.config;
     this.#cache =
@@ -195,13 +212,33 @@ export class AgentRenewService {
   public async renew(
     context: AgentAuthContext,
     input: AgentRenewInput,
+    auditContext: AuditRequestContext = { requestId: "internal" },
+  ): Promise<AgentCertificateResponse> {
+    const state: RenewAuditState = { principalId: context.principalId };
+    try {
+      return await this.#renew(context, input, state, auditContext);
+    } catch (error) {
+      if (error instanceof AuditUnavailableError || this.#audit === undefined) {
+        throw error;
+      }
+      await this.#recordFailure(error, state, auditContext);
+      throw error;
+    }
+  }
+
+  /** Runs one renewal attempt and records the state needed by a failure event. */
+  async #renew(
+    context: AgentAuthContext,
+    input: AgentRenewInput,
+    state: RenewAuditState,
+    auditContext: AuditRequestContext,
   ): Promise<AgentCertificateResponse> {
     let csr: Awaited<ReturnType<typeof parseAgentCsr>>;
     try {
       csr = await parseAgentCsr(input.csr);
     } catch (error) {
       if (error instanceof CsrValidationError) {
-        throw new AgentServiceError(422, "validation_error", "Validation failed");
+        throw new AgentServiceError(422, "validation_error", "Validation failed", "invalid_csr");
       }
       throw error;
     }
@@ -211,7 +248,7 @@ export class AgentRenewService {
       return replay;
     }
     if (csr.publicKeySha256 === context.publicKeySha256) {
-      throw new AgentServiceError(422, "validation_error", "Validation failed");
+      throw new AgentServiceError(422, "validation_error", "Validation failed", "invalid_csr");
     }
 
     return this.#serialize(context.principalId, async () => {
@@ -226,15 +263,23 @@ export class AgentRenewService {
         try {
           const response = await this.#database.withTransaction(async (tx) => {
             const locked = await this.#lockIdentity(tx, context.principalId);
-            if (
-              locked === undefined ||
-              locked.status !== "active" ||
-              locked.project_deleted_at !== null
-            ) {
+            if (locked !== undefined) {
+              state.projectId = locked.owner_project_id;
+            }
+            if (locked === undefined || locked.status !== "active") {
               throw new AgentServiceError(
                 401,
                 "authentication_required",
                 "Authentication required",
+                "principal_inactive",
+              );
+            }
+            if (locked.project_deleted_at !== null) {
+              throw new AgentServiceError(
+                401,
+                "authentication_required",
+                "Authentication required",
+                "project_inactive",
               );
             }
 
@@ -247,19 +292,30 @@ export class AgentRenewService {
                 401,
                 "authentication_required",
                 "Authentication required",
+                "project_inactive",
               );
             }
 
             const newest = await this.#newestCertificate(tx, context.principalId);
             if (newest === undefined || newest.id !== context.certificateId) {
-              throw new AgentServiceError(409, "renewal_not_current", "Certificate is not current");
+              throw new AgentServiceError(
+                409,
+                "renewal_not_current",
+                "Certificate is not current",
+                "renewal_not_current",
+              );
             }
 
             const threshold =
               newest.not_before.getTime() +
               Math.floor(((newest.not_after.getTime() - newest.not_before.getTime()) * 2) / 3);
             if (this.#now() < threshold) {
-              throw new AgentServiceError(409, "renewal_not_due", "Certificate renewal is not due");
+              throw new AgentServiceError(
+                409,
+                "renewal_not_due",
+                "Certificate renewal is not due",
+                "renewal_not_due",
+              );
             }
 
             let issued: Awaited<ReturnType<CaSigner["issueClientCertificate"]>>;
@@ -275,6 +331,7 @@ export class AgentRenewService {
                   503,
                   "ca_unavailable",
                   "Certificate authority unavailable",
+                  "ca_unavailable",
                 );
               }
               throw error;
@@ -295,11 +352,43 @@ export class AgentRenewService {
                 notAfter: issued.notAfter,
               },
             );
-            await this.#consumers.upsert(tx, {
+            const previous = await this.#consumers.findForUpdate(locked.id, tx);
+            const consumer = await this.#consumers.upsert(tx, {
               principalId: locked.id,
               projectId: locked.owner_project_id,
               consumer: input.consumer,
             });
+            if (this.#audit !== undefined) {
+              await this.#audit.record(
+                {
+                  projectId: locked.owner_project_id,
+                  requestId: auditContext.requestId ?? "internal",
+                  actorId: locked.id,
+                  actorKind: "service",
+                  action: "agent.renew",
+                  scopeType: "project",
+                  scopeId: locked.owner_project_id,
+                  objectType: "identity",
+                  objectId: locked.id,
+                  result: "allow",
+                  sourceIp: auditContext.sourceIp ?? null,
+                  userAgent: auditContext.userAgent ?? null,
+                  details: {
+                    consumerId: consumer.id,
+                    certificateSerial: issued.serial,
+                  },
+                },
+                tx,
+              );
+              await this.#recordConsumerChange(
+                tx,
+                locked.owner_project_id,
+                locked.id,
+                consumer,
+                classifyConsumerChange(previous, consumer),
+                auditContext,
+              );
+            }
 
             return {
               certificatePem: issued.certificatePem,
@@ -317,13 +406,101 @@ export class AgentRenewService {
             if (attempt < CERTIFICATE_ATTEMPTS) {
               continue;
             }
-            throw new AgentServiceError(503, "ca_unavailable", "Certificate authority unavailable");
+            throw new AgentServiceError(
+              503,
+              "ca_unavailable",
+              "Certificate authority unavailable",
+              "certificate_conflict",
+            );
           }
           throw error;
         }
       }
 
-      throw new AgentServiceError(503, "ca_unavailable", "Certificate authority unavailable");
+      throw new AgentServiceError(
+        503,
+        "ca_unavailable",
+        "Certificate authority unavailable",
+        "ca_unavailable",
+      );
+    });
+  }
+
+  /** Records one consumer register or update event inside the renewal transaction. */
+  async #recordConsumerChange(
+    tx: QueryExecutor,
+    projectId: string,
+    principalId: string,
+    consumer: ConsumerRecord,
+    change: ConsumerChange | null,
+    context: AuditRequestContext,
+  ): Promise<void> {
+    if (change === null || this.#audit === undefined) {
+      return;
+    }
+    const details: Record<string, string | readonly string[]> = {
+      consumerId: consumer.id,
+      composeProject: consumer.composeProject,
+      composeService: consumer.composeService,
+      hostname: consumer.hostname,
+      manifestHash: consumer.manifestHash,
+      state: consumer.state,
+    };
+    if (change.kind === "update") {
+      details.changed = change.changed;
+    }
+    await this.#audit.record(
+      {
+        projectId,
+        requestId: context.requestId ?? "internal",
+        actorId: principalId,
+        actorKind: "service",
+        action: change.kind === "register" ? "consumer.register" : "consumer.update",
+        scopeType: "project",
+        scopeId: projectId,
+        objectType: "consumer",
+        objectId: consumer.id,
+        result: "allow",
+        sourceIp: context.sourceIp ?? null,
+        userAgent: context.userAgent ?? null,
+        details,
+      },
+      tx,
+    );
+  }
+
+  /** Records one independent renewal failure event. */
+  async #recordFailure(
+    error: unknown,
+    state: RenewAuditState,
+    context: AuditRequestContext,
+  ): Promise<void> {
+    if (this.#audit === undefined) {
+      return;
+    }
+    const reason =
+      error instanceof AgentServiceError ? (error.reason ?? "internal_error") : "internal_error";
+    const result =
+      reason === "ca_unavailable" ||
+      reason === "certificate_conflict" ||
+      reason === "internal_error"
+        ? "error"
+        : "deny";
+    const projectId = state.projectId;
+    await this.#audit.record({
+      projectId: projectId ?? null,
+      requestId: context.requestId ?? "internal",
+      actorId: state.principalId,
+      actorKind: "service",
+      action: "agent.renew",
+      scopeType: projectId === undefined ? "system" : "project",
+      scopeId: projectId ?? null,
+      objectType: null,
+      objectId: null,
+      result,
+      sourceIp: context.sourceIp ?? null,
+      userAgent: context.userAgent ?? null,
+      details: { reason },
     });
   }
 

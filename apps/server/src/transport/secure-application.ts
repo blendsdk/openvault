@@ -7,6 +7,7 @@ import type { PinoLoggerProvider } from "blendsdk/webafx-pino";
 import type { AgentAuthenticator } from "../agent/agent-authenticator.js";
 import type { AgentRuntime } from "../agent/agent-runtime.js";
 import type { AgentProjectResolver } from "../agent/project-resolver.js";
+import type { AuditRuntime } from "../audit/runtime.js";
 import type { AuthOverrides } from "../auth/types.js";
 import { createWebApplicationConfig, type OpenVaultConfig } from "../config/index.js";
 import type { IdentityRuntime } from "../identity/identity-runtime.js";
@@ -53,6 +54,8 @@ export interface SecureApplicationDependencies {
   readonly identityRuntime?: IdentityRuntime;
   /** Production agent runtime; owns the CA signer and identity runtime. */
   readonly agentRuntime?: AgentRuntime;
+  /** Composed audit runtime; built locally when omitted. */
+  readonly auditRuntime?: AuditRuntime;
   /** Test-only agent seams; production never supplies these. */
   readonly agentOverrides?: AgentTestOverrides;
   /** Shared logger provider; created by the caller when absent. */

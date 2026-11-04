@@ -13,7 +13,9 @@
     "test:integration": "vitest run --config vitest.integration.config.ts",
     "db:migrate": "node dist/db/cli.js",
     "db:types": "tsx scripts/generate-db-types.ts",
-    "db:types:check": "tsx scripts/generate-db-types.ts && git diff --exit-code -- src/database/generated-types.ts src/database/ctypes.ts"
+    "db:types:check": "tsx scripts/generate-db-types.ts && git diff --exit-code -- src/database/generated-types.ts src/database/ctypes.ts",
+    "audit:prune": "node dist/audit/cli.js",
+    "audit:checkpoint": "node dist/audit/checkpoint-cli.js"
   },
   "dependencies": {
     "@openvault/api-contract": "workspace:*",

@@ -344,6 +344,23 @@ loaded key.
 | GET | `/v1/audit/verify` | `audit.read` |
 | GET | `/v1/audit/export` | `audit.read` |
 
+`GET /v1/audit/events` accepts `from`, `to`, `actorId`, `action`, `objectType`, `objectId`,
+`result`, `requestId`, `projectId`, `limit` (1–500, default 100), and `cursor`. Results are
+newest first. `objectId` requires `objectType`.
+
+```http
+GET /v1/audit/events?action=secret.read&result=deny&limit=50
+-> 200 { "success": true, "data": { "events": [...], "nextCursor": "..." } }
+```
+
+`GET /v1/audit/verify` returns `ok`, `checkedRange`, `firstBrokenEventId`, and a stable
+`reason`. A broken chain is still HTTP 200 with `ok: false`. `GET /v1/audit/export` streams
+`application/x-ndjson` in ascending order and records the attempt before the first byte.
+
+Limits are 60 event queries, 10 verifications, and 5 exports per minute per principal.
+Invalid filters or cursors return 422; a project outside the caller's grant or an
+organization-only verify returns 403; storage or audit-key failures return 503.
+
 ### Operational
 
 `GET /health` is provided by WebAFX. `GET /ready` checks the database, keyring, TLS/CA

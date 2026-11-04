@@ -17,11 +17,14 @@
 - Local and OIDC browser authentication plus CLI bearer authentication.
 - Scoped RBAC with fixed actions and roles, assignment administration, grant guards,
   policy-side capability computation, and access explanations.
+- Append-only audit chain with canonical hashing, a KEK-wrapped HMAC key, checkpoints,
+  cursor-paginated query, chain verification, NDJSON export, and explicit retention pruning.
+- Audit evidence for authorization, assignments, identity, local/CLI/OIDC authentication,
+  lockouts, agent join/renew, and consumer metadata changes.
 
 ### Planned
 
 - Secrets and certificates.
 - `ov-agent` client with tmpfs delivery and local status socket.
 - CLI and Docker Compose scaffold.
-- Audit chain, verification, and export.
 - Minimal web UI.

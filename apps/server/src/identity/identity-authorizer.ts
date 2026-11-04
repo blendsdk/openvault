@@ -2,7 +2,12 @@ import type { Logger } from "blendsdk/webafx";
 import type { PolicyAuditContext } from "../rbac/audit.js";
 import { LoggingPolicyAudit } from "../rbac/audit.js";
 import { PolicyRepository } from "../rbac/policy-repository.js";
-import { type PolicyResource, PolicyService } from "../rbac/policy-service.js";
+import {
+  type AuthorizeOptions,
+  type PolicyDecision,
+  type PolicyResource,
+  PolicyService,
+} from "../rbac/policy-service.js";
 import type { QueryExecutor } from "./identity-repository.js";
 
 /** Identity actions understood by the administrative API. */
@@ -50,14 +55,40 @@ export class IdentityAuthorizer {
    * @param action - Identity action.
    * @param actorId - Signed-in user principal.
    * @param projectId - Target identity owner project.
+   * @param context - Optional request metadata.
    * @returns True when the action is covered.
    */
-  public async can(action: IdentityAction, actorId: string, projectId: string): Promise<boolean> {
+  public async can(
+    action: IdentityAction,
+    actorId: string,
+    projectId: string,
+    context?: PolicyAuditContext,
+  ): Promise<boolean> {
     const resource: Extract<PolicyResource, { type: "project" }> = {
       type: "project",
       id: projectId,
     };
-    return (await this.#policy.authorize(actorId, action, resource)).allowed;
+    return (await this.#policy.authorize(actorId, action, resource, context)).allowed;
+  }
+
+  /**
+   * Evaluates one action on one resource and returns the decision.
+   *
+   * @param action - Identity action.
+   * @param actorId - Signed-in user principal.
+   * @param resource - Resource being evaluated.
+   * @param context - Optional request metadata.
+   * @param options - Audit control for a visibility-only call.
+   * @returns The decision.
+   */
+  public async decide(
+    action: IdentityAction,
+    actorId: string,
+    resource: PolicyResource,
+    context?: PolicyAuditContext,
+    options?: AuthorizeOptions,
+  ): Promise<PolicyDecision> {
+    return this.#policy.authorize(actorId, action, resource, context, options ?? {});
   }
 
   /**
@@ -65,10 +96,17 @@ export class IdentityAuthorizer {
    *
    * @param action - Identity action.
    * @param actorId - Signed-in user principal.
+   * @param context - Optional request metadata.
+   * @param options - Audit control for a visibility-only call.
    * @returns True when at least one assignment covers the action.
    */
-  public async hasAny(action: IdentityAction, actorId: string): Promise<boolean> {
-    return (await this.#policy.hasAny(actorId, action)).allowed;
+  public async hasAny(
+    action: IdentityAction,
+    actorId: string,
+    context?: PolicyAuditContext,
+    options?: AuthorizeOptions,
+  ): Promise<boolean> {
+    return (await this.#policy.hasAny(actorId, action, context, options)).allowed;
   }
 
   /**

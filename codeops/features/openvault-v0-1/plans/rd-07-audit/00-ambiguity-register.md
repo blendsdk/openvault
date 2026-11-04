@@ -1,7 +1,7 @@
 # Ambiguity Register: RD-07 Audit Implementation Plan
 
-> **Status**: ✅ GATE PASSED — all 28 items resolved
-> **Last Updated**: 2026-11-04 08:49
+> **Status**: ✅ GATE PASSED — all 30 items resolved
+> **Last Updated**: 2026-11-04 13:20
 > **CodeOps Artifact Schema**: 1
 
 ## Scope Baseline
@@ -44,6 +44,8 @@
 | 26 | Technical | How audit tests obtain a clean chain and prune role | Reuse `seedBase` / fresh database / fake writer | Authority: AI — delegated by --auto-design. Chain tests use a fresh database without the synthetic audit fixture; the test harness provisions the pruner role with `SELECT, DELETE` on `audit_events`; unit tests use deterministic clocks and real crypto | ✅ Resolved |
 | 27 | UX & presentation | Documentation and release-note surface | API + guide only / full docs set / none | Authority: AI — delegated by --auto-design. Update API reference, audit guide, configuration, CLI reference, security limitations, changelog, and add a changeset | ✅ Resolved |
 | 28 | Stakeholder conflicts | Whether a standing specialist is warranted | None / audit reviewer / crypto reviewer | Authority: AI — delegated by --auto-design. None; the existing security, crypto, and concurrency lenses cover the domain and no repeated rework evidence exists | ✅ Resolved |
+| 29 | Data & state (runtime) | A decision can name a project that does not exist, while `audit_events.project_id` has a foreign key to `projects` | Reject before authorization / persist at system scope / relax the foreign key | Authority: AI — delegated by --auto-design. Persist the decision at system scope with `projectId` null and keep the requested object type and id, so the attempt still reaches the log and the schema stays unchanged | ✅ Resolved |
+| 30 | Technical (runtime) | Assignment decisions are recorded while the assignment transaction is active, but one database handle cannot open a nested transaction | Independent audit pool / defer the write / join the caller transaction | Authority: AI — delegated by --auto-design. Decision events use a dedicated audit pool with a short idle timeout, so they commit independently of the assignment transaction; mutation events still join the caller transaction. Every attempt produces exactly one decision event, including a failed insert after authorization | ✅ Resolved |
 
 ## Resolution Notes
 
@@ -118,6 +120,10 @@ The catalog is the query-filter allowlist and the details-allowlist key. Secret 
 **AR-27:** Update `docs/reference/api.md` with the three routes, filters, response examples, and status codes; expand `docs/guide/audit.md` with verification, export, retention, and the prune command; document `OPENVAULT_PRUNE_DB_URL`, the `openvault_pruner` role, and the checkpoint export command in `docs/reference/configuration.md` and `docs/reference/cli.md`; update `docs/changelog.md`; add a minor changeset for `@openvault/api-contract` and `@openvault/server`. The checkpoint export is a maintenance integrity read and does not create an audit event; the NDJSON event export is the audited export required by the acceptance criteria.
 
 **AR-28:** **None.** Detection evidence: the domain is ordinary TypeScript over existing PostgreSQL, Node crypto, WebAFX, and Vitest patterns. The audit key hierarchy is already documented in `docs/architecture/crypto.md:5-73`; the append-only triggers already exist in `apps/server/migrations/20261030094213_triggers-and-seed.up.sql:9-27`; the policy port already exists at `apps/server/src/rbac/audit.ts:81-86`. Existing security, crypto, and concurrency review lenses cover the risks. No repeated rework evidence exists and no catalog role would be replaced by a standing specialist.
+
+**AR-29:** A policy decision can reference a project id that has no row in `projects`, for example an identity-create request that names an unknown project. `audit_events.project_id` is a foreign key, so a project-scoped event for that id cannot be persisted and the request would fail with 503 instead of its expected 422. The persistent adapter checks the project before writing a decision. When the row is absent it records the decision at system scope with a null `projectId` and keeps the requested `objectType`/`objectId`, so the attempt and denial remain visible and no schema change is needed. The check is skipped when no database handle is supplied to the adapter. This is a runtime finding resolved under `--auto-design`.
+
+**AR-30:** `PolicyService.recordDecision` accepts an optional transaction. An assignment transaction cannot open a nested decision transaction on the same database handle, so the writer has a dedicated audit pool (`recordIndependent`) with `max: 1` and a short idle timeout. When a decision is recorded while a caller transaction is active, it commits on that pool; the mutation event still joins the caller transaction. A failed insert after an allowed decision therefore leaves the decision in the log, and a denied decision survives the rollback. The main application and the agent runtime share the same persistent adapter built from the main database and this audit pool. This is a runtime finding resolved under `--auto-design`.
 
 ### Auto-Design Provenance
 

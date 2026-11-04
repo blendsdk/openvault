@@ -7,6 +7,7 @@ import {
   type RbacScopeType,
   type RoleCatalog,
 } from "@openvault/api-contract";
+import type { AuditQueryExecutor } from "../audit/types.js";
 import { ACTION_DEFINITIONS, isControlPlaneAction } from "./actions.js";
 import type { PolicyAuditContext, PolicyAuditPort, PolicyDecisionEvent } from "./audit.js";
 import { PolicyUnavailableError } from "./errors.js";
@@ -395,6 +396,7 @@ export class PolicyService {
    * @param actorId - Principal identifier.
    * @param action - Fixed action.
    * @param context - Optional request metadata.
+   * @param options - Audit control for a visibility-only call.
    * @returns A system-scope decision.
    * @throws {PolicyUnavailableError} When policy state or audit is unavailable.
    */
@@ -402,6 +404,7 @@ export class PolicyService {
     actorId: string,
     action: RbacAction,
     context?: PolicyAuditContext,
+    options: AuthorizeOptions = {},
   ): Promise<PolicyDecision> {
     const snapshot = await this.#repository.loadActorSnapshot(actorId);
     const systemScope = { type: "system", id: null } as const;
@@ -413,7 +416,9 @@ export class PolicyService {
         await this.#repository.readPolicyVersion(),
         systemScope,
       );
-      await this.recordDecision(decision, context);
+      if (options.audit !== false) {
+        await this.recordDecision(decision, context);
+      }
       return decision;
     }
     const now = this.#now();
@@ -466,7 +471,9 @@ export class PolicyService {
         );
       }
     }
-    await this.recordDecision(decision, context);
+    if (options.audit !== false) {
+      await this.recordDecision(decision, context);
+    }
     return decision;
   }
 
@@ -614,9 +621,10 @@ export class PolicyService {
   public async recordDecision(
     decision: PolicyDecision,
     context?: PolicyAuditContext,
+    tx?: AuditQueryExecutor,
   ): Promise<void> {
     try {
-      await this.#audit.recordDecision(this.#toEvent(decision, context));
+      await this.#audit.recordDecision(this.#toEvent(decision, context), tx);
     } catch {
       throw new PolicyUnavailableError();
     }
@@ -794,6 +802,7 @@ export class PolicyService {
       action: decision.action,
       scopeType: decision.scope.type,
       scopeId: decision.scope.id,
+      projectId: resourceProjectId(decision.resource) ?? null,
       objectType,
       objectId,
       result: decision.allowed ? "allow" : "deny",

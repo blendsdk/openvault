@@ -53,10 +53,12 @@ export interface BaseFixture {
 }
 
 /**
- * Seeds one coherent project, user, service identity, secret, certificate, and audit chain.
+ * Seeds one coherent project, user, service identity, secret, and certificate.
  *
  * Tests that need a valid row to violate a single constraint can start from this fixture
- * instead of rebuilding the whole graph.
+ * instead of rebuilding the whole graph. The returned audit identifiers are reserved for
+ * {@link seedAuditFixture}; this function deliberately leaves the audit tables empty so
+ * chain tests start from genesis.
  *
  * @param db - Connected test database.
  * @returns The inserted identifiers.
@@ -146,11 +148,35 @@ export async function seedBase(db: PostgreSQLDatabase): Promise<BaseFixture> {
     { versionId: certificateVersionId, certificateId },
   );
 
+  return {
+    projectId,
+    userId,
+    serviceId,
+    secretId,
+    secretVersionId,
+    certificateId,
+    certificateVersionId,
+    auditKeyId,
+    auditEventId,
+  };
+}
+
+/**
+ * Inserts the synthetic audit key, event, and checkpoint used by schema tests.
+ *
+ * Chain and emitter tests must not call this helper: they need a real chain that starts
+ * at genesis. The fixed byte values only satisfy column constraints; they are not a valid
+ * chain and must never be verified.
+ *
+ * @param db - Connected test database with {@link seedBase} rows.
+ * @param base - Identifiers returned by {@link seedBase}.
+ */
+export async function seedAuditFixture(db: PostgreSQLDatabase, base: BaseFixture): Promise<void> {
   await db.executeQuery(
     `INSERT INTO audit_keys (id, wrapped_key, wrap_nonce, wrap_tag, kek_id)
      VALUES (:id, :wrappedKey, :wrapNonce, :wrapTag, 'kek-1')`,
     {
-      id: auditKeyId,
+      id: base.auditKeyId,
       wrappedKey: bytes32(12),
       wrapNonce: nonce(13),
       wrapTag: tag(14),
@@ -165,13 +191,13 @@ export async function seedBase(db: PostgreSQLDatabase): Promise<BaseFixture> {
         'project', :projectId, 'allow', :prevHash, :hash, :hmac, :auditKeyId)
      RETURNING id`,
     {
-      eventId: auditEventId,
-      projectId,
-      actorId: userId,
+      eventId: base.auditEventId,
+      projectId: base.projectId,
+      actorId: base.userId,
       prevHash: bytes32(15),
       hash: bytes32(16),
       hmac: bytes32(17),
-      auditKeyId,
+      auditKeyId: base.auditKeyId,
     },
   );
   const auditEventRowId = auditEvent.records[0]?.id;
@@ -185,19 +211,7 @@ export async function seedBase(db: PostgreSQLDatabase): Promise<BaseFixture> {
       lastEventId: auditEventRowId,
       lastHash: bytes32(18),
       hmac: bytes32(19),
-      auditKeyId,
+      auditKeyId: base.auditKeyId,
     },
   );
-
-  return {
-    projectId,
-    userId,
-    serviceId,
-    secretId,
-    secretVersionId,
-    certificateId,
-    certificateVersionId,
-    auditKeyId,
-    auditEventId,
-  };
 }

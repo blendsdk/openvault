@@ -23,6 +23,8 @@ const credential: LocalLoginSuccess = {
   email: "cli@example.test",
   mustChange: false,
   passwordHash: "$argon2id$test",
+  previousFailedCount: 0,
+  previousLockedUntil: null,
 };
 
 function createdFamily(): CreatedCliFamily {

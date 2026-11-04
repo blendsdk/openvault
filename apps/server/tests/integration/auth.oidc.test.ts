@@ -753,6 +753,21 @@ describe.skipIf(trustedHost === undefined)("OIDC authentication", () => {
       expect(rows).toHaveLength(1);
       expect(rows[0]).toMatchObject({ id: user.id, kind: "user", status: "active", email });
       await expect(countIdentities(subject)).resolves.toBe(1);
+
+      const auditRows = await testDb.db.executeQuery<{
+        result: string;
+        details: Record<string, unknown>;
+      }>(
+        `SELECT result, details FROM audit_events
+          WHERE action = 'auth.login' AND actor_id = :actorId`,
+        { actorId: user.id },
+      );
+      expect(auditRows.records).toEqual([
+        {
+          result: "allow",
+          details: { method: "oidc", client: "browser" },
+        },
+      ]);
     });
 
     it("should reject a callback whose ID token nonce does not match the flow state", async () => {

@@ -11,6 +11,8 @@ import {
 import type { RouteDefinition } from "blendsdk/webafx";
 import { ApiError, BaseController } from "blendsdk/webafx";
 import type { Request, Response } from "express";
+import { AuditUnavailableError } from "../audit/errors.js";
+import { auditRequestContext } from "../audit/http.js";
 import { requirePrincipal } from "../auth/middleware.js";
 import { IdentityServiceError } from "../identity/errors.js";
 import type { IdentityService } from "../identity/identity-service.js";
@@ -24,7 +26,7 @@ async function execute<T>(action: () => Promise<T>): Promise<T> {
     if (error instanceof IdentityServiceError) {
       throw new ApiError(error.statusCode, error.code, error.message);
     }
-    if (error instanceof PolicyUnavailableError) {
+    if (error instanceof PolicyUnavailableError || error instanceof AuditUnavailableError) {
       throw new ApiError(503, "service_unavailable", "Service unavailable");
     }
     throw error;
@@ -60,7 +62,7 @@ export class IdentityController extends BaseController {
           }
           const service = await this.services.get<IdentityService>("identityService");
           const identities = await execute(() =>
-            service.list(actor.user.id, parsed.data.projectId),
+            service.list(actor.user.id, parsed.data.projectId, auditRequestContext(req)),
           );
           this.ok(res, identityListSchema.parse({ identities }));
         }),
@@ -73,7 +75,9 @@ export class IdentityController extends BaseController {
             throw new ApiError(400, "validation_error", "Validation failed");
           }
           const service = await this.services.get<IdentityService>("identityService");
-          const identity = await execute(() => service.create(actor.user.id, parsed.data));
+          const identity = await execute(() =>
+            service.create(actor.user.id, parsed.data, auditRequestContext(req)),
+          );
           this.created(res, identitySummarySchema.parse(identity));
         }),
       this.route()
@@ -81,7 +85,9 @@ export class IdentityController extends BaseController {
         .handle(async (req: Request, res: Response) => {
           const actor = requirePrincipal(req);
           const service = await this.services.get<IdentityService>("identityService");
-          const detail = await execute(() => service.get(actor.user.id, identityId(req)));
+          const detail = await execute(() =>
+            service.get(actor.user.id, identityId(req), auditRequestContext(req)),
+          );
           this.ok(res, identityDetailSchema.parse(detail));
         }),
       this.route()
@@ -89,7 +95,9 @@ export class IdentityController extends BaseController {
         .handle(async (req: Request, res: Response) => {
           const actor = requirePrincipal(req);
           const service = await this.services.get<IdentityService>("identityService");
-          await execute(() => service.revoke(actor.user.id, identityId(req)));
+          await execute(() =>
+            service.revoke(actor.user.id, identityId(req), auditRequestContext(req)),
+          );
           this.noContent(res);
         }),
       this.route()
@@ -102,7 +110,12 @@ export class IdentityController extends BaseController {
           }
           const service = await this.services.get<IdentityService>("identityService");
           const token = await execute(() =>
-            service.issueJoinToken(actor.user.id, identityId(req), parsed.data.ttlSeconds),
+            service.issueJoinToken(
+              actor.user.id,
+              identityId(req),
+              parsed.data.ttlSeconds,
+              auditRequestContext(req),
+            ),
           );
           this.created(res, joinTokenResponseSchema.parse(token));
         }),

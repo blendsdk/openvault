@@ -339,7 +339,7 @@ Tail detection covers every checkpoint at or after the retained window. An event
 
 `checkedRange` reports the first and last retained event ULIDs actually walked. When the anchor is the first event's checkpoint, the anchor event is part of the walk and is included. When the anchor is a boundary checkpoint below `firstId`, the range starts at `firstId`. When the chain is empty, it is `null`.
 
-`firstBrokenEventId` is the event whose hash, HMAC, or link failed. For a checkpoint-level failure where the referenced event is missing or the checkpoint HMAC/key fails, it is `null`, except when the failed anchor is the first retained event, where it is `firstId`.
+`firstBrokenEventId` is the event whose hash, HMAC, or link failed. For a checkpoint-level failure where the referenced event is missing or the checkpoint HMAC/key fails, it is `null`, except when the failed anchor is the checkpoint at the first retained event, where it is `firstId`. A boundary checkpoint below the retained window is a checkpoint-level failure and reports `null`.
 
 ### Export Service
 

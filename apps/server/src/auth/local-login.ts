@@ -22,12 +22,30 @@ export interface LocalLoginSuccess {
   readonly mustChange: boolean;
   /** The verified PHC hash, used for a post-issuance compare-and-swap recheck. */
   readonly passwordHash: string;
+  /** Failure count before the successful reset, for audit-failure compensation. */
+  readonly previousFailedCount: number;
+  /** Lock state before the successful reset, for audit-failure compensation. */
+  readonly previousLockedUntil: Date | null;
 }
+
+/** Stable internal failure reasons; never returned to the client. */
+export type LocalLoginFailureReason =
+  | "unknown_credentials"
+  | "inactive_principal"
+  | "locked"
+  | "invalid_credentials"
+  | "invalid_hash";
 
 /** The result of one local login attempt. */
 export type LocalLoginResult =
   | { readonly ok: true; readonly credential: LocalLoginSuccess }
-  | { readonly ok: false };
+  | {
+      readonly ok: false;
+      readonly reason: LocalLoginFailureReason;
+      readonly principalId?: string;
+      /** Set when this failure created a lock. */
+      readonly lockedUntil?: Date;
+    };
 
 /**
  * Normalizes a local login identifier.
@@ -72,7 +90,8 @@ export interface LocalLoginCredentials {
 /**
  * Runs the shared local credential verification flow.
  *
- * The service deliberately returns one generic failure for an unknown user, a
+ * The service returns a stable internal reason for evidence, but every caller
+ * still returns one generic failure to the client for an unknown user, a
  * disabled principal, a locked account, a malformed stored hash, and a wrong
  * password. Every generic path spends one dummy Argon2 verification so timing
  * does not reveal which condition was true. Only a genuine wrong password
@@ -101,26 +120,38 @@ export class LocalLoginService {
 
     if (credential === undefined) {
       await dummyVerify(input.password);
-      return { ok: false };
+      return { ok: false, reason: "unknown_credentials" };
     }
     if (credential.status !== "active") {
       await dummyVerify(input.password);
-      return { ok: false };
+      return { ok: false, reason: "inactive_principal", principalId: credential.principalId };
     }
     if (isLocked(credential.lockedUntil, Date.now())) {
       await dummyVerify(input.password);
-      return { ok: false };
+      return { ok: false, reason: "locked", principalId: credential.principalId };
     }
     if (!isPolicyHash(credential.passwordHash)) {
       await log?.warn("stored password hash rejected", {
         principalId: credential.principalId,
       });
       await dummyVerify(input.password);
-      return { ok: false };
+      return { ok: false, reason: "invalid_hash", principalId: credential.principalId };
     }
     if (!(await verifyPassword(input.password, credential.passwordHash))) {
-      await this.#credentials.recordFailure(credential.principalId, credential.passwordHash);
-      return { ok: false };
+      const failure = await this.#credentials.recordFailure(
+        credential.principalId,
+        credential.passwordHash,
+      );
+      const lockedUntil =
+        failure.lockedUntil !== null && failure.lockedUntil.getTime() > Date.now()
+          ? failure.lockedUntil
+          : undefined;
+      return {
+        ok: false,
+        reason: "invalid_credentials",
+        principalId: credential.principalId,
+        ...(lockedUntil === undefined ? {} : { lockedUntil }),
+      };
     }
 
     const reset = await this.#credentials.recordSuccess(
@@ -128,7 +159,7 @@ export class LocalLoginService {
       credential.passwordHash,
     );
     if (!reset) {
-      return { ok: false };
+      return { ok: false, reason: "invalid_credentials", principalId: credential.principalId };
     }
 
     return {
@@ -139,6 +170,8 @@ export class LocalLoginService {
         email: credential.email,
         mustChange: credential.mustChange,
         passwordHash: credential.passwordHash,
+        previousFailedCount: credential.failedCount,
+        previousLockedUntil: credential.lockedUntil,
       },
     };
   }

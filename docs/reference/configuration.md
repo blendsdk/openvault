@@ -40,6 +40,25 @@ sliding idle timeout. `OPENVAULT_OIDC_ALLOWED_DOMAINS` enables JIT provisioning;
 OIDC identities must already be linked. JIT also requires `email_verified: true` and an exact
 domain match.
 
+## Audit maintenance
+
+Pruning and checkpoint export are separate server-side commands. They read the same server
+configuration as the process and the prune command additionally reads:
+
+| Variable | Default | Required | Notes |
+|---|---|---|---|
+| `OPENVAULT_PRUNE_DB_URL` | — | for `audit:prune` | PostgreSQL URL for the dedicated `openvault_pruner` session |
+
+Deployment must create a login role named `openvault_pruner` and grant it `SELECT, DELETE`
+on `audit_events`. The delete predicate reads the `id` column, so `DELETE` alone is not
+enough. Do not grant `UPDATE`, `TRUNCATE`, or ownership. The prune credential can delete any
+audit prefix at any time without writing a prune event, and its export file contains every
+tenant's events; treat the URL and file as high-value secrets. The application role must
+also be a non-owner, non-superuser role for the append-only trigger to be effective; the
+migration owner or a superuser can disable it. Run maintenance on the vault host, or supply
+the same database, keyring, TLS/CA, and base URL settings as the server. The prune command
+checks that its connection targets the same database that was verified and exported.
+
 ## Body limits
 
 The transport boundary is fixed at 64 KiB for `/v1/secrets*` and 128 KiB for

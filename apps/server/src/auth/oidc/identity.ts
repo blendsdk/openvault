@@ -1,5 +1,6 @@
 import { newUlid } from "@openvault/core";
 import type { PostgreSQLDatabase } from "blendsdk/postgresql";
+import type { QueryExecutor } from "../../identity/identity-repository.js";
 import { OidcAccessDeniedError, OidcLinkCollisionError } from "./errors.js";
 
 const MAX_ISSUER_LENGTH = 255;
@@ -83,11 +84,16 @@ export class OidcIdentityService {
    * Resolves the principal for a verified OIDC identity.
    *
    * @param input - Verified issuer, subject, claims, and JIT policy.
+   * @param onResolved - Optional evidence callback. A JIT write passes the
+   *   provisioning transaction so the allow event rolls back with the account.
    * @returns The linked or provisioned principal.
    * @throws {OidcAccessDeniedError} When the principal is disabled or JIT is denied.
    * @throws {OidcLinkCollisionError} When the email belongs to another principal.
    */
-  public async resolve(input: OidcIdentityInput): Promise<OidcIdentity> {
+  public async resolve(
+    input: OidcIdentityInput,
+    onResolved?: (tx: QueryExecutor | undefined, principalId: string) => Promise<void>,
+  ): Promise<OidcIdentity> {
     if (
       !hasLength(input.issuer, 1, MAX_ISSUER_LENGTH) ||
       !hasLength(input.subject, 1, MAX_SUBJECT_LENGTH)
@@ -100,6 +106,7 @@ export class OidcIdentityService {
       if (existing.status !== "active") {
         throw new OidcAccessDeniedError();
       }
+      await onResolved?.(undefined, existing.id);
       return {
         principalId: existing.id,
         name: existing.name,
@@ -150,6 +157,7 @@ export class OidcIdentityService {
            VALUES (:principalId, :issuer, :subject)`,
           { principalId, issuer: input.issuer, subject: input.subject },
         );
+        await onResolved?.(tx, principalId);
       });
     } catch (error) {
       if (error instanceof OidcLinkCollisionError) {
@@ -161,6 +169,7 @@ export class OidcIdentityService {
           if (raced.status !== "active") {
             throw new OidcAccessDeniedError();
           }
+          await onResolved?.(undefined, raced.id);
           return {
             principalId: raced.id,
             name: raced.name,
