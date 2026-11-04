@@ -79,17 +79,20 @@ async function privateKeyMaterial(keys: CryptoKeyPair): Promise<{
  *
  * @returns CA certificate, key pair, scalar, public point, and cleanup.
  */
-export async function createAgentCaFixture(): Promise<AgentCaFixture> {
+export async function createAgentCaFixture(
+  options: { readonly now?: Date } = {},
+): Promise<AgentCaFixture> {
   const directory = mkdtempSync(join(tmpdir(), "openvault-agent-ca-"));
   const certPath = join(directory, "internal-ca.pem");
   const keys = await generateP256Keys();
-  const now = Date.now();
+  const now = options.now?.getTime() ?? Date.now();
+  const notAfter = Math.max(now, Date.now()) + 120 * 86_400_000;
   const certificate = await x509.X509CertificateGenerator.createSelfSigned({
     serialNumber: randomBytes(16).toString("hex"),
     name: "CN=OpenVault Internal CA",
     keys,
     notBefore: new Date(now - 60_000),
-    notAfter: new Date(now + 86_400_000),
+    notAfter: new Date(notAfter),
     extensions: [
       new x509.BasicConstraintsExtension(true, 0, true),
       new x509.KeyUsagesExtension(

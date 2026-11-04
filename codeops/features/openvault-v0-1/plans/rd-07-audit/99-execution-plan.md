@@ -254,7 +254,7 @@ Implement the persistent audit chain in four phases: the writer and policy adapt
 
 **Verify**: `pnpm verify && pnpm db:types:check && TEST_DATABASE_URL=postgres://openvault:test-password@127.0.0.1:5433/openvault_test OPENVAULT_TEST_DB=1 pnpm test:integration && pnpm changeset status`
 
-> **Verification note (2026-11-04 15:38)**: `pnpm verify`, `pnpm db:types:check`, and `pnpm changeset status` pass. The integration suite reports 519 passed and the same pre-existing `ca-x509.spec.test.ts` failure; it also fails on the clean baseline.
+> **Verification note (2026-11-04 15:58)**: `pnpm verify`, `pnpm db:types:check`, and `pnpm changeset status` pass. The integration suite reports 520 passed, 0 failed. The earlier `ca-x509` failure was a clock-dependent test fixture; it is fixed by making the fixture CA validity cover the test clock.
 
 ---
 
@@ -298,6 +298,6 @@ Phase 2 depends on the writer and contracts from Phase 1. Phase 3 depends on the
 | `pnpm verify` | Pass (build, typecheck, lint, unit tests, artifacts, React check, docs build) |
 | `pnpm db:types:check` | Pass, no generated-type drift |
 | `pnpm changeset status` | Pass, minor bump for `@openvault/server` and `@openvault/api-contract` |
-| Integration suite | 519 passed; one pre-existing `ca-x509.spec.test.ts` probe failure also reproduces on the clean `82869de` baseline |
+| Integration suite | 520 passed, 0 failed |
 
-**Residual note**: The exhaustive emitter matrix requested by the Phase 3 review (credential-race and forced-failure cases across every emitter) is recorded as deferred in the findings ledger. The implemented emitters and their success, unknown-token, consumer-change, OIDC, denial, and prune paths are covered by the committed suites. The pre-existing CA probe failure is unrelated to audit code and is not caused by this plan.
+**Residual note**: The exhaustive emitter matrix requested by the Phase 3 review (credential-race and forced-failure cases across every emitter) is recorded as deferred in the findings ledger. The implemented emitters and their success, unknown-token, consumer-change, OIDC, denial, and prune paths are covered by the committed suites. The earlier CA probe failure was a clock-dependent test fixture, not audit code; it is fixed by making the fixture CA validity cover the test clock.

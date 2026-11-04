@@ -20,7 +20,7 @@ import { createServerEnvironment, type ServerEnvironment } from "./helpers/serve
 import { applyMigrations, createTestDatabase, type TestDatabase } from "./helpers/test-database.js";
 
 const PRINCIPAL = "01ARZ3NDEKTSV4RRFFQ69G5FAV";
-const FIXED_NOW = Date.UTC(2026, 10, 3, 12, 0, 0);
+const FIXED_NOW = Math.floor((Date.now() - 3_600_000) / 1_000) * 1_000;
 
 let testDb: TestDatabase;
 let environment: ServerEnvironment;
@@ -39,7 +39,7 @@ afterAll(async () => {
 });
 
 async function currentCa(): Promise<Awaited<ReturnType<typeof createAgentCaFixture>>> {
-  const ca = await createAgentCaFixture();
+  const ca = await createAgentCaFixture({ now: new Date(FIXED_NOW) });
   await testDb.db.executeQuery("DELETE FROM ca_keys");
   await seedCaKey(testDb.db, keyring, ca);
   return ca;
