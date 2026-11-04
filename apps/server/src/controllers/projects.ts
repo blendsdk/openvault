@@ -12,6 +12,7 @@ import { AuditUnavailableError } from "../audit/errors.js";
 import { auditRequestContext } from "../audit/http.js";
 import { requirePrincipal } from "../auth/middleware.js";
 import { ProjectServiceError } from "../projects/errors.js";
+import type { ProjectRecord } from "../projects/repository.js";
 import type { ProjectService } from "../projects/service.js";
 import { PolicyUnavailableError } from "../rbac/errors.js";
 
@@ -33,6 +34,23 @@ async function execute<T>(action: () => Promise<T>): Promise<T> {
   } catch (error) {
     throw mapError(error);
   }
+}
+
+/** Converts an internal project row to the public ISO-timestamp shape. */
+function toProjectResponse(project: ProjectRecord): {
+  readonly id: string;
+  readonly name: string;
+  readonly createdAt: string;
+  readonly updatedAt: string;
+  readonly deletedAt: string | null;
+} {
+  return {
+    id: project.id,
+    name: project.name,
+    createdAt: project.createdAt.toISOString(),
+    updatedAt: project.updatedAt.toISOString(),
+    deletedAt: project.deletedAt?.toISOString() ?? null,
+  };
 }
 
 /** Requires a syntactically valid project id or returns the stable not-found code. */
@@ -62,7 +80,7 @@ export class ProjectsController extends BaseController {
           const projects = await execute(() =>
             service.list(actor.user.id, auditRequestContext(req)),
           );
-          this.ok(res, projectListSchema.parse({ projects }));
+          this.ok(res, projectListSchema.parse({ projects: projects.map(toProjectResponse) }));
         }),
       this.route()
         .post("/")
@@ -76,7 +94,7 @@ export class ProjectsController extends BaseController {
           const project = await execute(() =>
             service.create(actor.user.id, parsed.data, auditRequestContext(req)),
           );
-          this.created(res, projectSchema.parse(project));
+          this.created(res, projectSchema.parse(toProjectResponse(project)));
         }),
       this.route()
         .get("/:project")
@@ -86,7 +104,7 @@ export class ProjectsController extends BaseController {
           const project = await execute(() =>
             service.get(actor.user.id, projectId(req), auditRequestContext(req)),
           );
-          this.ok(res, projectSchema.parse(project));
+          this.ok(res, projectSchema.parse(toProjectResponse(project)));
         }),
       this.route()
         .patch("/:project")
@@ -100,7 +118,7 @@ export class ProjectsController extends BaseController {
           const project = await execute(() =>
             service.update(actor.user.id, projectId(req), parsed.data, auditRequestContext(req)),
           );
-          this.ok(res, projectSchema.parse(project));
+          this.ok(res, projectSchema.parse(toProjectResponse(project)));
         }),
       this.route()
         .delete("/:project")

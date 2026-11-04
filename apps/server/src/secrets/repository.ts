@@ -54,10 +54,24 @@ export interface SecretVersionRecord {
   readonly expiresAt: Date | null;
 }
 
-/** A secret row with its current version used by the list query. */
+/** Version metadata without ciphertext. */
+export interface SecretVersionMetadata {
+  /** Version identifier. */
+  readonly id: string;
+  /** Owning secret. */
+  readonly secretId: string;
+  /** Creator principal. */
+  readonly createdBy: string;
+  /** Creation time. */
+  readonly createdAt: Date;
+  /** Expiry, or null. */
+  readonly expiresAt: Date | null;
+}
+
+/** A secret row with its current version metadata used by the list query. */
 export interface SecretListRow extends SecretRecord {
-  /** The current version row, when present. */
-  readonly currentVersion: SecretVersionRecord | null;
+  /** The current version metadata, when present. */
+  readonly currentVersion: SecretVersionMetadata | null;
 }
 
 /** One consumer summary. */
@@ -109,22 +123,24 @@ interface VersionRow {
 
 interface ListRow extends SecretRow {
   readonly cv_id: string | null;
-  readonly cv_ciphertext: Buffer | null;
-  readonly cv_nonce: Buffer | null;
-  readonly cv_tag: Buffer | null;
-  readonly cv_wrapped_dek: Buffer | null;
-  readonly cv_wrap_nonce: Buffer | null;
-  readonly cv_wrap_tag: Buffer | null;
-  readonly cv_kek_id: string | null;
   readonly cv_created_by: string | null;
   readonly cv_created_at: Date | null;
   readonly cv_expires_at: Date | null;
+}
+
+interface VersionMetadataRow {
+  readonly id: string;
+  readonly secret_id: string;
+  readonly created_by: string;
+  readonly created_at: Date;
+  readonly expires_at: Date | null;
 }
 
 const SECRET_COLUMNS = `id, project_id, name, tags, content_type, current_version_id,
   purge_protected, created_at, updated_at, deleted_at, purge_after`;
 const VERSION_COLUMNS = `id, secret_id, ciphertext, nonce, tag, wrapped_dek, wrap_nonce,
   wrap_tag, kek_id, created_by, created_at, expires_at`;
+const VERSION_METADATA_COLUMNS = `id, secret_id, created_by, created_at, expires_at`;
 
 function toSecret(row: SecretRow): SecretRecord {
   return {
@@ -163,20 +179,23 @@ function listRowToSecret(row: ListRow): SecretRecord {
   return toSecret(row);
 }
 
-function listRowToVersion(row: ListRow): SecretVersionRecord | null {
+function toVersionMetadata(row: VersionMetadataRow): SecretVersionMetadata {
+  return {
+    id: row.id,
+    secretId: row.secret_id,
+    createdBy: row.created_by,
+    createdAt: row.created_at,
+    expiresAt: row.expires_at,
+  };
+}
+
+function listRowToVersion(row: ListRow): SecretVersionMetadata | null {
   if (row.cv_id === null || row.cv_created_at === null) {
     return null;
   }
   return {
     id: row.cv_id,
     secretId: row.id,
-    ciphertext: row.cv_ciphertext ?? Buffer.alloc(0),
-    nonce: row.cv_nonce ?? Buffer.alloc(0),
-    tag: row.cv_tag ?? Buffer.alloc(0),
-    wrappedDek: row.cv_wrapped_dek ?? Buffer.alloc(0),
-    wrapNonce: row.cv_wrap_nonce ?? Buffer.alloc(0),
-    wrapTag: row.cv_wrap_tag ?? Buffer.alloc(0),
-    kekId: row.cv_kek_id ?? "",
     createdBy: row.cv_created_by ?? "",
     createdAt: row.cv_created_at,
     expiresAt: row.cv_expires_at,
@@ -525,9 +544,11 @@ export class SecretRepository {
   public async findVersionById(
     executor: QueryExecutor,
     versionId: string,
-  ): Promise<{ readonly version: SecretVersionRecord; readonly secret: SecretRecord } | undefined> {
-    const result = await executor.executeQuery<VersionRow>(
-      `SELECT ${VERSION_COLUMNS} FROM secret_versions WHERE id = :versionId`,
+  ): Promise<
+    { readonly version: SecretVersionMetadata; readonly secret: SecretRecord } | undefined
+  > {
+    const result = await executor.executeQuery<VersionMetadataRow>(
+      `SELECT ${VERSION_METADATA_COLUMNS} FROM secret_versions WHERE id = :versionId`,
       { versionId },
     );
     const row = result.records[0];
@@ -535,7 +556,30 @@ export class SecretRepository {
       return undefined;
     }
     const secret = await this.findSecretById(executor, row.secret_id);
-    return secret === undefined ? undefined : { version: toVersion(row), secret };
+    return secret === undefined ? undefined : { version: toVersionMetadata(row), secret };
+  }
+
+  /**
+   * Finds one version's metadata by secret and id.
+   *
+   * @param executor - Database or transaction.
+   * @param secretId - Secret identifier.
+   * @param versionId - Version identifier.
+   * @returns The metadata, or undefined.
+   */
+  public async findVersionMetadata(
+    executor: QueryExecutor,
+    secretId: string,
+    versionId: string,
+  ): Promise<SecretVersionMetadata | undefined> {
+    const result = await executor.executeQuery<VersionMetadataRow>(
+      `SELECT ${VERSION_METADATA_COLUMNS}
+         FROM secret_versions
+        WHERE id = :versionId AND secret_id = :secretId`,
+      { secretId, versionId },
+    );
+    const row = result.records[0];
+    return row === undefined ? undefined : toVersionMetadata(row);
   }
 
   /**
@@ -571,15 +615,15 @@ export class SecretRepository {
   public async listVersions(
     executor: QueryExecutor,
     secretId: string,
-  ): Promise<readonly SecretVersionRecord[]> {
-    const result = await executor.executeQuery<VersionRow>(
-      `SELECT ${VERSION_COLUMNS}
+  ): Promise<readonly SecretVersionMetadata[]> {
+    const result = await executor.executeQuery<VersionMetadataRow>(
+      `SELECT ${VERSION_METADATA_COLUMNS}
          FROM secret_versions
         WHERE secret_id = :secretId
         ORDER BY created_at DESC, id DESC`,
       { secretId },
     );
-    return result.records.map(toVersion);
+    return result.records.map(toVersionMetadata);
   }
 
   /**
@@ -625,10 +669,7 @@ export class SecretRepository {
     const result = await executor.executeQuery<ListRow>(
       `SELECT s.id, s.project_id, s.name, s.tags, s.content_type, s.current_version_id,
               s.purge_protected, s.created_at, s.updated_at, s.deleted_at, s.purge_after,
-              cv.id AS cv_id, cv.ciphertext AS cv_ciphertext, cv.nonce AS cv_nonce,
-              cv.tag AS cv_tag, cv.wrapped_dek AS cv_wrapped_dek,
-              cv.wrap_nonce AS cv_wrap_nonce, cv.wrap_tag AS cv_wrap_tag,
-              cv.kek_id AS cv_kek_id, cv.created_by AS cv_created_by,
+              cv.id AS cv_id, cv.created_by AS cv_created_by,
               cv.created_at AS cv_created_at, cv.expires_at AS cv_expires_at
          FROM secrets s
          LEFT JOIN secret_versions cv ON cv.id = s.current_version_id

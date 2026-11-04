@@ -26,11 +26,21 @@ const LIVE_ASSIGNMENT = `(
         JOIN projects ap ON ap.id = acet.project_id
        WHERE acet.id = r.scope_id AND acet.deleted_at IS NULL AND ap.deleted_at IS NULL
     )
-    OR (
-      NOT EXISTS (SELECT 1 FROM secrets msec WHERE msec.id = r.scope_id)
-      AND NOT EXISTS (SELECT 1 FROM certificates mcet WHERE mcet.id = r.scope_id)
-    )
   ))
+)`;
+
+/**
+ * Same predicate plus object ids with no surviving row. A dangling
+ * object-scope assignment is inert for authorization and lists, but it stays
+ * addressable by id so an administrator can clean it up.
+ */
+const ADDRESSABLE_ASSIGNMENT = `(
+  ${LIVE_ASSIGNMENT}
+  OR (
+    r.scope_type = 'object'
+    AND NOT EXISTS (SELECT 1 FROM secrets dsec WHERE dsec.id = r.scope_id)
+    AND NOT EXISTS (SELECT 1 FROM certificates dcet WHERE dcet.id = r.scope_id)
+  )
 )`;
 
 /** One assignment loaded into an actor snapshot. */
@@ -486,7 +496,7 @@ export class PolicyRepository {
               p.status AS principal_status
          FROM role_assignments r
          JOIN principals p ON p.id = r.principal_id
-        WHERE r.id = :assignmentId AND ${LIVE_ASSIGNMENT}`,
+        WHERE r.id = :assignmentId AND ${ADDRESSABLE_ASSIGNMENT}`,
       { assignmentId },
     );
     const row = result.records[0];

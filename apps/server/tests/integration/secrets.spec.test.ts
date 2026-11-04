@@ -139,6 +139,13 @@ describe("secret write and read", () => {
     }
   });
 
+  it("should reject a lone surrogate in a UTF-8 value", async () => {
+    await expect(createSecret(secretName("surrogate"), "\uD800")).rejects.toMatchObject({
+      statusCode: 422,
+      code: "validation_error",
+    });
+  });
+
   it("should reject malformed base64 and whitespace-only decoded bytes", async () => {
     for (const value of ["abc", "ICAg"]) {
       await expect(
@@ -184,6 +191,30 @@ describe("secret write and read", () => {
     expect(firstRead.value).toBe("one");
     const current = await secrets.read(actors.orgAdmin, "foundation", name, {});
     expect(current.value).toBe("two");
+  });
+
+  it("should keep a sentinel value out of metadata, errors, and audit", async () => {
+    const sentinel = `sentinel-${newUlid().toLowerCase()}`;
+    const name = secretName("sentinel");
+    const created = await createSecret(name, sentinel);
+    const list = await secrets.list(actors.orgAdmin, "foundation", { q: name, limit: 50 });
+    const versions = await secrets.versions(actors.orgAdmin, "foundation", name);
+    const consumers = await secrets.consumers(actors.orgAdmin, "foundation", name);
+    const audit = await testDb.db.executeQuery<Record<string, unknown>>(
+      "SELECT event_id, request_id, action, details, user_agent FROM audit_events",
+    );
+    const output = JSON.stringify({
+      created,
+      list,
+      versions,
+      consumers,
+      audit: audit.records,
+    });
+    expect(output).not.toContain(sentinel);
+    const error = await secrets
+      .create(actors.orgAdmin, "foundation", { name: secretName("empty"), value: "" })
+      .catch((caught: unknown) => caught);
+    expect(String(error)).not.toContain(sentinel);
   });
 
   it("should reject an invalid name and an inactive project", async () => {

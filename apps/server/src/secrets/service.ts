@@ -1,3 +1,4 @@
+import { createHash } from "node:crypto";
 import type {
   CapabilityFlags,
   SecretConsumerSummary,
@@ -49,10 +50,12 @@ import type {
   ListCursor,
   SecretRecord,
   SecretRepository,
+  SecretVersionMetadata,
   SecretVersionRecord,
 } from "./repository.js";
 
 const MAX_VERSIONS = 1_000;
+const MAX_SECRET_CIPHERTEXT = 65_536;
 const ZERO_CAPABILITIES: CapabilityFlags = {
   canRead: false,
   canWrite: false,
@@ -114,6 +117,19 @@ function denialError(
     return new SecretServiceError(404, notFoundCode, "Resource not found");
   }
   return new SecretServiceError(403, "access_denied", "Access denied");
+}
+
+/** Replaces a potentially large value with a fixed-size digest for the MAC. */
+function hashableBody<T extends { readonly value: string }>(input: T): Record<string, unknown> {
+  const { value, ...rest } = input as { readonly value: string } & Record<string, unknown>;
+  const result: Record<string, unknown> = {};
+  for (const [key, entry] of Object.entries(rest)) {
+    if (entry !== undefined) {
+      result[key] = entry;
+    }
+  }
+  result.valueHash = createHash("sha256").update(value, "utf8").digest("hex");
+  return result;
 }
 
 /** Encodes one list cursor. */
@@ -243,7 +259,7 @@ export class SecretService {
       const hash =
         key === undefined
           ? undefined
-          : requestHash(this.#keyring, { method: "POST", path, body: input });
+          : requestHash(this.#keyring, { method: "POST", path, body: hashableBody(input) });
 
       let outcome: WriteOutcome;
       try {
@@ -333,7 +349,7 @@ export class SecretService {
         throw new PolicyUnavailableError();
       }
       if (outcome.kind === "replay") {
-        return this.#loadWriteResponse(actorId, outcome.versionId);
+        return this.#loadWriteResponse(actorId, outcome.versionId, project.id, input.name);
       }
       return this.#writeResponse(actorId, outcome.secret, outcome.version);
     } finally {
@@ -405,7 +421,15 @@ export class SecretService {
       const hash =
         key === undefined
           ? undefined
-          : requestHash(this.#keyring, { method: "PUT", path, body: input });
+          : requestHash(this.#keyring, {
+              method: "PUT",
+              path,
+              body: hashableBody({
+                value: input.value,
+                encoding: input.encoding,
+                expiresAt: input.expiresAt,
+              }),
+            });
 
       let outcome: WriteOutcome;
       try {
@@ -456,7 +480,12 @@ export class SecretService {
             independent: false,
             details: { version: versionId },
           });
-          return { kind: "written", secret: { ...locked, currentVersionId: versionId }, version };
+          const refreshed = await this.#repository.findSecretById(tx, secret.id);
+          return {
+            kind: "written",
+            secret: refreshed ?? { ...locked, currentVersionId: versionId },
+            version,
+          };
         });
       } catch (error) {
         if (error instanceof SecretServiceError && error.code !== "project_not_found") {
@@ -480,7 +509,7 @@ export class SecretService {
         throw new PolicyUnavailableError();
       }
       if (outcome.kind === "replay") {
-        return this.#loadWriteResponse(actorId, outcome.versionId);
+        return this.#loadWriteResponse(actorId, outcome.versionId, project.id, name, secret.id);
       }
       return this.#writeResponse(actorId, outcome.secret, outcome.version);
     } finally {
@@ -525,6 +554,16 @@ export class SecretService {
     if (query.version !== undefined) {
       version = await this.#repository.findVersion(this.#database, secret.id, query.version);
       if (version === undefined) {
+        await this.#recordError(
+          actorId,
+          decision,
+          "secret.read",
+          project.id,
+          secret.id,
+          "secret_version_not_found",
+          context,
+          query.version,
+        );
         throw new SecretServiceError(404, "secret_version_not_found", "Version not found");
       }
       if (version.expiresAt !== null && version.expiresAt.getTime() <= this.#now()) {
@@ -536,6 +575,7 @@ export class SecretService {
           secret.id,
           "secret_expired",
           context,
+          version.id,
         );
         throw new SecretServiceError(410, "secret_expired", "Secret expired");
       }
@@ -569,7 +609,7 @@ export class SecretService {
           objectId: secret.id,
           version: version.id,
         },
-        { maxCiphertextBytes: this.#secretMaxBytes },
+        { maxCiphertextBytes: MAX_SECRET_CIPHERTEXT },
       );
     } catch (error) {
       if (error instanceof KeyringError) {
@@ -1033,6 +1073,55 @@ export class SecretService {
     try {
       await purger.delete(secret.id, project.id, name);
     } catch (error) {
+      const latest = await this.#repository.findSecretById(this.#database, secret.id);
+      if (latest === undefined) {
+        await this.#recordError(
+          actorId,
+          decision,
+          "secret.purge",
+          project.id,
+          secret.id,
+          "secret_not_found",
+          context,
+        );
+        throw new SecretServiceError(404, "secret_not_found", "Secret not found");
+      }
+      if (latest.deletedAt === null) {
+        await this.#recordError(
+          actorId,
+          decision,
+          "secret.purge",
+          project.id,
+          secret.id,
+          "secret_not_deleted",
+          context,
+        );
+        throw new SecretServiceError(409, "secret_not_deleted", "Secret is not deleted");
+      }
+      if (latest.purgeProtected) {
+        await this.#recordError(
+          actorId,
+          decision,
+          "secret.purge",
+          project.id,
+          secret.id,
+          "purge_protection_locked",
+          context,
+        );
+        throw new SecretServiceError(409, "purge_protection_locked", "Purge protection is enabled");
+      }
+      if (latest.purgeAfter !== null && latest.purgeAfter.getTime() > this.#now()) {
+        await this.#recordError(
+          actorId,
+          decision,
+          "secret.purge",
+          project.id,
+          secret.id,
+          "secret_retention_active",
+          context,
+        );
+        throw new SecretServiceError(409, "secret_retention_active", "Retention is active");
+      }
       if (error instanceof SecretServiceError && error.code === "project_not_found") {
         await this.#recordError(
           actorId,
@@ -1068,7 +1157,7 @@ export class SecretService {
     const current =
       secret.currentVersionId === null
         ? null
-        : ((await this.#repository.findVersion(
+        : ((await this.#repository.findVersionMetadata(
             this.#database,
             secret.id,
             secret.currentVersionId,
@@ -1107,7 +1196,7 @@ export class SecretService {
   /** Builds metadata for one secret. */
   #metadata(
     secret: SecretRecord,
-    currentVersion: SecretVersionRecord | null,
+    currentVersion: SecretVersionMetadata | null,
     consumers: readonly ConsumerSummary[],
     capabilities: CapabilityFlags,
   ): SecretMetadata {
@@ -1130,7 +1219,7 @@ export class SecretService {
   }
 
   /** Maps one version to the public shape. */
-  #version(version: SecretVersionRecord): SecretVersion {
+  #version(version: SecretVersionMetadata): SecretVersion {
     return {
       id: version.id,
       createdAt: version.createdAt.toISOString(),
@@ -1140,7 +1229,7 @@ export class SecretService {
   }
 
   /** Maps one version to a summary with status and current flag. */
-  #versionSummary(version: SecretVersionRecord, currentId: string | null): SecretVersionSummary {
+  #versionSummary(version: SecretVersionMetadata, currentId: string | null): SecretVersionSummary {
     const expired = version.expiresAt !== null && version.expiresAt.getTime() <= this.#now();
     return {
       ...this.#version(version),
@@ -1170,12 +1259,12 @@ export class SecretService {
   async #writeResponse(
     actorId: string,
     secret: SecretRecord,
-    version: SecretVersionRecord,
+    version: SecretVersionMetadata,
   ): Promise<SecretWriteResponse> {
     const current =
       secret.currentVersionId === null
         ? null
-        : ((await this.#repository.findVersion(
+        : ((await this.#repository.findVersionMetadata(
             this.#database,
             secret.id,
             secret.currentVersionId,
@@ -1190,11 +1279,22 @@ export class SecretService {
     };
   }
 
-  /** Loads a write response for an idempotent replay. */
-  async #loadWriteResponse(actorId: string, versionId: string): Promise<SecretWriteResponse> {
+  /** Loads a write response for an idempotent replay with ownership checks. */
+  async #loadWriteResponse(
+    actorId: string,
+    versionId: string,
+    projectId: string,
+    name: string,
+    secretId?: string,
+  ): Promise<SecretWriteResponse> {
     const found = await this.#repository.findVersionById(this.#database, versionId);
-    if (found === undefined) {
-      throw new SecretServiceError(404, "secret_not_found", "Secret not found");
+    if (
+      found === undefined ||
+      found.secret.projectId !== projectId ||
+      found.secret.name !== name ||
+      (secretId !== undefined && found.secret.id !== secretId)
+    ) {
+      throw new SecretServiceError(409, "idempotency_conflict", "Idempotency conflict");
     }
     return this.#writeResponse(actorId, found.secret, found.version);
   }
@@ -1208,6 +1308,7 @@ export class SecretService {
     secretId: string,
     reason: string,
     context?: PolicyAuditContext,
+    versionId?: string,
   ): Promise<void> {
     try {
       await this.#audit.record({
@@ -1225,7 +1326,11 @@ export class SecretService {
         result: "error",
         sourceIp: context?.sourceIp ?? null,
         userAgent: context?.userAgent ?? null,
-        details: { reason, policyVersion: decision.policyVersion },
+        details: {
+          reason,
+          policyVersion: decision.policyVersion,
+          ...(versionId === undefined ? {} : { version: versionId }),
+        },
       });
     } catch {
       throw new PolicyUnavailableError();

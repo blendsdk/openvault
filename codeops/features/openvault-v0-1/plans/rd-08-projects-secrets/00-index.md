@@ -1,7 +1,7 @@
 # RD-08 Projects and Secrets Implementation Plan
 
 > **Feature**: Project lifecycle plus versioned, encrypted, idempotent secrets with metadata, capabilities, consumers, expiry, recovery, and controlled purge.
-> **Status**: Planning Complete
+> **Status**: Done
 > **Created**: 2026-11-04 16:35
 > **Implements**: openvault-v0-1/RD-08
 > **CodeOps Artifact Schema**: 1

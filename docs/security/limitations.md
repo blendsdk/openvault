@@ -81,3 +81,6 @@ These are accepted for v0.1. They are documented so reviewers do not mistake the
 30. **Envelope v2 precondition.** Secret and certificate envelopes use the v2 AAD. This is a
     one-way change for this pre-release repository: both version tables must be empty before
     first boot. A database with v1 rows needs a migration or restore plan.
+31. **In-flight reads.** A value read that has already resolved the project and secret may
+    finish after a concurrent soft delete or purge commits. The delete is immediate for new
+    requests; a read already in flight can still return the value it decrypted.

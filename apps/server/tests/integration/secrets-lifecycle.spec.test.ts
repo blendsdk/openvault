@@ -184,6 +184,29 @@ describe("secret lifecycle", () => {
     );
   });
 
+  it("should replay a value write after the secret is soft deleted", async () => {
+    const name = secretName("replay-deleted");
+    await createSecret(name);
+    const written = await secrets.write(
+      actors.orgAdmin,
+      "foundation",
+      name,
+      { value: "two" },
+      {},
+      "key-deleted-replay",
+    );
+    await secrets.delete(actors.orgAdmin, "foundation", name);
+    const replay = await secrets.write(
+      actors.orgAdmin,
+      "foundation",
+      name,
+      { value: "two" },
+      {},
+      "key-deleted-replay",
+    );
+    expect(replay.version.id).toBe(written.version.id);
+  });
+
   it("should purge after retention and allow the name to be reused", async () => {
     if (purger === undefined) {
       return;
@@ -198,6 +221,10 @@ describe("secret lifecycle", () => {
       { id: created.id },
     );
     expect(rows.records[0]?.count).toBe(0);
+    const events = await testDb.db.executeQuery<{ result: string }>(
+      "SELECT result FROM audit_events WHERE action = 'secret.purge'",
+    );
+    expect(events.records).toEqual([{ result: "allow" }]);
     await expect(createSecret(name)).resolves.toMatchObject({ name });
   });
 
@@ -316,6 +343,31 @@ describe("secret lifecycle", () => {
       before.records[0]?.last_seen.getTime() ?? 0,
     );
   });
+
+  it("should still read a 64 KiB secret after the configured limit is lowered", async () => {
+    const name = secretName("lowered-limit");
+    const value = "a".repeat(65_536);
+    await secrets.create(actors.orgAdmin, "foundation", { name, value });
+    const core = createAuditCore({ database: testDb.db, keyring, now: clock });
+    const policy = new PolicyService({
+      repository: new PolicyRepository(testDb.db),
+      audit: core.policyAudit,
+      now: clock,
+    });
+    const narrowed = new SecretService({
+      database: testDb.db,
+      keyring,
+      policy,
+      audit: core.writer,
+      projectRepository: new ProjectRepository(testDb.db),
+      repository: new SecretRepository(),
+      secretMaxBytes: 1_024,
+      softDeleteDays: 30,
+      now: clock,
+    });
+    const read = await narrowed.read(actors.orgAdmin, "foundation", name, {});
+    expect(read.value).toBe(value);
+  }, 60_000);
 
   it("should fail a read with 503 and no value when the audit writer is down", async () => {
     const name = secretName("audit-down");

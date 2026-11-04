@@ -142,9 +142,10 @@ between the destructive delete and its outcome event leaves the deletion without
 ## Audit and errors
 
 Every read and state change writes an authorization decision. State-changing decisions join the
-data transaction; reads write one allow before returning plaintext. Secret read/write events
-include the resolved version id. A failed read writes an error outcome. Errors never contain a
-value, ciphertext, or key id.
+data transaction; reads write one allow before returning plaintext, so a decrypt failure after
+that point returns 500 with no value and the prior authorization event remains. Expired reads
+write an error outcome instead. Secret read/write events include the resolved version id. Errors
+never contain a value, ciphertext, or key id.
 
 | Status | Meaning |
 |---|---|

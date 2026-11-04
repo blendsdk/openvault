@@ -203,6 +203,13 @@ describe("data-route guard", () => {
       agentKind: "agent",
     });
 
+    const listAttempt = await send({
+      path: `/v1/data/${project.name}/secrets`,
+      cert: client,
+    });
+    expect(listAttempt.status).toBe(401);
+    expect(errorCode(listAttempt)).toBe("authentication_required");
+
     for (const name of [other.name, deleted.name]) {
       const denied = await send({ path: `/v1/data/${name}/probe`, cert: client });
       expect(denied.status, name).toBe(403);

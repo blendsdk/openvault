@@ -1,5 +1,6 @@
 import type { PostgreSQLDatabase } from "blendsdk/postgresql";
 import { PostgreSQLDatabase as Database } from "blendsdk/postgresql";
+import { AUDIT_CHAIN_LOCK_ID } from "../audit/audit-writer.js";
 import { parseDatabaseUrl } from "../db/url.js";
 import { SecretServiceError } from "./errors.js";
 
@@ -15,6 +16,7 @@ export interface SecretPurgerOptions {
 
 interface PurgerIdentityRow {
   readonly session_user: string;
+  readonly current_user: string;
   readonly database: string;
   readonly rolsuper: boolean;
   readonly member_secrets_owner: boolean;
@@ -56,15 +58,15 @@ export class SecretPurger {
     try {
       await database.withTransaction(async (tx) => {
         const identity = await tx.executeQuery<PurgerIdentityRow>(
-          `SELECT current_user AS session_user,
+          `SELECT session_user, current_user,
                   current_database() AS database,
                   r.rolsuper,
-                  pg_has_role(current_user, sc.relowner, 'MEMBER') AS member_secrets_owner,
-                  pg_has_role(current_user, sv.relowner, 'MEMBER') AS member_versions_owner,
+                  pg_has_role(session_user, sc.relowner, 'MEMBER') AS member_secrets_owner,
+                  pg_has_role(session_user, sv.relowner, 'MEMBER') AS member_versions_owner,
                   EXISTS (
                     SELECT 1 FROM pg_roles sr
                      WHERE sr.rolsuper
-                       AND pg_has_role(current_user, sr.oid, 'MEMBER')
+                       AND pg_has_role(session_user, sr.oid, 'MEMBER')
                   ) AS super_member
              FROM pg_roles r, pg_class sc, pg_class sv
             WHERE r.rolname = current_user
@@ -75,6 +77,7 @@ export class SecretPurger {
         if (
           row === undefined ||
           row.session_user !== PURGER_USER_NAME ||
+          row.current_user !== PURGER_USER_NAME ||
           row.database !== this.#appDatabase ||
           row.rolsuper ||
           row.member_secrets_owner ||
@@ -84,14 +87,13 @@ export class SecretPurger {
           throw new SecretServiceError(503, "service_unavailable", "Service unavailable");
         }
 
+        // Match the application lock order: audit chain first, then the
+        // per-name lock. This avoids a purge/write deadlock.
+        await tx.executeQuery("SELECT pg_advisory_xact_lock(:lockId)", {
+          lockId: AUDIT_CHAIN_LOCK_ID,
+        });
         await tx.executeQuery("SELECT pg_advisory_xact_lock(hashtext(:key)::bigint)", {
           key: `${projectId}:${name}`,
-        });
-        // Serialize with application state changes, which all take the audit
-        // chain lock first. This avoids requiring UPDATE on projects solely to
-        // take a row lock.
-        await tx.executeQuery("SELECT pg_advisory_xact_lock(:lockId)", {
-          lockId: 780_217_001,
         });
         const project = await tx.executeQuery<{ id: string }>(
           "SELECT id FROM projects WHERE id = :projectId AND deleted_at IS NULL",

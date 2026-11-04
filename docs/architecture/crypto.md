@@ -37,16 +37,26 @@ the raw key.
 ```text
 DEK          = randomBytes(32)
 nonce        = randomBytes(12)
-aad          = "ov:v1:" + projectId + ":" + objectId + ":" + version
+aad          = "ov:v2:" + objectType + ":" + projectId + ":" + objectId + ":" + version
 ciphertext   = AES-256-GCM(DEK, nonce, plaintext, aad)
 
 wrapNonce    = randomBytes(12)
-wrapAad      = "ov:dek:v1:" + kekId + ":" + objectId + ":" + version
+wrapAad      = "ov:dek:v2:" + kekId + ":" + objectType + ":" + projectId + ":" + objectId + ":" + version
 wrappedDek   = AES-256-GCM(KEK, wrapNonce, DEK, wrapAad)
 ```
 
-Both authentication tags are verified on read. The AAD binds ciphertext to its object and
-version, so moving a value to another secret fails authentication.
+`objectType` is `secret` or `certificate`. Both authentication tags are verified on read. The
+AAD binds ciphertext to its object family, project, object, and version, so moving a value to
+another secret or a certificate row fails authentication.
+
+Base64 fields must be canonical. The envelope validator rejects unknown fields, wrong lengths,
+non-ULID identifiers, and ciphertext above the caller's limit (65,536 bytes for secrets,
+131,072 for certificates). The crypto primitive supports an authenticated empty ciphertext; the
+secret API rejects empty values before encryption.
+
+The v2 domain is a one-way change for this pre-release repository. Before first boot, both
+`secret_versions` and `certificate_versions` must be empty. A database with v1 rows needs a
+migration or restore plan.
 
 The core implementation lives in [`packages/core/src/crypto.ts`](https://github.com/blendsdk/openvault/blob/main/packages/core/src/crypto.ts)
 and is covered by round-trip, tamper, wrong-AAD, and cross-object tests.

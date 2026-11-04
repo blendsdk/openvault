@@ -276,7 +276,7 @@ export class IdentityService {
       audit: false,
     });
     const identity = await this.#repository.findIdentity(id);
-    if (identity === undefined) {
+    if (identity === undefined || identity.projectDeletedAt !== null) {
       throw new IdentityServiceError(404, "identity_not_found", "Identity not found");
     }
     const decision = await this.#authorizer.decide(
@@ -292,7 +292,7 @@ export class IdentityService {
         visible ? "Identity not found" : "Access denied",
       );
     }
-    if (identity.status !== "active" || identity.projectDeletedAt !== null) {
+    if (identity.status !== "active") {
       throw new IdentityServiceError(409, "identity_inactive", "Identity is inactive");
     }
 

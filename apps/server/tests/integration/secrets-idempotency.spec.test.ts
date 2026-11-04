@@ -202,6 +202,48 @@ describe("secret idempotency", () => {
     }
   });
 
+  it("should accept and replay a 64 KiB idempotent create", async () => {
+    const name = secretName("idem-large");
+    const value = "a".repeat(65_536);
+    const first = await secrets.create(
+      actors.orgAdmin,
+      "foundation",
+      { name, value },
+      {},
+      "key-large",
+    );
+    const second = await secrets.create(
+      actors.orgAdmin,
+      "foundation",
+      { name, value },
+      {},
+      "key-large",
+    );
+    expect(second.version.id).toBe(first.version.id);
+  }, 60_000);
+
+  it("should reject a replay whose stored version belongs to a reused project name", async () => {
+    const name = secretName("idem-reuse");
+    await secrets.create(actors.orgAdmin, "foundation", { name, value: "one" }, {}, "key-reuse");
+    const replacementId = newUlid();
+    try {
+      await testDb.db.executeQuery("UPDATE projects SET deleted_at = now() WHERE id = :id", {
+        id: base.projectId,
+      });
+      await testDb.db.executeQuery("INSERT INTO projects (id, name) VALUES (:id, 'foundation')", {
+        id: replacementId,
+      });
+      await expect(
+        secrets.create(actors.orgAdmin, "foundation", { name, value: "one" }, {}, "key-reuse"),
+      ).rejects.toMatchObject({ statusCode: 409, code: "idempotency_conflict" });
+    } finally {
+      await testDb.db.executeQuery("DELETE FROM projects WHERE id = :id", { id: replacementId });
+      await testDb.db.executeQuery("UPDATE projects SET deleted_at = NULL WHERE id = :id", {
+        id: base.projectId,
+      });
+    }
+  });
+
   it("should not store a plain hash of the secret value", async () => {
     const value = "sentinel-idempotency-value";
     await secrets.create(

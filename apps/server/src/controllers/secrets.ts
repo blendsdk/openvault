@@ -81,9 +81,12 @@ function idempotencyKey(req: Request): string | undefined {
   return header;
 }
 
-/** Resolves the actor for a data route. */
-function principal(req: Request): { readonly id: string; readonly agentId?: string } {
-  if (listenerOf(req) === "agent") {
+/** Resolves the actor for a data route; only the value read accepts an agent. */
+function principal(
+  req: Request,
+  allowAgent = false,
+): { readonly id: string; readonly agentId?: string } {
+  if (allowAgent && listenerOf(req) === "agent") {
     const agent = requireAgent(req);
     return { id: agent.principalId, agentId: agent.principalId };
   }
@@ -140,7 +143,7 @@ export class SecretsController extends BaseController {
         .get("/:project/secrets/:name")
         .middleware(secretRateLimit())
         .handle(async (req: Request, res: Response) => {
-          const actor = principal(req);
+          const actor = principal(req, true);
           const parsed = secretReadQuerySchema.safeParse(req.query);
           if (!parsed.success) {
             throw new ApiError(422, "validation_error", "Validation failed");

@@ -345,6 +345,15 @@ identities, and assignments. There is no project-recovery route in v0.1.
 | POST | `/v1/data/:project/secrets/:name/recover` | `secret.recover` |
 | POST | `/v1/data/:project/secrets/:name/purge` | `secret.purge` |
 | GET | `/v1/data/:project/secrets/:name/consumers` | `secret.list` |
+| GET | `/v1/data/:project/certificates` | `certificate.list` |
+| POST | `/v1/data/:project/certificates/import` | `certificate.write` |
+| POST | `/v1/data/:project/certificates/generate` | `certificate.write` |
+| GET | `/v1/data/:project/certificates/:name` | `certificate.read` |
+| GET | `/v1/data/:project/certificates/:name/private-key` | `certificate.read_private` |
+| DELETE | `/v1/data/:project/certificates/:name` | `certificate.delete` |
+| POST | `/v1/data/:project/certificates/:name/recover` | `certificate.recover` |
+| POST | `/v1/data/:project/certificates/:name/purge` | `certificate.purge` |
+
 Secret examples:
 
 ```http
@@ -391,14 +400,6 @@ never contain a value. Purge returns 409 until the retention boundary passes and
 off, and 503 when `OPENVAULT_PURGE_DB_URL` is not configured. The full behavior is in the
 [secrets guide](/guide/secrets).
 
-| GET | `/v1/data/:project/certificates` | `certificate.list` |
-| POST | `/v1/data/:project/certificates/import` | `certificate.write` |
-| POST | `/v1/data/:project/certificates/generate` | `certificate.write` |
-| GET | `/v1/data/:project/certificates/:name` | `certificate.read` |
-| GET | `/v1/data/:project/certificates/:name/private-key` | `certificate.read_private` |
-| DELETE | `/v1/data/:project/certificates/:name` | `certificate.delete` |
-| POST | `/v1/data/:project/certificates/:name/recover` | `certificate.recover` |
-| POST | `/v1/data/:project/certificates/:name/purge` | `certificate.purge` |
 
 ### Audit
 

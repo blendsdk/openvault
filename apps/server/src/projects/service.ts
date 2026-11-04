@@ -215,6 +215,7 @@ export class ProjectService {
           "project_name_conflict",
           decision.policyVersion,
           context,
+          id,
         );
         throw new ProjectServiceError(409, "project_name_conflict", "Project name conflict");
       }
@@ -226,6 +227,7 @@ export class ProjectService {
           "project_not_found",
           decision.policyVersion,
           context,
+          id,
         );
         throw error;
       }
@@ -277,6 +279,7 @@ export class ProjectService {
           "project_not_found",
           decision.policyVersion,
           context,
+          id,
         );
         throw error;
       }
@@ -304,18 +307,19 @@ export class ProjectService {
     reason: string,
     policyVersion: number,
     context?: PolicyAuditContext,
+    scopedProjectId?: string,
   ): Promise<void> {
     try {
       await this.#audit.record({
         eventId: newUlid(),
         ts: new Date(this.#now()),
-        projectId: null,
+        projectId: scopedProjectId ?? null,
         requestId: context?.requestId ?? "internal",
         actorId,
         actorKind: "user",
         action,
-        scopeType: "system",
-        scopeId: null,
+        scopeType: scopedProjectId === undefined ? "system" : "project",
+        scopeId: scopedProjectId ?? null,
         objectType: "project",
         objectId,
         result: "error",

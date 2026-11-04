@@ -52,16 +52,25 @@ export function decodeRequestValue(
     }
     bytes = Buffer.from(value, "base64");
     if (bytes.toString("base64") !== value) {
+      bytes.fill(0);
       throw new SecretServiceError(422, "validation_error", "Validation failed");
     }
   }
-  if (isWhitespaceOnly(bytes)) {
-    throw new SecretServiceError(422, "validation_error", "Validation failed");
+  try {
+    if (encoding === "utf8" && bytes.toString("utf8") !== value) {
+      throw new SecretServiceError(422, "validation_error", "Validation failed");
+    }
+    if (isWhitespaceOnly(bytes)) {
+      throw new SecretServiceError(422, "validation_error", "Validation failed");
+    }
+    if (bytes.length > maximumBytes) {
+      throw new SecretServiceError(413, "secret_too_large", "Secret value is too large");
+    }
+    return { bytes, encoding };
+  } catch (error) {
+    bytes.fill(0);
+    throw error;
   }
-  if (bytes.length > maximumBytes) {
-    throw new SecretServiceError(413, "secret_too_large", "Secret value is too large");
-  }
-  return { bytes, encoding };
 }
 
 /** Returns true when text contains no disallowed control characters. */
