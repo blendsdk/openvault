@@ -47,7 +47,7 @@
 |---|---|---|---|
 | ST-11 | Valid RSA 2048 leaf and matching PKCS#8 key | Parses; key type `rsa-2048`; subject/SAN/serial/fingerprint/dates populated | RD-09 acceptance 1 |
 | ST-12 | Valid EC P-256 leaf and matching key | Parses; key type `ec-p256` | RD-09 acceptance 1 |
-| ST-13 | `-----BEGIN RSA PRIVATE KEY-----` or `EC PRIVATE KEY` | 422; no row | AR-7 |
+| ST-13 | A traditional PKCS#1 key label (`RSA PRIVATE KEY`) or a traditional EC label | 422; no row | AR-7 |
 | ST-14 | `-----BEGIN ENCRYPTED PRIVATE KEY-----`, a PKCS#1 body under a `PRIVATE KEY` label, RSA-PSS, EC P-384, or RSA 4096 | 422; no row | AR-7 |
 | ST-15 | Ed25519 or RSA 1024 key | 422; no row | AR-7 |
 | ST-16 | Leaf public key does not match the private key | 422; no certificate or version row | RD-09 acceptance 2 |
