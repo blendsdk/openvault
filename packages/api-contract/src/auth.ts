@@ -17,6 +17,14 @@ export const authMethodSchema = z.enum(["local", "oidc"]);
  */
 export const authUserSchema = z.strictObject({
   id: ulidSchema,
+  /**
+   * Session subject.
+   *
+   * This additive alias mirrors `id` so browser frameworks that expect an
+   * OIDC-style `sub` claim can treat the session as authenticated. It never
+   * replaces `id` for authorization decisions.
+   */
+  sub: ulidSchema.optional(),
   name: z.string().min(1).max(100),
   email: z.string().email().max(320).nullable(),
   authMethod: authMethodSchema,

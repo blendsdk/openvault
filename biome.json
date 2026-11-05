@@ -18,6 +18,7 @@
       "!**/src/database/ctypes.ts",
       "!**/migrations/schema.snapshot.json",
       "!apps/cli/src/generated",
+      "!apps/web/src/generated",
       "!packages/api-contract/openapi.json"
     ]
   },

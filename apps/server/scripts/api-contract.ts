@@ -18,6 +18,7 @@ import type { RouteDefinition } from "blendsdk/webafx";
 import { z } from "zod";
 import { AccessExplainController, AssignmentsController } from "../src/controllers/assignments.js";
 import { AuditController } from "../src/controllers/audit.js";
+import { AuthController } from "../src/controllers/auth.js";
 import { CertificatesController } from "../src/controllers/certificates.js";
 import { CliAuthController } from "../src/controllers/cli-auth.js";
 import { IdentityController } from "../src/controllers/identity.js";
@@ -542,10 +543,165 @@ export const ROUTE_DOCS: Readonly<Record<string, RouteDoc>> = {
   },
 };
 
-/** Instruments one real route with documentation metadata. */
-export function documentRoute(basePath: string, definition: RouteDefinition): RouteDefinition {
-  const key = routeKey(definition.method, joinPath(basePath, definition.path));
+/** One browser controller mounted at its runtime base path. */
+export interface WebContractController {
+  /** Mount path from `app.ts`. */
+  readonly basePath: string;
+  /** Controller constructor. */
+  readonly controller: ControllerConstructor;
+}
+
+/**
+ * The browser-facing controllers.
+ *
+ * OIDC redirect/callback, certificates, scaffold, agent, and readiness routes
+ * are deliberately absent. OIDC is a browser navigation, not a JSON call.
+ */
+export const WEB_CONTRACT_CONTROLLERS: readonly WebContractController[] = [
+  { basePath: "/v1/auth", controller: AuthController },
+  { basePath: "/v1/meta", controller: MetaController },
+  { basePath: "/v1/admin/projects", controller: ProjectsController },
+  { basePath: "/v1/data", controller: SecretsController },
+  { basePath: "/v1/admin/identities", controller: IdentityController },
+  { basePath: "/v1/admin/assignments", controller: AssignmentsController },
+  { basePath: "/v1/admin/access-explain", controller: AccessExplainController },
+  { basePath: "/v1/audit", controller: AuditController },
+];
+
+/** Returns one existing route document, or fails the build. */
+function sharedRouteDoc(key: string): RouteDoc {
   const doc = ROUTE_DOCS[key];
+  if (doc === undefined) {
+    throw new Error(`The web contract expects a missing route document: ${key}`);
+  }
+  return doc;
+}
+
+/**
+ * Browser route metadata.
+ *
+ * Shared project, secret, identity, assignment, access, audit, and meta
+ * entries reuse the CLI documents. The browser-only session routes are added
+ * here.
+ */
+export const WEB_ROUTE_DOCS: Readonly<Record<string, RouteDoc>> = {
+  "POST /v1/auth/local/login": {
+    operationId: "loginLocal",
+    tags: ["session"],
+    summary: "Log in with a local credential and start a browser session",
+    secure: false,
+    input: api.loginRequestSchema,
+    responses: [
+      { statusCode: 200, description: "Browser session", schema: api.sessionResponseSchema },
+    ],
+  },
+  "POST /v1/auth/password": {
+    operationId: "changePassword",
+    tags: ["session"],
+    summary: "Change the current password and rotate the session",
+    secure: true,
+    input: api.passwordChangeRequestSchema,
+    responses: [
+      { statusCode: 200, description: "Rotated session", schema: api.refreshResponseSchema },
+    ],
+  },
+  "GET /v1/auth/me": {
+    operationId: "getMe",
+    tags: ["session"],
+    summary: "Read the current browser session",
+    secure: true,
+    responses: [
+      { statusCode: 200, description: "Current session", schema: api.sessionResponseSchema },
+    ],
+  },
+  "POST /v1/auth/refresh": {
+    operationId: "refreshSession",
+    tags: ["session"],
+    summary: "Rotate the browser session and CSRF token",
+    secure: true,
+    responses: [
+      { statusCode: 200, description: "Rotated session", schema: api.refreshResponseSchema },
+    ],
+  },
+  "POST /v1/auth/logout": {
+    operationId: "logoutSession",
+    tags: ["session"],
+    summary: "Revoke the current browser session",
+    secure: true,
+    responses: [{ statusCode: 204, description: "Revoked", schema: NO_CONTENT }],
+  },
+  "GET /v1/auth/sessions": {
+    operationId: "listSessions",
+    tags: ["session"],
+    summary: "List the current principal's browser sessions",
+    secure: true,
+    responses: [{ statusCode: 200, description: "Sessions", schema: api.sessionListSchema }],
+  },
+  "DELETE /v1/auth/sessions/:id": {
+    operationId: "revokeSession",
+    tags: ["session"],
+    summary: "Revoke one owned browser session",
+    secure: true,
+    responses: [{ statusCode: 204, description: "Revoked", schema: NO_CONTENT }],
+  },
+
+  "GET /v1/meta/auth": sharedRouteDoc("GET /v1/meta/auth"),
+  "GET /v1/meta/roles": sharedRouteDoc("GET /v1/meta/roles"),
+
+  "GET /v1/admin/projects": sharedRouteDoc("GET /v1/admin/projects"),
+  "POST /v1/admin/projects": sharedRouteDoc("POST /v1/admin/projects"),
+  "GET /v1/admin/projects/:project": sharedRouteDoc("GET /v1/admin/projects/:project"),
+  "PATCH /v1/admin/projects/:project": sharedRouteDoc("PATCH /v1/admin/projects/:project"),
+  "DELETE /v1/admin/projects/:project": sharedRouteDoc("DELETE /v1/admin/projects/:project"),
+
+  "GET /v1/data/:project/secrets": sharedRouteDoc("GET /v1/data/:project/secrets"),
+  "POST /v1/data/:project/secrets": sharedRouteDoc("POST /v1/data/:project/secrets"),
+  "GET /v1/data/:project/secrets/:name": sharedRouteDoc("GET /v1/data/:project/secrets/:name"),
+  "GET /v1/data/:project/secrets/:name/versions": sharedRouteDoc(
+    "GET /v1/data/:project/secrets/:name/versions",
+  ),
+  "GET /v1/data/:project/secrets/:name/consumers": sharedRouteDoc(
+    "GET /v1/data/:project/secrets/:name/consumers",
+  ),
+  "PUT /v1/data/:project/secrets/:name": sharedRouteDoc("PUT /v1/data/:project/secrets/:name"),
+  "PATCH /v1/data/:project/secrets/:name": sharedRouteDoc("PATCH /v1/data/:project/secrets/:name"),
+  "DELETE /v1/data/:project/secrets/:name": sharedRouteDoc(
+    "DELETE /v1/data/:project/secrets/:name",
+  ),
+  "POST /v1/data/:project/secrets/:name/recover": sharedRouteDoc(
+    "POST /v1/data/:project/secrets/:name/recover",
+  ),
+  "POST /v1/data/:project/secrets/:name/purge": sharedRouteDoc(
+    "POST /v1/data/:project/secrets/:name/purge",
+  ),
+
+  "GET /v1/admin/identities": sharedRouteDoc("GET /v1/admin/identities"),
+  "POST /v1/admin/identities": sharedRouteDoc("POST /v1/admin/identities"),
+  "GET /v1/admin/identities/:id": sharedRouteDoc("GET /v1/admin/identities/:id"),
+  "POST /v1/admin/identities/:id/revoke": sharedRouteDoc("POST /v1/admin/identities/:id/revoke"),
+  "POST /v1/admin/identities/:id/join-tokens": sharedRouteDoc(
+    "POST /v1/admin/identities/:id/join-tokens",
+  ),
+
+  "GET /v1/admin/assignments": sharedRouteDoc("GET /v1/admin/assignments"),
+  "POST /v1/admin/assignments": sharedRouteDoc("POST /v1/admin/assignments"),
+  "DELETE /v1/admin/assignments/:id": sharedRouteDoc("DELETE /v1/admin/assignments/:id"),
+
+  "GET /v1/admin/access-explain": sharedRouteDoc("GET /v1/admin/access-explain"),
+
+  "GET /v1/audit/events": sharedRouteDoc("GET /v1/audit/events"),
+  "GET /v1/audit/verify": sharedRouteDoc("GET /v1/audit/verify"),
+  "GET /v1/audit/export": sharedRouteDoc("GET /v1/audit/export"),
+};
+
+/** Instruments one real route with documentation metadata. */
+export function documentRoute(
+  basePath: string,
+  definition: RouteDefinition,
+  docs: Readonly<Record<string, RouteDoc>> = ROUTE_DOCS,
+): RouteDefinition {
+  const key = routeKey(definition.method, joinPath(basePath, definition.path));
+  const doc = docs[key];
   if (doc === undefined) {
     throw new Error(`Missing API documentation for ${key}`);
   }
@@ -683,9 +839,12 @@ function queryParameters(schema: z.ZodType): OpenAPIParameter[] {
  * Rebuilds GET/DELETE query parameters without the generator's `reused: "ref"`
  * definitions, which it drops from the parameter object and leaves dangling.
  */
-function applyQueryParameters(document: OpenAPIDocument): void {
+function applyQueryParameters(
+  document: OpenAPIDocument,
+  docs: Readonly<Record<string, RouteDoc>> = ROUTE_DOCS,
+): void {
   const byPath = new Map<string, RouteDoc>();
-  for (const [key, doc] of Object.entries(ROUTE_DOCS)) {
+  for (const [key, doc] of Object.entries(docs)) {
     const separator = key.indexOf(" ");
     const method = key.slice(0, separator);
     const expressPath = key.slice(separator + 1).replace(/:([A-Za-z_][A-Za-z0-9_]*)/g, "{$1}");
@@ -747,12 +906,54 @@ export async function buildApiDocument(): Promise<OpenAPIDocument> {
   return document;
 }
 
-/** Client generation options for the CLI package. */
-function clientOptions(outputDir: string): ClientGeneratorOptions {
+/**
+ * Builds the browser OpenAPI document from the real browser controllers.
+ *
+ * The document is in-memory only. The published JSON artifact remains the
+ * CLI-facing contract, because the browser authenticates with a cookie and a
+ * CSRF header rather than a bearer token.
+ *
+ * @returns The browser OpenAPI 3.1 document.
+ * @throws {Error} When a real route lacks metadata or a metadata entry has no route.
+ */
+export async function buildWebApiDocument(): Promise<OpenAPIDocument> {
+  const generator = new OpenAPIGenerator({
+    title: "OpenVault Browser API",
+    version: "0.1.0",
+    description: "The cookie-session OpenVault API used by the web UI.",
+    securitySchemes: {
+      cookieAuth: { type: "apiKey", in: "cookie", name: "__Host-ov_session" },
+    },
+    defaultSecurity: [{ cookieAuth: [] }],
+  });
+  const used = new Set<string>();
+  for (const registration of WEB_CONTRACT_CONTROLLERS) {
+    const controller = new registration.controller({}, {});
+    const routes = controller.routes().map((definition) => {
+      const key = routeKey(definition.method, joinPath(registration.basePath, definition.path));
+      if (used.has(key)) {
+        throw new Error(`Duplicate documented route ${key}`);
+      }
+      used.add(key);
+      return documentRoute(registration.basePath, definition, WEB_ROUTE_DOCS);
+    });
+    generator.addRoutes(registration.basePath, routes);
+  }
+  const missing = Object.keys(WEB_ROUTE_DOCS).filter((key) => !used.has(key));
+  if (missing.length > 0) {
+    throw new Error(`Documented web routes do not exist: ${missing.join(", ")}`);
+  }
+  const document = generator.generate();
+  applyQueryParameters(document, WEB_ROUTE_DOCS);
+  return document;
+}
+
+/** Client generation options for one generated client. */
+function clientOptions(outputDir: string, clientName = "OpenVaultClient"): ClientGeneratorOptions {
   return {
     outputDir,
     splitByGroup: true,
-    clientName: "OpenVaultClient",
+    clientName,
     runtimeImport: "blendsdk/api-client",
   };
 }
@@ -763,11 +964,16 @@ function repositoryRoot(): string {
 }
 
 /** Default artifact paths. */
-function defaultArtifacts(): { readonly outputDir: string; readonly contractFile: string } {
+function defaultArtifacts(): {
+  readonly outputDir: string;
+  readonly contractFile: string;
+  readonly webOutputDir: string;
+} {
   const root = repositoryRoot();
   return {
     outputDir: join(root, "apps/cli/src/generated"),
     contractFile: join(root, "packages/api-contract/openapi.json"),
+    webOutputDir: join(root, "apps/web/src/generated"),
   };
 }
 
@@ -779,6 +985,7 @@ function defaultArtifacts(): { readonly outputDir: string; readonly contractFile
 export async function generateContract(options: {
   readonly outputDir: string;
   readonly contractFile: string;
+  readonly webOutputDir?: string;
 }): Promise<void> {
   const document = await buildApiDocument();
   const result = await generateClient(document, clientOptions(options.outputDir));
@@ -788,6 +995,18 @@ export async function generateContract(options: {
   if (result.issues.length > 0) {
     for (const issue of result.issues) {
       process.stderr.write(`${issue.severity.toUpperCase()}: ${issue.message}\n`);
+    }
+  }
+  if (options.webOutputDir !== undefined) {
+    const webDocument = await buildWebApiDocument();
+    const webResult = await generateClient(
+      webDocument,
+      clientOptions(options.webOutputDir, "OpenVaultWebClient"),
+    );
+    if (webResult.issues.length > 0) {
+      for (const issue of webResult.issues) {
+        process.stderr.write(`WEB ${issue.severity.toUpperCase()}: ${issue.message}\n`);
+      }
     }
   }
 }
@@ -801,6 +1020,7 @@ export async function generateContract(options: {
 export async function checkContract(options: {
   readonly outputDir: string;
   readonly contractFile: string;
+  readonly webOutputDir?: string;
 }): Promise<{
   readonly driftedFiles: readonly string[];
   readonly issues: readonly ContractIssue[];
@@ -822,10 +1042,22 @@ export async function checkContract(options: {
   for (const file of result.driftedFiles ?? []) {
     drifted.add(file);
   }
+  const issues = [...result.issues];
+  if (options.webOutputDir !== undefined) {
+    const webDocument = await buildWebApiDocument();
+    const webResult = await checkClient(
+      webDocument,
+      clientOptions(options.webOutputDir, "OpenVaultWebClient"),
+    );
+    for (const file of webResult.driftedFiles ?? []) {
+      drifted.add(file);
+    }
+    issues.push(...webResult.issues);
+  }
   return {
     driftedFiles: [...drifted].sort(),
-    issues: result.issues,
-    hasErrors: result.issues.some((issue) => issue.severity === "error"),
+    issues,
+    hasErrors: issues.some((issue) => issue.severity === "error"),
   };
 }
 
@@ -840,7 +1072,9 @@ async function main(argv: readonly string[]): Promise<number> {
     const artifacts = defaultArtifacts();
     if (command === "generate") {
       await generateContract(artifacts);
-      process.stdout.write("GENERATED openapi.json apps/cli/src/generated\n");
+      process.stdout.write(
+        "GENERATED openapi.json apps/cli/src/generated apps/web/src/generated\n",
+      );
       return 0;
     }
     const result = await checkContract(artifacts);

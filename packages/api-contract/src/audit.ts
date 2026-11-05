@@ -1,40 +1,12 @@
 import { z } from "zod";
+import { AUDIT_ACTIONS } from "./actions.js";
 import { ulidSchema } from "./ids.js";
-import { RBAC_ACTIONS } from "./rbac.js";
 
-/** Actions that are not part of the fixed authorization action catalog. */
-export const BUSINESS_AUDIT_ACTIONS = [
-  "auth.login",
-  "auth.lockout",
-  "assignment.grant",
-  "assignment.revoke",
-  "agent.join",
-  "agent.renew",
-  "consumer.register",
-  "consumer.update",
-  "audit.verify",
-  "audit.export",
-  "audit.prune",
-  "backup.create",
-  "backup.restore",
-  "certificate.expiry_warning",
-] as const;
-
-/**
- * Every authorization action plus the business audit actions.
- *
- * Query filters and the writer share this closed catalog so an event cannot be
- * recorded under a name that the API cannot filter.
- *
- * @example
- * ```ts
- * AUDIT_ACTIONS.includes("identity.create");
- * ```
- */
-export const AUDIT_ACTIONS = [...RBAC_ACTIONS, ...BUSINESS_AUDIT_ACTIONS] as const;
-
-/** One action accepted by the audit API and writer. */
-export type AuditAction = (typeof AUDIT_ACTIONS)[number];
+export {
+  AUDIT_ACTIONS,
+  type AuditAction,
+  BUSINESS_AUDIT_ACTIONS,
+} from "./actions.js";
 
 /** A lowercase hexadecimal SHA-256 digest. */
 export const hexHashSchema = z.string().regex(/^[0-9a-f]{64}$/, "Invalid hexadecimal hash");

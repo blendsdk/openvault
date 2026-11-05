@@ -58,13 +58,16 @@ The CLI-facing API is published as OpenAPI 3.1:
 | Artifact | Path |
 |---|---|
 | OpenAPI document | `packages/api-contract/openapi.json` |
-| Generated typed client | `apps/cli/src/generated/` |
+| Generated typed client (CLI) | `apps/cli/src/generated/` |
+| Generated typed client (web) | `apps/web/src/generated/` |
 | Generator | `apps/server/scripts/api-contract.ts` |
 
-`pnpm api:generate` regenerates both artifacts from the real controllers plus one route
-metadata table. `pnpm api:check` rebuilds them in memory and fails on any document or client
-drift; `pnpm verify` runs it. Generated files are committed but ignored by Biome, because the
-generator uses its own formatting.
+`pnpm api:generate` regenerates the OpenAPI document, the CLI client, and the browser client
+from the real controllers plus one route metadata table. `pnpm api:check` rebuilds all of them
+in memory and fails on any document or client drift; `pnpm verify` runs it. Generated files are
+committed but ignored by Biome, because the generator uses its own formatting. The browser
+client is built from a separate in-memory document with cookie-session security, because the
+published JSON contract stays CLI-facing and bearer-authenticated.
 
 The contract covers the CLI-facing routes only: CLI authentication, projects, secrets,
 certificates, identities, assignments, access explanation, audit query/verify/export, scaffold,

@@ -12,7 +12,12 @@ import { createTestApplication } from "../../src/app.js";
 import type { OpenVaultConfig } from "../../src/config/index.js";
 import { KeyringProvider } from "../../src/security/keyring.js";
 import { CidrMatcher, createTrustProxy, normalizePeerAddress } from "../../src/transport/proxy.js";
-import { isAllowedPath, listenerOf, normalizeRequestPath } from "../../src/transport/scope.js";
+import {
+  isAllowedPath,
+  isAllowedRequest,
+  listenerOf,
+  normalizeRequestPath,
+} from "../../src/transport/scope.js";
 import {
   type SecureWebApplication,
   TRANSPORT_SETTINGS,
@@ -119,17 +124,29 @@ async function startApp(environment: ServerEnvironment): Promise<RunningApp> {
   const keyring = await KeyringProvider.load(environment.keyringPath);
   const tls = TlsMaterial.load(environment.config);
   const database = databaseFor(environment.config);
-  const app = await createTestApplication(environment.config, {
-    database,
-    tls,
-    keyring,
-    agentOverrides: {
-      authenticator: fixtureAuthenticator(environment),
-      projectResolver: { resolveActiveByName: async () => undefined },
-    },
-  });
-  const handle = await app.startTransport({ adminPort: 0, agentPort: 0 });
-  return { app, handle, environment };
+  const previousWebRoot = process.env.OPENVAULT_WEB_ROOT;
+  // Keep this fixture API-only so the CSP assertions do not depend on whether
+  // a local web build happens to exist.
+  process.env.OPENVAULT_WEB_ROOT = join(process.cwd(), "tests", "no-web-ui");
+  try {
+    const app = await createTestApplication(environment.config, {
+      database,
+      tls,
+      keyring,
+      agentOverrides: {
+        authenticator: fixtureAuthenticator(environment),
+        projectResolver: { resolveActiveByName: async () => undefined },
+      },
+    });
+    const handle = await app.startTransport({ adminPort: 0, agentPort: 0 });
+    return { app, handle, environment };
+  } finally {
+    if (previousWebRoot === undefined) {
+      delete process.env.OPENVAULT_WEB_ROOT;
+    } else {
+      process.env.OPENVAULT_WEB_ROOT = previousWebRoot;
+    }
+  }
 }
 
 function envelope(response: TestResponse) {
@@ -344,6 +361,11 @@ describe("ST-20 proxy matcher", () => {
     expect(isAllowedPath("admin", "/v2/secrets")).toBe(false);
     expect(isAllowedPath("agent", "/v1/agent/ping")).toBe(true);
     expect(isAllowedPath("agent", "/v1/ready")).toBe(false);
+    expect(isAllowedRequest("admin", "GET", "/")).toBe(true);
+    expect(isAllowedRequest("admin", "GET", "/projects/payments")).toBe(true);
+    expect(isAllowedRequest("admin", "POST", "/projects/payments")).toBe(false);
+    expect(isAllowedRequest("admin", "GET", "/v1/agent")).toBe(false);
+    expect(isAllowedRequest("agent", "GET", "/projects/payments")).toBe(false);
     expect(() => normalizeRequestPath("/v1/x/../agent/ping")).toThrow();
   });
 });

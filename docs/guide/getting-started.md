@@ -1,9 +1,9 @@
 # Getting started
 
 ::: warning Early development
-OpenVault is under active development. The developer commands, the `ov` CLI, and the API in
-this repository are implemented and tested; image publishing and the minimal web UI are still
-in progress.
+OpenVault is under active development. The developer commands, the `ov` CLI, the web UI, and
+the API in this repository are implemented and tested; image publishing and release
+assurance are still in progress.
 :::
 
 ## What OpenVault is
@@ -33,8 +33,10 @@ pnpm --filter @openvault/server dev
 pnpm --filter @openvault/web dev
 ```
 
-The UI runs at `http://localhost:5173` and proxies `/v1` to the API. The API exposes
-`GET /health` for liveness and `GET /ready` for dependency readiness.
+The UI runs at `http://localhost:5173` and proxies `/v1` to `https://localhost:8443`. The proxy
+rewrites the browser origin so the server's origin guard and CSRF checks behave as in
+production. The API exposes `GET /health` for liveness and `GET /ready` for dependency
+readiness. See [Web UI](/guide/web-ui).
 
 Build and try the CLI:
 
@@ -65,8 +67,8 @@ ov login --url https://localhost --identifier admin@openvault.local
 
 Then:
 
-1. Create a project in the UI.
-2. Store a secret.
+1. Create a project in the UI at `https://localhost`.
+2. Store a secret and reveal it once to confirm the audited read.
 3. Run `ov docker scaffold <project> <service>`.
 4. Add the printed agent service to the application's Compose file.
 5. Set the one-time join token in the shell and start the service.

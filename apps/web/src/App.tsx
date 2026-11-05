@@ -1,40 +1,44 @@
-import { DescriptionList, DescriptionListItem } from "@blendsdk/fluentui-react-components";
-import { Button, Card, FluentProvider, Text, webLightTheme } from "@fluentui/react-components";
-import { GlobalLoaderProvider } from "blendsdk/react";
+import { AuthGuard } from "blendsdk/react";
+import { Navigate, Route, Routes } from "react-router";
+import { AppShell } from "./layout/app-shell.js";
+import { AuditPage } from "./pages/audit-page.js";
+import { ChangePasswordPage } from "./pages/change-password-page.js";
+import { ConsumersPage } from "./pages/consumers-page.js";
+import { IdentitiesPage } from "./pages/identities-page.js";
+import { LoginPage } from "./pages/login-page.js";
+import { NotFoundPage } from "./pages/not-found-page.js";
+import { PermissionsPage } from "./pages/permissions-page.js";
+import { ProjectOverviewPage } from "./pages/project-overview-page.js";
+import { ProjectsPage } from "./pages/projects-page.js";
+import { SecretDetailPage } from "./pages/secret-detail-page.js";
+import { SecretsPage } from "./pages/secrets-page.js";
+import { ProjectRoute } from "./projects/project-route.js";
+import { PasswordGate } from "./session/password-gate.js";
 
-/**
- * Minimal shell used to prove the React 19, Fluent UI v9, and BlendSDK integration.
- * The real project and secret screens are not implemented yet.
- */
+/** The application route tree. */
 export function App() {
   return (
-    <FluentProvider theme={webLightTheme}>
-      <GlobalLoaderProvider>
-        <main className="shell">
-          <Card className="hero">
-            <Text weight="semibold" style={{ fontSize: 30 }}>
-              OpenVault
-            </Text>
-            <Text>
-              Self-hosted secrets and certificates for Docker Compose projects, built on BlendSDK
-              v5.
-            </Text>
-            <DescriptionList layout="columns">
-              <DescriptionListItem label="Status">Scaffold</DescriptionListItem>
-              <DescriptionListItem label="API">/v1/ready</DescriptionListItem>
-              <DescriptionListItem label="Docs">GitHub Pages</DescriptionListItem>
-            </DescriptionList>
-            <Button
-              appearance="primary"
-              onClick={() => {
-                window.location.assign("/v1/ready");
-              }}
-            >
-              Check API
-            </Button>
-          </Card>
-        </main>
-      </GlobalLoaderProvider>
-    </FluentProvider>
+    <Routes>
+      <Route path="/login" element={<LoginPage />} />
+      <Route element={<PasswordGate />}>
+        <Route element={<AuthGuard />}>
+          <Route path="/change-password" element={<ChangePasswordPage />} />
+          <Route element={<AppShell />}>
+            <Route index element={<ProjectsPage />} />
+            <Route path="projects/:project" element={<ProjectRoute />}>
+              <Route index element={<ProjectOverviewPage />} />
+              <Route path="secrets" element={<SecretsPage />} />
+              <Route path="secrets/:name" element={<SecretDetailPage />} />
+              <Route path="identities" element={<IdentitiesPage />} />
+              <Route path="permissions" element={<PermissionsPage />} />
+              <Route path="audit" element={<AuditPage />} />
+              <Route path="consumers" element={<ConsumersPage />} />
+            </Route>
+            <Route path="*" element={<NotFoundPage />} />
+          </Route>
+        </Route>
+      </Route>
+      <Route path="*" element={<Navigate to="/" replace />} />
+    </Routes>
   );
 }

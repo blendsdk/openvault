@@ -1,47 +1,8 @@
 import { z } from "zod";
+import { RBAC_ACTIONS } from "./actions.js";
 import { ulidSchema } from "./ids.js";
 
-/**
- * The 25 fixed authorization actions.
- *
- * The order is the public catalog order. Control-plane actions come first so
- * the catalog can expose the plane without a second lookup table.
- *
- * @example
- * ```ts
- * RBAC_ACTIONS.includes("secret.read");
- * ```
- */
-export const RBAC_ACTIONS = [
-  "project.create",
-  "project.read",
-  "project.update",
-  "project.delete",
-  "identity.create",
-  "identity.read",
-  "identity.revoke",
-  "identity.join_token",
-  "assignment.read",
-  "assignment.write",
-  "audit.read",
-  "kek.rotate",
-  "secret.list",
-  "secret.read",
-  "secret.write",
-  "secret.delete",
-  "secret.recover",
-  "secret.purge",
-  "certificate.list",
-  "certificate.read",
-  "certificate.read_private",
-  "certificate.write",
-  "certificate.delete",
-  "certificate.recover",
-  "certificate.purge",
-] as const;
-
-/** One fixed authorization action. */
-export type RbacAction = (typeof RBAC_ACTIONS)[number];
+export { RBAC_ACTIONS, type RbacAction } from "./actions.js";
 
 /**
  * The nine fixed roles.

@@ -7,8 +7,9 @@
 - pnpm 12 workspace with TypeScript 7.0.2 and Biome 2.6.4.
 - Envelope-encryption core with per-version data keys, AAD binding, and tests.
 - WebAFX server skeleton with `GET /v1/ready` and `GET /health`.
-- React 19 + Fluent UI v9 web shell using `@blendsdk/fluentui-react-components` and
-  `blendsdk/react`.
+- React 19 + Fluent UI v9 web UI using `@blendsdk/fluentui-react-components` and
+  `blendsdk/react`: local/OIDC login, projects, secrets with audited masked reveal, identities,
+  permissions, audit search/verification, consumers, dark mode, and responsive navigation.
 - VitePress documentation site with GitHub Pages deployment.
 - CI, CodeQL, dependency review, and secret-scan workflows.
 - Server-side service identities, administrative lifecycle, join-token issuance, CA/X.509
@@ -57,9 +58,14 @@
 - `ov kek rotate`: rewrap of secret and certificate data keys, audit keys, CA keys, and JWT
   seeds with byte-identical value ciphertext; old-key removal only after a full `kek_id` check.
 - New `backup.restore` audit action and `@openvault/server/ops` package surface.
+- Generated browser API client and WebAFX production static serving with hashed-asset caching,
+  SPA fallback, and a UI-enabled same-origin CSP.
+- Web UI tests: component behavior, storage/URL/console leak checks, CSRF strategy, and axe on
+  login, secret detail, and audit.
 
 ### Deferred
 
 - The remaining backup and rotation program: secret/certificate rotation workflows, Compose
   hardening, least-privilege role provisioning, and reference-stack release engineering.
-- Minimal web UI.
+- Certificate screens and browser automation across real engines; v0.1 keeps certificates in
+  the CLI and runs axe in jsdom.

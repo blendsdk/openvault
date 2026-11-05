@@ -5,6 +5,7 @@ const guide = [
   { text: "Install", link: "/guide/install" },
   { text: "Docker Compose", link: "/guide/docker-compose" },
   { text: "Agent", link: "/guide/agent" },
+  { text: "Web UI", link: "/guide/web-ui" },
   { text: "CLI", link: "/guide/cli" },
   { text: "Authentication", link: "/guide/authentication" },
   { text: "RBAC", link: "/guide/rbac" },

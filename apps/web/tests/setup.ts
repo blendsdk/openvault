@@ -1,4 +1,6 @@
 import "@testing-library/jest-dom/vitest";
+import { cleanup } from "@testing-library/react";
+import { afterEach } from "vitest";
 
 if (!window.matchMedia) {
   window.matchMedia = (query: string): MediaQueryList => ({
@@ -20,3 +22,21 @@ if (!globalThis.ResizeObserver) {
     public disconnect(): void {}
   };
 }
+
+if (!Element.prototype.scrollTo) {
+  Element.prototype.scrollTo = (): void => undefined;
+}
+
+if (navigator.clipboard === undefined) {
+  Object.defineProperty(navigator, "clipboard", {
+    configurable: true,
+    value: {
+      writeText: async (): Promise<void> => undefined,
+      readText: async (): Promise<string> => "",
+    },
+  });
+}
+
+afterEach(() => {
+  cleanup();
+});

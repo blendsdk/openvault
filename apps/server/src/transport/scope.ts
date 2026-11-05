@@ -100,6 +100,30 @@ export function isAllowedPath(listener: ListenerKind, path: string): boolean {
 }
 
 /**
+ * Decides whether one listener may handle a request method and path.
+ *
+ * The admin listener also serves the browser UI: a GET that is not part of
+ * the versioned API must fall through to the static/SPA layer. Mutations
+ * outside `/v1` remain denied. The agent listener keeps the strict table.
+ *
+ * @param listener - Listener that accepted the request.
+ * @param method - HTTP method.
+ * @param path - Normalised request path.
+ * @returns True when the request may proceed.
+ */
+export function isAllowedRequest(listener: ListenerKind, method: string, path: string): boolean {
+  if (
+    listener === "admin" &&
+    method.toUpperCase() === "GET" &&
+    path !== "/v1" &&
+    !path.startsWith("/v1/")
+  ) {
+    return true;
+  }
+  return isAllowedPath(listener, path);
+}
+
+/**
  * Creates the scope middleware for one listener.
  *
  * The original request is left untouched for WebAFX routing and diagnostics;
@@ -113,7 +137,7 @@ export function createScopeMiddleware(): RequestHandler {
         throw new NotFoundError("Not Found");
       }
       const path = normalizeRequestPath(req.originalUrl || req.url);
-      if (!isAllowedPath(listener, path)) {
+      if (!isAllowedRequest(listener, req.method, path)) {
         throw new NotFoundError("Not Found");
       }
       next();

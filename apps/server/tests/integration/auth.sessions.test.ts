@@ -29,6 +29,7 @@ const errorEnvelope = z.object({
 
 const authUserSchema = z.object({
   id: z.string(),
+  sub: z.string(),
   name: z.string(),
   email: z.string().nullable(),
   authMethod: z.enum(["local", "oidc"]),
@@ -280,6 +281,7 @@ describe.skipIf(trustedHost === undefined)("session routes", () => {
     expect(response.status).toBe(200);
     expect(parsed.user).toEqual({
       id: user.id,
+      sub: user.id,
       name: user.name,
       email: user.email,
       authMethod: "local",

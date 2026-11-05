@@ -237,7 +237,9 @@ export function passwordChangeGate(): RequestHandler {
           ? (method === "GET" && path === "/v1/auth/me") ||
             (method === "POST" && path === "/v1/auth/password") ||
             (method === "POST" && path === "/v1/auth/logout") ||
-            (method === "GET" && (path === "/v1/meta" || path.startsWith("/v1/meta/")))
+            (method === "GET" && (path === "/v1/meta" || path.startsWith("/v1/meta/"))) ||
+            // The password-change screen and its assets are outside /v1.
+            (method === "GET" && path !== "/v1" && !path.startsWith("/v1/"))
           : (method === "GET" && path === "/v1/auth/cli/me") ||
             (method === "POST" && path === "/v1/auth/cli/logout");
 
