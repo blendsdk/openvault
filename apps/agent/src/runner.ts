@@ -141,12 +141,20 @@ export class AgentRunner {
     process.once("SIGINT", onSignal);
     try {
       await this.#initialize();
+      if (this.#cancelled) {
+        return await stop;
+      }
       this.#socket = await startLocalSocket({
         path: this.#config.socketPath,
         getSecret: (name) => this.#delivery?.getDelivered(name),
         getStatus: () => this.#statusDocument(),
         logger: this.#logger,
       });
+      if (this.#cancelled) {
+        await this.#socket.close();
+        this.#socket = undefined;
+        return await stop;
+      }
       const snapshot = await this.#delivery?.startup();
       if (snapshot === undefined) {
         throw new AgentError("agent_internal", "Delivery did not initialize");
@@ -178,7 +186,7 @@ export class AgentRunner {
     this.#exitCode = code;
     this.#clearTimers();
     this.#client?.cancel();
-    await this.#terminateChild();
+    await this.#terminateChild().catch(() => undefined);
     await this.#socket?.close().catch(() => undefined);
     this.#socket = undefined;
     this.#stopResolve?.(code);
@@ -421,13 +429,14 @@ export class AgentRunner {
           lastSuccessAt: new Date(this.#now()).toISOString(),
           nextAttemptAt: null,
         };
-        this.#writeStatus(this.#snapshot ?? this.#emptySnapshot(), false);
         this.#scheduleRenewal();
+        this.#writeStatus(this.#snapshot ?? this.#emptySnapshot(), false);
         return;
       }
       if (outcome.kind === "not_due") {
         const delay = Math.max(30_000, renewalAt(this.#identity, 0) - this.#now());
         this.#scheduleRenewal(delay);
+        this.#writeStatus(this.#snapshot ?? this.#emptySnapshot(), false);
         return;
       }
       if (outcome.kind === "stale") {
@@ -438,10 +447,10 @@ export class AgentRunner {
         return;
       }
       this.#renewal = { ...this.#renewal, state: "degraded" };
-      this.#writeStatus(this.#snapshot ?? this.#emptySnapshot(), false);
       const delay = this.#renewalBackoffMs + Math.floor(this.#random() * 1_000);
       this.#renewalBackoffMs = Math.min(this.#renewalBackoffMs * 2, 300_000);
       this.#scheduleRenewal(delay);
+      this.#writeStatus(this.#snapshot ?? this.#emptySnapshot(), false);
     } catch (error) {
       if (!this.#cancelled) {
         throw error;
@@ -494,24 +503,30 @@ export class AgentRunner {
     }
     child.kill("SIGTERM");
     let grace: NodeJS.Timeout | undefined;
-    const gracePromise = new Promise<void>((resolve) => {
-      grace = setTimeout(resolve, 5_000);
-      grace.unref?.();
-    });
-    await Promise.race([once(child, "exit").then(() => undefined), gracePromise]);
-    if (grace !== undefined) {
-      clearTimeout(grace);
+    try {
+      const gracePromise = new Promise<void>((resolve) => {
+        grace = setTimeout(resolve, 5_000);
+        grace.unref?.();
+      });
+      await Promise.race([once(child, "exit").catch(() => undefined), gracePromise]);
+    } finally {
+      if (grace !== undefined) {
+        clearTimeout(grace);
+      }
     }
     if (child.exitCode === null && child.signalCode === null) {
       child.kill("SIGKILL");
       let killGrace: NodeJS.Timeout | undefined;
-      const killPromise = new Promise<void>((resolve) => {
-        killGrace = setTimeout(resolve, 2_000);
-        killGrace.unref?.();
-      });
-      await Promise.race([once(child, "exit").then(() => undefined), killPromise]);
-      if (killGrace !== undefined) {
-        clearTimeout(killGrace);
+      try {
+        const killPromise = new Promise<void>((resolve) => {
+          killGrace = setTimeout(resolve, 2_000);
+          killGrace.unref?.();
+        });
+        await Promise.race([once(child, "exit").catch(() => undefined), killPromise]);
+      } finally {
+        if (killGrace !== undefined) {
+          clearTimeout(killGrace);
+        }
       }
     }
   }
@@ -548,7 +563,7 @@ export class AgentRunner {
     const removeFiles =
       error instanceof DeliveryTerminalError || error instanceof RenewalTerminalError
         ? error.removeFiles
-        : code !== "agent_state_write_failed";
+        : code !== "agent_state_write_failed" && code !== "agent_config_invalid";
     if (code === "agent_credential_rejected") {
       try {
         this.#store.clearIdentity();
@@ -579,7 +594,7 @@ export class AgentRunner {
       // A status write failure cannot change the terminal outcome.
     }
     await this.#heartbeat("failed");
-    await this.#terminateChild();
+    await this.#terminateChild().catch(() => undefined);
     await this.#socket?.close().catch(() => undefined);
     this.#socket = undefined;
     this.#stopResolve?.(this.#exitCode);

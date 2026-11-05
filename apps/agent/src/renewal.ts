@@ -121,6 +121,9 @@ function mapFailure(error: unknown): RenewalOutcome {
  */
 export async function renewOnce(options: RenewalOptions): Promise<RenewalOutcome> {
   const now = options.now ?? Date.now;
+  if (options.isCancelled?.() === true) {
+    return { kind: "transient" };
+  }
   let pending = options.store.loadPendingRenewal();
   if (pending === undefined) {
     const generated = await generateKeyMaterial();
@@ -131,6 +134,9 @@ export async function renewOnce(options: RenewalOptions): Promise<RenewalOutcome
       createdAt: new Date(now()).toISOString(),
     };
     options.store.savePendingRenewal(pending);
+  }
+  if (options.isCancelled?.() === true) {
+    return { kind: "transient" };
   }
 
   const current: ClientIdentity = {

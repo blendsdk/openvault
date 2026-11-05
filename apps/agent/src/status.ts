@@ -75,8 +75,8 @@ export class StatusWriter {
 
   /** Persists one status document. */
   public write(document: StatusDocument): void {
-    ensureSecureDirectory(dirname(this.#path), "agent_config_invalid");
     try {
+      ensureSecureDirectory(dirname(this.#path), "agent_config_invalid");
       atomicWriteFile(this.#path, JSON.stringify(document), 0o600);
     } catch (error) {
       throw new AgentError("agent_state_write_failed", "Status file could not be written", {

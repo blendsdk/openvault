@@ -73,7 +73,7 @@ starting without secrets.
 |---|---|
 | Success | Write atomically, update status and consumer `last_seen`/`state` |
 | 5xx or network error | Keep last known good, status `degraded`, log |
-| 401/403 or TLS certificate rejection | Remove files, status `failed`, exit 1 |
+| 401/403 or TLS certificate rejection | Remove files, clear the stored identity, status `failed`, exit 1 |
 | 404 on a required entry | Remove files, status `failed`, exit 1 |
 | 404 on an optional entry | Remove that file, status `degraded`, continue |
 | Other 4xx, 3xx, or malformed response | Remove files, status `failed`, exit 1 |
@@ -89,7 +89,8 @@ key and CSR. It retries with jitter and exponential backoff, keeps the old certi
 until expiry, and reuses the same pending key/CSR for the server's five-minute replay window.
 A lost response can therefore be retried without creating a second certificate. After the
 window, or after a server restart that lost the replay cache, a retry may require a new join
-token.
+token. A credential rejection clears the stored identity, so a new token can be used on the next
+start.
 
 ## Local API
 

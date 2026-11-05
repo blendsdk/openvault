@@ -264,7 +264,7 @@ tests, and a full repository gate.
 **Reference**: [07-testing-strategy.md](07-testing-strategy.md) §Implementation Tests
 **Objective**: Cover partial-failure retries, conflict handling, audit rollback, and renderer determinism.
 
-- [x] 4.3.1 Write `apps/server/tests/integration/scaffold.impl.test.ts` for partial failure retry, duplicate conflicts, disabled identity reuse, broader grants, expired assignments, two-service merge, and deterministic rendering ✅ (completed: 2026-11-05 11:05)
+- [x] 4.3.1 Write `apps/server/tests/scaffold-renderer.impl.test.ts` and the scaffold integration edge cases for duplicate conflicts, disabled identity reuse, broader grants, expired assignments, concurrent entry sets, and deterministic rendering ✅ (completed: 2026-11-05 11:05)
 - [x] 4.3.2 Write `apps/server/tests/integration/secrets-state.impl.test.ts` for heartbeat failure tolerance, state audit, and audit rollback ✅ (completed: 2026-11-05 11:05)
 - [x] 4.3.3 Write `packages/api-contract/tests/scaffold.impl.test.ts` for boundary and projection cases ✅ (completed: 2026-11-05 11:05)
 - [x] 4.3.4 Run the server unit and integration tests ✅ (completed: 2026-11-05 11:05)

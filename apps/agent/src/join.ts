@@ -127,6 +127,9 @@ function isTransient(error: unknown): error is VaultClientError {
  * @throws {AgentError} `agent_join_token_required` or `agent_join_failed`.
  */
 export async function joinAgent(options: JoinAgentOptions): Promise<StoredIdentity> {
+  if (options.isCancelled?.() === true) {
+    throw new AgentError("agent_join_failed", "Join cancelled");
+  }
   const existing = options.store.loadIdentity();
   if (existing !== undefined) {
     return existing;
@@ -174,7 +177,13 @@ export async function joinAgent(options: JoinAgentOptions): Promise<StoredIdenti
       attempt += 1;
       const delay = Math.min(RETRY_BASE_MS * 2 ** (attempt - 1), RETRY_MAX_MS);
       options.logger.warn("agent_join_retry", { attempt, delayMs: delay });
-      await sleep(delay);
+      const deadline = now() + delay;
+      while (now() < deadline) {
+        if (options.isCancelled?.() === true) {
+          throw new AgentError("agent_join_failed", "Join cancelled");
+        }
+        await sleep(Math.min(250, deadline - now()));
+      }
       if (options.isCancelled?.() === true) {
         throw new AgentError("agent_join_failed", "Join cancelled");
       }

@@ -3,7 +3,7 @@
 > **Document**: 05-findings.md
 > **Parent**: [Index](00-index.md)
 > **Status**: Closed — all critical/major findings fixed; minors fixed or accepted
-> **Last Updated**: 2026-11-05 12:10
+> **Last Updated**: 2026-11-05 12:45
 > **CodeOps Artifact Schema**: 1
 
 ## Purpose
@@ -60,6 +60,19 @@ The planning-stage preflight findings and resolutions are recorded in
 | AR-15 | Minor | A FIFO at a state path could block `open` before `fstat`. | Added `O_NONBLOCK`; non-regular files are rejected after `fstat`. | Fixed |
 | AR-16 | Minor | `spawn` had no error listener. | Added a child error handler that enters the terminal path. | Fixed |
 | P-01 | Minor | Missing implementation-test files and unproven coverage claims. | Added the regression tests and contract tests; updated the plan. | Fixed |
+
+## Final Re-Review
+
+| ID | Severity | Finding | Ruling | Status |
+|---|---|---|---|---|
+| FR-01 | Major | A clean refresh could not recover from `degraded` because the previous aggregate state seeded the degradation flag. | Per-cycle degradation tracking; a clean cycle sets `ok`. Added a recovery test. | Fixed |
+| FR-02 | Major | A status-file directory validation failure still removed delivered files. | `StatusWriter` wraps directory and write failures as `agent_state_write_failed`; the terminal path keeps files for that code and `agent_config_invalid`. | Fixed |
+| FR-03 | Major | An in-flight renewal was not drained before terminal cleanup and could write identity/status late. | Added `#activeRenewal`, awaited it before cleanup, checked cancellation after `renewOnce`, and prevented pending/request work after cancellation. | Fixed |
+| FR-04 | Major | A stop during setup could create a unix socket after `stop()` ran, leaving the process alive. | Added cancellation checks after initialize and socket start, closing any late handle; `joinAgent` checks cancellation on the stored-identity path. | Fixed |
+| FR-05 | Minor | Renewal timestamps lagged because status was written before scheduling. | Schedule first, then write; `not_due` also writes the next attempt. | Fixed |
+| FR-06 | Minor | Child-termination timers could leak and termination errors could skip socket cleanup. | `try/finally` clears timers; callers catch termination errors so cleanup always continues. | Fixed |
+| FR-07 | Minor | Join retry sleep was not cancellable. | Sleep is chunked with a cancellation check every 250 ms. | Fixed |
+| FR-08 | Minor | Plan/test claims named missing test files. | Added `atomic-write.impl.test.ts` and `scaffold-renderer.impl.test.ts`; updated the plan references. | Fixed |
 
 ## Accepted Residuals
 
