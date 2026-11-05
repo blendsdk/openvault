@@ -44,6 +44,41 @@ sliding idle timeout. `OPENVAULT_OIDC_ALLOWED_DOMAINS` enables JIT provisioning;
 OIDC identities must already be linked. JIT also requires `email_verified: true` and an exact
 domain match.
 
+## CLI and bootstrap
+
+The `ov` client reads its own connection settings. These variables are separate from the
+server process.
+
+| Variable | Default | Required | Notes |
+|---|---|---|---|
+| `OPENVAULT_URL` | none | for `ov login` and `ov doctor` | HTTPS origin of the public API; no credentials, path, query, or fragment |
+| `OPENVAULT_CA_FILE` | none | recommended | PEM bundle that verifies the server; must match the proxy's certificate chain |
+
+The bootstrap command `ov init` reads the server database and file settings from the
+environment. It never accepts the database URL as a command-line option, because a PostgreSQL
+URL usually contains a password.
+
+| Variable | Default | Required | Notes |
+|---|---|---|---|
+| `OPENVAULT_DB_URL` | none | yes | Application database URL used for bootstrap data writes |
+| `OPENVAULT_MIGRATION_DB_URL` | `OPENVAULT_DB_URL` | no | Optional migrator URL used for DDL |
+| `OPENVAULT_KEYRING` | none | yes | Absolute keyring path; created atomically with mode `0600` when absent |
+| `OPENVAULT_INTERNAL_CA` | derived from the TLS certificate directory | yes | Public internal CA path |
+| `OPENVAULT_CA_PUBLIC_DIR` | none | no | Directory that receives `ca.pem` for the proxy |
+| `OPENVAULT_TLS_CERT` / `OPENVAULT_TLS_KEY` | none | for TLS provisioning | Server certificate and PKCS#8 key paths; both or neither |
+| `OPENVAULT_BASE_URL` | `https://localhost` | no | HTTPS origin used for server-certificate SANs |
+| `OPENVAULT_ORG_NAME` | `OpenVault` | no | Organization display name |
+| `OPENVAULT_BOOTSTRAP_ADMIN_NAME` | `OpenVault Administrator` | no | Administrator display name |
+| `OPENVAULT_BOOTSTRAP_ADMIN_EMAIL` | `admin@openvault.local` | no | Administrator email |
+| `OPENVAULT_BOOTSTRAP_PASSWORD_FILE` | none | one password mode | Operator-supplied `0600` password file |
+| `OPENVAULT_BOOTSTRAP_PASSWORD_OUTPUT` | beside the keyring | no | One-time generated password path |
+
+`ov init --prepare` implies `--generate-password` and derives the paths from the environment;
+it is the reference Compose provisioner. The generated password is written once with mode
+`0600` and is never printed. Re-running init does not rotate the CA or replace an existing
+administrator password. If the keyring is missing but wrapped state exists, init fails closed
+and asks for a restore from backup.
+
 ## Audit maintenance
 
 Pruning and checkpoint export are separate server-side commands. They read the same server
@@ -123,12 +158,13 @@ The keyring is a JSON file outside PostgreSQL:
 ```
 
 The path is required and must be an absolute path to a regular file with exact mode
-`0600`. Group- or world-readable files stop startup.
+`0600`. The parent directory must be owned by the current user and must not be group- or
+world-writable; `0700` is used when init creates it. A group- or world-readable file, or a
+group- or world-writable directory, stops startup.
 
 Age-encrypted keyrings are deferred to a later release. Setting
 `OPENVAULT_KEYRING_PASSPHRASE_FILE` fails closed with an unsupported-feature error; there is
-no plaintext fallback. The reference stack is not bootable until the `ov init` provisioner
-CLI and backup/rotation releases create the keyring file.
+no plaintext fallback. `ov init` creates the keyring file; backup, restore, and KEK rotation are later releases.
 
 ## Workload CA
 

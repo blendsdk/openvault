@@ -16,7 +16,9 @@
       "!**/.opencode",
       "!**/src/database/generated-types.ts",
       "!**/src/database/ctypes.ts",
-      "!**/migrations/schema.snapshot.json"
+      "!**/migrations/schema.snapshot.json",
+      "!apps/cli/src/generated",
+      "!packages/api-contract/openapi.json"
     ]
   },
   "formatter": {

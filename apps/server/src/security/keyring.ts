@@ -1,5 +1,5 @@
-import { closeSync, constants, fstatSync, openSync, readFileSync } from "node:fs";
-import { isAbsolute } from "node:path";
+import { closeSync, constants, fstatSync, lstatSync, openSync, readFileSync } from "node:fs";
+import { dirname, isAbsolute } from "node:path";
 import { inspect } from "node:util";
 import { Keyring, KeyringError } from "@openvault/core";
 
@@ -43,9 +43,21 @@ export class KeyringProvider {
       throw new KeyringError("Keyring path must be an absolute path");
     }
 
+    const directory = lstatSync(dirname(path));
+    if (!directory.isDirectory() || directory.isSymbolicLink()) {
+      throw new KeyringError("Keyring directory must be a real directory");
+    }
+    const uid = typeof process.getuid === "function" ? process.getuid() : undefined;
+    if (uid !== undefined && directory.uid !== uid) {
+      throw new KeyringError("Keyring directory must be owned by the current user");
+    }
+    if ((Number(directory.mode) & 0o022) !== 0) {
+      throw new KeyringError("Keyring directory must not be group- or world-writable");
+    }
+
     let descriptor: number;
     try {
-      descriptor = openSync(path, constants.O_RDONLY);
+      descriptor = openSync(path, constants.O_RDONLY | constants.O_NOFOLLOW | constants.O_NONBLOCK);
     } catch {
       throw new KeyringError("Keyring file must be a readable regular file");
     }
@@ -55,6 +67,9 @@ export class KeyringProvider {
       const stats = fstatSync(descriptor);
       if (!stats.isFile()) {
         throw new KeyringError("Keyring path must reference a regular file");
+      }
+      if (uid !== undefined && stats.uid !== uid) {
+        throw new KeyringError("Keyring file must be owned by the current user");
       }
       if ((stats.mode & 0o777) !== 0o600) {
         throw new KeyringError("Keyring file must have mode 0600");

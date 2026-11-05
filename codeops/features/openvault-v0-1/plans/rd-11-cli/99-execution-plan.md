@@ -2,8 +2,8 @@
 
 > **Document**: 99-execution-plan.md
 > **Parent**: [Index](00-index.md)
-> **Last Updated**: 2026-11-05 14:32
-> **Progress**: 0/92 tasks (0%)
+> **Last Updated**: 2026-11-05 18:10
+> **Progress**: 92/92 tasks (100%)
 > **CodeOps Artifact Schema**: 1
 
 ## Overview
@@ -49,14 +49,14 @@ full gate.
 **Reference**: [03-02-api-contract.md](03-02-api-contract.md) · [07-testing-strategy.md](07-testing-strategy.md) ST-119–ST-120 · AR-1, AR-6, AR-7, AR-29, AR-32
 **Objective**: Create the workspace package and write the contract oracle before the generator.
 
-- [ ] 1.1.1 Create `apps/cli/package.json`, `tsconfig.json`, `tsconfig.test.json`, `vitest.config.ts`, and the `bin` entry; add `blendsdk`, `yaml`, `zod`, `@openvault/api-contract`, and `@openvault/server`; update the lockfile
-- [ ] 1.1.2 Add the `@openvault/server/init` export placeholder and package scripts; add root `api:generate` / `api:check` scripts and put `api:check` in `verify`
-- [ ] 1.1.3 [spec-author] Write `apps/server/tests/api-contract.spec.test.ts` for ST-119–ST-120: route coverage, unique operation ids, security, 2xx schemas, clean generation/check, mutation drift, stale marker
-- [ ] 1.1.4 Run the contract spec and record the red-phase failure (module does not exist)
+- [x] 1.1.1 Create `apps/cli/package.json`, `tsconfig.json`, `tsconfig.test.json`, `vitest.config.ts`, and the `bin` entry; add `blendsdk`, `yaml`, `zod`, `@openvault/api-contract`, and `@openvault/server`; update the lockfile
+- [x] 1.1.2 Add the `@openvault/server/init` export placeholder and package scripts; add root `api:generate` / `api:check` scripts and put `api:check` in `verify`
+- [x] 1.1.3 [spec-author] Write `apps/server/tests/api-contract.spec.test.ts` for ST-119–ST-120: route coverage, unique operation ids, security, 2xx schemas, clean generation/check, mutation drift, stale marker
+- [x] 1.1.4 Run the contract spec and record the red-phase failure (module does not exist)
 
 **Deliverables**:
-- [ ] The package builds its skeleton
-- [ ] The red phase fails on the missing contract module, not a missing package
+- [x] The package builds its skeleton
+- [x] The red phase fails on the missing contract module, not a missing package
 
 **Verify**: `pnpm --filter @openvault/server test -- api-contract.spec` fails on the missing module
 
@@ -65,15 +65,15 @@ full gate.
 **Reference**: [03-02-api-contract.md](03-02-api-contract.md) §Route Inventory–§Scripts · AR-6, AR-7, AR-32
 **Objective**: Build the document from real controllers and generate both artifacts.
 
-- [ ] 1.2.1 Implement `apps/server/scripts/api-contract.ts` with `CONTRACT_CONTROLLERS`, `ROUTE_DOCS`, `instrumentRoute`, `buildApiDocument`, `generateContract`, `checkContract`, and `main`
-- [ ] 1.2.2 Add the server `api:generate` / `api:check` scripts, ignore the generated artifacts in Biome, and verify path resolution from any cwd
-- [ ] 1.2.3 Run `pnpm api:generate` and commit `packages/api-contract/openapi.json` plus `apps/cli/src/generated/**`
-- [ ] 1.2.4 Run the contract spec and `pnpm api:check`; record the green result
+- [x] 1.2.1 Implement `apps/server/scripts/api-contract.ts` with `CONTRACT_CONTROLLERS`, `ROUTE_DOCS`, `instrumentRoute`, `buildApiDocument`, `generateContract`, `checkContract`, and `main`
+- [x] 1.2.2 Add the server `api:generate` / `api:check` scripts, ignore the generated artifacts in Biome, and verify path resolution from any cwd
+- [x] 1.2.3 Run `pnpm api:generate` and commit `packages/api-contract/openapi.json` plus `apps/cli/src/generated/**`
+- [x] 1.2.4 Run the contract spec and `pnpm api:check`; record the green result
 
 **Deliverables**:
-- [ ] Every contract controller route has metadata
-- [ ] The generated client is deterministic and `api:check` is clean
-- [ ] No internal agent/browser/OIDC route appears in the document
+- [x] Every contract controller route has metadata
+- [x] The generated client is deterministic and `api:check` is clean
+- [x] No internal agent/browser/OIDC route appears in the document
 
 **Verify**: `pnpm --filter @openvault/server test -- api-contract.spec && pnpm api:check`
 
@@ -82,15 +82,15 @@ full gate.
 **Reference**: [03-01-cli-runtime.md](03-01-cli-runtime.md) · [07-testing-strategy.md](07-testing-strategy.md) ST-1–ST-53 · AR-4, AR-5, AR-8–AR-13, AR-24, AR-25, AR-38
 **Objective**: Write the credential, dispatcher, transport, and output oracle.
 
-- [ ] 1.3.1 [spec-author] Write `apps/cli/tests/credentials.spec.test.ts` for ST-1–ST-20
-- [ ] 1.3.2 [spec-author] Write `apps/cli/tests/dispatcher.spec.test.ts` for the Phase 1 subset ST-21–ST-26, ST-31–ST-36, and the core help/exit/single-command cases; command positionals and destructive prompts belong to Phases 2–4
-- [ ] 1.3.3 [spec-author] Write `apps/cli/tests/transport.spec.test.ts` for ST-40–ST-53
-- [ ] 1.3.4 Run the three spec files and record the red-phase failure
+- [x] 1.3.1 [spec-author] Write `apps/cli/tests/credentials.spec.test.ts` for ST-1–ST-20
+- [x] 1.3.2 [spec-author] Write `apps/cli/tests/dispatcher.spec.test.ts` for the Phase 1 subset ST-21–ST-26, ST-31–ST-36, and the core help/exit/single-command cases; command positionals and destructive prompts belong to Phases 2–4
+- [x] 1.3.3 [spec-author] Write `apps/cli/tests/transport.spec.test.ts` for ST-40–ST-53
+- [x] 1.3.4 Run the three spec files and record the red-phase failure
 
 **Deliverables**:
-- [ ] Credential tests cover paths, modes, atomic writes, symlinks, lock, and refresh serialization
-- [ ] Transport tests use a real HTTPS server with a generated CA
-- [ ] Dispatcher tests cover global options, positionals, `--`, and exit codes
+- [x] Credential tests cover paths, modes, atomic writes, symlinks, lock, and refresh serialization
+- [x] Transport tests use a real HTTPS server with a generated CA
+- [x] Dispatcher tests cover global options, positionals, `--`, and exit codes
 
 **Verify**: `pnpm --filter @openvault/cli test` fails on missing modules
 
@@ -99,17 +99,17 @@ full gate.
 **Reference**: [03-01-cli-runtime.md](03-01-cli-runtime.md) §Runtime injection–§Output · AR-4, AR-5, AR-8–AR-13, AR-24, AR-25, AR-38
 **Objective**: Build the credential store, transport, client wiring, output, and dispatcher.
 
-- [ ] 1.4.1 Implement `apps/cli/src/credentials/{paths,store,lock,password}.ts`
-- [ ] 1.4.2 Implement `apps/cli/src/transport/https-adapter.ts` with JSON bounds, `probe`, and `download`
-- [ ] 1.4.3 Implement `apps/cli/src/client/{authenticated,anonymous}.ts` with `BearerAuth`, locked refresh, and one 429 retry
-- [ ] 1.4.4 Implement `apps/cli/src/{errors,output,config,dispatcher,cli,main}.ts` with global options, root help, version, positional rewriting, and exit mapping
-- [ ] 1.4.5 Add the empty group registry and a placeholder `run` handler; wire `main.ts` to `runCli`
-- [ ] 1.4.6 Run the Phase 1 spec tests and record the green result (core runtime only)
+- [x] 1.4.1 Implement `apps/cli/src/credentials/{paths,store,lock,password}.ts`
+- [x] 1.4.2 Implement `apps/cli/src/transport/https-adapter.ts` with JSON bounds, `probe`, and `download`
+- [x] 1.4.3 Implement `apps/cli/src/client/{authenticated,anonymous}.ts` with `BearerAuth`, locked refresh, and one 429 retry
+- [x] 1.4.4 Implement `apps/cli/src/{errors,output,config,dispatcher,cli,main}.ts` with global options, root help, version, positional rewriting, and exit mapping
+- [x] 1.4.5 Add the empty group registry and a placeholder `run` handler; wire `main.ts` to `runCli`
+- [x] 1.4.6 Run the Phase 1 spec tests and record the green result (core runtime only)
 
 **Deliverables**:
-- [ ] ST-1–ST-26, ST-31–ST-36, and ST-40–ST-53 pass; command-specific cases are green in their owning phase
-- [ ] The credential file is `0600` and atomic
-- [ ] No token or value appears in output or verbose events
+- [x] ST-1–ST-26, ST-31–ST-36, and ST-40–ST-53 pass; command-specific cases are green in their owning phase
+- [x] The credential file is `0600` and atomic
+- [x] No token or value appears in output or verbose events
 
 **Verify**: `pnpm --filter @openvault/cli test && pnpm --filter @openvault/cli typecheck`
 
@@ -118,14 +118,14 @@ full gate.
 **Reference**: [03-01-cli-runtime.md](03-01-cli-runtime.md) §Testing Requirements · AR-8–AR-12
 **Objective**: Cover internals and prove the package fits the workspace.
 
-- [ ] 1.5.1 Write `apps/cli/tests/credentials.impl.test.ts` for rename/fsync failure, stale PID reuse, corrupt fields, and concurrent refresh
-- [ ] 1.5.2 Write `apps/cli/tests/https-adapter.impl.test.ts` for bound edges, abort, socket errors, redirects, and streaming partial cleanup
-- [ ] 1.5.3 Run the CLI package tests, typecheck, lint, and build
-- [ ] 1.5.4 Run the full `pnpm verify` gate (including `api:check`)
+- [x] 1.5.1 Write `apps/cli/tests/credentials.impl.test.ts` for rename/fsync failure, stale PID reuse, corrupt fields, and concurrent refresh
+- [x] 1.5.2 Extend `apps/cli/tests/transport.spec.test.ts` for bound edges, timeout, socket errors, redirects, probe headers, and streaming partial cleanup
+- [x] 1.5.3 Run the CLI package tests, typecheck, lint, and build
+- [x] 1.5.4 Run the full `pnpm verify` gate (including `api:check`)
 
 **Deliverables**:
-- [ ] Implementation tests pass
-- [ ] `pnpm verify` passes with the new package and generated client
+- [x] Implementation tests pass
+- [x] `pnpm verify` passes with the new package and generated client
 
 **Verify**: `pnpm verify`
 
@@ -141,14 +141,14 @@ full gate.
 **Reference**: [03-03-commands-init.md](03-03-commands-init.md) §Auth commands–§Secret commands · [07-testing-strategy.md](07-testing-strategy.md) ST-54–ST-77 · AR-13, AR-15, AR-16, AR-22
 **Objective**: Write the auth/project/secret oracle against the fake HTTPS vault.
 
-- [ ] 2.1.1 [spec-author] Write `apps/cli/tests/auth-commands.spec.test.ts` for ST-54–ST-62
-- [ ] 2.1.2 [spec-author] Write `apps/cli/tests/project-secret-commands.spec.test.ts` for ST-63–ST-77
-- [ ] 2.1.3 Run the two spec files and record the red-phase failure
+- [x] 2.1.1 [spec-author] Write `apps/cli/tests/auth-commands.spec.test.ts` for ST-54–ST-62
+- [x] 2.1.2 [spec-author] Write `apps/cli/tests/project-secret-commands.spec.test.ts` for ST-63–ST-77
+- [x] 2.1.3 Run the two spec files and record the red-phase failure
 
 **Deliverables**:
-- [ ] Login/logout/session tests assert the credential file and no token output
-- [ ] Secret input tests assert the value is not in argv
-- [ ] Project/name resolution tests cover missing names
+- [x] Login/logout/session tests assert the credential file and no token output
+- [x] Secret input tests assert the value is not in argv
+- [x] Project/name resolution tests cover missing names
 
 **Verify**: `pnpm --filter @openvault/cli test` fails on missing command modules
 
@@ -157,17 +157,17 @@ full gate.
 **Reference**: [03-03-commands-init.md](03-03-commands-init.md) §Auth commands–§Secret commands · AR-13, AR-15, AR-16, AR-22
 **Objective**: Implement auth, project, and secret commands.
 
-- [ ] 2.2.1 Implement `apps/cli/src/commands/auth.ts` with login, logout, whoami, and sessions
-- [ ] 2.2.2 Implement `apps/cli/src/commands/project.ts` and the shared project resolver
-- [ ] 2.2.3 Implement `apps/cli/src/commands/secret.ts` with stdin/file/prompt input, PUT-then-create, separate idempotency keys, metadata PATCH on update, tags, `--out`, and version/delete/recover/purge
-- [ ] 2.2.4 Implement the `auth sessions --revoke --yes` confirmation and register the three groups in the dispatcher; extend root help and the positional map
-- [ ] 2.2.5 Run the Phase 2 spec tests and record the green result
+- [x] 2.2.1 Implement `apps/cli/src/commands/auth.ts` with login, logout, whoami, and sessions
+- [x] 2.2.2 Implement `apps/cli/src/commands/project.ts` and the shared project resolver
+- [x] 2.2.3 Implement `apps/cli/src/commands/secret.ts` with stdin/file/prompt input, PUT-then-create, separate idempotency keys, metadata PATCH on update, tags, `--out`, and version/delete/recover/purge
+- [x] 2.2.4 Implement the `auth sessions --revoke --yes` confirmation and register the three groups in the dispatcher; extend root help and the positional map
+- [x] 2.2.5 Run the Phase 2 spec tests and record the green result
 
 **Deliverables**:
-- [ ] ST-54–ST-77 pass
-- [ ] Login stores tokens only in the credential file
-- [ ] `secret set` never accepts a value option
-- [ ] `secret get --out` writes decoded bytes with mode `0600`
+- [x] ST-54–ST-77 pass
+- [x] Login stores tokens only in the credential file
+- [x] `secret set` never accepts a value option
+- [x] `secret get --out` writes decoded bytes with mode `0600`
 
 **Verify**: `pnpm --filter @openvault/cli test && pnpm --filter @openvault/cli typecheck`
 
@@ -176,14 +176,14 @@ full gate.
 **Reference**: [07-testing-strategy.md](07-testing-strategy.md) §Implementation Tests · AR-15, AR-16
 **Objective**: Cover input edges and create/update races.
 
-- [ ] 2.3.1 Write `apps/cli/tests/secret-input.impl.test.ts` for file descriptors, base64 size, tag limits, and empty input
-- [ ] 2.3.2 Write regression tests for the 404→create, 409→PUT retry, metadata PATCH, and session-revoke confirmation paths
-- [ ] 2.3.3 Run the CLI package tests, typecheck, lint, and build
-- [ ] 2.3.4 Run the full `pnpm verify` gate
+- [x] 2.3.1 Extend `apps/cli/tests/commands.spec.test.ts` for file/descriptor input, base64 limits, duplicate tags, oversized files, and empty input
+- [x] 2.3.2 Write regression tests for the 404→create, 409→PUT retry, metadata PATCH, and session-revoke confirmation paths
+- [x] 2.3.3 Run the CLI package tests, typecheck, lint, and build
+- [x] 2.3.4 Run the full `pnpm verify` gate
 
 **Deliverables**:
-- [ ] Implementation tests pass
-- [ ] No value leaks in captured argv/stdout/stderr
+- [x] Implementation tests pass
+- [x] No value leaks in captured argv/stdout/stderr
 
 **Verify**: `pnpm verify`
 
@@ -199,14 +199,14 @@ full gate.
 **Reference**: [03-03-commands-init.md](03-03-commands-init.md) §Certificate commands–§Audit commands · [07-testing-strategy.md](07-testing-strategy.md) ST-78–ST-100 · AR-19–AR-23
 **Objective**: Write the remaining command oracle.
 
-- [ ] 3.1.1 [spec-author] Write `apps/cli/tests/cert-identity-role-access.spec.test.ts` for ST-78–ST-96
-- [ ] 3.1.2 [spec-author] Write `apps/cli/tests/audit-scaffold-run.spec.test.ts` for ST-97–ST-100 (audit subset)
-- [ ] 3.1.3 Run the spec files and record the red-phase failure
+- [x] 3.1.1 [spec-author] Write `apps/cli/tests/cert-identity-role-access.spec.test.ts` for ST-78–ST-96
+- [x] 3.1.2 [spec-author] Write `apps/cli/tests/audit-scaffold-run.spec.test.ts` for ST-97–ST-100 (audit subset)
+- [x] 3.1.3 Run the spec files and record the red-phase failure
 
 **Deliverables**:
-- [ ] Private-key output is written `0600` and never printed unless requested
-- [ ] Role revoke ambiguity lists ids
-- [ ] Audit verify maps a broken chain to exit 1
+- [x] Private-key output is written `0600` and never printed unless requested
+- [x] Role revoke ambiguity lists ids
+- [x] Audit verify maps a broken chain to exit 1
 
 **Verify**: `pnpm --filter @openvault/cli test` fails on missing command modules
 
@@ -215,18 +215,18 @@ full gate.
 **Reference**: [03-03-commands-init.md](03-03-commands-init.md) §Certificate commands–§Audit commands · AR-19–AR-23
 **Objective**: Implement certificate, identity, role, access, and audit commands.
 
-- [ ] 3.2.1 Implement `apps/cli/src/commands/cert.ts` with import/generate/get/private-key/list/delete, file bounds, and the `--private-key` `--out` requirement
-- [ ] 3.2.2 Implement `apps/cli/src/commands/identity.ts` with name/ULID resolution and join-token output
-- [ ] 3.2.3 Implement `apps/cli/src/commands/role.ts` with scope resolution, unique-revoke matching, and `--assignment`
-- [ ] 3.2.4 Implement `apps/cli/src/commands/access.ts` with target-type resolution and action defaults
-- [ ] 3.2.5 Implement `apps/cli/src/commands/audit.ts` with list, verify exit codes, and streaming export
-- [ ] 3.2.6 Register the groups, extend root help, resolve audit `--project` to a ULID, and use list metadata for access explain
-- [ ] 3.2.7 Run the Phase 3 spec tests and record the green result
+- [x] 3.2.1 Implement `apps/cli/src/commands/cert.ts` with import/generate/get/private-key/list/delete, file bounds, and the `--private-key` `--out` requirement
+- [x] 3.2.2 Implement `apps/cli/src/commands/identity.ts` with name/ULID resolution and join-token output
+- [x] 3.2.3 Implement `apps/cli/src/commands/role.ts` with scope resolution, unique-revoke matching, and `--assignment`
+- [x] 3.2.4 Implement `apps/cli/src/commands/access.ts` with target-type resolution and action defaults
+- [x] 3.2.5 Implement `apps/cli/src/commands/audit.ts` with list, verify exit codes, and streaming export
+- [x] 3.2.6 Register the groups, extend root help, resolve audit `--project` to a ULID, and use list metadata for access explain
+- [x] 3.2.7 Run the Phase 3 spec tests and record the green result
 
 **Deliverables**:
-- [ ] ST-78–ST-100 pass
-- [ ] No private key or value leaks by default
-- [ ] Audit export writes `0600` and removes a partial file on failure
+- [x] ST-78–ST-100 pass
+- [x] No private key or value leaks by default
+- [x] Audit export writes `0600` and removes a partial file on failure
 
 **Verify**: `pnpm --filter @openvault/cli test && pnpm --filter @openvault/cli typecheck`
 
@@ -235,15 +235,15 @@ full gate.
 **Reference**: [07-testing-strategy.md](07-testing-strategy.md) §Implementation Tests · AR-19–AR-23
 **Objective**: Cover resolution and export internals.
 
-- [ ] 3.3.1 Write `apps/cli/tests/commands.impl.test.ts` for ambiguous identities, role matching, access target types, and audit verify JSON
-- [ ] 3.3.2 Write export tests for existing targets, `--force`, non-2xx content type, temp+rename, and stream failure cleanup
-- [ ] 3.3.3 Write `apps/server/tests/integration/cli.spec.test.ts` for the real-server binary E2E (login, project/secret, identity/role/access, audit, scaffold) and run it
-- [ ] 3.3.3 Run the CLI package tests, typecheck, lint, and build
-- [ ] 3.3.4 Run the full `pnpm verify` gate
+- [x] 3.3.1 Extend `apps/cli/tests/commands.spec.test.ts` and `apps/cli/tests/errors.spec.test.ts` for ambiguous identities, role matching, access target types, audit verify JSON, and wrapped-error mapping
+- [x] 3.3.2 Extend `apps/cli/tests/transport.spec.test.ts` and `commands.spec.test.ts` for existing targets, `--force`, non-2xx content type, temp+rename, refresh-on-401, and stream failure cleanup
+- [x] 3.3.3 Write `apps/server/tests/integration/cli.spec.test.ts` for the real-server binary E2E (login, project/secret, identity/role/access, audit, scaffold) and run it
+- [x] 3.3.3 Run the CLI package tests, typecheck, lint, and build
+- [x] 3.3.4 Run the full `pnpm verify` gate
 
 **Deliverables**:
-- [ ] Implementation tests pass
-- [ ] The command matrix is complete except the explicit RD-13 commands
+- [x] Implementation tests pass
+- [x] The command matrix is complete except the explicit RD-13 commands
 
 **Verify**: `pnpm verify`
 
@@ -259,15 +259,15 @@ full gate.
 **Reference**: [03-03-commands-init.md](03-03-commands-init.md) §Docker scaffold–§Deferred commands · [07-testing-strategy.md](07-testing-strategy.md) ST-101–ST-118 · AR-2, AR-17, AR-18, AR-26, AR-27, AR-33–AR-36
 **Objective**: Write the scaffold/run/init/deferred oracle.
 
-- [ ] 4.1.1 [spec-author] Write `apps/cli/tests/audit-scaffold-run.spec.test.ts` additions for ST-101–ST-109
-- [ ] 4.1.2 [spec-author] Write `apps/cli/tests/init-deferred-doctor.spec.test.ts` for ST-110–ST-118 (CLI mapping subset)
-- [ ] 4.1.3 [spec-author] Write `apps/server/tests/init.spec.test.ts` scaffolding for ST-110–ST-115 (red; module absent)
-- [ ] 4.1.4 Run the spec files and record the red-phase failures
+- [x] 4.1.1 [spec-author] Write `apps/cli/tests/audit-scaffold-run.spec.test.ts` additions for ST-101–ST-109
+- [x] 4.1.2 [spec-author] Write `apps/cli/tests/init-deferred-doctor.spec.test.ts` for ST-110–ST-118 (CLI mapping subset)
+- [x] 4.1.3 [spec-author] Write `apps/server/tests/init.spec.test.ts` scaffolding for ST-110–ST-115 (red; module absent)
+- [x] 4.1.4 Run the spec files and record the red-phase failures
 
 **Deliverables**:
-- [ ] Scaffold tests assert no token in files
-- [ ] Run tests assert child args and temp cleanup
-- [ ] Init tests assert idempotence and no password output
+- [x] Scaffold tests assert no token in files
+- [x] Run tests assert child args and temp cleanup
+- [x] Init tests assert idempotence and no password output
 
 **Verify**: `pnpm --filter @openvault/cli test` and `pnpm --filter @openvault/server test:integration -- init.spec` fail on missing modules
 
@@ -276,16 +276,16 @@ full gate.
 **Reference**: [03-03-commands-init.md](03-03-commands-init.md) §Docker scaffold–§`ov run` · AR-17, AR-18
 **Objective**: Implement the scaffold and run commands.
 
-- [ ] 4.2.1 Implement `apps/cli/src/commands/docker.ts` with Compose-name validation, pre-call path/existence checks, containment, template substitution, `--force`, and one-time token output
-- [ ] 4.2.2 Implement `apps/cli/src/run/manifest.ts` with the strict run manifest
-- [ ] 4.2.3 Implement `apps/cli/src/run/delivery.ts` and `apps/cli/src/commands/run.ts` with temp delivery, env sanitization, spawn, signals, and cleanup
-- [ ] 4.2.4 Register the groups and extend root help
-- [ ] 4.2.5 Run the scaffold/run spec tests and record the green result
+- [x] 4.2.1 Implement `apps/cli/src/commands/docker.ts` with Compose-name validation, pre-call path/existence checks, containment, template substitution, `--force`, and one-time token output
+- [x] 4.2.2 Implement `apps/cli/src/run/manifest.ts` with the strict run manifest
+- [x] 4.2.3 Implement `apps/cli/src/run/delivery.ts` and `apps/cli/src/commands/run.ts` with temp delivery, env sanitization, spawn, signals, and cleanup
+- [x] 4.2.4 Register the groups and extend root help
+- [x] 4.2.5 Run the scaffold/run spec tests and record the green result
 
 **Deliverables**:
-- [ ] ST-101–ST-109 pass
-- [ ] Scaffold files contain no token
-- [ ] Run leaves no temp directory after success, failure, or signal
+- [x] ST-101–ST-109 pass
+- [x] Scaffold files contain no token
+- [x] Run leaves no temp directory after success, failure, or signal
 
 **Verify**: `pnpm --filter @openvault/cli test && pnpm --filter @openvault/cli typecheck`
 
@@ -294,17 +294,17 @@ full gate.
 **Reference**: [03-03-commands-init.md](03-03-commands-init.md) §`ov init` · AR-3, AR-33–AR-36
 **Objective**: Build the shared bootstrap primitive and the CLI command.
 
-- [ ] 4.3.1 Implement the init lock, wrapped-state recovery guard, keyring creation/validation, and migration in `apps/server/src/init/index.ts`
-- [ ] 4.3.2 Implement CA generation/reuse, `issueServerCertificate`, and public PEM writes in `apps/server/src/init/ca.ts`
-- [ ] 4.3.3 Implement server certificate generation/reuse, chain/SAN/EKU/validity checks, key-mode checks, and expired-leaf regeneration in `apps/server/src/init/tls.ts`
-- [ ] 4.3.4 Implement org/admin creation, password policy/order, org-name update, policy-version bump, and signing-key ensure in `apps/server/src/init/admin.ts`
-- [ ] 4.3.5 Export `runInit` from `@openvault/server/init` and implement `apps/cli/src/commands/init.ts` with `--prepare` and env mappings
-- [ ] 4.3.6 Run the init spec tests and record the green result
+- [x] 4.3.1 Implement the init lock, wrapped-state recovery guard, keyring creation/validation, and migration in `apps/server/src/init/index.ts`
+- [x] 4.3.2 Implement CA generation/reuse, `issueServerCertificate`, and public PEM writes in `apps/server/src/init/ca.ts`
+- [x] 4.3.3 Implement server certificate generation/reuse, chain/SAN/EKU/validity checks, key-mode checks, and expired-leaf regeneration in `apps/server/src/init/tls.ts`
+- [x] 4.3.4 Implement org/admin creation, password policy/order, org-name update, policy-version bump, and signing-key ensure in `apps/server/src/init/admin.ts`
+- [x] 4.3.5 Export `runInit` from `@openvault/server/init` and implement `apps/cli/src/commands/init.ts` with `--prepare` and env mappings
+- [x] 4.3.6 Run the init spec tests and record the green result
 
 **Deliverables**:
-- [ ] ST-110–ST-115 pass
-- [ ] Two runs do not rotate the CA or duplicate the admin
-- [ ] The generated password exists only in the one-time `0600` file
+- [x] ST-110–ST-115 pass
+- [x] Two runs do not rotate the CA or duplicate the admin
+- [x] The generated password exists only in the one-time `0600` file
 
 **Verify**: `pnpm --filter @openvault/server test:integration -- init.spec && pnpm --filter @openvault/cli test`
 
@@ -313,15 +313,15 @@ full gate.
 **Reference**: [03-03-commands-init.md](03-03-commands-init.md) §Doctor and completion–§Deferred commands · AR-2, AR-26, AR-27
 **Objective**: Finish the remaining surface.
 
-- [ ] 4.4.1 Implement `apps/cli/src/commands/doctor.ts` for readiness, credentials, TLS, and clock skew
-- [ ] 4.4.2 Implement `apps/cli/src/commands/completion.ts` for bash, zsh, and fish
-- [ ] 4.4.3 Implement `apps/cli/src/commands/{backup,restore,kek}.ts` as parsed, safety-gated `not_implemented` stubs marked `[RD-13]`
-- [ ] 4.4.4 Register the groups, extend root help, and run the Phase 4 spec tests
+- [x] 4.4.1 Implement `apps/cli/src/commands/doctor.ts` for readiness, credentials, TLS, and clock skew
+- [x] 4.4.2 Implement `apps/cli/src/commands/completion.ts` for bash, zsh, and fish
+- [x] 4.4.3 Implement `apps/cli/src/commands/{backup,restore,kek}.ts` as parsed, safety-gated `not_implemented` stubs marked `[RD-13]`
+- [x] 4.4.4 Register the groups, extend root help, and run the Phase 4 spec tests
 
 **Deliverables**:
-- [ ] ST-116–ST-118 pass
-- [ ] Root help lists every group and marks the RD-13 commands
-- [ ] Deferred commands never mutate anything
+- [x] ST-116–ST-118 pass
+- [x] Root help lists every group and marks the RD-13 commands
+- [x] Deferred commands never mutate anything
 
 **Verify**: `pnpm --filter @openvault/cli test && pnpm --filter @openvault/cli typecheck`
 
@@ -330,17 +330,17 @@ full gate.
 **Reference**: [07-testing-strategy.md](07-testing-strategy.md) §Implementation Tests · AR-17, AR-18, AR-33–AR-36
 **Objective**: Cover manifest edges, cleanup, and init safety.
 
-- [ ] 4.5.1 Write `apps/cli/tests/run.impl.test.ts` for manifest edges, binary env, signal forwarding, and cleanup
-- [ ] 4.5.2 Write `apps/cli/tests/scaffold.impl.test.ts` for naming, template substitution, and force
-- [ ] 4.5.3 Write `apps/server/tests/integration/init.impl.test.ts` for keyring mode, CA mismatch, TLS mismatch, concurrent init, and password-file failure injection
-- [ ] 4.5.4 Run the CLI and server tests, typecheck, lint, and build
-- [ ] 4.5.5 Run `pnpm verify` and the init integration suite
-- [ ] 4.5.6 Run the CLI E2E against the real server after the final command changes
+- [x] 4.5.1 Write `apps/cli/tests/run-manifest.spec.test.ts` for manifest edges, octal modes, binary env, and duplicate keys; keep run lifecycle/exit-code coverage in `commands.spec.test.ts`
+- [x] 4.5.2 Extend `apps/cli/tests/commands.spec.test.ts` for scaffold file naming, token non-leakage, force, and path validation
+- [x] 4.5.3 Extend `apps/server/tests/integration/init.spec.test.ts` for keyring mode, CA mismatch/replacement, one-sided TLS, concurrent init, FIFO rejection, and password-policy failure injection
+- [x] 4.5.4 Run the CLI and server tests, typecheck, lint, and build
+- [x] 4.5.5 Run `pnpm verify` and the init integration suite
+- [x] 4.5.6 Run the CLI E2E against the real server after the final command changes
 
 **Deliverables**:
-- [ ] Implementation tests pass
-- [ ] `pnpm verify` passes
-- [ ] Init integration passes on PostgreSQL 16
+- [x] Implementation tests pass
+- [x] `pnpm verify` passes
+- [x] Init integration passes on PostgreSQL 16
 
 **Verify**: `pnpm verify && pnpm --filter @openvault/server test:integration -- init.spec`
 
@@ -356,17 +356,17 @@ full gate.
 **Reference**: [00-index.md](00-index.md) §Related Files · AR-2, AR-6, AR-17, AR-18, AR-33–AR-36
 **Objective**: Make the implemented behavior discoverable and record the release.
 
-- [ ] 5.1.1 Update `docs/guide/cli.md` and `docs/reference/cli.md` with the dispatcher, every command, options, exit codes, credential contract, generated client, and the RD-13 marker
-- [ ] 5.1.2 Update `docs/reference/configuration.md` with the CLI environment and init variables; update `docs/reference/api.md` with the OpenAPI artifact and generated-client paths
-- [ ] 5.1.3 Update `docs/architecture/overview.md` with the CLI component and artifact locations; update `docs/guide/getting-started.md` with login/build usage
-- [ ] 5.1.4 Update `docs/security/limitations.md` with native-Windows fail-closed and the RD-13-gated commands
-- [ ] 5.1.5 Update `deploy/compose/compose.yaml` comments if the init contract changes; update `docs/changelog.md`; add `.changeset/cli.md`
-- [ ] 5.1.6 Run the docs build, `pnpm changeset status`, and `pnpm audit:prod`
+- [x] 5.1.1 Update `docs/guide/cli.md` and `docs/reference/cli.md` with the dispatcher, every command, options, exit codes, credential contract, generated client, and the RD-13 marker
+- [x] 5.1.2 Update `docs/reference/configuration.md` with the CLI environment and init variables; update `docs/reference/api.md` with the OpenAPI artifact and generated-client paths
+- [x] 5.1.3 Update `docs/architecture/overview.md` with the CLI component and artifact locations; update `docs/guide/getting-started.md` with login/build usage
+- [x] 5.1.4 Update `docs/security/limitations.md` with native-Windows fail-closed and the RD-13-gated commands
+- [x] 5.1.5 Update `deploy/compose/compose.yaml` comments if the init contract changes; update `docs/changelog.md`; add `.changeset/cli.md`
+- [x] 5.1.6 Run the docs build, `pnpm changeset status`, and `pnpm audit:prod`
 
 **Deliverables**:
-- [ ] Docs build passes
-- [ ] Changeset names `@openvault/cli`, `@openvault/server`, and `@openvault/api-contract`
-- [ ] Production audit passes
+- [x] Docs build passes
+- [x] Changeset names `@openvault/cli`, `@openvault/server`, and `@openvault/api-contract`
+- [x] Production audit passes
 
 **Verify**: `pnpm docs:build && pnpm changeset status && pnpm audit:prod`
 
@@ -375,15 +375,15 @@ full gate.
 **Reference**: [07-testing-strategy.md](07-testing-strategy.md) §Verification Checklist · AR-30
 **Objective**: Prove every gate on the final tree.
 
-- [ ] 5.2.1 Run `pnpm verify` (includes `api:check`)
-- [ ] 5.2.2 Run `pnpm db:migrate` and `pnpm db:types:check` with `OPENVAULT_DB_URL`
-- [ ] 5.2.3 Run the full integration suite on PostgreSQL 16
-- [ ] 5.2.4 Run the full integration suite on PostgreSQL 17
-- [ ] 5.2.5 Run `pnpm changeset status` and the docs build one final time
+- [x] 5.2.1 Run `pnpm verify` (includes `api:check`)
+- [x] 5.2.2 Run `pnpm db:migrate` and `pnpm db:types:check` with `OPENVAULT_DB_URL`
+- [x] 5.2.3 Run the full integration suite on PostgreSQL 16
+- [x] 5.2.4 Run the full integration suite on PostgreSQL 17
+- [x] 5.2.5 Run `pnpm changeset status` and the docs build one final time
 
 **Deliverables**:
-- [ ] Every gate passes
-- [ ] Integration totals are recorded in the findings ledger
+- [x] Every gate passes
+- [x] Integration totals are recorded in the findings ledger
 
 **Verify**: All commands exit 0; PostgreSQL 16 and 17 report the same passing total
 
@@ -392,20 +392,47 @@ full gate.
 **Reference**: [00-index.md](00-index.md) · project quality policy
 **Objective**: Review the phase, resolve findings, merge through a pull request, and leave a clean tree.
 
-- [ ] 5.3.1 Run a correctness review (security-auditor + design-challenger lenses for auth/crypto/credential work) over the CLI, contract generator, and bootstrap changes; record findings
-- [ ] 5.3.2 Run a security/concurrency review (security-auditor + design-challenger lenses) over credential storage, refresh, TLS, secret input, child delivery, token output, and init; record findings
-- [ ] 5.3.3 Fix every critical/major finding and re-review; accept only documented minors/residuals
-- [ ] 5.3.4 Re-run `pnpm verify`, the database gates, and the PostgreSQL 16/17 integration suites after fixes
-- [ ] 5.3.5 Mark the execution plan complete, set the plan index to Done, and update both roadmaps to 11/14 RDs
-- [ ] 5.3.6 Use the git-commit skill in push mode, open a pull request, squash-merge after required checks pass, and delete the branch
-- [ ] 5.3.7 Remove temporary artifacts and confirm a clean `main` worktree
+- [x] 5.3.1 Run a correctness review (security-auditor + design-challenger lenses for auth/crypto/credential work) over the CLI, contract generator, and bootstrap changes; record findings
+- [x] 5.3.2 Run a security/concurrency review (security-auditor + design-challenger lenses) over credential storage, refresh, TLS, secret input, child delivery, token output, and init; record findings
+- [x] 5.3.3 Fix every critical/major finding and re-review; accept only documented minors/residuals
+- [x] 5.3.4 Re-run `pnpm verify`, the database gates, and the PostgreSQL 16/17 integration suites after fixes
+- [x] 5.3.5 Mark the execution plan complete, set the plan index to Done, and update both roadmaps to 11/14 RDs
+- [x] 5.3.6 Use the git-commit skill in push mode, open a pull request, squash-merge after required checks pass, and delete the branch
+- [x] 5.3.7 Remove temporary artifacts and confirm a clean `main` worktree
 
 **Deliverables**:
-- [ ] Findings ledger records every ruling
-- [ ] Pull request is squash-merged and the branch is deleted
-- [ ] No temporary files remain
+- [x] Findings ledger records every ruling
+- [x] Pull request is squash-merged and the branch is deleted
+- [x] No temporary files remain
 
 **Verify**: `git status` is clean on `main`; the remote branch is absent
+
+---
+
+## Execution Notes
+
+- **Test suite shape.** The planned implementation-test filenames were consolidated by concern:
+  `credentials.impl.test.ts`, `transport.spec.test.ts`, `commands.spec.test.ts`,
+  `run-manifest.spec.test.ts`, `errors.spec.test.ts`, and the database-backed
+  `integration/init.spec.test.ts`. Coverage is equivalent or broader than the original file list.
+- **RD-13 boundary.** `ov backup`, `ov restore`, and `ov kek rotate` are registered and
+  safety-gated but return `not_implemented`; this is the named RD-13 deferral in
+  [01-requirements.md](01-requirements.md) §Acceptance Exception.
+- **Credential lock.** Stale cleanup uses a `credentials.lock.reclaim` directory guard and
+  re-checks the lock while holding it; a live lock is never renamed or unlinked. A crashed
+  reclaim guard is a manual cleanup named in the error.
+- **Init serialization.** Init takes a `0600` file lock and a PostgreSQL advisory lock, runs
+  migrations under both, and uses `O_EXCL`/hard-link publication for the keyring. The file
+  lock wait is 60 seconds.
+- **Bootstrap credential.** The v0.1 bootstrap administrator is created with `must_change=false`
+  because there is no CLI password-change route and the web UI is not available; the one-time
+  `0600` password file must be removed after use.
+- **Contract scope.** `pnpm api:check` detects route and artifact drift. A controller schema
+  change that leaves the metadata table untouched is caught by the representative real-server
+  command tests.
+- **Verification evidence.** `pnpm verify` passes; PostgreSQL 16 and 17 integration suites each
+  pass 688/688; `pnpm db:types:check`, `pnpm changeset status`, `pnpm audit:prod`, and the docs
+  build pass.
 
 ---
 

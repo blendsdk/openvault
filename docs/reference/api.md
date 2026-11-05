@@ -51,6 +51,31 @@ While `mustChangePassword` is true, the browser may use only `GET /v1/auth/me`,
 `GET /v1/auth/cli/me` and `POST /v1/auth/cli/logout`. Other authenticated routes return
 `403 password_change_required`.
 
+## Generated contract
+
+The CLI-facing API is published as OpenAPI 3.1:
+
+| Artifact | Path |
+|---|---|
+| OpenAPI document | `packages/api-contract/openapi.json` |
+| Generated typed client | `apps/cli/src/generated/` |
+| Generator | `apps/server/scripts/api-contract.ts` |
+
+`pnpm api:generate` regenerates both artifacts from the real controllers plus one route
+metadata table. `pnpm api:check` rebuilds them in memory and fails on any document or client
+drift; `pnpm verify` runs it. Generated files are committed but ignored by Biome, because the
+generator uses its own formatting.
+
+The contract covers the CLI-facing routes only: CLI authentication, projects, secrets,
+certificates, identities, assignments, access explanation, audit query/verify/export, scaffold,
+meta, and `/ready`. Internal agent, browser/OIDC, and probe routes remain documented by this
+reference but are deliberately excluded from the generated client.
+
+The metadata table is the schema source for the generated client; the real controllers are the
+source for paths and methods. `api:check` therefore detects route and artifact drift. A
+controller schema change that leaves the table untouched is caught by the representative
+command end-to-end tests against the real server.
+
 ## Routes
 
 ### Authentication

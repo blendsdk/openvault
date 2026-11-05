@@ -1,8 +1,9 @@
 # RD-11 CLI Implementation Plan
 
 > **Feature**: The `ov` command line: credential store, generated API client, dispatcher, bootstrap, auth, project/secret/certificate/identity/role/access/audit commands, Docker scaffold, `run --`, doctor, completion, and the RD-13-backed command surface.
-> **Status**: Plan Preflighted
+> **Status**: Done
 > **Created**: 2026-11-05 14:32
+> **Completed**: 2026-11-05 18:10
 > **Preflight**: [00-preflight-report.md](00-preflight-report.md) — passed after three review lenses
 > **Implements**: openvault-v0-1/RD-11
 > **CodeOps Artifact Schema**: 1

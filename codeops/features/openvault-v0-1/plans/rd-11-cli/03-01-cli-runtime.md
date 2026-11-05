@@ -190,9 +190,10 @@ export interface CredentialDocument {
 - `withLock(action)`: open `credentials.lock` with `wx`, mode `0600`, and write
   `{pid, createdAt, owner}` where `owner` is 16 random bytes. Wait 25–250 ms between attempts
   for at most 5 seconds. A lock is stale only when the recorded PID is dead **and** the file is
-  older than 60 seconds; take over by renaming it to a private name, re-checking the inode, and
-  only then removing it. Run the action; in `finally`, unlink only when the file's `owner`
-  equals this process's owner. A timeout is `credential_store_locked`.
+  older than 60 seconds. Stale cleanup is serialized by a `credentials.lock.reclaim` directory
+  guard; while the guard is held, re-read the lock and remove it only if it is still stale.
+  A live lock is never renamed or unlinked. Run the action; in `finally`, unlink only when the
+  file's `owner` equals this process's owner. A timeout is `credential_store_locked`.
 - Login, logout, save, and refresh are locked critical sections. Refresh is
   `load → server refresh → save`. A 401 clears nothing but returns `authentication_required`
   with a re-login message.

@@ -69,7 +69,7 @@ function write(path: string, contents: string, mode = 0o600): string {
  * }
  * ```
  */
-export function createTlsFixture(): TlsFixture {
+export function createTlsFixture(options: { readonly extraIp?: string } = {}): TlsFixture {
   const directory = mkdtempSync(join(tmpdir(), "openvault-tls-"));
 
   const caKey = join(directory, "ca.key");
@@ -121,7 +121,11 @@ export function createTlsFixture(): TlsFixture {
     "-subj",
     "/CN=localhost",
   ]);
-  write(serverExt, "subjectAltName=DNS:localhost,IP:127.0.0.1\nextendedKeyUsage=serverAuth\n");
+  const san = ["DNS:localhost", "IP:127.0.0.1"];
+  if (options.extraIp !== undefined) {
+    san.push(`IP:${options.extraIp}`);
+  }
+  write(serverExt, `subjectAltName=${san.join(",")}\nextendedKeyUsage=serverAuth\n`);
   runOpenSsl([
     "x509",
     "-req",

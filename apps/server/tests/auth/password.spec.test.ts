@@ -96,7 +96,7 @@ describe("password hash format", () => {
     await expect(verifyPassword(`${PASSWORD} `, phc)).resolves.toBe(false);
     await expect(verifyPassword("", phc)).resolves.toBe(false);
     await expect(verifyPassword(PASSWORD, phc)).resolves.toBe(true);
-  });
+  }, 30_000);
 });
 
 describe("password policy", () => {

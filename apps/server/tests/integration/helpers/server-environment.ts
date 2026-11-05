@@ -29,8 +29,11 @@ const KEY_BYTES = 32;
  * @param overrides - Environment values that replace the defaults.
  * @returns Configuration, paths, and a cleanup function.
  */
-export function createServerEnvironment(overrides: NodeJS.ProcessEnv = {}): ServerEnvironment {
-  const tls = createTlsFixture();
+export function createServerEnvironment(
+  overrides: NodeJS.ProcessEnv = {},
+  options: { readonly extraIp?: string } = {},
+): ServerEnvironment {
+  const tls = createTlsFixture(options);
   const keyringDirectory = mkdtempSync(join(tmpdir(), "openvault-keyring-"));
   const keyringPath = join(keyringDirectory, "keyring.json");
   writeFileSync(

@@ -85,6 +85,7 @@ describe("workspace policy", () => {
     const expected = [
       "pnpm build",
       "pnpm typecheck",
+      "pnpm api:check",
       "pnpm lint",
       "pnpm test",
       "pnpm check:artifacts",

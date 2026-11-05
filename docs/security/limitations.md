@@ -135,3 +135,30 @@ These are accepted for v0.1. They are documented so reviewers do not mistake the
 45. **Scaffold serialization.** Grant reconciliation and join-token rotation are serialized by a
     per-identity in-process mutex. This covers the single-instance v0.1 deployment. A
     multi-instance deployment would need a database advisory lock for the same guarantee.
+
+46. **Native Windows CLI credentials.** The `ov` credential store fails closed with
+    `credential_store_unsupported` on native Windows because Node cannot enforce an
+    owner-only ACL without an external, untested command. WSL uses the POSIX path with
+    `0700`/`0600` checks.
+47. **Deferred CLI operations.** `ov backup`, `ov restore`, and `ov kek rotate` are registered
+    and safety-gated, but the archive, restore, and KEK-rewrap operations belong to the backup
+    and rotation release. They exit 1 with `not_implemented` and are not claimed as delivered.
+48. **Bootstrap credential rotation.** The v0.1 bootstrap administrator is created with
+    `must_change=false` because the CLI has no password-change route and the web UI is not yet
+    available. The generated password is strong random material in a one-time `0600` file; the
+    operator must remove that file after first use. Revisit when a CLI password-change route or
+    the web UI lands.
+49. **Generated contract schema source.** `pnpm api:check` detects route and artifact drift
+    against the route metadata table. A controller schema change that leaves the table untouched
+    is caught by the representative command end-to-end tests, not by `api:check` alone.
+50. **Proxy and internal CA separation.** `ov login` and `ov doctor` trust the proxy's public
+    root CA; the OpenVault internal CA signs the agent listener and the proxy-to-server
+    upstream. Operators must keep the two files distinct. Using the wrong file produces a
+    clear TLS verification failure, never a silent downgrade.
+51. **CLI run manifest.** `ov run` uses a CLI-specific manifest profile rather than the agent
+    manifest verbatim. It shares the entry grammar and safety bounds but omits agent-only
+    fields such as `service`, `refresh`, and `output_dir`.
+52. **Credential file at rest.** CLI tokens are stored in a `0600` JSON file until logout or
+    expiry. Anyone who can read the file as the current user can use the session; the lock and
+    permission checks protect against other users and concurrent processes, not a compromised
+    account.

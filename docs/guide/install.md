@@ -59,16 +59,19 @@ This creates:
 - the JWT signing key, wrapped by the KEK
 
 Re-running `ov init` does not rotate an existing CA. The bootstrap password is written once
-to a file with mode `0600`; it is never printed to stdout, stderr, or container logs. The first
-login forces a change; delete the file after the change.
+to a file with mode `0600`; it is never printed to stdout, stderr, or container logs. Unlike
+the browser flow, the v0.1 bootstrap credential is not force-changed because the CLI has no
+password-change route and the web UI is not yet available. Use the password, then delete the
+one-time file.
 
-`ov init` and the reference image are v0.1 deliverables. Until the provisioner lands, the
-reference stack cannot create the required keyring or TLS material; use fixtures for local
-transport tests.
+`ov init` creates the keyring and TLS material used by the reference stack. The keyring and
+password directories must be owned by the current user and must not be group- or
+world-writable; mode `0700` is used when init creates them.
 
 ::: danger Protect the keyring
 The keyring is outside PostgreSQL and is the only way to decrypt stored values. Back it up
-separately from the database, with mode `0600`. Losing it means losing every secret.
+separately from the database, with mode `0600` and a parent directory that is not group- or
+world-writable. Losing it means losing every secret.
 :::
 
 Age-encrypted keyrings are not supported in the current release. Setting

@@ -239,30 +239,28 @@
 
 ### Specification Tests
 
-| Test File | ST Cases | Component |
+| Test File | Coverage | Component |
 |---|---|---|
 | `apps/cli/tests/credentials.spec.test.ts` | ST-1–ST-20 | Credential paths, store, lock, password |
+| `apps/cli/tests/credentials.impl.test.ts` | ST-14, ST-14b, ST-16, ST-123 | Corrupt/stale locks, multi-process serialization, base-URL token scope |
 | `apps/cli/tests/dispatcher.spec.test.ts` | ST-21–ST-39 | Dispatcher, output, exit codes, prompts |
-| `apps/cli/tests/transport.spec.test.ts` | ST-40–ST-53 | HTTPS adapter, refresh, retry, streaming |
-| `apps/cli/tests/auth-commands.spec.test.ts` | ST-54–ST-62 | Auth commands |
-| `apps/cli/tests/project-secret-commands.spec.test.ts` | ST-63–ST-77 | Project and secret commands |
-| `apps/cli/tests/cert-identity-role-access.spec.test.ts` | ST-78–ST-96 | Certificate, identity, role, access |
-| `apps/cli/tests/audit-scaffold-run.spec.test.ts` | ST-97–ST-109 | Audit, scaffold, run |
-| `apps/cli/tests/init-deferred-doctor.spec.test.ts` | ST-116–ST-118, ST-128–ST-134 | Init mapping, deferred commands, doctor, completion |
-| `apps/server/tests/api-contract.spec.test.ts` | ST-119–ST-120 | Contract build, generation, drift |
+| `apps/cli/tests/transport.spec.test.ts` | ST-40–ST-53 | HTTPS adapter, CA/TLS, 429 retry, streaming export |
+| `apps/cli/tests/commands.spec.test.ts` | ST-54–ST-118 | Auth, project, secret, cert, identity, role, access, audit, scaffold, run, init mapping, deferred commands, doctor, completion |
+| `apps/cli/tests/errors.spec.test.ts` | ST-33–ST-36, ST-41–ST-48 | Wrapped refresh/TLS/timeout/init error mapping |
+| `apps/cli/tests/run-manifest.spec.test.ts` | ST-104–ST-109, ST-132–ST-134 | Run manifest bounds, octal modes, duplicate keys, env safety |
+| `apps/server/tests/api-contract.spec.test.ts` | ST-119–ST-120 | Contract build, generation, drift, stale marker |
 | `apps/server/tests/integration/cli.spec.test.ts` | ST-54, ST-63–ST-77, ST-97–ST-101 | Real-server binary E2E |
-| `apps/server/tests/integration/init.spec.test.ts` | ST-110–ST-115, ST-128–ST-135 | Real bootstrap |
+| `apps/server/tests/integration/init.spec.test.ts` | ST-110–ST-115, ST-128–ST-135 | Real bootstrap, concurrency, recovery, password/TLS/CA failures |
 
 ### Implementation Tests
 
 | Test File | Description | Priority |
 |---|---|---|
-| `apps/cli/tests/credentials.impl.test.ts` | Atomic rename failure, fsync, stale lock PID reuse, corrupt token fields | High |
-| `apps/cli/tests/https-adapter.impl.test.ts` | Bound edges, abort, socket errors, header handling | High |
-| `apps/cli/tests/secret-input.impl.test.ts` | File descriptor, base64 size, tag limits | High |
-| `apps/cli/tests/run.impl.test.ts` | Manifest edges, temp cleanup, signal forwarding | High |
-| `apps/cli/tests/scaffold.impl.test.ts` | File naming, template substitution, force | High |
-| `apps/server/tests/integration/init.impl.test.ts` | CA match, keyring mode, TLS mismatch, concurrent admin | High |
+| `apps/cli/tests/credentials.impl.test.ts` | Stale/corrupt lock recovery, real multi-process serialization, cross-server token scope, directory mode | High |
+| `apps/cli/tests/transport.spec.test.ts` | Bound edges, timeout, redirect refusal, 429 retry, probe headers, stream failure cleanup, force semantics | High |
+| `apps/cli/tests/commands.spec.test.ts` | Secret input bounds/tags, run lifecycle and exit codes, scaffold files, init mapping, deferred commands | High |
+| `apps/cli/tests/run-manifest.spec.test.ts` | Manifest edges, octal modes, duplicate keys, unsafe env names, project mismatch | High |
+| `apps/server/tests/integration/init.spec.test.ts` | Concurrent init, recovery guard, keyring mode, one-sided TLS, password policy, FIFO rejection, CA replacement | High |
 | `apps/server/tests/api-contract.spec.test.ts` | Document shape, security, operation ids, no internal routes | High |
 
 ### Integration Tests
