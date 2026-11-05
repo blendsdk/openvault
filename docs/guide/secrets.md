@@ -97,8 +97,14 @@ derive permissions from role names.
 
 `GET /:name/consumers` lists the active consumers in the same project whose live role grants
 `secret.read` on the secret. It returns Compose project/service and `lastSeen`; host paths and
-manifest hashes stay out of secret metadata. A successful agent read refreshes the consumer
-`last_seen` timestamp.
+manifest hashes stay out of secret metadata.
+
+An agent fetch sends its aggregate delivery state in `X-OpenVault-Consumer-State` and the
+entry's optional flag in `X-OpenVault-Entry-Optional`. A successful read refreshes `last_seen`
+and records the state. A missing optional entry records `degraded`; a missing required entry or
+a policy denial records `failed`. After each refresh, the agent posts the final aggregate to
+`POST /v1/agent/consumer` so a last-entry or all-entry failure is not lost. A state change
+writes one `consumer.update` audit event; a `last_seen`-only heartbeat is not audited.
 
 ## Lifecycle
 

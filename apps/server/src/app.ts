@@ -3,6 +3,8 @@ import type { PinoLoggerProvider } from "blendsdk/webafx-pino";
 import { createLoggerPlugin } from "blendsdk/webafx-pino";
 import type { AgentAuthenticator } from "./agent/agent-authenticator.js";
 import { agentAuthMiddleware } from "./agent/agent-middleware.js";
+import { ConsumerRepository } from "./agent/consumer-repository.js";
+import { AgentConsumerService } from "./agent/consumer-service.js";
 import type { AgentProjectResolver } from "./agent/project-resolver.js";
 import { createAuditCore, createAuditRuntime } from "./audit/runtime.js";
 import { createAuthPlugin } from "./auth/plugin.js";
@@ -23,6 +25,7 @@ import { MetaController } from "./controllers/meta.js";
 import { OidcController } from "./controllers/oidc.js";
 import { ProjectsController } from "./controllers/projects.js";
 import { ReadyController } from "./controllers/ready.js";
+import { ScaffoldController } from "./controllers/scaffold.js";
 import { SecretsController } from "./controllers/secrets.js";
 import { createIdentityRuntime } from "./identity/identity-runtime.js";
 import { createLoggerProvider } from "./observability/logger.js";
@@ -31,6 +34,7 @@ import { ProjectService } from "./projects/service.js";
 import { VaultPurger } from "./purge/vault-purger.js";
 import { createPolicyRuntime } from "./rbac/runtime.js";
 import { createProductionProbes, ReadinessService } from "./readiness/service.js";
+import { ScaffoldService } from "./scaffold/service.js";
 import { createSecretRuntime } from "./secrets/runtime.js";
 import { KeyringProvider } from "./security/keyring.js";
 import { installPreStack, type PreStackOptions } from "./transport/pre-stack.js";
@@ -125,6 +129,12 @@ export function createApplication(
     purger: vaultPurger,
   });
 
+  const agentConsumerService = new AgentConsumerService({
+    database: dependencies.database,
+    consumers: new ConsumerRepository(dependencies.database),
+    audit: auditRuntime.service,
+    logger: provider,
+  });
   const certificateRuntime = createCertificateRuntime({
     database: dependencies.database,
     keyring: dependencies.keyring,
@@ -165,6 +175,17 @@ export function createApplication(
       config,
       policyRuntime,
     });
+  const scaffoldService = new ScaffoldService({
+    database: dependencies.database,
+    projects: projectService,
+    projectRepository,
+    identities: identityRuntime.service,
+    assignments: policyRuntime.assignments,
+    secrets: secretRuntime.repository,
+    policy: policyRuntime.service,
+    policyRepository: policyRuntime.repository,
+  });
+
   const authenticator =
     dependencies.agentRuntime?.authenticator ?? dependencies.agentOverrides?.authenticator;
   const projectResolver: AgentProjectResolver = dependencies.agentRuntime?.projectResolver ??
@@ -263,6 +284,16 @@ export function createApplication(
     name: "projectService",
     type: "singleton",
     factory: () => projectService,
+  });
+  app.registerService({
+    name: "agentConsumerService",
+    type: "singleton",
+    factory: () => agentConsumerService,
+  });
+  app.registerService({
+    name: "scaffoldService",
+    type: "singleton",
+    factory: () => scaffoldService,
   });
   app.registerService({
     name: "secretRepository",
@@ -428,6 +459,7 @@ export function createApplication(
   app.registerController("/v1/data", SecretsController);
   app.registerController("/v1/data", CertificatesController);
   app.registerController("/v1/admin/identities", IdentityController);
+  app.registerController("/v1/admin/scaffold", ScaffoldController);
   app.registerController("/v1/admin/assignments", AssignmentsController);
   app.registerController("/v1/admin/access-explain", AccessExplainController);
   app.registerController("/v1/audit", AuditController);

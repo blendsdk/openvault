@@ -744,11 +744,16 @@ export class SecretRepository {
    *
    * @param executor - Database.
    * @param principalId - Service principal.
+   * @param state - Allowlisted consumer state.
    */
-  public async touchConsumer(executor: QueryExecutor, principalId: string): Promise<void> {
+  public async touchConsumer(
+    executor: QueryExecutor,
+    principalId: string,
+    state: "ok" | "degraded" | "failed",
+  ): Promise<void> {
     await executor.executeQuery(
-      "UPDATE consumers SET last_seen = now() WHERE principal_id = :principalId",
-      { principalId },
+      "UPDATE consumers SET last_seen = now(), state = :state WHERE principal_id = :principalId",
+      { principalId, state },
     );
   }
 }

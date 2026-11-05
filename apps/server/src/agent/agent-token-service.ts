@@ -112,6 +112,35 @@ export class AgentTokenService {
     ttlSeconds: number | undefined,
     createdBy: string,
   ): Promise<IssuedJoinToken> {
+    return await this.#issue(identity, ttlSeconds, createdBy, false);
+  }
+
+  /**
+   * Atomically revokes every unused token and issues a new one.
+   *
+   * The identity lock, revoke, and insert share one transaction, so two
+   * concurrent rotations cannot leave two live unused tokens.
+   *
+   * @param identity - Principal and owner project.
+   * @param ttlSeconds - Optional explicit lifetime in seconds.
+   * @param createdBy - Authenticated admin principal.
+   * @returns The raw token and its persisted expiry.
+   */
+  public async rotate(
+    identity: TokenIdentity,
+    ttlSeconds: number | undefined,
+    createdBy: string,
+  ): Promise<IssuedJoinToken> {
+    return await this.#issue(identity, ttlSeconds, createdBy, true);
+  }
+
+  /** Shared issue/rotate implementation. */
+  async #issue(
+    identity: TokenIdentity,
+    ttlSeconds: number | undefined,
+    createdBy: string,
+    revokeUnused: boolean,
+  ): Promise<IssuedJoinToken> {
     if (
       ttlSeconds !== undefined &&
       (!Number.isInteger(ttlSeconds) || ttlSeconds < 1 || ttlSeconds > MAX_TTL_SECONDS)
@@ -146,6 +175,10 @@ export class AgentTokenService {
 
       if (row.status !== "active" || projectRow === undefined || projectRow.deleted_at !== null) {
         throw new IdentityServiceError(409, "identity_inactive", "Identity is inactive");
+      }
+
+      if (revokeUnused) {
+        await this.revokeUnused(tx, identity.id);
       }
 
       await tx.executeQuery(

@@ -74,6 +74,7 @@ While `mustChangePassword` is true, the browser may use only `GET /v1/auth/me`,
 | DELETE | `/v1/auth/cli/sessions/:familyId` | Revokes an owned CLI family |
 | POST | `/v1/agent/join` | Token-authenticated bootstrap; no client certificate required |
 | POST | `/v1/agent/renew` | mTLS renewal with the current certificate |
+| POST | `/v1/agent/consumer` | mTLS aggregate consumer heartbeat |
 
 Local login and password change are origin-guarded. The login body is
 `{ "identifier": "...", "password": "..." }`; the password-change body is
@@ -306,6 +307,7 @@ loaded key.
 | GET | `/v1/admin/identities/:id` | `identity.read` |
 | POST | `/v1/admin/identities/:id/revoke` | `identity.revoke` |
 | POST | `/v1/admin/identities/:id/join-tokens` | `identity.join_token` |
+| POST | `/v1/admin/scaffold` | `assignment.write` plus the service checks |
 | GET | `/v1/admin/assignments` | `assignment.read` |
 | POST | `/v1/admin/assignments` | `assignment.write` |
 | DELETE | `/v1/admin/assignments/:id` | `assignment.write` |
@@ -332,6 +334,53 @@ Project names match `^[a-z0-9][a-z0-9-]{1,38}[a-z0-9]$`. A duplicate active name
 identities, and assignments. There is no project-recovery route in v0.1. Project **list items**
 add `certificateCount`, the number of active certificates in the project; single-project
 responses keep the existing shape.
+
+### Compose scaffold
+
+`POST /v1/admin/scaffold` creates or reuses the project and service identity, grants
+object-scope `secrets.reader` only for the listed entries, revokes older unused join tokens,
+and returns a per-service Compose snippet plus a manifest skeleton.
+
+```http
+POST /v1/admin/scaffold
+{ "project": "payments", "service": "api",
+  "entries": ["db-password", "stripe-api-key"] }
+-> 200 {
+     "project": { "id": "01J...", "name": "payments", ... },
+     "identity": { "id": "01J...", "name": "api", "projectId": "01J...",
+                    "status": "active", "createdAt": "..." },
+     "assignments": [ { "name": "db-password",
+                        "assignment": { "role": "secrets.reader",
+                          "scopeType": "object", "scopeId": "01J...", ... } } ],
+     "joinToken": { "id": "01J...", "token": "<43 chars>", "expiresAt": "..." },
+     "compose": "services:\n  openvault-agent-api:\n...",
+     "manifest": "project: \"payments\"\n...",
+     "manifestFile": "openvault.${COMPOSE_PROJECT_NAME}.api.manifest.yaml"
+   }
+```
+
+The token is returned once and never appears in `compose` or `manifest`. A project with entries
+must already exist and contain those secrets. A new project can be created by sending an empty
+entry list. Re-running is idempotent for the project, identity, and live assignments and issues
+a fresh token. If the reused identity already has a broader live grant, the route returns 409
+`identity_scope_conflict`. The service name uses `^[a-z0-9][a-z0-9_-]{0,62}$` so it is safe in
+Compose paths and YAML. The route is rate limited to 5 requests per minute per principal.
+
+### Consumer heartbeat and fetch headers
+
+`POST /v1/agent/consumer` accepts `{ "state": "ok" | "degraded" | "failed" }` over mTLS and
+updates `consumers.last_seen` and `state`. A state change writes one `consumer.update` audit
+event; a `last_seen`-only update does not.
+
+An agent secret fetch may send:
+
+| Header | Values | Meaning |
+|---|---|---|
+| `X-OpenVault-Consumer-State` | `ok`, `degraded`, `failed` | Aggregate state before this entry |
+| `X-OpenVault-Entry-Optional` | `true`, `false` | Whether a 404/410 degrades or fails |
+
+The server records the state after a successful read. A 404/410 records `degraded` for an
+optional entry and `failed` for a required entry. Invalid or repeated values return 422.
 
 ### Data plane
 

@@ -615,6 +615,59 @@ export class PolicyRepository {
   }
 
   /**
+   * Lists every live assignment for one principal without visibility filtering.
+   *
+   * The scaffold calls this only after authorizing `assignment.write` on the
+   * identity's project. It is needed because a project-scoped actor cannot see
+   * an org-scope grant through the normal visibility filter.
+   *
+   * @param principalId - Target principal.
+   * @returns Every live assignment, including org-scope rows.
+   */
+  public async listAllLiveForPrincipal(principalId: string): Promise<readonly AssignmentRecord[]> {
+    const result = await this.#query<{
+      readonly id: string;
+      readonly principal_id: string;
+      readonly role: string;
+      readonly scope_type: string;
+      readonly scope_id: string;
+      readonly granted_by: string;
+      readonly created_at: Date;
+      readonly expires_at: Date | null;
+      readonly principal_kind: string;
+      readonly principal_status: string;
+    }>(
+      `SELECT r.id, r.principal_id, r.role, r.scope_type, r.scope_id, r.granted_by,
+              r.created_at, r.expires_at, p.kind AS principal_kind,
+              p.status AS principal_status
+         FROM role_assignments r
+         JOIN principals p ON p.id = r.principal_id
+        WHERE ${LIVE_ASSIGNMENT} AND r.principal_id = :principalId
+        ORDER BY r.created_at DESC, r.id DESC`,
+      { principalId },
+    );
+    const assignments: AssignmentRecord[] = [];
+    for (const row of result.records) {
+      if (!isRole(row.role) || !isScopeType(row.scope_type)) {
+        continue;
+      }
+      assignments.push({
+        id: row.id,
+        principalId: row.principal_id,
+        role: row.role,
+        scopeType: row.scope_type,
+        scopeId: row.scope_id,
+        grantedBy: row.granted_by,
+        createdAt: row.created_at,
+        expiresAt: row.expires_at,
+        principalKind: isPrincipalKind(row.principal_kind) ? row.principal_kind : "user",
+        principalStatus: row.principal_status === "active" ? "active" : "disabled",
+      });
+    }
+    return assignments;
+  }
+
+  /**
    * Lists assignments visible to one caller.
    *
    * @param visibility - All projects or a project set.

@@ -1,0 +1,69 @@
+# Example output from `POST /v1/admin/scaffold` for project `payments`, service `api`.
+# Prepare the host directories before the first start:
+# install -d -m 0700 -o 10001 -g 10001 \
+#   "/dev/shm/openvault/${COMPOSE_PROJECT_NAME}/api" \
+#   "./openvault-state/${COMPOSE_PROJECT_NAME}/api"
+# install -m 0444 -o 10001 -g 10001 ./openvault-ca.pem \
+#   "./openvault.${COMPOSE_PROJECT_NAME}.api.manifest.yaml"
+# Set OPENVAULT_JOIN_TOKEN in the shell or an env file outside this Compose file.
+services:
+  openvault-agent-api:
+    image: "ghcr.io/blendsdk/openvault-agent:0.1.0"
+    user: "10001:10001"
+    read_only: true
+    cap_drop: [ALL]
+    security_opt: ["no-new-privileges:true"]
+    environment:
+      OPENVAULT_URL: "https://openvaultd:8444"
+      OPENVAULT_CA_FILE: "/etc/openvault/ca.pem"
+      OPENVAULT_JOIN_TOKEN: "${OPENVAULT_JOIN_TOKEN}"
+      OPENVAULT_PROJECT: "payments"
+      OPENVAULT_SERVICE: "api"
+      COMPOSE_PROJECT_NAME: "${COMPOSE_PROJECT_NAME}"
+      OPENVAULT_MANIFEST: "/etc/openvault/manifest.yaml"
+      OPENVAULT_OUTPUT_DIR: "/run/secrets"
+      OPENVAULT_STATE_DIR: "/var/lib/openvault"
+    tmpfs:
+      - /run/openvault:uid=10001,gid=10001,mode=0700,size=16m
+    volumes:
+      - type: bind
+        source: /dev/shm/openvault/${COMPOSE_PROJECT_NAME}/api
+        target: /run/secrets
+        bind:
+          create_host_path: false
+      - type: bind
+        source: ./openvault-state/${COMPOSE_PROJECT_NAME}/api
+        target: /var/lib/openvault
+        bind:
+          create_host_path: false
+      - type: bind
+        source: ./openvault-ca.pem
+        target: /etc/openvault/ca.pem
+        read_only: true
+      - type: bind
+        source: ./openvault.${COMPOSE_PROJECT_NAME}.api.manifest.yaml
+        target: /etc/openvault/manifest.yaml
+        read_only: true
+    networks: [default, vault_net]
+    healthcheck:
+      test: ["CMD", "ov-agent", "health", "--ready"]
+      interval: 10s
+      timeout: 3s
+      retries: 3
+
+  api:
+    user: "10001:10001"
+    volumes:
+      - type: bind
+        source: /dev/shm/openvault/${COMPOSE_PROJECT_NAME}/api
+        target: /run/secrets
+        read_only: true
+        bind:
+          create_host_path: false
+    depends_on:
+      openvault-agent-api:
+        condition: service_healthy
+
+networks:
+  vault_net:
+    external: true

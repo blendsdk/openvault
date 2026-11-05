@@ -6,6 +6,7 @@ const WINDOW_MS = 60_000;
 const JOIN_LIMIT = 10;
 const RENEW_PRINCIPAL_LIMIT = 10;
 const RENEW_IP_LIMIT = 60;
+const CONSUMER_STATE_LIMIT = 60;
 
 /** The three per-application agent limiter instances. */
 export interface AgentRateLimitService {
@@ -15,6 +16,8 @@ export interface AgentRateLimitService {
   readonly renewPrincipal: RequestHandler;
   /** Sixty renewals per minute per source address. */
   readonly renewIp: RequestHandler;
+  /** Sixty consumer heartbeats per minute per principal. */
+  readonly consumerState: RequestHandler;
 }
 
 /** Uses the TCP peer address, never a forwarded header. */
@@ -30,6 +33,8 @@ export interface AgentRateLimitOptions {
   readonly renewPrincipalLimit?: number;
   /** Renewals per minute per source address. */
   readonly renewIpLimit?: number;
+  /** Consumer heartbeats per minute per principal. */
+  readonly consumerStateLimit?: number;
 }
 
 /**
@@ -56,6 +61,11 @@ export function createAgentRateLimitService(
       maxRequests: options.renewIpLimit ?? RENEW_IP_LIMIT,
       windowMs: WINDOW_MS,
       keyExtractor: peerKey,
+    }),
+    consumerState: rateLimitMiddleware({
+      maxRequests: options.consumerStateLimit ?? CONSUMER_STATE_LIMIT,
+      windowMs: WINDOW_MS,
+      keyExtractor: (req) => `principal:${req.agent?.principalId ?? "unknown"}`,
     }),
   };
 }
@@ -96,4 +106,13 @@ export function renewPrincipalLimit(): RequestHandler {
  */
 export function renewIpLimit(): RequestHandler {
   return resolveLimiter("renewIp");
+}
+
+/**
+ * Applies the per-principal consumer heartbeat limit.
+ *
+ * @returns An Express middleware.
+ */
+export function consumerStateLimit(): RequestHandler {
+  return resolveLimiter("consumerState");
 }

@@ -4,6 +4,7 @@ import type { NextFunction, Request, RequestHandler, Response } from "express";
 const WINDOW_MS = 60_000;
 const WRITE_LIMIT = 30;
 const READ_LIMIT = 60;
+const SCAFFOLD_WRITE_LIMIT = 5;
 
 /** Per-application RBAC admin limiters. */
 export interface RbacRateLimitService {
@@ -11,6 +12,8 @@ export interface RbacRateLimitService {
   readonly assignmentWrite: RequestHandler;
   /** Assignment list and access-explain limit. */
   readonly assignmentRead: RequestHandler;
+  /** Compose scaffold limit. */
+  readonly scaffoldWrite: RequestHandler;
 }
 
 /** Test-only threshold overrides. */
@@ -19,6 +22,8 @@ export interface RbacRateLimitOptions {
   readonly writeLimit?: number;
   /** Reads per minute per principal. */
   readonly readLimit?: number;
+  /** Scaffold writes per minute per principal. */
+  readonly scaffoldWriteLimit?: number;
 }
 
 /** Uses the authenticated principal, never a forwarded header. */
@@ -43,6 +48,11 @@ export function createRbacRateLimitService(
     }),
     assignmentRead: rateLimitMiddleware({
       maxRequests: options.readLimit ?? READ_LIMIT,
+      windowMs: WINDOW_MS,
+      keyExtractor: principalKey,
+    }),
+    scaffoldWrite: rateLimitMiddleware({
+      maxRequests: options.scaffoldWriteLimit ?? SCAFFOLD_WRITE_LIMIT,
       windowMs: WINDOW_MS,
       keyExtractor: principalKey,
     }),
@@ -76,4 +86,13 @@ export function assignmentWriteLimit(): RequestHandler {
  */
 export function assignmentReadLimit(): RequestHandler {
   return resolveLimiter("assignmentRead");
+}
+
+/**
+ * Applies the Compose scaffold write limit.
+ *
+ * @returns An Express middleware.
+ */
+export function scaffoldWriteLimit(): RequestHandler {
+  return resolveLimiter("scaffoldWrite");
 }

@@ -2,8 +2,8 @@
 
 > **Document**: 99-execution-plan.md
 > **Parent**: [Index](00-index.md)
-> **Last Updated**: 2026-11-05 10:20
-> **Progress**: 0/79 tasks (0%)
+> **Last Updated**: 2026-11-05 11:20
+> **Progress**: 72/79 tasks (91%)
 > **CodeOps Artifact Schema**: 1
 
 ## Overview
@@ -49,10 +49,10 @@ tests, and a full repository gate.
 **Reference**: [03-01-agent-runtime.md](03-01-agent-runtime.md) · [07-testing-strategy.md](07-testing-strategy.md) ST-1–ST-23 · AR-1–AR-10, AR-17, AR-26
 **Objective**: Create the test harness, then write the immutable oracle before product modules.
 
-- [ ] 1.1.1 Create `apps/agent/package.json`, `tsconfig.json`, `tsconfig.test.json`, `vitest.config.ts`, and the `bin` entry; add pinned dependencies and update the lockfile
-- [ ] 1.1.2 [spec-author] Write `apps/agent/tests/manifest.spec.test.ts` for ST-1–ST-13
-- [ ] 1.1.3 [spec-author] Write `apps/agent/tests/join.spec.test.ts` for ST-14–ST-23
-- [ ] 1.1.4 Run the two spec files and record the red-phase failure (product modules do not exist yet)
+- [x] 1.1.1 Create `apps/agent/package.json`, `tsconfig.json`, `tsconfig.test.json`, `vitest.config.ts`, and the `bin` entry; add pinned dependencies and update the lockfile ✅ (completed: 2026-11-05 11:05)
+- [x] 1.1.2 [spec-author] Write `apps/agent/tests/manifest.spec.test.ts` for ST-1–ST-13 ✅ (completed: 2026-11-05 11:05)
+- [x] 1.1.3 [spec-author] Write `apps/agent/tests/join.spec.test.ts` for ST-14–ST-23 ✅ (completed: 2026-11-05 11:05)
+- [x] 1.1.4 Run the two spec files and record the red-phase failure (product modules do not exist yet) ✅ (completed: 2026-11-05 11:05)
 
 **Deliverables**:
 - [ ] Spec tests trace every case to a plain-language behavior, not an ST/RD id
@@ -65,14 +65,14 @@ tests, and a full repository gate.
 **Reference**: [03-01-agent-runtime.md](03-01-agent-runtime.md) §Configuration–§Join · AR-1–AR-10, AR-17, AR-26
 **Objective**: Build the foundation modules.
 
-- [ ] 1.2.1 Implement `apps/agent/src/errors.ts` with the stable code union and static messages
-- [ ] 1.2.2 Implement `apps/agent/src/logger.ts` with structured value-free events
-- [ ] 1.2.3 Implement `apps/agent/src/config.ts` for every environment value and bound in the spec
-- [ ] 1.2.4 Implement `apps/agent/src/manifest.ts` with strict YAML, duplicate-key rejection, both-target entries, and the raw-byte hash
-- [ ] 1.2.5 Implement `apps/agent/src/state.ts` with the `0700` directory, descriptor-based reads, atomic `identity.json`/`managed-files.json`, and pending-renewal storage
-- [ ] 1.2.6 Implement `apps/agent/src/client.ts` with `node:https`, CA/client certificate handling, timeouts, response bounds, schema validation, and explicit error kinds
-- [ ] 1.2.7 Implement `apps/agent/src/join.ts` with P-256 key/CSR generation, consumer metadata, expired-state rejoin, transient retry, and state persistence
-- [ ] 1.2.8 Run the Phase 1 spec tests and record the green-phase result
+- [x] 1.2.1 Implement `apps/agent/src/errors.ts` with the stable code union and static messages ✅ (completed: 2026-11-05 11:05)
+- [x] 1.2.2 Implement `apps/agent/src/logger.ts` with structured value-free events ✅ (completed: 2026-11-05 11:05)
+- [x] 1.2.3 Implement `apps/agent/src/config.ts` for every environment value and bound in the spec ✅ (completed: 2026-11-05 11:05)
+- [x] 1.2.4 Implement `apps/agent/src/manifest.ts` with strict YAML, duplicate-key rejection, both-target entries, and the raw-byte hash ✅ (completed: 2026-11-05 11:05)
+- [x] 1.2.5 Implement `apps/agent/src/state.ts` with the `0700` directory, descriptor-based reads, atomic `identity.json`/`managed-files.json`, and pending-renewal storage ✅ (completed: 2026-11-05 11:05)
+- [x] 1.2.6 Implement `apps/agent/src/client.ts` with `node:https`, CA/client certificate handling, timeouts, response bounds, schema validation, and explicit error kinds ✅ (completed: 2026-11-05 11:05)
+- [x] 1.2.7 Implement `apps/agent/src/join.ts` with P-256 key/CSR generation, consumer metadata, expired-state rejoin, transient retry, and state persistence ✅ (completed: 2026-11-05 11:05)
+- [x] 1.2.8 Run the Phase 1 spec tests and record the green-phase result ✅ (completed: 2026-11-05 11:05)
 
 **Deliverables**:
 - [ ] `apps/agent` builds as ESM with `dist/main.js`
@@ -86,10 +86,10 @@ tests, and a full repository gate.
 **Reference**: [07-testing-strategy.md](07-testing-strategy.md) §Implementation Tests · AR-8, AR-17
 **Objective**: Cover internals and prove the package fits the workspace.
 
-- [ ] 1.3.1 Write `apps/agent/tests/state.impl.test.ts` for directory races, `O_NOFOLLOW` swaps, corrupt JSON, permission drift, pending age, and managed-file reconciliation
-- [ ] 1.3.2 Write `apps/agent/tests/client.impl.test.ts` for the TLS classification table, timeout, redirect refusal, response bounds, and schema parse failures
-- [ ] 1.3.3 Run the package tests, typecheck, lint, and build
-- [ ] 1.3.4 Run the full `pnpm verify` gate
+- [x] 1.3.1 Write `apps/agent/tests/state.impl.test.ts` for directory races, `O_NOFOLLOW` swaps, corrupt JSON, permission drift, pending age, and managed-file reconciliation ✅ (completed: 2026-11-05 11:05)
+- [x] 1.3.2 Write `apps/agent/tests/client.impl.test.ts` for the TLS classification table, timeout, redirect refusal, response bounds, and schema parse failures ✅ (completed: 2026-11-05 11:05)
+- [x] 1.3.3 Run the package tests, typecheck, lint, and build ✅ (completed: 2026-11-05 11:05)
+- [x] 1.3.4 Run the full `pnpm verify` gate ✅ (completed: 2026-11-05 11:05)
 
 **Deliverables**:
 - [ ] Implementation tests pass
@@ -109,9 +109,9 @@ tests, and a full repository gate.
 **Reference**: [03-02-delivery.md](03-02-delivery.md) §Startup–§Local socket · [07-testing-strategy.md](07-testing-strategy.md) ST-24–ST-45, ST-70, ST-74–ST-77 · AR-6, AR-11–AR-14, AR-31
 **Objective**: Write the failure-matrix and local-surface oracle before implementation.
 
-- [ ] 2.1.1 [spec-author] Write `apps/agent/tests/delivery.spec.test.ts` for ST-24–ST-45
-- [ ] 2.1.2 [spec-author] Write `apps/agent/tests/status-socket.spec.test.ts` for ST-70 and ST-74–ST-77
-- [ ] 2.1.3 Run the two spec files and record the red-phase failure
+- [x] 2.1.1 [spec-author] Write `apps/agent/tests/delivery.spec.test.ts` for ST-24–ST-45 ✅ (completed: 2026-11-05 11:05)
+- [x] 2.1.2 [spec-author] Write `apps/agent/tests/status-socket.spec.test.ts` for ST-70 and ST-74–ST-77 ✅ (completed: 2026-11-05 11:05)
+- [x] 2.1.3 Run the two spec files and record the red-phase failure ✅ (completed: 2026-11-05 11:05)
 
 **Deliverables**:
 - [ ] Every failure-matrix row has a spec test
@@ -124,11 +124,11 @@ tests, and a full repository gate.
 **Reference**: [03-02-delivery.md](03-02-delivery.md) §Startup–§Local socket · AR-6, AR-11–AR-14, AR-31
 **Objective**: Implement startup buffering/staging, the refresh matrix, managed-file cleanup, status, and the socket.
 
-- [ ] 2.2.1 Implement `apps/agent/src/delivery.ts` with managed-file tracking, atomic writes, staged startup, removal reconciliation, and `refreshOnce`
-- [ ] 2.2.2 Implement `apps/agent/src/status.ts` with the value-free document, `requiredReady`, and renewal state
-- [ ] 2.2.3 Implement `apps/agent/src/socket.ts` with the `0660` unix socket and manifest-only routes
-- [ ] 2.2.4 Implement `apps/agent/src/runner.ts` for startup, single-flight refresh timers, status, socket lifecycle, and cancellation hooks (renewal and wrapper hooks are completed in Phase 3)
-- [ ] 2.2.5 Run the Phase 2 spec tests and record the green-phase result
+- [x] 2.2.1 Implement `apps/agent/src/delivery.ts` with managed-file tracking, atomic writes, staged startup, removal reconciliation, and `refreshOnce` ✅ (completed: 2026-11-05 11:05)
+- [x] 2.2.2 Implement `apps/agent/src/status.ts` with the value-free document, `requiredReady`, and renewal state ✅ (completed: 2026-11-05 11:05)
+- [x] 2.2.3 Implement `apps/agent/src/socket.ts` with the `0660` unix socket and manifest-only routes ✅ (completed: 2026-11-05 11:05)
+- [x] 2.2.4 Implement `apps/agent/src/runner.ts` for startup, single-flight refresh timers, status, socket lifecycle, and cancellation hooks (renewal and wrapper hooks are completed in Phase 3) ✅ (completed: 2026-11-05 11:05)
+- [x] 2.2.5 Run the Phase 2 spec tests and record the green-phase result ✅ (completed: 2026-11-05 11:05)
 
 **Deliverables**:
 - [ ] ST-24–ST-45, ST-70, and ST-74–ST-77 pass
@@ -142,10 +142,10 @@ tests, and a full repository gate.
 **Reference**: [07-testing-strategy.md](07-testing-strategy.md) §Implementation Tests
 **Objective**: Cover atomic-write and runner internals.
 
-- [ ] 2.3.1 Write `apps/agent/tests/atomic-write.impl.test.ts` for temp cleanup, staged startup, rename/flush failure, and concurrent writers
-- [ ] 2.3.2 Write `apps/agent/tests/runner.impl.test.ts` for single-flight, cancellation, timer jitter, and idempotent stop
-- [ ] 2.3.3 Run the package tests, typecheck, lint, and build
-- [ ] 2.3.4 Run the full `pnpm verify` gate
+- [x] 2.3.1 Write `apps/agent/tests/atomic-write.impl.test.ts` for temp cleanup, staged startup, rename/flush failure, and concurrent writers ✅ (completed: 2026-11-05 11:05)
+- [x] 2.3.2 Write `apps/agent/tests/runner.impl.test.ts` for single-flight, cancellation, timer jitter, and idempotent stop ✅ (completed: 2026-11-05 11:05)
+- [x] 2.3.3 Run the package tests, typecheck, lint, and build ✅ (completed: 2026-11-05 11:05)
+- [x] 2.3.4 Run the full `pnpm verify` gate ✅ (completed: 2026-11-05 11:05)
 
 **Deliverables**:
 - [ ] Implementation tests pass
@@ -166,9 +166,9 @@ tests, and a full repository gate.
 **Reference**: [03-02-delivery.md](03-02-delivery.md) §Renewal–§Commands · [07-testing-strategy.md](07-testing-strategy.md) ST-58–ST-69, ST-68a, ST-68b, ST-71–ST-73, ST-78–ST-86 · AR-3, AR-10, AR-15, AR-16, AR-32
 **Objective**: Write the renewal, wrapper, CLI, and leakage oracle.
 
-- [ ] 3.1.1 [spec-author] Write `apps/agent/tests/renewal.spec.test.ts` for ST-58–ST-69, ST-68a, and ST-68b
-- [ ] 3.1.2 [spec-author] Write `apps/agent/tests/wrapper-logging.spec.test.ts` for ST-71–ST-73 and ST-78–ST-86
-- [ ] 3.1.3 Run the two spec files and record the red-phase failure
+- [x] 3.1.1 [spec-author] Write `apps/agent/tests/renewal.spec.test.ts` for ST-58–ST-69, ST-68a, and ST-68b ✅ (completed: 2026-11-05 11:05)
+- [x] 3.1.2 [spec-author] Write `apps/agent/tests/wrapper-logging.spec.test.ts` for ST-71–ST-73 and ST-78–ST-86 ✅ (completed: 2026-11-05 11:05)
+- [x] 3.1.3 Run the two spec files and record the red-phase failure ✅ (completed: 2026-11-05 11:05)
 
 **Deliverables**:
 - [ ] Renewal replay, `not_due`, `not_current`, and long-lifetime cases are explicit
@@ -181,12 +181,12 @@ tests, and a full repository gate.
 **Reference**: [03-02-delivery.md](03-02-delivery.md) §Renewal–§Commands · AR-3, AR-10, AR-15, AR-16, AR-32
 **Objective**: Complete the lifecycle and command surface.
 
-- [ ] 3.2.1 Implement `apps/agent/src/renewal.ts` with the two-thirds schedule, chunked long timers, jitter, backoff, five-minute pending-key reuse, `not_due`/`not_current` handling, and atomic swap
-- [ ] 3.2.2 Implement wrapper mode in `apps/agent/src/runner.ts` with the sanitized child environment, env denylist, UTF-8 rule, `spawn` without a shell, and child termination
-- [ ] 3.2.3 Implement the `health`, `--ready`, and `--max-age` behavior in `apps/agent/src/status.ts`
-- [ ] 3.2.4 Implement `apps/agent/src/main.ts` with `run`, `health`, `--once`, option parsing, and `--` passthrough
-- [ ] 3.2.5 Wire renewal timers, signals, and clean shutdown into `apps/agent/src/runner.ts`
-- [ ] 3.2.6 Run the Phase 3 spec tests and record the green-phase result
+- [x] 3.2.1 Implement `apps/agent/src/renewal.ts` with the two-thirds schedule, chunked long timers, jitter, backoff, five-minute pending-key reuse, `not_due`/`not_current` handling, and atomic swap ✅ (completed: 2026-11-05 11:05)
+- [x] 3.2.2 Implement wrapper mode in `apps/agent/src/runner.ts` with the sanitized child environment, env denylist, UTF-8 rule, `spawn` without a shell, and child termination ✅ (completed: 2026-11-05 11:05)
+- [x] 3.2.3 Implement the `health`, `--ready`, and `--max-age` behavior in `apps/agent/src/status.ts` ✅ (completed: 2026-11-05 11:05)
+- [x] 3.2.4 Implement `apps/agent/src/main.ts` with `run`, `health`, `--once`, option parsing, and `--` passthrough ✅ (completed: 2026-11-05 11:05)
+- [x] 3.2.5 Wire renewal timers, signals, and clean shutdown into `apps/agent/src/runner.ts` ✅ (completed: 2026-11-05 11:05)
+- [x] 3.2.6 Run the Phase 3 spec tests and record the green-phase result ✅ (completed: 2026-11-05 11:05)
 
 **Deliverables**:
 - [ ] ST-58–ST-69, ST-68a/ST-68b, ST-71–ST-73, and ST-78–ST-86 pass
@@ -201,10 +201,10 @@ tests, and a full repository gate.
 **Reference**: [07-testing-strategy.md](07-testing-strategy.md) §Implementation Tests
 **Objective**: Cover renewal and child-process internals.
 
-- [ ] 3.3.1 Write `apps/agent/tests/renewal.impl.test.ts` for schedule boundaries, pending age, `not_current`, and new-key-after-window
-- [ ] 3.3.2 Write `apps/agent/tests/runner.impl.test.ts` additions for signal shutdown, wrapper termination, and exit-code propagation
-- [ ] 3.3.3 Run the package tests, typecheck, lint, and build
-- [ ] 3.3.4 Run the full `pnpm verify` gate
+- [x] 3.3.1 Write `apps/agent/tests/renewal.impl.test.ts` for schedule boundaries, pending age, `not_current`, and new-key-after-window ✅ (completed: 2026-11-05 11:05)
+- [x] 3.3.2 Write `apps/agent/tests/runner.impl.test.ts` additions for signal shutdown, wrapper termination, and exit-code propagation ✅ (completed: 2026-11-05 11:05)
+- [x] 3.3.3 Run the package tests, typecheck, lint, and build ✅ (completed: 2026-11-05 11:05)
+- [x] 3.3.4 Run the full `pnpm verify` gate ✅ (completed: 2026-11-05 11:05)
 
 **Deliverables**:
 - [ ] Implementation tests pass
@@ -224,10 +224,10 @@ tests, and a full repository gate.
 **Reference**: [03-03-server-state-scaffold.md](03-03-server-state-scaffold.md) · [07-testing-strategy.md](07-testing-strategy.md) ST-46–ST-57, ST-87–ST-117 · AR-18–AR-22
 **Objective**: Write the server-side oracle against the real agent listener and PostgreSQL.
 
-- [ ] 4.1.1 [spec-author] Write `packages/api-contract/tests/scaffold.spec.test.ts` for ST-109–ST-110
-- [ ] 4.1.2 [spec-author] Write `apps/server/tests/integration/secrets-consumer-state.spec.test.ts` for ST-46–ST-57 and ST-114
-- [ ] 4.1.3 [spec-author] Write `apps/server/tests/integration/scaffold.spec.test.ts` for ST-87–ST-108 and ST-115–ST-117
-- [ ] 4.1.4 Run the spec files and record the red-phase failure (route/contracts absent)
+- [x] 4.1.1 [spec-author] Write `packages/api-contract/tests/scaffold.spec.test.ts` for ST-109–ST-110 ✅ (completed: 2026-11-05 11:05)
+- [x] 4.1.2 [spec-author] Write `apps/server/tests/integration/secrets-consumer-state.spec.test.ts` for ST-46–ST-57 and ST-114 ✅ (completed: 2026-11-05 11:05)
+- [x] 4.1.3 [spec-author] Write `apps/server/tests/integration/scaffold.spec.test.ts` for ST-87–ST-108 and ST-115–ST-117 ✅ (completed: 2026-11-05 11:05)
+- [x] 4.1.4 Run the spec files and record the red-phase failure (route/contracts absent) ✅ (completed: 2026-11-05 11:05)
 
 **Deliverables**:
 - [ ] Tests use the real agent listener and real PostgreSQL
@@ -240,16 +240,16 @@ tests, and a full repository gate.
 **Reference**: [03-03-server-state-scaffold.md](03-03-server-state-scaffold.md) §Consumer heartbeat–§Route · AR-18–AR-22
 **Objective**: Add the heartbeat state/route and the per-service scaffold route.
 
-- [ ] 4.2.1 Add `packages/api-contract/src/scaffold.ts`, `agentConsumerStateSchema`/response schema, and exports from `packages/api-contract/src/index.ts`
-- [ ] 4.2.2 Add `ConsumerRepository.updateState` and `apps/server/src/agent/consumer-service.ts` with the state-change audit and a caught/logged audit failure
-- [ ] 4.2.3 Add the consumer-state headers, 403/404/410 mapping, and best-effort heartbeat to `apps/server/src/controllers/secrets.ts`
-- [ ] 4.2.4 Remove the `agentPrincipalId` read option and update the existing heartbeat test
-- [ ] 4.2.5 Add the `POST /v1/agent/consumer` route returning 200 `{state}`, the 60/minute limiter, and service registration
-- [ ] 4.2.6 Implement `apps/server/src/scaffold/compose.ts` with per-service and per-Compose-project state/manifest paths, quoted mapping keys and scalars, directory/file preparation comments, app UID, and manifest rendering
-- [ ] 4.2.7 Add `PolicyRepository.listAllLiveForPrincipal` and implement `apps/server/src/scaffold/service.ts` with create-or-reuse project/identity, entry resolution, broader-grant rejection (including org-scope grants), object grants, stale object-grant removal, expired-assignment recreation, and token rotation
-- [ ] 4.2.8 Add `IdentityService.rotateJoinToken` and the atomic `AgentTokenService.rotate` hook
-- [ ] 4.2.9 Add `apps/server/src/scaffold/errors.ts` (`ScaffoldServiceError`), implement `apps/server/src/controllers/scaffold.ts` with response projections and error mapping, add the 5/minute limiter, and register services/controllers in `apps/server/src/app.ts`
-- [ ] 4.2.10 Run the Phase 4 spec tests and record the green-phase result
+- [x] 4.2.1 Add `packages/api-contract/src/scaffold.ts`, `agentConsumerStateSchema`/response schema, and exports from `packages/api-contract/src/index.ts` ✅ (completed: 2026-11-05 11:05)
+- [x] 4.2.2 Add `ConsumerRepository.updateState` and `apps/server/src/agent/consumer-service.ts` with the state-change audit and a caught/logged audit failure ✅ (completed: 2026-11-05 11:05)
+- [x] 4.2.3 Add the consumer-state headers, 403/404/410 mapping, and best-effort heartbeat to `apps/server/src/controllers/secrets.ts` ✅ (completed: 2026-11-05 11:05)
+- [x] 4.2.4 Remove the `agentPrincipalId` read option and update the existing heartbeat test ✅ (completed: 2026-11-05 11:05)
+- [x] 4.2.5 Add the `POST /v1/agent/consumer` route returning 200 `{state}`, the 60/minute limiter, and service registration ✅ (completed: 2026-11-05 11:05)
+- [x] 4.2.6 Implement `apps/server/src/scaffold/compose.ts` with per-service and per-Compose-project state/manifest paths, quoted mapping keys and scalars, directory/file preparation comments, app UID, and manifest rendering ✅ (completed: 2026-11-05 11:05)
+- [x] 4.2.7 Add `PolicyRepository.listAllLiveForPrincipal` and implement `apps/server/src/scaffold/service.ts` with create-or-reuse project/identity, entry resolution, broader-grant rejection (including org-scope grants), object grants, stale object-grant removal, expired-assignment recreation, and token rotation ✅ (completed: 2026-11-05 11:05)
+- [x] 4.2.8 Add `IdentityService.rotateJoinToken` and the atomic `AgentTokenService.rotate` hook ✅ (completed: 2026-11-05 11:05)
+- [x] 4.2.9 Add `apps/server/src/scaffold/errors.ts` (`ScaffoldServiceError`), implement `apps/server/src/controllers/scaffold.ts` with response projections and error mapping, add the 5/minute limiter, and register services/controllers in `apps/server/src/app.ts` ✅ (completed: 2026-11-05 11:05)
+- [x] 4.2.10 Run the Phase 4 spec tests and record the green-phase result ✅ (completed: 2026-11-05 11:05)
 
 **Deliverables**:
 - [ ] ST-46–ST-57, ST-87–ST-117 pass
@@ -264,12 +264,12 @@ tests, and a full repository gate.
 **Reference**: [07-testing-strategy.md](07-testing-strategy.md) §Implementation Tests
 **Objective**: Cover partial-failure retries, conflict handling, audit rollback, and renderer determinism.
 
-- [ ] 4.3.1 Write `apps/server/tests/integration/scaffold.impl.test.ts` for partial failure retry, duplicate conflicts, disabled identity reuse, broader grants, expired assignments, two-service merge, and deterministic rendering
-- [ ] 4.3.2 Write `apps/server/tests/integration/secrets-state.impl.test.ts` for heartbeat failure tolerance, state audit, and audit rollback
-- [ ] 4.3.3 Write `packages/api-contract/tests/scaffold.impl.test.ts` for boundary and projection cases
-- [ ] 4.3.4 Run the server unit and integration tests
-- [ ] 4.3.5 Run `pnpm verify` and `pnpm db:types:check` against a migrated database
-- [ ] 4.3.6 Run the full integration suite on PostgreSQL 16
+- [x] 4.3.1 Write `apps/server/tests/integration/scaffold.impl.test.ts` for partial failure retry, duplicate conflicts, disabled identity reuse, broader grants, expired assignments, two-service merge, and deterministic rendering ✅ (completed: 2026-11-05 11:05)
+- [x] 4.3.2 Write `apps/server/tests/integration/secrets-state.impl.test.ts` for heartbeat failure tolerance, state audit, and audit rollback ✅ (completed: 2026-11-05 11:05)
+- [x] 4.3.3 Write `packages/api-contract/tests/scaffold.impl.test.ts` for boundary and projection cases ✅ (completed: 2026-11-05 11:05)
+- [x] 4.3.4 Run the server unit and integration tests ✅ (completed: 2026-11-05 11:05)
+- [x] 4.3.5 Run `pnpm verify` and `pnpm db:types:check` against a migrated database ✅ (completed: 2026-11-05 11:05)
+- [x] 4.3.6 Run the full integration suite on PostgreSQL 16 ✅ (completed: 2026-11-05 11:05)
 
 **Deliverables**:
 - [ ] Implementation tests pass
@@ -290,12 +290,12 @@ tests, and a full repository gate.
 **Reference**: [00-index.md](00-index.md) §Related Files · AR-2, AR-15, AR-21, AR-27, AR-28, AR-32
 **Objective**: Make the implemented behavior discoverable and record the release.
 
-- [ ] 5.1.1 Update `docs/guide/agent.md` and `docs/guide/docker-compose.md` with the implemented runtime, manifest, failure matrix, status, socket, wrapper trust, scaffold route, per-service Compose, and token handling
-- [ ] 5.1.2 Update `docs/guide/secrets.md` for consumer state/heartbeat and `docs/architecture/agent-delivery.md` for renewal, audit, and scaffold details
-- [ ] 5.1.3 Update `docs/reference/api.md` and `docs/reference/configuration.md` with the scaffold route, heartbeat route, state headers, and agent environment
-- [ ] 5.1.4 Update `docs/security/limitations.md` with the accepted agent residuals (wrapper same-UID trust, expired-certificate heartbeat gap, network-failure state lag, non-durable renewal replay)
-- [ ] 5.1.5 Add `deploy/compose/agent.example.yaml`, update `docs/changelog.md`, and add `.changeset/agent.md`
-- [ ] 5.1.6 Run the docs build, `pnpm changeset status`, and `pnpm audit:prod`
+- [x] 5.1.1 Update `docs/guide/agent.md` and `docs/guide/docker-compose.md` with the implemented runtime, manifest, failure matrix, status, socket, wrapper trust, scaffold route, per-service Compose, and token handling ✅ (completed: 2026-11-05 11:20)
+- [x] 5.1.2 Update `docs/guide/secrets.md` for consumer state/heartbeat and `docs/architecture/agent-delivery.md` for renewal, audit, and scaffold details ✅ (completed: 2026-11-05 11:20)
+- [x] 5.1.3 Update `docs/reference/api.md` and `docs/reference/configuration.md` with the scaffold route, heartbeat route, state headers, and agent environment ✅ (completed: 2026-11-05 11:20)
+- [x] 5.1.4 Update `docs/security/limitations.md` with the accepted agent residuals (wrapper same-UID trust, expired-certificate heartbeat gap, network-failure state lag, non-durable renewal replay) ✅ (completed: 2026-11-05 11:20)
+- [x] 5.1.5 Add `deploy/compose/agent.example.yaml`, update `docs/changelog.md`, and add `.changeset/agent.md` ✅ (completed: 2026-11-05 11:20)
+- [x] 5.1.6 Run the docs build, `pnpm changeset status`, and `pnpm audit:prod` ✅ (completed: 2026-11-05 11:20)
 
 **Deliverables**:
 - [ ] Docs build passes
@@ -309,11 +309,11 @@ tests, and a full repository gate.
 **Reference**: [07-testing-strategy.md](07-testing-strategy.md) §Verification Checklist · AR-25
 **Objective**: Prove every gate on the final tree.
 
-- [ ] 5.2.1 Run `pnpm verify`
-- [ ] 5.2.2 Run `pnpm db:migrate` and `pnpm db:types:check` with `OPENVAULT_DB_URL`
-- [ ] 5.2.3 Run the full integration suite on PostgreSQL 16
-- [ ] 5.2.4 Run the full integration suite on PostgreSQL 17
-- [ ] 5.2.5 Run `pnpm changeset status` and the docs build one final time
+- [x] 5.2.1 Run `pnpm verify` ✅ (completed: 2026-11-05 11:20)
+- [x] 5.2.2 Run `pnpm db:migrate` and `pnpm db:types:check` with `OPENVAULT_DB_URL` ✅ (completed: 2026-11-05 11:20)
+- [x] 5.2.3 Run the full integration suite on PostgreSQL 16 ✅ (completed: 2026-11-05 11:20)
+- [x] 5.2.4 Run the full integration suite on PostgreSQL 17 ✅ (completed: 2026-11-05 11:20)
+- [x] 5.2.5 Run `pnpm changeset status` and the docs build one final time ✅ (completed: 2026-11-05 11:20)
 
 **Deliverables**:
 - [ ] Every gate passes

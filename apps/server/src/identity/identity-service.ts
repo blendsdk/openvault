@@ -272,6 +272,35 @@ export class IdentityService {
     ttlSeconds: number | undefined,
     context?: PolicyAuditContext,
   ): Promise<JoinTokenResponse> {
+    return await this.#issueJoinToken(actorId, id, ttlSeconds, context, false);
+  }
+
+  /**
+   * Atomically revokes every unused token and issues a new one.
+   *
+   * @param actorId - Signed-in admin principal.
+   * @param id - Service principal identifier.
+   * @param ttlSeconds - Optional explicit lifetime.
+   * @param context - Optional request metadata.
+   * @returns The raw token response.
+   */
+  public async rotateJoinToken(
+    actorId: string,
+    id: string,
+    ttlSeconds: number | undefined,
+    context?: PolicyAuditContext,
+  ): Promise<JoinTokenResponse> {
+    return await this.#issueJoinToken(actorId, id, ttlSeconds, context, true);
+  }
+
+  /** Shared issue/rotate implementation. */
+  async #issueJoinToken(
+    actorId: string,
+    id: string,
+    ttlSeconds: number | undefined,
+    context: PolicyAuditContext | undefined,
+    rotate: boolean,
+  ): Promise<JoinTokenResponse> {
     const visible = await this.#authorizer.hasAny("identity.join_token", actorId, context, {
       audit: false,
     });
@@ -296,11 +325,17 @@ export class IdentityService {
       throw new IdentityServiceError(409, "identity_inactive", "Identity is inactive");
     }
 
-    const issued = await this.#tokens.issue(
-      { id: identity.id, projectId: identity.projectId },
-      ttlSeconds,
-      actorId,
-    );
+    const issued = rotate
+      ? await this.#tokens.rotate(
+          { id: identity.id, projectId: identity.projectId },
+          ttlSeconds,
+          actorId,
+        )
+      : await this.#tokens.issue(
+          { id: identity.id, projectId: identity.projectId },
+          ttlSeconds,
+          actorId,
+        );
     return {
       id: issued.id,
       token: issued.token,
