@@ -1,10 +1,16 @@
 export {
   type AgentCertificateResponse,
   type AgentConsumer,
+  type AgentConsumerState,
+  type AgentConsumerStateReport,
+  type AgentConsumerStateResponse,
   type AgentJoinRequest,
   type AgentRenewRequest,
   agentCertificateResponseSchema,
   agentConsumerSchema,
+  agentConsumerStateReportSchema,
+  agentConsumerStateResponseSchema,
+  agentConsumerStateSchema,
   agentJoinRequestSchema,
   agentRenewRequestSchema,
 } from "./agents.js";
@@ -162,6 +168,15 @@ export {
   rbacScopeTypeSchema,
   roleCatalogSchema,
 } from "./rbac.js";
+export {
+  composeServiceNameSchema,
+  type ScaffoldAssignment,
+  type ScaffoldRequest,
+  type ScaffoldResponse,
+  scaffoldAssignmentSchema,
+  scaffoldRequestSchema,
+  scaffoldResponseSchema,
+} from "./scaffold.js";
 export {
   SECRET_ENCODINGS,
   type SecretConsumerList,

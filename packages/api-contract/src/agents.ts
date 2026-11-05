@@ -43,6 +43,17 @@ export const agentCertificateResponseSchema = z.strictObject({
   notAfter: z.iso.datetime(),
 });
 
+/** One aggregate delivery state. */
+export const agentConsumerStateSchema = z.enum(["ok", "degraded", "failed"]);
+
+/** Request and response body for the aggregate heartbeat. */
+export const agentConsumerStateReportSchema = z.strictObject({
+  state: agentConsumerStateSchema,
+});
+
+/** Response to the aggregate heartbeat. */
+export const agentConsumerStateResponseSchema = agentConsumerStateReportSchema;
+
 /** Inferred agent consumer metadata. */
 export type AgentConsumer = z.infer<typeof agentConsumerSchema>;
 
@@ -52,5 +63,14 @@ export type AgentJoinRequest = z.infer<typeof agentJoinRequestSchema>;
 /** Inferred agent renewal request. */
 export type AgentRenewRequest = z.infer<typeof agentRenewRequestSchema>;
 
-/** Inferred agent certificate response. */
+/** Inferred certificate response. */
 export type AgentCertificateResponse = z.infer<typeof agentCertificateResponseSchema>;
+
+/** Inferred aggregate consumer state. */
+export type AgentConsumerState = z.infer<typeof agentConsumerStateSchema>;
+
+/** Inferred heartbeat request/response body. */
+export type AgentConsumerStateReport = z.infer<typeof agentConsumerStateReportSchema>;
+
+/** Inferred heartbeat response. */
+export type AgentConsumerStateResponse = z.infer<typeof agentConsumerStateResponseSchema>;

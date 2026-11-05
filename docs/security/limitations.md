@@ -110,3 +110,28 @@ These are accepted for v0.1. They are documented so reviewers do not mistake the
 38. **Certificate history surface.** v0.1 has no certificate versions-list route and no
     certificate consumers. A client can read a selected version with `?version=<ulid>` when it
     knows the version id from a write or read response.
+39. **Wrapper same-UID trust.** In wrapper mode the application runs as the same UID as the
+    agent and can read the agent state directory, private key, and status file. Wrapper mode is
+    opt-in and requires a fully trusted application; sidecar mode is the secure default. The
+    child environment removes every `OPENVAULT_*` variable, but filesystem isolation without a
+    separate UID is not possible.
+40. **Expired-certificate heartbeat gap.** An expired client certificate is rejected before a
+    principal is available, so the agent cannot update the consumer state on that request.
+    Revocation sets `failed`; two-thirds renewal avoids expiry in normal operation.
+41. **Network-failure state lag.** A network failure cannot reach the server. The next
+    successful fetch or aggregate heartbeat corrects the consumer state.
+42. **Renewal replay persistence.** The server replay cache is process-local. A server restart
+    or a retry after five minutes can require a new join token; the agent keeps delivering with
+    the old certificate until expiry. The agent records this as `degraded` and does not remove
+    files on `renewal_not_current`.
+43. **Consumer metadata character set.** The shared consumer contract accepts 1–100 characters
+    for Compose project/service. The agent validates safe values, but a direct malicious join
+    could store control characters. Tightening the shared contract is deferred to the identity
+    surface.
+44. **Agent image.** The scaffold references
+    `ghcr.io/blendsdk/openvault-agent:0.1.0`; image build, signing, and publishing are release
+    engineering work. The snippet includes the host-directory preparation commands so the
+    deployment contract is explicit before the image is published.
+45. **Scaffold serialization.** Grant reconciliation and join-token rotation are serialized by a
+    per-identity in-process mutex. This covers the single-instance v0.1 deployment. A
+    multi-instance deployment would need a database advisory lock for the same guarantee.

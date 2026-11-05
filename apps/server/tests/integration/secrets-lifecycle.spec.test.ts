@@ -325,23 +325,15 @@ describe("secret lifecycle", () => {
       "SELECT last_seen FROM consumers WHERE principal_id = :id",
       { id: base.serviceId },
     );
-    await secrets.read(
-      actors.orgAdmin,
-      "foundation",
-      name,
-      {},
-      {},
-      {
-        agentPrincipalId: base.serviceId,
-      },
-    );
-    const after = await testDb.db.executeQuery<{ last_seen: Date }>(
-      "SELECT last_seen FROM consumers WHERE principal_id = :id",
+    await new SecretRepository().touchConsumer(testDb.db, base.serviceId, "degraded");
+    const after = await testDb.db.executeQuery<{ last_seen: Date; state: string }>(
+      "SELECT last_seen, state FROM consumers WHERE principal_id = :id",
       { id: base.serviceId },
     );
     expect(after.records[0]?.last_seen.getTime()).toBeGreaterThan(
       before.records[0]?.last_seen.getTime() ?? 0,
     );
+    expect(after.records[0]?.state).toBe("degraded");
   });
 
   it("should still read a 64 KiB secret after the configured limit is lowered", async () => {

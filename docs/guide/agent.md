@@ -1,28 +1,37 @@
 # Agent
 
-::: info Current scope
-The server-side join, renewal, revocation, certificate, and data-route boundary are
-implemented. The `ov-agent` client, tmpfs delivery, and local status socket are delivered in
-a later release.
-:::
-
-The agent runs next to an application service. Its first start joins with a one-time token,
-then it authenticates with mTLS, fetches the manifest's secrets, and writes them atomically
-to a tmpfs directory through `GET /v1/data/:project/secrets/:name` on the agent listener;
-the certificate's owner project must match `:project`. It renews after two thirds of the
-certificate lifetime with a fresh key and CSR; an expired or revoked certificate makes it
-remove its files and exit.
+The `ov-agent` binary runs next to one Docker Compose service. Its first start joins with a
+one-time token, then it authenticates with mTLS, fetches only its manifest, writes files
+atomically to a tmpfs directory, refreshes on an interval, and renews its certificate before
+expiry. The application never talks to the vault.
 
 ## Modes
 
-| Mode | Use | Environment export |
-|---|---|---|
-| Sidecar | Default. One agent per Compose service. | Not possible across containers |
-| Wrapper | `ov-agent run -- <cmd>` inside the app container | Opt-in per entry |
+| Mode | Command | Use | Environment export |
+|---|---|---|---|
+| Sidecar | `ov-agent run` | Default. One agent per Compose service. | Not possible across containers |
+| Wrapper | `ov-agent run -- <cmd>` | Inside the app container for legacy apps | Opt-in per `env:` entry |
+| Once | `ov-agent run --once` | Debugging and CI | Sidecar rules |
 
-Environment variables set in one container cannot reach another. The default sidecar
-therefore delivers files only. Environment export is a compatibility mode for legacy apps
-that cannot read a file.
+Environment variables set in one container cannot reach another. The default sidecar therefore
+delivers files only. Wrapper mode is for a fully trusted application: the child runs as the
+same UID and can read the agent state directory.
+
+## Configuration
+
+| Variable | Required | Default | Notes |
+|---|---|---|---|
+| `OPENVAULT_URL` | yes | — | HTTPS origin of the agent listener; no path, query, or credentials |
+| `OPENVAULT_CA_FILE` | yes | — | PEM bundle that verifies the vault server |
+| `OPENVAULT_JOIN_TOKEN` | first start | — | One-time 43-character token; not stored |
+| `OPENVAULT_PROJECT` | yes | — | OpenVault project name |
+| `OPENVAULT_SERVICE` | yes | — | Service identity name |
+| `COMPOSE_PROJECT_NAME` | yes | — | Compose project name |
+| `OPENVAULT_MANIFEST` | no | `/etc/openvault/manifest.yaml` | Absolute manifest path |
+| `OPENVAULT_OUTPUT_DIR` | no | `/run/secrets` | Absolute output root; must equal the manifest |
+| `OPENVAULT_STATE_DIR` | no | `/var/lib/openvault` | Absolute state directory, mode `0700` |
+| `OPENVAULT_STATUS_FILE` | no | `/run/openvault/status.json` | Absolute status file |
+| `OPENVAULT_SOCKET_PATH` | no | `/run/openvault/agent.sock` | Absolute unix socket |
 
 ## Manifest
 
@@ -34,7 +43,6 @@ output_dir: /run/secrets
 entries:
   - name: db-password
     file: db_password
-    mode: "0400"
   - name: stripe-api-key
     file: stripe_key
     mode: "0400"
@@ -45,11 +53,15 @@ entries:
 
 Rules:
 
-- `output_dir` must equal the configured root.
-- `file` matches `^[A-Za-z0-9._-]+$` and cannot contain `..` or start with `/`.
-- At least one of `file` or `env` is required.
-- `env` is rejected in sidecar mode.
+- `project`, `service`, and `output_dir` must equal the environment values.
+- `refresh` is 30s–24h; the default is 300s.
+- `file` matches `^[A-Za-z0-9._-]+$`, cannot contain `..` or start with `/`.
+- `mode` is `0400`, `0440`, `0600`, or `0640`; the default is `0400`.
+- At least one of `file` or `env` is required. Both may be present in wrapper mode.
+- `env` is rejected in sidecar mode and uses a loader-safe name.
 - Optional entries may fail without failing the whole refresh.
+- The manifest is read once at startup. A change requires a restart; files that are no longer
+  targeted are removed at the next start.
 
 ## Startup and refresh
 
@@ -59,11 +71,26 @@ starting without secrets.
 
 | Result | Behavior |
 |---|---|
-| Success | Write atomically, update status and consumer `last_seen` |
+| Success | Write atomically, update status and consumer `last_seen`/`state` |
 | 5xx or network error | Keep last known good, status `degraded`, log |
-| 401/403 or TLS certificate rejection | Remove files, status `failed`, exit 1 |
+| 401/403 or TLS certificate rejection | Remove files, clear the stored identity, status `failed`, exit 1 |
 | 404 on a required entry | Remove files, status `failed`, exit 1 |
 | 404 on an optional entry | Remove that file, status `degraded`, continue |
+| Other 4xx, 3xx, or malformed response | Remove files, status `failed`, exit 1 |
+
+Every write uses a temporary file in the same directory, `fsync`, `rename`, and `chmod`.
+Startup stages all new files before renaming any of them, so the application never sees a mixed
+set.
+
+## Renewal
+
+The agent renews after two thirds of the certificate's actual lifetime with a fresh EC P-256
+key and CSR. It retries with jitter and exponential backoff, keeps the old certificate usable
+until expiry, and reuses the same pending key/CSR for the server's five-minute replay window.
+A lost response can therefore be retried without creating a second certificate. After the
+window, or after a server restart that lost the replay cache, a retry may require a new join
+token. A credential rejection clears the stored identity, so a new token can be used on the next
+start.
 
 ## Local API
 
@@ -74,20 +101,22 @@ The agent exposes a read-only unix socket at `/run/openvault/agent.sock`:
 | GET | `/v1/secrets/:name` | The last delivered value for a manifest entry |
 | GET | `/v1/status` | Status without values |
 
-It never calls the vault on demand. It cannot widen access beyond the manifest.
+It never calls the vault on demand and cannot widen access beyond the manifest.
 
-## Status
+## Status and health
 
 - File: `/run/openvault/status.json`
-- Health command: `ov-agent health`
-- The container is healthy only after the first successful fetch.
+- `ov-agent health` prints `ok`, `degraded`, or `failed` and exits 0, 1, or 2.
+- `ov-agent health --ready` exits 0 when every required entry is delivered, even if optional
+  entries are degraded. The Compose healthcheck uses this mode.
+- A status file older than three refresh intervals plus 60 seconds is treated as failed.
 
 ## Consumer metadata
 
 The agent registers its Compose project, service, hostname, and manifest hash on join and
-renew, and updates `last_seen` and `state` on each refresh. The UI and `ov access explain`
-use this for the "used by" view. The metadata is self-reported; a heartbeat is not an audit
-event.
+renew, and updates `last_seen` and `state` on every fetch plus a final aggregate heartbeat. A
+state change writes one `consumer.update` audit event; a `last_seen`-only heartbeat does not.
+The metadata is self-reported and never used for authorization.
 
 ## Next
 

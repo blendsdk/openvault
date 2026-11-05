@@ -1,5 +1,6 @@
 import {
   agentCertificateResponseSchema,
+  agentConsumerStateReportSchema,
   agentJoinRequestSchema,
   agentRenewRequestSchema,
 } from "@openvault/api-contract";
@@ -8,8 +9,14 @@ import { ApiError, BaseController } from "blendsdk/webafx";
 import type { Request, Response } from "express";
 import type { AgentJoinService } from "../agent/agent-join-service.js";
 import { requireAgent } from "../agent/agent-middleware.js";
-import { joinIpLimit, renewIpLimit, renewPrincipalLimit } from "../agent/agent-rate-limits.js";
+import {
+  consumerStateLimit,
+  joinIpLimit,
+  renewIpLimit,
+  renewPrincipalLimit,
+} from "../agent/agent-rate-limits.js";
 import type { AgentRenewService } from "../agent/agent-renew-service.js";
+import type { AgentConsumerService } from "../agent/consumer-service.js";
 import { AgentServiceError } from "../agent/errors.js";
 import { AuditUnavailableError } from "../audit/errors.js";
 import { auditRequestContext } from "../audit/http.js";
@@ -59,6 +66,19 @@ export class AgentController extends BaseController {
           const service = await this.services.get<AgentJoinService>("agentJoinService");
           const response = await execute(() => service.join(parsed.data, auditRequestContext(req)));
           this.ok(res, agentCertificateResponseSchema.parse(response));
+        }),
+      this.route()
+        .post("/consumer")
+        .middleware(consumerStateLimit())
+        .handle(async (req: Request, res: Response) => {
+          const context = requireAgent(req);
+          const parsed = agentConsumerStateReportSchema.safeParse(req.body);
+          if (!parsed.success) {
+            throw new ApiError(422, "validation_error", "Validation failed");
+          }
+          const service = await this.services.get<AgentConsumerService>("agentConsumerService");
+          await service.update(context.principalId, parsed.data.state, auditRequestContext(req));
+          this.ok(res, agentConsumerStateReportSchema.parse(parsed.data));
         }),
       this.route()
         .post("/renew")

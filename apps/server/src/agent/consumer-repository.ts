@@ -104,13 +104,60 @@ export class ConsumerRepository {
   }
 
   /**
+   * Updates the consumer heartbeat without changing metadata.
+   *
+   * @param executor - Database or transaction.
+   * @param principalId - Service principal.
+   * @param state - Allowlisted consumer state.
+   */
+  public async touchConsumer(
+    executor: QueryExecutor,
+    principalId: string,
+    state: "ok" | "degraded" | "failed",
+  ): Promise<void> {
+    await executor.executeQuery(
+      "UPDATE consumers SET last_seen = now(), state = :state WHERE principal_id = :principalId",
+      { principalId, state },
+    );
+  }
+
+  /**
+   * Updates one consumer state and returns the new row.
+   *
+   * @param executor - Transaction.
+   * @param principalId - Service principal.
+   * @param state - Allowlisted consumer state.
+   * @returns The updated row, or undefined when no consumer exists.
+   */
+  public async updateState(
+    executor: QueryExecutor,
+    principalId: string,
+    state: "ok" | "degraded" | "failed",
+  ): Promise<ConsumerRecord | undefined> {
+    const result = await executor.executeQuery<ConsumerRow>(
+      `UPDATE consumers
+          SET last_seen = now(), state = :state
+        WHERE principal_id = :principalId
+        RETURNING id, principal_id, project_id, compose_project, compose_service, hostname,
+                  manifest_hash, state, first_seen, last_seen`,
+      { principalId, state },
+    );
+    const row = result.records[0];
+    return row === undefined ? undefined : toRecord(row);
+  }
+
+  /**
    * Writes self-reported metadata and marks the consumer healthy.
    *
    * @param tx - Join or renewal transaction.
    * @param input - Server-derived ownership and reported metadata.
    * @returns The persisted row.
    */
-  public async upsert(tx: QueryExecutor, input: ConsumerUpsertInput): Promise<ConsumerRecord> {
+  public async upsert(
+    tx: QueryExecutor,
+    input: ConsumerUpsertInput,
+    options: { readonly preserveState?: boolean } = {},
+  ): Promise<ConsumerRecord> {
     const result = await tx.executeQuery<ConsumerRow>(
       `INSERT INTO consumers
          (id, principal_id, project_id, compose_project, compose_service, hostname,
@@ -124,7 +171,7 @@ export class ConsumerRepository {
          compose_service = EXCLUDED.compose_service,
          hostname = EXCLUDED.hostname,
          manifest_hash = EXCLUDED.manifest_hash,
-         state = 'ok',
+         state = CASE WHEN :preserveState THEN consumers.state ELSE 'ok' END,
          last_seen = now()
        RETURNING id, principal_id, project_id, compose_project, compose_service, hostname,
                  manifest_hash, state, first_seen, last_seen`,
@@ -136,6 +183,7 @@ export class ConsumerRepository {
         composeService: input.consumer.composeService,
         hostname: input.consumer.hostname,
         manifestHash: input.consumer.manifestHash,
+        preserveState: options.preserveState === true,
       },
     );
     const row = result.records[0];

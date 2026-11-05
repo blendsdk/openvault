@@ -18,6 +18,7 @@ import type { RouteDefinition } from "blendsdk/webafx";
 import { ApiError, BaseController } from "blendsdk/webafx";
 import type { Request, Response } from "express";
 import { requireAgent } from "../agent/agent-middleware.js";
+import type { AgentConsumerService, ConsumerState } from "../agent/consumer-service.js";
 import { AuditUnavailableError } from "../audit/errors.js";
 import { auditRequestContext } from "../audit/http.js";
 import { requirePrincipal } from "../auth/middleware.js";
@@ -79,6 +80,42 @@ function idempotencyKey(req: Request): string | undefined {
     throw new ApiError(422, "validation_error", "Validation failed");
   }
   return header;
+}
+
+/** Reads one optional agent header as a string. */
+function agentHeader(req: Request, name: string): string | undefined {
+  const value = req.headers[name];
+  if (value === undefined) {
+    return undefined;
+  }
+  if (typeof value !== "string") {
+    throw new ApiError(422, "validation_error", "Validation failed");
+  }
+  return value;
+}
+
+/** Parses the aggregate consumer state header. */
+function consumerState(req: Request): ConsumerState {
+  const value = agentHeader(req, "x-openvault-consumer-state");
+  if (value === undefined) {
+    return "ok";
+  }
+  if (value !== "ok" && value !== "degraded" && value !== "failed") {
+    throw new ApiError(422, "validation_error", "Validation failed");
+  }
+  return value;
+}
+
+/** Parses the optional-entry flag header. */
+function optionalEntry(req: Request): boolean {
+  const value = agentHeader(req, "x-openvault-entry-optional");
+  if (value === undefined) {
+    return false;
+  }
+  if (value !== "true" && value !== "false") {
+    throw new ApiError(422, "validation_error", "Validation failed");
+  }
+  return value === "true";
 }
 
 /** Resolves the actor for a data route; only the value read accepts an agent. */
@@ -148,18 +185,45 @@ export class SecretsController extends BaseController {
           if (!parsed.success) {
             throw new ApiError(422, "validation_error", "Validation failed");
           }
+          const state = actor.agentId === undefined ? undefined : consumerState(req);
+          const optional = actor.agentId === undefined ? false : optionalEntry(req);
           const service = await this.services.get<SecretService>("secretService");
-          const result = await execute(() =>
-            service.read(
+          const consumerService =
+            actor.agentId === undefined
+              ? undefined
+              : await this.services.get<AgentConsumerService>("agentConsumerService");
+          try {
+            const result = await service.read(
               actor.id,
               projectName(req),
               secretName(req),
               parsed.data,
               auditRequestContext(req),
-              actor.agentId === undefined ? {} : { agentPrincipalId: actor.agentId },
-            ),
-          );
-          this.ok(res, secretValueResponseSchema.parse(result));
+            );
+            if (actor.agentId !== undefined && consumerService !== undefined) {
+              await consumerService.update(actor.agentId, state ?? "ok", auditRequestContext(req));
+            }
+            this.ok(res, secretValueResponseSchema.parse(result));
+          } catch (error) {
+            if (
+              actor.agentId !== undefined &&
+              consumerService !== undefined &&
+              error instanceof SecretServiceError
+            ) {
+              const nextState =
+                error.statusCode === 403
+                  ? "failed"
+                  : error.statusCode === 404 || error.statusCode === 410
+                    ? optional
+                      ? "degraded"
+                      : "failed"
+                    : undefined;
+              if (nextState !== undefined) {
+                await consumerService.update(actor.agentId, nextState, auditRequestContext(req));
+              }
+            }
+            throw mapError(error);
+          }
         }),
       this.route()
         .get("/:project/secrets/:name/versions")

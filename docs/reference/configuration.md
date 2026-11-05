@@ -169,3 +169,27 @@ The admin listener is HTTPS only and uses TLS 1.2 or newer. The agent listener a
 client certificate chained to `OPENVAULT_INTERNAL_CA` on every route except
 `POST /v1/agent/join`; join is token-authenticated. The server does not own the public HSTS
 contract; Caddy sets HSTS and the public client/upstream timeouts.
+
+## Agent configuration
+
+The `ov-agent` binary reads its own environment. These variables are separate from the
+server's configuration.
+
+| Variable | Default | Required | Notes |
+|---|---|---|---|
+| `OPENVAULT_URL` | — | yes | HTTPS origin of the agent listener; no credentials, path, query, or fragment |
+| `OPENVAULT_CA_FILE` | — | yes | PEM bundle that verifies the vault server |
+| `OPENVAULT_JOIN_TOKEN` | none | first start | One-time 43-character base64url token; not stored |
+| `OPENVAULT_PROJECT` | — | yes | OpenVault project name |
+| `OPENVAULT_SERVICE` | — | yes | Service identity name |
+| `COMPOSE_PROJECT_NAME` | — | yes | Compose project name |
+| `OPENVAULT_MANIFEST` | `/etc/openvault/manifest.yaml` | no | Absolute manifest path |
+| `OPENVAULT_OUTPUT_DIR` | `/run/secrets` | no | Absolute output root; the manifest must equal it |
+| `OPENVAULT_STATE_DIR` | `/var/lib/openvault` | no | Absolute state directory; mode `0700` |
+| `OPENVAULT_STATUS_FILE` | `/run/openvault/status.json` | no | Absolute value-free status file |
+| `OPENVAULT_SOCKET_PATH` | `/run/openvault/agent.sock` | no | Absolute read-only unix socket |
+
+The manifest `project`, `service`, and `output_dir` must equal the environment. `refresh` is
+30s–24h (default 300s), and each entry has a safe `file` or `env` target plus an optional
+`mode` and `optional` flag. `ov-agent health` reads the status file; `--ready` is the Compose
+health gate and exits 0 when every required entry is delivered.

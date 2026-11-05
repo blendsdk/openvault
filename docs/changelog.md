@@ -31,9 +31,15 @@
 - Certificate expiry warnings at 30/14/7 days, durable per-threshold claims, an optional
   timestamped-HMAC webhook, and certificate expiry audit events.
 - A project list certificate count for the UI.
+- `ov-agent`: manifest-driven tmpfs delivery, mTLS join and renewal, atomic writes, refresh
+  failure handling, a read-only unix socket, a value-free status file, health/readiness exit
+  codes, `--once`, and opt-in wrapper mode.
+- Per-fetch consumer state headers and an aggregate heartbeat route; state transitions write
+  `consumer.update` audit events.
+- `POST /v1/admin/scaffold`: idempotent project/identity reuse, object-scope reader grants,
+  atomic join-token rotation, and per-service Compose and manifest output.
 
 ### Planned
 
-- `ov-agent` client with tmpfs delivery and local status socket.
-- CLI and Docker Compose scaffold.
+- `ov` CLI wrapper for the scaffold, login, and the remaining command groups.
 - Minimal web UI.

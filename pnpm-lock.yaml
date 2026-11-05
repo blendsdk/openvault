@@ -192,6 +192,34 @@ importers:
         specifier: 2.9.1
         version: 2.9.1
 
+  apps/agent:
+    dependencies:
+      '@openvault/api-contract':
+        specifier: workspace:*
+        version: link:../../packages/api-contract
+      '@peculiar/x509':
+        specifier: 3.1.0
+        version: 3.1.0(@peculiar/asn1-schema@3.0.0(asn1js@4.0.0))(asn1js@4.0.0)
+      reflect-metadata:
+        specifier: 0.2.2
+        version: 0.2.2
+      yaml:
+        specifier: 2.9.1
+        version: 2.9.1
+      zod:
+        specifier: 4.6.7
+        version: 4.6.7
+    devDependencies:
+      '@types/node':
+        specifier: 24.19.2
+        version: 24.19.2
+      typescript:
+        specifier: 7.0.2
+        version: 7.0.2
+      vitest:
+        specifier: 5.0.5
+        version: 5.0.5(@types/node@24.19.2)(jsdom@30.1.3(@noble/hashes@1.8.0))(vite@8.3.5(@types/node@24.19.2)(esbuild@0.28.2)(jiti@2.7.0)(tsx@4.23.15)(yaml@2.9.1))
+
   apps/server:
     dependencies:
       '@openvault/api-contract':

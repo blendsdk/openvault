@@ -89,12 +89,6 @@ export interface SecretServiceOptions {
   readonly now?: () => number;
 }
 
-/** Optional read behavior. */
-export interface SecretReadOptions {
-  /** Agent principal whose consumer heartbeat should be refreshed. */
-  readonly agentPrincipalId?: string;
-}
-
 /** Union returned by a create or write transaction. */
 type WriteOutcome =
   | {
@@ -535,7 +529,6 @@ export class SecretService {
     name: string,
     query: SecretReadQuery,
     context?: PolicyAuditContext,
-    options: SecretReadOptions = {},
   ): Promise<SecretValueResponse> {
     const project = await this.#activeProject(projectName);
     const secret = await this.#repository.findSecretByName(this.#database, project.id, name);
@@ -620,11 +613,6 @@ export class SecretService {
     }
     try {
       const encoded = encodeResponseValue(bytes);
-      if (options.agentPrincipalId !== undefined) {
-        await this.#repository
-          .touchConsumer(this.#database, options.agentPrincipalId)
-          .catch(() => undefined);
-      }
       const capabilities = await this.#capabilities(actorId, secret);
       return {
         id: secret.id,
