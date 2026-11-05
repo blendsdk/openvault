@@ -329,7 +329,9 @@ DELETE /v1/admin/projects/01J...
 
 Project names match `^[a-z0-9][a-z0-9-]{1,38}[a-z0-9]$`. A duplicate active name returns 409
 `project_name_conflict`. A deleted project returns 404 and hides its secrets, certificates,
-identities, and assignments. There is no project-recovery route in v0.1.
+identities, and assignments. There is no project-recovery route in v0.1. Project **list items**
+add `certificateCount`, the number of active certificates in the project; single-project
+responses keep the existing shape.
 
 ### Data plane
 
@@ -350,6 +352,7 @@ identities, and assignments. There is no project-recovery route in v0.1.
 | POST | `/v1/data/:project/certificates/generate` | `certificate.write` |
 | GET | `/v1/data/:project/certificates/:name` | `certificate.read` |
 | GET | `/v1/data/:project/certificates/:name/private-key` | `certificate.read_private` |
+| PATCH | `/v1/data/:project/certificates/:name` | `certificate.write` |
 | DELETE | `/v1/data/:project/certificates/:name` | `certificate.delete` |
 | POST | `/v1/data/:project/certificates/:name/recover` | `certificate.recover` |
 | POST | `/v1/data/:project/certificates/:name/purge` | `certificate.purge` |
@@ -399,6 +402,59 @@ replayed `Idempotency-Key` returns the original written `version`. Metadata, lis
 never contain a value. Purge returns 409 until the retention boundary passes and protection is
 off, and 503 when `OPENVAULT_PURGE_DB_URL` is not configured. The full behavior is in the
 [secrets guide](/guide/secrets).
+
+### Certificates
+
+```http
+POST /v1/data/payments/certificates/import
+{ "name": "tls-server", "certificatePem": "-----BEGIN CERTIFICATE-----...",
+  "chainPem": "-----BEGIN CERTIFICATE-----...",
+  "privateKeyPem": "-----BEGIN PRIVATE KEY-----...", "allowNotYetValid": false,
+  "tags": { "owner": "payments" } }
+-> 201 { "name": "tls-server", "subject": "CN=...", "sans": ["DNS:..."],
+          "issuer": "...", "serial": "...", "fingerprint": "<64 lowercase hex>",
+          "notBefore": "...", "notAfter": "...", "daysToExpiry": 364,
+          "chainLength": 2, "version": { "id": "01J...", ... },
+          "certificatePem": "...", "chainPem": "...", "warnings": [],
+          "capabilities": { ... } }
+
+POST /v1/data/payments/certificates/generate
+{ "name": "tls-server", "subject": "CN=payments.internal",
+  "sans": ["DNS:payments.internal"], "keyType": "ec-p256", "validityDays": 365 }
+-> 201/200 { ...metadata..., "certificatePem": "...", "chainPem": "", "warnings": [] }
+
+GET /v1/data/payments/certificates/tls-server
+-> 200 { ...metadata..., "certificatePem": "...", "chainPem": "..." }
+
+GET /v1/data/payments/certificates/tls-server/private-key
+-> 200 { "privateKeyPem": "-----BEGIN PRIVATE KEY-----...", "version": { ... },
+          "fingerprint": "...", "name": "tls-server", "capabilities": { ... } }
+
+GET /v1/data/payments/certificates?q=payments&san=DNS:payments.internal&limit=50
+-> 200 { "certificates": [ { "name": "tls-server", ... } ], "nextCursor": null }
+
+PATCH /v1/data/payments/certificates/tls-server
+{ "tags": { "owner": "payments" }, "purgeProtected": true }
+-> 200 { ... }
+
+DELETE /v1/data/payments/certificates/tls-server
+-> 204
+
+POST /v1/data/payments/certificates/tls-server/recover
+-> 200 { "status": "active", ... }
+
+POST /v1/data/payments/certificates/tls-server/purge
+-> 204
+```
+
+Import/generate are create-or-renew by name: a new name returns 201 and an active name returns
+200 with a new immutable version. `?version=<ulid>` reads a selected version; an expired current
+version returns 410 unless explicitly selected. Metadata and lists never contain a PEM body or
+private key. `certificate.read` returns the public chain; `certificate.read_private` is required
+for the private key and returns 403 for a caller with only public read. A deleted name is
+reserved until purge; pass `expectedVersionId` to reject a stale renewal. Purge requires a
+deleted certificate, passed retention, no protection, and `OPENVAULT_PURGE_DB_URL`; a deleted
+project blocks purge. The full behavior is in the [certificates guide](/guide/certificates).
 
 
 ### Audit

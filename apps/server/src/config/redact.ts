@@ -58,6 +58,8 @@ export function toRedactedConfig(config: OpenVaultConfig): RedactedOpenVaultConf
     auditRetentionDays: config.auditRetentionDays,
     joinTokenTtlMs: config.joinTokenTtlMs,
     certTtlDays: config.certTtlDays,
+    certExpiryHour: config.certExpiryHour,
+    webhookConfigured: config.certExpiryWebhookUrl !== undefined,
     sessionTtlHours: config.sessionTtlHours,
     trustProxy: config.trustProxy,
     proxyCidrs: config.proxyCidrs.map(formatCidr),

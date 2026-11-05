@@ -51,13 +51,34 @@ export async function ensurePurgerRole(
     await grant.query(`GRANT SELECT ON projects TO ${PURGER_USER}`);
     await grant.query(`GRANT SELECT, DELETE ON secrets TO ${PURGER_USER}`);
     await grant.query(`GRANT SELECT, DELETE ON secret_versions TO ${PURGER_USER}`);
-    const check = await grant.query<{ project: boolean; secrets: boolean; versions: boolean }>(
+    await grant.query(`GRANT SELECT, DELETE ON certificates TO ${PURGER_USER}`);
+    await grant.query(`GRANT SELECT, DELETE ON certificate_versions TO ${PURGER_USER}`);
+    await grant.query(`GRANT SELECT, DELETE ON certificate_expiry_notifications TO ${PURGER_USER}`);
+    const check = await grant.query<{
+      project: boolean;
+      secrets: boolean;
+      versions: boolean;
+      certificates: boolean;
+      certificateVersions: boolean;
+      notifications: boolean;
+    }>(
       `SELECT has_table_privilege('${PURGER_USER}', 'projects', 'SELECT') AS project,
               has_table_privilege('${PURGER_USER}', 'secrets', 'SELECT, DELETE') AS secrets,
-              has_table_privilege('${PURGER_USER}', 'secret_versions', 'SELECT, DELETE') AS versions`,
+              has_table_privilege('${PURGER_USER}', 'secret_versions', 'SELECT, DELETE') AS versions,
+              has_table_privilege('${PURGER_USER}', 'certificates', 'SELECT, DELETE') AS certificates,
+              has_table_privilege('${PURGER_USER}', 'certificate_versions', 'SELECT, DELETE') AS "certificateVersions",
+              has_table_privilege('${PURGER_USER}', 'certificate_expiry_notifications', 'SELECT, DELETE') AS notifications`,
     );
-    if (!check.rows[0]?.project || !check.rows[0]?.secrets || !check.rows[0]?.versions) {
-      throw new Error(`Purger grants are incomplete: ${JSON.stringify(check.rows[0])}`);
+    const grants = check.rows[0];
+    if (
+      !grants?.project ||
+      !grants.secrets ||
+      !grants.versions ||
+      !grants.certificates ||
+      !grants.certificateVersions ||
+      !grants.notifications
+    ) {
+      throw new Error(`Purger grants are incomplete: ${JSON.stringify(grants)}`);
     }
   } finally {
     await grant.end();

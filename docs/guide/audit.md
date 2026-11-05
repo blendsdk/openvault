@@ -32,6 +32,13 @@ a key wrapped by the KEK.
 GET /v1/audit/events?action=secret.read&result=deny&from=2026-10-01T00:00:00.000Z&limit=50
 ```
 
+Certificate import/generate/renew, public/private reads, delete, recovery, and purge write the
+corresponding `certificate.*` decision events. The daily expiry job writes one
+`certificate.expiry_warning` system event per delivered warning with `thresholdDays`,
+`daysToExpiry`, `version`, and `webhook` details; a failed delivery writes an `error` outcome.
+The event carries a stable audit id so a lease-reclaimed retry does not duplicate an existing
+allow.
+
 Filters are `from`, `to`, `actorId`, `action`, `objectType`, `objectId`, `result`,
 `requestId`, and `projectId`. Results are newest first. A full page returns `nextCursor`;
 pass it back as `cursor` with the same filters. `objectId` requires `objectType`.

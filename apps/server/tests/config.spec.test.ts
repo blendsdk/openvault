@@ -317,7 +317,65 @@ describe("configuration defaults", () => {
     expect(config.auditRetentionDays).toBe(180);
     expect(config.joinTokenTtlMs).toBe(15 * 60_000);
     expect(config.certTtlDays).toBe(30);
+    expect(config.certExpiryHour).toBe(3);
     expect(config.sessionTtlHours).toBe(8);
+  });
+
+  it("validates and redacts the certificate expiry webhook", () => {
+    const { env } = validFixture();
+    const config = loadConfig({
+      ...env,
+      OPENVAULT_CERT_EXPIRY_WEBHOOK_URL: "https://hooks.example.test/openvault",
+      OPENVAULT_CERT_EXPIRY_WEBHOOK_SECRET: "a".repeat(32),
+    });
+    expect(config.certExpiryWebhookUrl).toBe("https://hooks.example.test/openvault");
+    expect(config.certExpiryWebhookSecret).toBe("a".repeat(32));
+    const redacted = toRedactedConfig(config);
+    expect(redacted.certExpiryHour).toBe(3);
+    expect(redacted.webhookConfigured).toBe(true);
+    const serialized = JSON.stringify(redacted);
+    expect(serialized).not.toContain("hooks.example.test");
+    expect(serialized).not.toContain("a".repeat(32));
+    expect(
+      requireConfigError(() =>
+        loadConfig({
+          ...env,
+          OPENVAULT_CERT_EXPIRY_WEBHOOK_URL: "http://hooks.example.test/openvault",
+        }),
+      ).key,
+    ).toBe("OPENVAULT_CERT_EXPIRY_WEBHOOK_URL");
+    expect(
+      requireConfigError(() =>
+        loadConfig({
+          ...env,
+          OPENVAULT_CERT_EXPIRY_WEBHOOK_URL: "https://user:pass@hooks.example.test/x",
+        }),
+      ).key,
+    ).toBe("OPENVAULT_CERT_EXPIRY_WEBHOOK_URL");
+    expect(
+      requireConfigError(() =>
+        loadConfig({
+          ...env,
+          OPENVAULT_CERT_EXPIRY_WEBHOOK_URL: "https://169.254.169.254/latest",
+        }),
+      ).key,
+    ).toBe("OPENVAULT_CERT_EXPIRY_WEBHOOK_URL");
+    for (const url of [
+      "https://[fe80::1]/expiry",
+      "https://[::ffff:169.254.169.254]/expiry",
+      `https://hooks.example.test/${"a".repeat(2_050)}`,
+    ]) {
+      expect(
+        requireConfigError(() => loadConfig({ ...env, OPENVAULT_CERT_EXPIRY_WEBHOOK_URL: url }))
+          .key,
+      ).toBe("OPENVAULT_CERT_EXPIRY_WEBHOOK_URL");
+    }
+    expect(
+      requireConfigError(() => loadConfig({ ...env, OPENVAULT_CERT_EXPIRY_HOUR: "24" })).key,
+    ).toBe("OPENVAULT_CERT_EXPIRY_HOUR");
+    expect(
+      requireConfigError(() => loadConfig({ ...env, OPENVAULT_CERT_MAX_BYTES: "131073" })).key,
+    ).toBe("OPENVAULT_CERT_MAX_BYTES");
   });
 
   it("treats blank optional values as absent", () => {

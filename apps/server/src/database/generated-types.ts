@@ -318,6 +318,84 @@ export interface CaKeys {
 }
 
 /**
+ * @unique audit_event_id
+ * @checkContraint audit_event_id CHECK ((audit_event_id ~ '^[0-9A-HJKMNP-TV-Z]{26}$'::text))
+ * @default claimed_at to now()
+ * @default created_at to now()
+ * @checkContraint days_to_expiry CHECK (((days_to_expiry >= 0) AND (days_to_expiry <= 30)))
+ * @default id to nextval('certificate_expiry_notifications_id_seq'::regclass)
+ * @primaryKey id
+ * @unique id
+ * @default status to 'pending'::text
+ * @checkContraint status CHECK ((status = ANY (ARRAY['pending'::text, 'sent'::text])))
+ * @unique threshold_days
+ * @checkContraint threshold_days CHECK ((threshold_days = ANY (ARRAY[7, 14, 30])))
+ * @unique version_id
+ * @interface
+ */
+export interface CertificateExpiryNotifications {
+  /**
+   * @unique
+   * @checkContraint CHECK ((audit_event_id ~ '^[0-9A-HJKMNP-TV-Z]{26}$'::text))
+   * @memberOf {CertificateExpiryNotifications}
+   */
+  audit_event_id: string;
+  /**
+   * @memberOf {CertificateExpiryNotifications}
+   */
+  certificate_id: string;
+  /**
+   * @default now()
+   * @optional
+   * @memberOf {CertificateExpiryNotifications}
+   */
+  claimed_at?: Date;
+  /**
+   * @default now()
+   * @optional
+   * @memberOf {CertificateExpiryNotifications}
+   */
+  created_at?: Date;
+  /**
+   * @checkContraint CHECK (((days_to_expiry >= 0) AND (days_to_expiry <= 30)))
+   * @memberOf {CertificateExpiryNotifications}
+   */
+  days_to_expiry: number;
+  /**
+   * @default nextval('certificate_expiry_notifications_id_seq'::regclass)
+   * @primaryKey
+   * @unique
+   * @optional
+   * @memberOf {CertificateExpiryNotifications}
+   */
+  id?: string;
+  /**
+   * @optional
+   * @nullable
+   * @memberOf {CertificateExpiryNotifications}
+   */
+  sent_at?: Date | null;
+  /**
+   * @default 'pending'::text
+   * @checkContraint CHECK ((status = ANY (ARRAY['pending'::text, 'sent'::text])))
+   * @optional
+   * @memberOf {CertificateExpiryNotifications}
+   */
+  status?: string;
+  /**
+   * @unique
+   * @checkContraint CHECK ((threshold_days = ANY (ARRAY[7, 14, 30])))
+   * @memberOf {CertificateExpiryNotifications}
+   */
+  threshold_days: number;
+  /**
+   * @unique
+   * @memberOf {CertificateExpiryNotifications}
+   */
+  version_id: string;
+}
+
+/**
  * @unique certificate_id
  * @checkContraint chain_pem CHECK ((length(chain_pem) <= 131072))
  * @checkContraint ciphertext CHECK ((octet_length(ciphertext) <= 131072))

@@ -132,9 +132,12 @@ application role. Set `OPENVAULT_PURGE_DB_URL` for a login role named `openvault
 GRANT SELECT ON projects TO openvault_purger;
 GRANT SELECT, DELETE ON secrets TO openvault_purger;
 GRANT SELECT, DELETE ON secret_versions TO openvault_purger;
+GRANT SELECT, DELETE ON certificates TO openvault_purger;
+GRANT SELECT, DELETE ON certificate_versions TO openvault_purger;
+GRANT SELECT, DELETE ON certificate_expiry_notifications TO openvault_purger;
 ```
 
-Do not make the role a superuser, the table owner, or a member of either. The server verifies
+Do not make the role a superuser, a table owner, or a member of any owner role. The server verifies
 the database, session user, and role memberships on every purge. Without a valid URL, the
 server still starts and only purge returns 503. A failed purge writes an error outcome; a crash
 between the destructive delete and its outcome event leaves the deletion without evidence.

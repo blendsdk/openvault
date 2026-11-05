@@ -586,6 +586,162 @@
     },
     {
       "schema": "public",
+      "name": "certificate_expiry_notifications",
+      "columns": [
+        {
+          "name": "audit_event_id",
+          "type": "text",
+          "nullable": false
+        },
+        {
+          "name": "certificate_id",
+          "type": "text",
+          "nullable": false
+        },
+        {
+          "name": "claimed_at",
+          "type": "timestamptz",
+          "nullable": false,
+          "default": "now()"
+        },
+        {
+          "name": "created_at",
+          "type": "timestamptz",
+          "nullable": false,
+          "default": "now()"
+        },
+        {
+          "name": "days_to_expiry",
+          "type": "integer",
+          "nullable": false
+        },
+        {
+          "name": "id",
+          "type": "bigserial",
+          "nullable": false
+        },
+        {
+          "name": "sent_at",
+          "type": "timestamptz",
+          "nullable": true
+        },
+        {
+          "name": "status",
+          "type": "text",
+          "nullable": false,
+          "default": "'pending'"
+        },
+        {
+          "name": "threshold_days",
+          "type": "integer",
+          "nullable": false
+        },
+        {
+          "name": "version_id",
+          "type": "text",
+          "nullable": false
+        }
+      ],
+      "primaryKey": {
+        "kind": "primaryKey",
+        "name": "certificate_expiry_notifications_id_pkey",
+        "columns": [
+          "id"
+        ]
+      },
+      "uniqueConstraints": [
+        {
+          "kind": "unique",
+          "name": "certificate_expiry_notifications_audit_event_id_key",
+          "columns": [
+            "audit_event_id"
+          ]
+        },
+        {
+          "kind": "unique",
+          "name": "certificate_expiry_notifications_version_id_threshold_days_key",
+          "columns": [
+            "version_id",
+            "threshold_days"
+          ]
+        }
+      ],
+      "checkConstraints": [
+        {
+          "kind": "check",
+          "name": "certificate_expiry_notifications_1acb232561_check",
+          "expression": "threshold_days IN (7, 14, 30)"
+        },
+        {
+          "kind": "check",
+          "name": "certificate_expiry_notifications_202ed8bb93_check",
+          "expression": "audit_event_id ~ '^[0-9A-HJKMNP-TV-Z]{26}$'"
+        },
+        {
+          "kind": "check",
+          "name": "certificate_expiry_notifications_6d5150f441_check",
+          "expression": "status IN ('pending', 'sent')"
+        },
+        {
+          "kind": "check",
+          "name": "certificate_expiry_notifications_955967eba9_check",
+          "expression": "days_to_expiry BETWEEN 0 AND 30"
+        }
+      ],
+      "foreignKeys": [
+        {
+          "name": "certificate_expiry_notifications_certificate_id_fkey",
+          "kind": "foreignKey",
+          "columns": [
+            "certificate_id"
+          ],
+          "referencedSchema": "public",
+          "referencedTable": "certificates",
+          "referencedColumns": [
+            "id"
+          ],
+          "onUpdate": "NO ACTION",
+          "onDelete": "CASCADE"
+        },
+        {
+          "name": "certificate_expiry_notifications_certificate_id_version_id_fkey",
+          "kind": "foreignKey",
+          "columns": [
+            "certificate_id",
+            "version_id"
+          ],
+          "referencedSchema": "public",
+          "referencedTable": "certificate_versions",
+          "referencedColumns": [
+            "certificate_id",
+            "id"
+          ],
+          "onUpdate": "NO ACTION",
+          "onDelete": "CASCADE"
+        }
+      ],
+      "indexes": [
+        {
+          "name": "certificate_expiry_notifications_certificate_idx",
+          "columns": [
+            "certificate_id"
+          ],
+          "unique": false,
+          "concurrent": false
+        },
+        {
+          "name": "certificate_expiry_notifications_status_idx",
+          "columns": [
+            "status",
+            "created_at"
+          ],
+          "unique": false,
+          "concurrent": false
+        }
+      ]
+    },
+    {
+      "schema": "public",
       "name": "certificate_versions",
       "columns": [
         {
@@ -816,6 +972,14 @@
           "columns": [
             "certificate_id",
             "created_at"
+          ],
+          "unique": false,
+          "concurrent": false
+        },
+        {
+          "name": "certificate_versions_not_after_idx",
+          "columns": [
+            "not_after"
           ],
           "unique": false,
           "concurrent": false

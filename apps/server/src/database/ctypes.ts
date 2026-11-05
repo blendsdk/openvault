@@ -80,6 +80,25 @@ export const eCaKeys = {
 };
 
 /**
+ * Constant type for relation certificate_expiry_notifications
+ * @export
+ * @constant
+ */
+export const eCertificateExpiryNotifications = {
+  $TABLE: "certificate_expiry_notifications",
+  AUDIT_EVENT_ID: "audit_event_id",
+  CERTIFICATE_ID: "certificate_id",
+  CLAIMED_AT: "claimed_at",
+  CREATED_AT: "created_at",
+  DAYS_TO_EXPIRY: "days_to_expiry",
+  ID: "id",
+  SENT_AT: "sent_at",
+  STATUS: "status",
+  THRESHOLD_DAYS: "threshold_days",
+  VERSION_ID: "version_id",
+};
+
+/**
  * Constant type for relation certificate_versions
  * @export
  * @constant

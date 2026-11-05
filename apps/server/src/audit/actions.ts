@@ -84,6 +84,25 @@ const PRUNE_DETAIL_KEYS: ReadonlySet<string> = new Set([
 /** Details keys permitted on backup events. */
 const BACKUP_DETAIL_KEYS: ReadonlySet<string> = new Set(["format", "objectCount"]);
 
+/** Details keys permitted on certificate policy events. */
+const CERTIFICATE_DETAIL_KEYS: ReadonlySet<string> = new Set([
+  "reason",
+  "policyVersion",
+  "denialCount",
+  "version",
+  "mode",
+  "renewal",
+]);
+
+/** Details keys permitted on certificate expiry warnings. */
+const EXPIRY_DETAIL_KEYS: ReadonlySet<string> = new Set([
+  "thresholdDays",
+  "daysToExpiry",
+  "version",
+  "webhook",
+  "reason",
+]);
+
 /** Query filter keys accepted inside `details.filters`. */
 const FILTER_KEYS: ReadonlySet<string> = new Set([
   "from",
@@ -129,6 +148,15 @@ export function allowedDetailKeys(action: AuditAction): ReadonlySet<string> {
       return PRUNE_DETAIL_KEYS;
     case "backup.create":
       return BACKUP_DETAIL_KEYS;
+    case "certificate.write":
+    case "certificate.read":
+    case "certificate.read_private":
+    case "certificate.delete":
+    case "certificate.recover":
+    case "certificate.purge":
+      return CERTIFICATE_DETAIL_KEYS;
+    case "certificate.expiry_warning":
+      return EXPIRY_DETAIL_KEYS;
     case "kek.rotate":
       return KEK_DETAIL_KEYS;
     default:

@@ -54,6 +54,13 @@ non-ULID identifiers, and ciphertext above the caller's limit (65,536 bytes for 
 131,072 for certificates). The crypto primitive supports an authenticated empty ciphertext; the
 secret API rejects empty values before encryption.
 
+Certificate private keys are PKCS#8 DER encrypted with `objectType=certificate` and the
+certificate's project, id, and version. The public leaf and intermediate chain are stored as
+text in `chain_pem`; they are public material and are not encrypted. A certificate private-key
+read decrypts with the same 131,072-byte limit and writes an error outcome if authentication
+fails. Moving a certificate envelope into a secret row fails because the object type is part of
+both the value and DEK-wrap AAD.
+
 The v2 domain is a one-way change for this pre-release repository. Before first boot, both
 `secret_versions` and `certificate_versions` must be empty. A database with v1 rows needs a
 migration or restore plan.

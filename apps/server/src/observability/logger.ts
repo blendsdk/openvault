@@ -101,6 +101,8 @@ export const REDACT_PATHS: readonly string[] = [
   "req.body.refreshToken",
   "req.body.value",
   "req.body.privateKey",
+  "req.body.privateKeyPem",
+  "req.body.keyPem",
   "req.body.csr",
   "req.body.tokenHash",
   "req.body.wrappedKey",

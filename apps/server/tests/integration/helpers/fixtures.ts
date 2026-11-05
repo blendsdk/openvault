@@ -126,7 +126,7 @@ export async function seedBase(db: PostgreSQLDatabase): Promise<BaseFixture> {
         wrap_tag, kek_id, fingerprint, subject, issuer, serial, not_before, not_after, created_by)
      VALUES
        (:id, :certificateId, :chainPem, :ciphertext, :nonce, :tag, :wrappedDek, :wrapNonce,
-        :wrapTag, 'kek-1', 'sha256:abc', 'CN=service', 'CN=ca', '01',
+        :wrapTag, 'kek-1', :fingerprint, 'CN=service', 'CN=ca', '01',
         :notBefore, :notAfter, :createdBy)`,
     {
       id: certificateVersionId,
@@ -141,6 +141,7 @@ export async function seedBase(db: PostgreSQLDatabase): Promise<BaseFixture> {
       notBefore: "2026-01-01T00:00:00.000Z",
       notAfter: "2027-01-01T00:00:00.000Z",
       createdBy: userId,
+      fingerprint: "a".repeat(64),
     },
   );
   await db.executeQuery(

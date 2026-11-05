@@ -1,4 +1,5 @@
 import { networkInterfaces } from "node:os";
+import { newUlid } from "@openvault/core";
 import { PostgreSQLDatabase } from "blendsdk/postgresql";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { createTestApplication } from "../../src/app.js";
@@ -122,6 +123,35 @@ describe("project HTTP routes", () => {
     const deleted = await send(`/v1/admin/projects/${project.id}`, "DELETE");
     expect(deleted.status).toBe(204);
     expect((await send(`/v1/admin/projects/${project.id}`)).status).toBe(404);
+  });
+
+  it("should return the active certificate count on project list items", async () => {
+    const created = await send(
+      "/v1/admin/projects",
+      "POST",
+      JSON.stringify({ name: "http-count-project" }),
+    );
+    expect(created.status, created.body).toBe(201);
+    const projectId = (created.json as { data: { id: string } }).data.id;
+    await testDb.db.executeQuery(
+      "INSERT INTO certificates (id, project_id, name) VALUES (:id, :projectId, 'counted-1')",
+      { id: newUlid(), projectId },
+    );
+    await testDb.db.executeQuery(
+      "INSERT INTO certificates (id, project_id, name) VALUES (:id, :projectId, 'counted-2')",
+      { id: newUlid(), projectId },
+    );
+    await testDb.db.executeQuery(
+      `INSERT INTO certificates (id, project_id, name, deleted_at)
+       VALUES (:id, :projectId, 'counted-deleted', now())`,
+      { id: newUlid(), projectId },
+    );
+    const list = await send("/v1/admin/projects");
+    expect(list.status, list.body).toBe(200);
+    const item = (
+      list.json as { data: { projects: { id: string; certificateCount: number }[] } }
+    ).data.projects.find((entry) => entry.id === projectId);
+    expect(item?.certificateCount).toBe(2);
   });
 
   it("should reject a duplicate project name with 409", async () => {

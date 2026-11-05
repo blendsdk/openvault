@@ -27,4 +27,21 @@ describe("project contract internals", () => {
   it("should reject a malformed project list", () => {
     expect(projectListSchema.safeParse({ projects: [{ id: "bad" }] }).success).toBe(false);
   });
+
+  it("should require a non-negative certificate count on list items", () => {
+    const project = {
+      id: "01ARZ3NDEKTSV4RRFFQ69G5FAV",
+      name: "payments",
+      createdAt: "2026-11-04T12:00:00.000Z",
+      updatedAt: "2026-11-04T12:00:00.000Z",
+      deletedAt: null,
+    };
+    expect(
+      projectListSchema.safeParse({ projects: [{ ...project, certificateCount: 0 }] }).success,
+    ).toBe(true);
+    expect(
+      projectListSchema.safeParse({ projects: [{ ...project, certificateCount: -1 }] }).success,
+    ).toBe(false);
+    expect(projectListSchema.safeParse({ projects: [project] }).success).toBe(false);
+  });
 });

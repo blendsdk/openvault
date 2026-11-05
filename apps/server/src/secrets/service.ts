@@ -27,6 +27,8 @@ import type { PostgreSQLDatabase } from "blendsdk/postgresql";
 import type { AuditWriter } from "../audit/audit-writer.js";
 import { canonicalJson } from "../audit/canonical-json.js";
 import type { ProjectRepository } from "../projects/repository.js";
+import { VaultPurgerError } from "../purge/errors.js";
+import type { VaultPurger } from "../purge/vault-purger.js";
 import type { PolicyAuditContext } from "../rbac/audit.js";
 import { PolicyUnavailableError } from "../rbac/errors.js";
 import type { PolicyDecision, PolicyService } from "../rbac/policy-service.js";
@@ -44,7 +46,6 @@ import {
   requestHash,
   validateIdempotencyKey,
 } from "./idempotency.js";
-import type { SecretPurger } from "./purge.js";
 import type {
   ConsumerSummary,
   ListCursor,
@@ -83,7 +84,7 @@ export interface SecretServiceOptions {
   /** Soft-delete retention window in days. */
   readonly softDeleteDays: number;
   /** Dedicated purge executor, absent when purge is not configured. */
-  readonly purger?: SecretPurger;
+  readonly purger?: VaultPurger;
   /** Injectable clock in milliseconds since the Unix epoch. */
   readonly now?: () => number;
 }
@@ -179,7 +180,7 @@ export class SecretService {
   readonly #repository: SecretRepository;
   readonly #secretMaxBytes: number;
   readonly #softDeleteDays: number;
-  readonly #purger: SecretPurger | undefined;
+  readonly #purger: VaultPurger | undefined;
   readonly #now: () => number;
 
   /**
@@ -1071,7 +1072,7 @@ export class SecretService {
       throw new SecretServiceError(503, "service_unavailable", "Service unavailable");
     }
     try {
-      await purger.delete(secret.id, project.id, name);
+      await purger.deleteSecret(secret.id, project.id, name);
     } catch (error) {
       const latest = await this.#repository.findSecretById(this.#database, secret.id);
       if (latest === undefined) {
@@ -1122,17 +1123,25 @@ export class SecretService {
         );
         throw new SecretServiceError(409, "secret_retention_active", "Retention is active");
       }
-      if (error instanceof SecretServiceError && error.code === "project_not_found") {
+      if (
+        error instanceof VaultPurgerError &&
+        (error.code === "project_not_found" || error.code === "target_not_found")
+      ) {
+        const code = error.code === "project_not_found" ? "project_not_found" : "secret_not_found";
         await this.#recordError(
           actorId,
           decision,
           "secret.purge",
           project.id,
           secret.id,
-          error.code,
+          code,
           context,
         );
-        throw error;
+        throw new SecretServiceError(
+          error.code === "project_not_found" ? 404 : 404,
+          error.code === "project_not_found" ? "project_not_found" : "secret_not_found",
+          "Secret not found",
+        );
       }
       await this.#recordError(
         actorId,

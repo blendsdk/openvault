@@ -36,7 +36,9 @@ describe("project contracts", () => {
       updatedAt: TIMESTAMP,
       deletedAt: null,
     });
-    expect(projectListSchema.parse({ projects: [project] }).projects).toHaveLength(1);
+    expect(
+      projectListSchema.parse({ projects: [{ ...project, certificateCount: 0 }] }).projects,
+    ).toHaveLength(1);
   });
 
   it("should reject a project summary with a value field", () => {

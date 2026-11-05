@@ -6,11 +6,17 @@ import { agentAuthMiddleware } from "./agent/agent-middleware.js";
 import type { AgentProjectResolver } from "./agent/project-resolver.js";
 import { createAuditCore, createAuditRuntime } from "./audit/runtime.js";
 import { createAuthPlugin } from "./auth/plugin.js";
+import { CertificateExpiryRepository } from "./certificates/expiry/repository.js";
+import { CertificateExpiryScheduler } from "./certificates/expiry/scheduler.js";
+import { CertificateExpiryService } from "./certificates/expiry/service.js";
+import { CertificateExpiryWebhook } from "./certificates/expiry/webhook.js";
+import { createCertificateRuntime } from "./certificates/runtime.js";
 import type { OpenVaultConfig } from "./config/index.js";
 import { AgentController } from "./controllers/agent.js";
 import { AccessExplainController, AssignmentsController } from "./controllers/assignments.js";
 import { AuditController } from "./controllers/audit.js";
 import { AuthController } from "./controllers/auth.js";
+import { CertificatesController } from "./controllers/certificates.js";
 import { CliAuthController } from "./controllers/cli-auth.js";
 import { IdentityController } from "./controllers/identity.js";
 import { MetaController } from "./controllers/meta.js";
@@ -22,9 +28,9 @@ import { createIdentityRuntime } from "./identity/identity-runtime.js";
 import { createLoggerProvider } from "./observability/logger.js";
 import { ProjectRepository } from "./projects/repository.js";
 import { ProjectService } from "./projects/service.js";
+import { VaultPurger } from "./purge/vault-purger.js";
 import { createPolicyRuntime } from "./rbac/runtime.js";
 import { createProductionProbes, ReadinessService } from "./readiness/service.js";
-import { SecretPurger } from "./secrets/purge.js";
 import { createSecretRuntime } from "./secrets/runtime.js";
 import { KeyringProvider } from "./security/keyring.js";
 import { installPreStack, type PreStackOptions } from "./transport/pre-stack.js";
@@ -104,7 +110,7 @@ export function createApplication(
     policy: policyRuntime.service,
     audit: auditRuntime.writer,
   });
-  const secretPurger = new SecretPurger({
+  const vaultPurger = new VaultPurger({
     ...(config.purgeDatabaseUrl === undefined ? {} : { url: config.purgeDatabaseUrl }),
     appDatabase: config.database.database ?? "",
   });
@@ -116,7 +122,40 @@ export function createApplication(
     projectRepository,
     secretMaxBytes: config.secretMaxBytes,
     softDeleteDays: config.softDeleteDays,
-    purger: secretPurger,
+    purger: vaultPurger,
+  });
+
+  const certificateRuntime = createCertificateRuntime({
+    database: dependencies.database,
+    keyring: dependencies.keyring,
+    policy: policyRuntime.service,
+    audit: auditRuntime.writer,
+    projectRepository,
+    certMaxBytes: config.certMaxBytes,
+    softDeleteDays: config.softDeleteDays,
+    purger: vaultPurger,
+  });
+
+  const certificateExpiryWebhook =
+    config.certExpiryWebhookUrl === undefined
+      ? undefined
+      : new CertificateExpiryWebhook({
+          url: new URL(config.certExpiryWebhookUrl),
+          ...(config.certExpiryWebhookSecret === undefined
+            ? {}
+            : { secret: config.certExpiryWebhookSecret }),
+        });
+  const certificateExpiryService = new CertificateExpiryService({
+    database: dependencies.database,
+    repository: new CertificateExpiryRepository(),
+    ...(certificateExpiryWebhook === undefined ? {} : { webhook: certificateExpiryWebhook }),
+    audit: auditRuntime.writer,
+    logger: provider,
+  });
+  const certificateExpiryScheduler = new CertificateExpiryScheduler({
+    service: certificateExpiryService,
+    hour: config.certExpiryHour,
+    logger: provider,
   });
   const identityRuntime =
     dependencies.agentRuntime?.identityRuntime ??
@@ -241,12 +280,47 @@ export function createApplication(
     factory: () => secretRuntime.rateLimits,
   });
   app.registerService({
-    name: "secretPurger",
+    name: "vaultPurger",
     type: "singleton",
-    factory: () => secretPurger,
+    factory: () => vaultPurger,
     dispose: async (value: unknown) => {
-      if (value instanceof SecretPurger) {
+      if (value instanceof VaultPurger) {
         await value.close();
+      }
+    },
+  });
+  app.registerService({
+    name: "certificateRepository",
+    type: "singleton",
+    factory: () => certificateRuntime.repository,
+  });
+  app.registerService({
+    name: "certificateService",
+    type: "singleton",
+    factory: () => certificateRuntime.service,
+  });
+  app.registerService({
+    name: "certificateLifecycle",
+    type: "singleton",
+    factory: () => certificateRuntime.lifecycle,
+  });
+  app.registerService({
+    name: "certificateRateLimits",
+    type: "singleton",
+    factory: () => certificateRuntime.rateLimits,
+  });
+  app.registerService({
+    name: "certificateExpiryService",
+    type: "singleton",
+    factory: () => certificateExpiryService,
+  });
+  app.registerService({
+    name: "certificateExpiryScheduler",
+    type: "singleton",
+    factory: () => certificateExpiryScheduler,
+    dispose: async (value: unknown) => {
+      if (value instanceof CertificateExpiryScheduler) {
+        await value.stop();
       }
     },
   });
@@ -352,6 +426,7 @@ export function createApplication(
   app.registerController("/v1/auth", OidcController);
   app.registerController("/v1/admin/projects", ProjectsController);
   app.registerController("/v1/data", SecretsController);
+  app.registerController("/v1/data", CertificatesController);
   app.registerController("/v1/admin/identities", IdentityController);
   app.registerController("/v1/admin/assignments", AssignmentsController);
   app.registerController("/v1/admin/access-explain", AccessExplainController);
@@ -360,6 +435,10 @@ export function createApplication(
     app.registerController("/v1/agent", AgentController);
   }
   app.registerController("/v1/meta", MetaController);
+
+  if (dependencies.disableBackgroundJobs !== true) {
+    void certificateExpiryScheduler.start();
+  }
   app.use(createLoggerPlugin(provider));
 
   return app;
@@ -394,6 +473,7 @@ export async function createTestApplication(
     config,
     {
       ...dependencies,
+      disableBackgroundJobs: true,
       agentOverrides: { ...dependencies.agentOverrides, authenticator, projectResolver },
     },
     { testListener: "admin" },

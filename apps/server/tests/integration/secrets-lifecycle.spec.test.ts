@@ -4,10 +4,10 @@ import { AuditWriter } from "../../src/audit/audit-writer.js";
 import { PersistentPolicyAudit } from "../../src/audit/policy-audit.js";
 import { createAuditCore } from "../../src/audit/runtime.js";
 import { ProjectRepository } from "../../src/projects/repository.js";
+import { VaultPurger } from "../../src/purge/vault-purger.js";
 import { PolicyUnavailableError } from "../../src/rbac/errors.js";
 import { PolicyRepository } from "../../src/rbac/policy-repository.js";
 import { PolicyService } from "../../src/rbac/policy-service.js";
-import { SecretPurger } from "../../src/secrets/purge.js";
 import { SecretRepository } from "../../src/secrets/repository.js";
 import { SecretService } from "../../src/secrets/service.js";
 import { KeyringProvider } from "../../src/security/keyring.js";
@@ -23,7 +23,7 @@ let actors: AuditActors;
 let environment: ReturnType<typeof createServerEnvironment>;
 let keyring: KeyringProvider;
 let secrets: SecretService;
-let purger: SecretPurger | undefined;
+let purger: VaultPurger | undefined;
 let currentTime = Date.parse("2026-11-04T12:00:00.000Z");
 
 const clock = (): number => currentTime;
@@ -71,7 +71,7 @@ beforeAll(async () => {
   purger =
     purgeUrl === undefined
       ? undefined
-      : new SecretPurger({ url: purgeUrl, appDatabase: testDb.name });
+      : new VaultPurger({ url: purgeUrl, appDatabase: testDb.name });
   secrets = new SecretService({
     database: testDb.db,
     keyring,
@@ -255,7 +255,7 @@ describe("secret lifecycle", () => {
       code: "service_unavailable",
     });
 
-    const wrong = new SecretPurger({
+    const wrong = new VaultPurger({
       url: testDb.url,
       appDatabase: testDb.name,
     });

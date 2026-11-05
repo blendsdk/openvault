@@ -104,21 +104,21 @@ describe("codegen migration integration", () => {
     await testDb.cleanup();
   });
 
-  it("should apply all baseline, manual, authentication, identity, and policy migrations", async () => {
+  it("should apply all baseline, manual, authentication, identity, policy, and certificate migrations", async () => {
     const result = await applyMigrations(testDb);
 
     expect(result.status).toBe("UP_TO_DATE");
-    expect(result.migrations).toHaveLength(8);
+    expect(result.migrations).toHaveLength(9);
     const tables = await testDb.db.executeQuery<{ count: number }>(
       `SELECT count(*)::int AS count
          FROM information_schema.tables
         WHERE table_schema = 'public'`,
     );
-    expect(tables.records[0]?.count).toBe(22);
+    expect(tables.records[0]?.count).toBe(23);
     const ledger = await testDb.db.executeQuery<{ count: number }>(
       "SELECT count(*)::int AS count FROM blendsdk_migrations",
     );
-    expect(ledger.records[0]?.count).toBe(8);
+    expect(ledger.records[0]?.count).toBe(9);
     const org = await testDb.db.executeQuery<{ id: number; name: string }>(
       "SELECT id, name FROM org",
     );
@@ -133,7 +133,7 @@ describe("codegen migration integration", () => {
     const ledger = await testDb.db.executeQuery<{ count: number }>(
       "SELECT count(*)::int AS count FROM blendsdk_migrations",
     );
-    expect(ledger.records[0]?.count).toBe(8);
+    expect(ledger.records[0]?.count).toBe(9);
   });
 
   it("should report status and validate the applied history", async () => {
@@ -160,7 +160,7 @@ describe("codegen migration integration", () => {
     );
 
     expect(result.status).toBe("PENDING");
-    expect(result.migrations).toHaveLength(8);
+    expect(result.migrations).toHaveLength(9);
     expect(await tableExists(testDb, "org")).toBe(false);
     expect(await tableExists(testDb, "blendsdk_migrations")).toBe(false);
   });
