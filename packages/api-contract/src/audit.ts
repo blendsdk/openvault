@@ -16,6 +16,7 @@ export const BUSINESS_AUDIT_ACTIONS = [
   "audit.export",
   "audit.prune",
   "backup.create",
+  "backup.restore",
   "certificate.expiry_warning",
 ] as const;
 

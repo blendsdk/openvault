@@ -2,8 +2,8 @@
 
 > **Document**: 99-execution-plan.md
 > **Parent**: [Index](00-index.md)
-> **Last Updated**: 2026-11-05 18:10
-> **Progress**: 92/92 tasks (100%)
+> **Last Updated**: 2026-11-06 10:00
+> **Progress**: 104/104 tasks (100%)
 > **CodeOps Artifact Schema**: 1
 
 ## Overview
@@ -27,8 +27,9 @@ full gate.
 | 3 | Certificate, identity, role, access, and audit commands | 15 |
 | 4 | Scaffold, run, init, doctor, completion, deferred commands | 25 |
 | 5 | Documentation, release verification, review, merge | 18 |
+| 6 | Backup, restore, and KEK rotation operations | 12 |
 
-**Total: 92 tasks across 5 phases**
+**Total: 104 tasks across 6 phases**
 
 > **⚠️ EXECUTION RULE — APPLIES TO EVERY AGENT EXECUTING THIS PLAN:**
 >
@@ -415,9 +416,12 @@ full gate.
   `credentials.impl.test.ts`, `transport.spec.test.ts`, `commands.spec.test.ts`,
   `run-manifest.spec.test.ts`, `errors.spec.test.ts`, and the database-backed
   `integration/init.spec.test.ts`. Coverage is equivalent or broader than the original file list.
-- **RD-13 boundary.** `ov backup`, `ov restore`, and `ov kek rotate` are registered and
-  safety-gated but return `not_implemented`; this is the named RD-13 deferral in
-  [01-requirements.md](01-requirements.md) §Acceptance Exception.
+- **RD-13 boundary.** `ov backup`, `ov restore`, and `ov kek rotate` are implemented through
+  `apps/server/src/ops`. The remaining RD-13 program (secret/certificate rotation workflows,
+  Compose hardening, least-privilege role provisioning, release engineering) stays deferred.
+- **Operations format.** The v0.1 backup is an age-encrypted logical JSON dump. Restore and
+  rotation require a table-owning role and run during a maintenance window; both limits are
+  documented in `docs/security/limitations.md`.
 - **Credential lock.** Stale cleanup uses a `credentials.lock.reclaim` directory guard and
   re-checks the lock while holding it; a live lock is never renamed or unlinked. A crashed
   reclaim guard is a manual cleanup named in the error.
@@ -431,8 +435,48 @@ full gate.
   change that leaves the metadata table untouched is caught by the representative real-server
   command tests.
 - **Verification evidence.** `pnpm verify` passes; PostgreSQL 16 and 17 integration suites each
-  pass 688/688; `pnpm db:types:check`, `pnpm changeset status`, `pnpm audit:prod`, and the docs
+  pass 693/693; `pnpm db:types:check`, `pnpm changeset status`, `pnpm audit:prod`, and the docs
   build pass.
+
+---
+
+## Phase 6: Backup, Restore, and KEK Rotation
+
+> **Reasoning**: high — encrypted archives, destructive restore, and key rewrap.
+
+### Step 6.1: Operations Foundation
+
+- [x] 6.1.1 Add `apps/server/src/ops/{errors,files,archive,config,audit}.ts` with age encryption, checksum manifests, private atomic files, redacted config, and operations audit
+- [x] 6.1.2 Add the logical database dump/restore helpers with trigger handling, seed-table awareness, sequence reset, and JSONB array revival
+- [x] 6.1.3 Export `@openvault/server/ops` and add the `backup.restore` audit action to the contract and action allowlist
+
+**Verify**: `pnpm --filter @openvault/server typecheck`
+
+### Step 6.2: Backup, Restore, and Rotation
+
+- [x] 6.2.1 Implement `runBackup` with database dump, keyring/CA/config/checkpoints, age passphrase encryption, `0600` output, and `backup.create`
+- [x] 6.2.2 Implement `runRestore` with checksum/CA verification, migrations, owner-role trigger disable, non-empty refusal, keyring/CA materialization, audit/secret/CA verification, and `backup.restore`
+- [x] 6.2.3 Implement `runKekRotate` with dry-run counts, new-key publication, trigger-disabled rewrap of secret/cert/audit/CA/JWT keys, zero-old-key verification, old-key removal, and `kek.rotate` events
+
+**Verify**: `pnpm --filter @openvault/server test:integration -- ops.spec`
+
+### Step 6.3: CLI Wiring
+
+- [x] 6.3.1 Replace the `backup` stub with option/env/passphrase mapping and `runBackup`
+- [x] 6.3.2 Replace the `restore` stub with confirmation, owner URL, passphrase, `--force`, and `runRestore`
+- [x] 6.3.3 Replace the `kek rotate` stub with confirmation, dry-run, keyring env, and `runKekRotate`
+- [x] 6.3.4 Remove the `[RD-13]` root-help marker and update command help
+
+**Verify**: `pnpm --filter @openvault/cli test`
+
+### Step 6.4: Tests, Documentation, and Gates
+
+- [x] 6.4.1 Add injected CLI mapping tests for backup/restore/rotate confirmation and options
+- [x] 6.4.2 Add `apps/server/tests/integration/ops.spec.test.ts` for archive verification, restore, corruption, non-empty targets, and KEK rewrap
+- [x] 6.4.3 Update CLI/configuration/security/changelog/changeset/architecture docs and remove the deferral language from the plan and roadmap
+- [x] 6.4.4 Run `pnpm verify`, `pnpm db:types:check`, `pnpm changeset status`, `pnpm audit:prod`, docs build, and PostgreSQL 16/17 integration
+
+**Verify**: full release gate
 
 ---
 

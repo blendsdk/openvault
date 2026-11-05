@@ -52,8 +52,8 @@ These are accepted for v0.1. They are documented so reviewers do not mistake the
 21. **Signing-key cache freshness.** A process refreshes the current/previous signing-key
     snapshot when it is older than 30 seconds. A rotation in another process is observed within
     that bound; a due previous key is rejected at the overlap boundary even while the cached
-    snapshot still lists it. There is no operator-facing signing-key rotation command in this
-    release; KEK re-wrap and operational rotation are planned for a later release.
+    snapshot still lists it. There is no operator-facing JWT signing-key rotation command in
+    this release. KEK re-wrap is provided separately by `ov kek rotate`.
 22. **CLI refresh counters.** Refresh IP and family buckets are in memory. A restart clears
     them, and a multi-instance deployment does not share them.
 23. **Agent join and renewal counters.** Join IP and renewal principal/IP buckets are in
@@ -140,25 +140,36 @@ These are accepted for v0.1. They are documented so reviewers do not mistake the
     `credential_store_unsupported` on native Windows because Node cannot enforce an
     owner-only ACL without an external, untested command. WSL uses the POSIX path with
     `0700`/`0600` checks.
-47. **Deferred CLI operations.** `ov backup`, `ov restore`, and `ov kek rotate` are registered
-    and safety-gated, but the archive, restore, and KEK-rewrap operations belong to the backup
-    and rotation release. They exit 1 with `not_implemented` and are not claimed as delivered.
-48. **Bootstrap credential rotation.** The v0.1 bootstrap administrator is created with
+47. **Logical backup format.** The v0.1 backup uses a portable logical JSON row dump rather
+    than `pg_dump` custom format. This avoids a host `pg_dump` dependency; a future release can
+    add a native dump format. The archive is still age-encrypted and checksum-verified.
+48. **Restore ownership.** Restore and KEK rotation disable immutability triggers inside a
+    transaction. They require an owner/migrator role; the application role fails with
+    `restore_requires_owner` or `kek_rotation_requires_owner`.
+49. **Rotation maintenance window.** A running server holds the old keyring in memory. Stop
+    the server before `ov kek rotate`; otherwise a late write can use the old `kek_id` after
+    the verification step. The old key is removed only after the CLI's own count check.
+50. **Bootstrap credential rotation.** The v0.1 bootstrap administrator is created with
     `must_change=false` because the CLI has no password-change route and the web UI is not yet
     available. The generated password is strong random material in a one-time `0600` file; the
     operator must remove that file after first use. Revisit when a CLI password-change route or
     the web UI lands.
-49. **Generated contract schema source.** `pnpm api:check` detects route and artifact drift
+51. **Generated contract schema source.** `pnpm api:check` detects route and artifact drift
     against the route metadata table. A controller schema change that leaves the table untouched
     is caught by the representative command end-to-end tests, not by `api:check` alone.
-50. **Proxy and internal CA separation.** `ov login` and `ov doctor` trust the proxy's public
+52. **Proxy and internal CA separation.** `ov login` and `ov doctor` trust the proxy's public
     root CA; the OpenVault internal CA signs the agent listener and the proxy-to-server
     upstream. Operators must keep the two files distinct. Using the wrong file produces a
     clear TLS verification failure, never a silent downgrade.
-51. **CLI run manifest.** `ov run` uses a CLI-specific manifest profile rather than the agent
+53. **CLI run manifest.** `ov run` uses a CLI-specific manifest profile rather than the agent
     manifest verbatim. It shares the entry grammar and safety bounds but omits agent-only
     fields such as `service`, `refresh`, and `output_dir`.
-52. **Credential file at rest.** CLI tokens are stored in a `0600` JSON file until logout or
+54. **Credential file at rest.** CLI tokens are stored in a `0600` JSON file until logout or
     expiry. Anyone who can read the file as the current user can use the session; the lock and
     permission checks protect against other users and concurrent processes, not a compromised
     account.
+55. **Restore verification window.** `ov restore` commits the restored rows and then verifies the
+    audit chain and sample secrets/CA. A failure in that post-commit verification leaves the
+    restored rows for inspection; the command reports the failure rather than silently rolling
+    back. If publishing the staged keyring/CA fails after commit, the staged files remain for
+    manual recovery. Run restore only during a maintenance window with the server stopped.

@@ -3,7 +3,7 @@
 > **Document**: 05-findings.md
 > **Parent**: [Index](00-index.md)
 > **Status**: Closed — no open critical or major finding
-> **Last Updated**: 2026-11-05 18:10
+> **Last Updated**: 2026-11-06 10:00
 > **CodeOps Artifact Schema**: 1
 
 ## Purpose
@@ -72,12 +72,47 @@ The executing agent ran the full verification and both PostgreSQL suites.
 | NEW-02 | Minor | `--replace-ca-public` could not repair a wrong-mode CA file | Replace skips the read when explicitly requested; symlinks/directories still fail | Resolved |
 | NEW-03 | Minor | Keyring was written in place, so a crash could leave a partial file | Temp file + `fsync` + hard-link publication; final path is complete or absent | Resolved |
 
+## Operations Findings
+
+The user review of PR #29 rejected the self-authored backup/restore/KEK deferral. The three
+operations were implemented and reviewed again. The table records the defects found while
+making the operations safe.
+
+| ID | Severity | Finding | Ruling | Status |
+|---|---|---|---|---|
+| OPS-01 | Major | Version immutability triggers rejected KEK rewrap updates | Rotation disables the key-table triggers for the transaction as a table-owning role; rollback restores them | Resolved |
+| OPS-02 | Major | Append-only triggers rejected restore `TRUNCATE` | Restore disables all triggers before truncation, restores rows, then re-enables them in the same transaction | Resolved |
+| OPS-03 | Major | Migration seed rows made a fresh target look non-empty | `org` and `policy_state` are seed tables and do not count as user data; they are still replaced by the dump | Resolved |
+| OPS-04 | Major | JSONB arrays were sent as PostgreSQL array literals | JSON array values are serialized as JSON text before parameter binding | Resolved |
+| OPS-05 | Major | Restore/rotation as the app role cannot own or unlock tables | Both commands fail with `restore_requires_owner`/`kek_rotation_requires_owner`; docs require the owner/migrator URL | Resolved |
+| OPS-06 | Major | A running server can write an old-`kek_id` row after rotation verification | Documented maintenance window: stop the server before rotation. The CLI removes the old key only after its own zero-row check | Accepted residual (documented) |
+| OPS-07 | Minor | The archive uses a logical JSON dump, not `pg_dump` custom format | Accepted for v0.1 to avoid a host `pg_dump` dependency; age encryption and checksums remain | Accepted residual (documented) |
+| OPS-08 | Minor | Restore does not verify a pre-backup agent certificate because the certificate PEM is not stored | The CA key probe and `workload_certs` metadata remain; the full agent-certificate drill belongs to RD-13/RD-14 | Accepted residual (documented) |
+
+| OPS-09 | Major | Backup read every table in autocommit and re-read the keyring after the dump | One repeatable-read snapshot; keyring bytes are read once and compared after the dump; the archive, audit event, and manifest use the same bytes | Resolved |
+| OPS-10 | Major | `DISABLE TRIGGER ALL` required superuser | Restore and rotation use `DISABLE TRIGGER USER`; restore inserts in FK-safe order with cyclic current-version columns inserted NULL and updated after versions; a non-superuser owner integration test passes | Resolved |
+| OPS-11 | Critical | Restore could delete data in target tables absent from the archive without `--force` | The non-empty preflight enumerates every target data table; absent tables with rows are refused unless `--force`; forced restore truncates all target tables | Resolved |
+| OPS-12 | Major | The archive keyring was syntax-checked but not used before the destructive restore | Preflight unwraps the current CA scalar, an audit key, and one current secret with the archive keyring before any target change | Resolved |
+| OPS-13 | Major | Restore and delete could target different databases | `OPENVAULT_RESTORE_DB_URL` and `OPENVAULT_DB_URL` must resolve to the same host/port/database; both are validated before any change | Resolved |
+| OPS-14 | Major | Database committed before keyring/CA files were written; rollback could leave an incompatible old keyring | Keyring/CA are staged in their target directories before restore and published only after commit; migration/restore failures remove the staging files | Resolved |
+| OPS-15 | Major | Secret verification used a global `LIMIT 100` | `DISTINCT ON (p.id)` verifies one current secret for every project | Resolved |
+| OPS-16 | Major | Row-column consistency checked only by key count | Every row must have the same sorted column set; empty-object rows are rejected | Resolved |
+| OPS-17 | Major | Concurrent rotations could choose the same new ID or lose a key | Rotation holds a keyring-directory lock; the new ID is chosen from the union of keyring and database IDs; a missing referenced KEK fails before change; the zero-old-key check covers every key table | Resolved |
+| OPS-18 | Major | CLI collapsed every operations failure to `internal_error` or a TLS/file code | `asCliError` preserves `OpsError` codes and exit codes; tests cover checksum mismatch and configuration errors | Resolved |
+| OPS-19 | Minor | Short writes and missing directory fsync | Atomic writer loops until every byte is written and fsyncs the parent directory after rename | Resolved |
+| OPS-20 | Minor | Restore did not publish the proxy CA directory | `OPENVAULT_CA_PUBLIC_DIR`/`--ca-public-dir` is staged and published with the internal CA; docs require TLS re-provisioning if the CA changed | Resolved |
+
+| OPS-21 | Major | Service principals failed restore because `owner_project_id` was treated as a deferred cyclic column | `principals` is inserted after `projects` with `owner_project_id` intact; consumers and join tokens follow. A restore fixture with a service principal, consumer, and join token passes | Resolved |
+| OPS-22 | Major | Triggers were re-enabled and sequences repaired after commit, so a crash could leave protections off or sequences at 1 | Trigger enable and transactional `ALTER SEQUENCE ... RESTART WITH` now run inside the restore transaction before `COMMIT`; a trigger-state assertion passes | Resolved |
+| OPS-23 | Major | Rotation still used `DISABLE TRIGGER ALL`, so a non-superuser owner could not rotate | Rotation uses `DISABLE TRIGGER USER`; the non-superuser owner test restores and rotates successfully | Resolved |
+| OPS-24 | Minor | A refused non-empty restore left staged keyring/CA files | The non-empty preflight runs before staging; the refusal test asserts no `.keyring.restore-*` files remain | Resolved |
+
 ## Accepted Residuals
 
 | ID | Residual | Reason | Documentation |
 |---|---|---|---|
 | RR-01 | Native Windows credential store fails closed | Node cannot enforce an owner-only ACL without an untested external command | `docs/security/limitations.md` |
-| RR-02 | Backup/restore/KEK rotate are gated on RD-13 | Their archive, restore, and rewrap operations are owned by RD-13 | `docs/guide/cli.md`, roadmap |
+| RR-02 | The remaining RD-13 program is deferred | Secret/certificate rotation workflows, Compose hardening, role provisioning, and release engineering remain RD-13 work | `docs/guide/cli.md`, roadmap |
 | RR-03 | Bootstrap password is not force-changed | No CLI password-change route and no web UI yet; one-time `0600` file must be deleted | `docs/security/limitations.md`, install guide |
 | RR-04 | `api:check` does not detect a controller schema change alone | The metadata table is the schema source; representative E2E commands catch drift | `docs/architecture/overview.md`, API reference |
 | RR-05 | Scaffold serialization is in-process | RD-10 single-node decision | RD-10 ledger |
@@ -85,6 +120,9 @@ The executing agent ran the full verification and both PostgreSQL suites.
 | RR-07 | `ov run` uses a CLI-specific manifest | Avoids a service identity and join token; entry grammar and bounds match the agent | `docs/guide/cli.md` |
 | RR-08 | A crashed reclaim guard needs manual cleanup | The error names `credentials.lock.reclaim`; this is safer than moving a possibly live lock | CLI reference / this ledger |
 | RR-09 | Init file lock is local; cross-host serialization relies on the database advisory lock | The reference deployment is single-host; the advisory lock covers shared databases | Init module |
+| RR-10 | Restore verifies the audit chain after the database commit | The archive keyring/CA/secret preflight runs before the target change; a post-commit chain failure leaves restored rows for inspection and reports failure | `docs/security/limitations.md` |
+| RR-11 | Restore non-empty preflight is not serialized against a live writer | Restore is documented as a maintenance-window operation with the server stopped; a live writer could race the count/truncate boundary | `docs/security/limitations.md`, backup/restore guide |
+| RR-12 | Some restore failure paths cannot audit because no usable restored writer exists | Verification failures audit through the restored database; migration/restore/publish failures are reported to the operator without mutating an empty target solely to write an event | Findings ledger |
 
 ## Verification Evidence
 
@@ -97,9 +135,10 @@ The executing agent ran the full verification and both PostgreSQL suites.
 | `pnpm changeset status` | Passed; five packages to bump | 2026-11-05 |
 | `pnpm audit:prod` | No known vulnerabilities | 2026-11-05 |
 | Docs build | Passed | 2026-11-05 |
-| Integration, PostgreSQL 16 | 688/688 tests | 2026-11-05 |
-| Integration, PostgreSQL 17 | 688/688 tests | 2026-11-05 |
-| CLI unit tests | 82/82 tests | 2026-11-05 |
-| Init integration tests | 9/9 tests | 2026-11-05 |
+| Integration, PostgreSQL 16 | 693/693 tests | 2026-11-06 |
+| Integration, PostgreSQL 17 | 693/693 tests | 2026-11-06 |
+| CLI unit tests | 84/84 tests | 2026-11-06 |
+| Init integration tests | 9/9 tests | 2026-11-06 |
+| Operations integration tests | 5/5 tests | 2026-11-06 |
 | Correctness review | No open critical/major finding | 2026-11-05 |
 | Security/concurrency review | No open critical/major finding | 2026-11-05 |

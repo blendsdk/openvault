@@ -23,6 +23,7 @@ endpoint. There is no separate UI server and no Redis in v0.1.
 | `apps/web` | React 19 + Fluent UI v9 UI |
 | `apps/agent` | Per-service sidecar and wrapper modes |
 | `apps/cli` | `ov` command, credential store, HTTPS adapter, generated typed client |
+| `apps/server/ops` | Encrypted backup, verified restore, and KEK rewrap primitives |
 | `packages/core` | Domain types, envelope encryption, policy primitives |
 | `packages/api-contract` | Shared Zod schemas and the committed OpenAPI document |
 | PostgreSQL | Metadata, ciphertext, policy, audit chain |

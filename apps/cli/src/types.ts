@@ -45,6 +45,18 @@ export interface CliRuntime {
   readonly runInit?: (
     options: import("@openvault/server/init").InitOptions,
   ) => Promise<import("@openvault/server/init").InitResult>;
+  /** Injected backup function for tests. */
+  readonly runBackup?: (
+    options: import("@openvault/server/ops").BackupOptions,
+  ) => Promise<import("@openvault/server/ops").BackupResult>;
+  /** Injected restore function for tests. */
+  readonly runRestore?: (
+    options: import("@openvault/server/ops").RestoreOptions,
+  ) => Promise<import("@openvault/server/ops").RestoreResult>;
+  /** Injected KEK rotation function for tests. */
+  readonly runKekRotate?: (
+    options: import("@openvault/server/ops").KekRotateOptions,
+  ) => Promise<import("@openvault/server/ops").KekRotateResult>;
 }
 
 /** One command group. */

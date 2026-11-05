@@ -198,7 +198,7 @@
 | ST-113 | Init generated password | One-time file `0600`; password absent from stdout/stderr; `must_change` true | RD-11 acceptance 12, AR-34 |
 | ST-114 | Init operator password file | Uses the value; `must_change` false; no output copy | AR-34 |
 | ST-115 | Init CA public paths | Writes both `OPENVAULT_INTERNAL_CA` and `OPENVAULT_CA_PUBLIC_DIR/ca.pem` when set | AR-36 |
-| ST-116 | `ov backup`, `ov restore`, `ov kek rotate` | Parse, prompt as applicable, then `not_implemented` exit 1; root help marks `[RD-13]`; the final report states the named deferral | AR-2 |
+| ST-116 | `ov backup`, `ov restore`, `ov kek rotate` | Create an encrypted archive, restore with confirmation, and rotate the KEK; no `not_implemented` path remains | AR-2, AR-61–AR-63 |
 | ST-117 | `ov doctor` ready/credentials/clock | One line per check; exit 1 if any fails; JSON shape | AR-26 |
 | ST-118 | `ov completion bash/zsh/fish` | Static script contains every group; unknown shell exit 2 | AR-27 |
 | ST-119 | `pnpm api:check` clean | Exit 0 | RD-11 acceptance 10 |
@@ -222,6 +222,21 @@
 | ST-139 | Secret metadata PATCH failure after value write | Value remains; metadata error reported; no rollback claim | AR-48 |
 | ST-140 | Audit export 403 JSON body | Not written to the target; exit 1; previous export preserved | AR-58 |
 | ST-141 | TTY name/value with ESC | Escaped in tables; raw only for the explicit value surface | AR-54 |
+
+### Operations
+
+| # | Input / Scenario | Expected Output / Behavior | Source |
+|---|---|---|---|
+| ST-142 | `ov backup --out backup.age` | age-encrypted archive contains database dump, keyring, config, CA, checkpoints, and checksums; mode `0600` | RD-13, AR-61 |
+| ST-143 | Wrong backup passphrase | Decryption fails before any target change | AR-61 |
+| ST-144 | Corrupted archive/checksum | `backup_checksum_mismatch` or `backup_archive_invalid`; target unchanged | AR-61 |
+| ST-145 | Restore into an empty migrated target | Every row restored; audit chain, one secret per project, and CA probe verify | RD-13, AR-62 |
+| ST-146 | Restore into a non-empty target | Refused without `--force`; replaced with `--force` | AR-62 |
+| ST-147 | Restore/rotation as the app role | Clear ownership error before any destructive change | AR-62, AR-63 |
+| ST-148 | `ov kek rotate` | Secret/cert/audit/CA/JWT keys rewrapped; value ciphertext byte-identical; old key removed after zero old `kek_id` rows | RD-13, AR-63 |
+| ST-149 | `ov kek rotate --dry-run` | Counts reported; keyring and rows unchanged | AR-63 |
+| ST-150 | Backup/restore/rotate CLI mapping | Passphrase from file/prompt, `--yes` gating, `--force`, JSON/human output | AR-61–AR-63 |
+| ST-151 | Operations audit | `backup.create`, `backup.restore`, `kek.rotate` system events recorded | AR-64 |
 
 ### Cross-Cutting Security
 
@@ -251,6 +266,7 @@
 | `apps/server/tests/api-contract.spec.test.ts` | ST-119–ST-120 | Contract build, generation, drift, stale marker |
 | `apps/server/tests/integration/cli.spec.test.ts` | ST-54, ST-63–ST-77, ST-97–ST-101 | Real-server binary E2E |
 | `apps/server/tests/integration/init.spec.test.ts` | ST-110–ST-115, ST-128–ST-135 | Real bootstrap, concurrency, recovery, password/TLS/CA failures |
+| `apps/server/tests/integration/ops.spec.test.ts` | ST-142–ST-151 | Encrypted backup, restore, corruption, non-empty target, KEK rewrap |
 
 ### Implementation Tests
 

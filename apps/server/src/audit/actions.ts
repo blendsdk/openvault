@@ -26,7 +26,7 @@ const POLICY_DETAIL_KEYS: ReadonlySet<string> = new Set([
 ]);
 
 /** Rotation is the only policy action that carries a key identifier. */
-const KEK_DETAIL_KEYS: ReadonlySet<string> = new Set([...POLICY_DETAIL_KEYS, "kekId"]);
+const KEK_DETAIL_KEYS: ReadonlySet<string> = new Set([...POLICY_DETAIL_KEYS, "kekId", "phase"]);
 
 /** Details keys permitted on authentication success and failure events. */
 const LOGIN_DETAIL_KEYS: ReadonlySet<string> = new Set(["method", "client", "reason"]);
@@ -82,7 +82,7 @@ const PRUNE_DETAIL_KEYS: ReadonlySet<string> = new Set([
 ]);
 
 /** Details keys permitted on backup events. */
-const BACKUP_DETAIL_KEYS: ReadonlySet<string> = new Set(["format", "objectCount"]);
+const BACKUP_DETAIL_KEYS: ReadonlySet<string> = new Set(["format", "objectCount", "phase"]);
 
 /** Details keys permitted on certificate policy events. */
 const CERTIFICATE_DETAIL_KEYS: ReadonlySet<string> = new Set([
@@ -147,6 +147,7 @@ export function allowedDetailKeys(action: AuditAction): ReadonlySet<string> {
     case "audit.prune":
       return PRUNE_DETAIL_KEYS;
     case "backup.create":
+    case "backup.restore":
       return BACKUP_DETAIL_KEYS;
     case "certificate.write":
     case "certificate.read":

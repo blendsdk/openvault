@@ -171,9 +171,7 @@ export function rootHelp(): string {
     "Groups:",
   ];
   for (const group of GROUPS) {
-    const marker =
-      group.name === "backup" || group.name === "restore" || group.name === "kek" ? " [RD-13]" : "";
-    lines.push(`  ${group.name.padEnd(12)} ${group.summary}${marker}`);
+    lines.push(`  ${group.name.padEnd(12)} ${group.summary}`);
     lines.push(`               ${group.commands.join(", ")}`);
   }
   lines.push("", "Run `ov <group> --help` for group help.");

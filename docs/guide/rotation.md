@@ -14,13 +14,18 @@ the consumer first if the old value must keep working during the transition.
 
 ## KEK rotation
 
+Stop the server first. A running process holds the old keyring in memory and can write a row
+with the old `kek_id` after the CLI verifies the rotation. Run the command as a role that owns
+the key tables; it temporarily disables the immutability triggers.
+
 ```bash
-ov kek rotate
+ov kek rotate --dry-run
+ov kek rotate --yes
 ```
 
-Rotation generates a new KEK, re-wraps every data key, the audit HMAC key, the `ca_keys` CA
-key, and the JWT signing key. Values are never re-encrypted. The old key is removed only
-after the job completes and verification reads succeed.
+Rotation generates a new KEK and re-wraps every secret and certificate data key, the audit
+HMAC key, the `ca_keys` CA key, and the JWT signing seed. Values are never re-encrypted. The
+old key is removed only after every key table reports that no row references it.
 
 ## Workload certificates
 

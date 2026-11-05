@@ -206,6 +206,16 @@ export function asCliError(error: unknown): CliError {
         : "Invalid command line";
     return new CliError("usage_error", message, { exitCode: 2, cause: error });
   }
+  if (error instanceof Error && error.name === "OpsError") {
+    const code =
+      typeof Reflect.get(error, "code") === "string"
+        ? (Reflect.get(error, "code") as string)
+        : "ops_configuration";
+    return new CliError(code, error.message, {
+      exitCode: code === "ops_configuration" ? 2 : 1,
+      cause: error,
+    });
+  }
   if (error instanceof Error && (error.name === "InitError" || error.name === "KeyringError")) {
     const code =
       typeof Reflect.get(error, "code") === "string"

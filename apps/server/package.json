@@ -24,6 +24,7 @@
     "@openvault/core": "workspace:*",
     "@peculiar/asn1-schema": "3.0.0",
     "@peculiar/x509": "3.1.0",
+    "age-encryption": "0.3.1",
     "blendsdk": "5.68.1",
     "cookie-parser": "1.4.7",
     "cors": "2.8.6",
@@ -58,6 +59,10 @@
     "./init": {
       "types": "./dist/init/index.d.ts",
       "import": "./dist/init/index.js"
+    },
+    "./ops": {
+      "types": "./dist/ops/index.d.ts",
+      "import": "./dist/ops/index.js"
     }
   }
 }

@@ -1,9 +1,9 @@
 # RD-11 CLI Implementation Plan
 
-> **Feature**: The `ov` command line: credential store, generated API client, dispatcher, bootstrap, auth, project/secret/certificate/identity/role/access/audit commands, Docker scaffold, `run --`, doctor, completion, and the RD-13-backed command surface.
+> **Feature**: The `ov` command line: credential store, generated API client, dispatcher, bootstrap, auth, project/secret/certificate/identity/role/access/audit commands, Docker scaffold, `run --`, backup, restore, KEK rotation, doctor, and completion.
 > **Status**: Done
 > **Created**: 2026-11-05 14:32
-> **Completed**: 2026-11-05 18:10
+> **Completed**: 2026-11-06 10:00
 > **Preflight**: [00-preflight-report.md](00-preflight-report.md) — passed after three review lenses
 > **Implements**: openvault-v0-1/RD-11
 > **CodeOps Artifact Schema**: 1
@@ -14,7 +14,7 @@ Every server surface RD-11 needs already exists: RD-04 issued CLI login/refresh/
 
 This plan adds `apps/cli` with a strict credential store, a `node:https` transport, `blendsdk/cmdline` group parsers behind a thin dispatcher, and the full command set backed by the existing API. It adds a server-side `init` module so `ov init` creates the keyring, internal CA, server certificate, organization, bootstrap administrator, and signing key idempotently. It adds a server script that turns the real controllers and one documentation table into `packages/api-contract/openapi.json` and a generated typed client in the CLI, with `pnpm api:check` failing on drift.
 
-`ov backup`, `ov restore`, and `ov kek rotate` are part of the command surface but their operations belong to RD-13. They are registered, parsed, help-documented, and safety-gated, then return a stable `not_implemented` error until RD-13 lands. This is a named cross-feature deferral: RD-11's client surface is complete and the three operations remain an RD-13 acceptance item (see [01-requirements.md](01-requirements.md) §Acceptance Exception). Implementing the archive format and KEK rewrap here would duplicate RD-13's core and its security tests.
+`ov backup`, `ov restore`, and `ov kek rotate` are implemented through `apps/server/src/ops`. The archive is a passphrase-encrypted age container with a logical JSON database dump; restore verifies checksums, the audit chain, one secret per project, and the CA key; KEK rotation rewraps every stored key without re-encrypting values. The remaining RD-13 program (secret/certificate rotation workflows, Compose hardening, least-privilege role provisioning, and release engineering) stays out of this plan.
 
 ## Minimum-Sufficient Baseline
 
@@ -108,7 +108,10 @@ file; it is never printed.
 | Decision | Outcome | AR Ref |
 |---|---|---|
 | Package | New `apps/cli` (`@openvault/cli`, bin `ov`) | AR-1 |
-| RD-13 boundary | Backup/restore/KEK rotate registered, gated on RD-13 | AR-2 |
+| RD-13 boundary | Backup/restore/KEK rotate implemented; remaining RD-13 program deferred | AR-2 |
+| Backup format | age-encrypted logical JSON dump | AR-61 |
+| Restore safety | Owner role, empty target or `--force`, `--yes` | AR-62 |
+| KEK rotation | Rewrap only, zero-old-key check, maintenance window | AR-63 |
 | Bootstrap | `@openvault/server/init` shared primitive; `ov init` delegates | AR-3 |
 | Dispatcher | Global extraction + positional conversion + strict group parsers | AR-4, AR-5 |
 | Generated client | Real controllers + metadata table → OpenAPI + client; `api:check` | AR-6, AR-7 |
