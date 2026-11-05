@@ -58,16 +58,13 @@ describe("keyring provider loading", () => {
     await expect(KeyringProvider.load("keyring.json")).rejects.toThrow(/absolute/i);
   });
 
-  it("follows a symlink to a 0600 file and checks the opened target", async () => {
+  it("rejects a symlink to an otherwise valid keyring", async () => {
     const directoryPath = fixtureDirectory();
     const target = writeFixtureFile(directoryPath, "keyring.json", keyringJson());
     const link = join(directoryPath, "keyring-link.json");
     symlinkSync(target, link);
 
-    const provider = await KeyringProvider.load(link);
-
-    expect(provider.status().loaded).toBe(true);
-    provider.destroy();
+    await expect(KeyringProvider.load(link)).rejects.toThrow(/readable regular file/i);
   });
 
   it("rejects malformed contents without exposing key bytes", async () => {

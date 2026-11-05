@@ -1,4 +1,10 @@
-import { createCipheriv, createDecipheriv, createECDH, randomBytes } from "node:crypto";
+import {
+  createCipheriv,
+  createDecipheriv,
+  createECDH,
+  createPrivateKey,
+  randomBytes,
+} from "node:crypto";
 import type { PostgreSQLDatabase } from "blendsdk/postgresql";
 import type { KeyringProvider } from "./keyring.js";
 import {
@@ -230,6 +236,63 @@ export class CaSigner {
     this.#caPem = options.caPem;
     this.#now = options.now;
     this.#serialSource = options.serialSource;
+  }
+
+  /**
+   * Issues one server certificate with the loaded CA key.
+   *
+   * The CA key stays inside this signer; init never receives the scalar. The
+   * generated leaf is a normal TLS server certificate for the supplied DNS and
+   * IP names.
+   *
+   * @param options - Subject, DNS/IP SANs, and validity window.
+   * @returns The leaf certificate PEM and its PKCS#8 private key PEM.
+   */
+  public async issueServerCertificate(options: {
+    readonly subject: string;
+    readonly dnsNames: readonly string[];
+    readonly ipAddresses: readonly string[];
+    readonly notBefore?: Date;
+    readonly notAfter?: Date;
+  }): Promise<{ readonly certificatePem: string; readonly privateKeyPem: string }> {
+    if (this.#destroyed || this.#signingKey === undefined || this.#caCertificate === undefined) {
+      throw new CaSignerUnavailableError();
+    }
+    const keys = (await globalThis.crypto.subtle.generateKey(
+      { name: "ECDSA", namedCurve: "P-256" },
+      true,
+      ["sign", "verify"],
+    )) as CryptoKeyPair;
+    const sans = [
+      ...options.dnsNames.map((value) => ({ type: "dns" as const, value })),
+      ...options.ipAddresses.map((value) => ({ type: "ip" as const, value })),
+    ];
+    const certificate = await x509.X509CertificateGenerator.create({
+      serialNumber: randomBytes(8).toString("hex"),
+      subject: options.subject,
+      issuer: this.#caCertificate.subject,
+      notBefore: options.notBefore ?? new Date(this.#now() - 60_000),
+      notAfter: options.notAfter ?? new Date(this.#now() + 365 * 86_400_000),
+      signingAlgorithm: { name: "ECDSA", hash: "SHA-256" },
+      publicKey: keys.publicKey,
+      signingKey: this.#signingKey,
+      extensions: [
+        new x509.BasicConstraintsExtension(false, undefined, true),
+        new x509.KeyUsagesExtension(
+          x509.KeyUsageFlags.digitalSignature | x509.KeyUsageFlags.keyEncipherment,
+          true,
+        ),
+        new x509.ExtendedKeyUsageExtension([x509.ExtendedKeyUsage.serverAuth], false),
+        new x509.SubjectAlternativeNameExtension(sans),
+      ],
+    });
+    const der = await globalThis.crypto.subtle.exportKey("pkcs8", keys.privateKey);
+    const keyObject = createPrivateKey({ key: Buffer.from(der), format: "der", type: "pkcs8" });
+    const exported = keyObject.export({ format: "pem", type: "pkcs8" });
+    return {
+      certificatePem: certificate.toString("pem"),
+      privateKeyPem: typeof exported === "string" ? exported : exported.toString("utf8"),
+    };
   }
 
   /** CA certificate PEM used as the chain returned to agents. */

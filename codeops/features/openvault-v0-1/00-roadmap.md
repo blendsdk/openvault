@@ -3,8 +3,8 @@
 > **Feature-Set**: OpenVault v0.1
 > **Status**: In Progress
 > **Created**: 2026-10-29
-> **Last Updated**: 2026-11-05 13:00
-> **Progress**: 10 / 14 (71%)
+> **Last Updated**: 2026-11-05 18:10
+> **Progress**: 11 / 14 (79%)
 > **CodeOps Artifact Schema**: 1
 
 ## Legend
@@ -25,7 +25,7 @@
 | RD-08 | Projects and secrets | [RD-08](requirements/RD-08-projects-secrets.md) | [rd-08-projects-secrets](plans/rd-08-projects-secrets/00-index.md) | Done | ✅ | 2026-11-04 | depends on RD-06, RD-07 |
 | RD-09 | Certificates | [RD-09](requirements/RD-09-certificates.md) | [rd-09-certificates](plans/rd-09-certificates/00-index.md) | Done | ✅ | 2026-11-05 | depends on RD-08 |
 | RD-10 | Agent delivery and Compose | [RD-10](requirements/RD-10-agent-compose.md) | [rd-10-agent-compose](plans/rd-10-agent-compose/00-index.md) | Done | ✅ | 2026-11-05 | depends on RD-05, RD-07, RD-08 |
-| RD-11 | CLI | [RD-11](requirements/RD-11-cli.md) | — | RD Drafted | ✏️ | 2026-10-29 | depends on RD-04, RD-06, RD-08, RD-09, RD-10 |
+| RD-11 | CLI | [RD-11](requirements/RD-11-cli.md) | [rd-11-cli](plans/rd-11-cli/00-index.md) | Done | ✅ | 2026-11-05 | depends on RD-04, RD-06, RD-08, RD-09, RD-10; backup/restore/KEK rotate gated on RD-13 |
 | RD-12 | Web UI | [RD-12](requirements/RD-12-web-ui.md) | — | RD Drafted | ✏️ | 2026-10-29 | depends on RD-03, RD-06, RD-08, RD-10 |
 | RD-13 | Backup, rotation, operations | [RD-13](requirements/RD-13-backup-rotation-ops.md) | — | RD Drafted | ✏️ | 2026-10-29 | depends on RD-02, RD-05, RD-08, RD-09 |
 | RD-14 | Security assurance and release | [RD-14](requirements/RD-14-security-release.md) | — | RD Drafted | ✏️ | 2026-10-29 | depends on all prior RDs |

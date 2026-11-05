@@ -1,8 +1,9 @@
 # Getting started
 
 ::: warning Early development
-OpenVault is in the scaffold phase. The developer commands below work today. The Compose
-install and `ov` flows describe the v0.1 target and are not complete yet.
+OpenVault is under active development. The developer commands, the `ov` CLI, and the API in
+this repository are implemented and tested; image publishing and the minimal web UI are still
+in progress.
 :::
 
 ## What OpenVault is
@@ -35,19 +36,31 @@ pnpm --filter @openvault/web dev
 The UI runs at `http://localhost:5173` and proxies `/v1` to the API. The API exposes
 `GET /health` for liveness and `GET /ready` for dependency readiness.
 
+Build and try the CLI:
+
+```bash
+pnpm --filter @openvault/cli build
+export OPENVAULT_CA_FILE=/path/to/proxy-root-ca.pem
+node apps/cli/dist/main.js login --url https://localhost --identifier admin@openvault.local
+node apps/cli/dist/main.js whoami
+```
+
+`ov init --prepare` provisions the keyring, internal CA, server certificate, organization, and
+bootstrap administrator for the reference stack. See [CLI](/guide/cli) and
+[Configuration](/reference/configuration#cli-and-bootstrap).
+
 Build the docs:
 
 ```bash
 pnpm docs:dev
 ```
 
-## Target v0.1 flow
+## Reference stack flow
 
 ```bash
 cp .env.example .env
 docker compose -f deploy/compose/compose.yaml up -d
-ov init
-ov login
+ov login --url https://localhost --identifier admin@openvault.local
 ```
 
 Then:

@@ -15,7 +15,9 @@
     "db:types": "tsx scripts/generate-db-types.ts",
     "db:types:check": "tsx scripts/generate-db-types.ts && git diff --exit-code -- src/database/generated-types.ts src/database/ctypes.ts",
     "audit:prune": "node dist/audit/cli.js",
-    "audit:checkpoint": "node dist/audit/checkpoint-cli.js"
+    "audit:checkpoint": "node dist/audit/checkpoint-cli.js",
+    "api:generate": "tsx scripts/api-contract.ts generate",
+    "api:check": "tsx scripts/api-contract.ts check"
   },
   "dependencies": {
     "@openvault/api-contract": "workspace:*",
@@ -47,5 +49,15 @@
     "tsx": "4.23.15",
     "typescript": "7.0.2",
     "vitest": "5.0.5"
+  },
+  "exports": {
+    ".": {
+      "types": "./dist/main.d.ts",
+      "import": "./dist/main.js"
+    },
+    "./init": {
+      "types": "./dist/init/index.d.ts",
+      "import": "./dist/init/index.js"
+    }
   }
 }

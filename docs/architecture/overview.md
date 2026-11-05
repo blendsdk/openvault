@@ -22,12 +22,31 @@ endpoint. There is no separate UI server and no Redis in v0.1.
 | `apps/server` | WebAFX controllers, authentication, policy, crypto, audit |
 | `apps/web` | React 19 + Fluent UI v9 UI |
 | `apps/agent` | Per-service sidecar and wrapper modes |
-| `apps/cli` | `ov` command |
+| `apps/cli` | `ov` command, credential store, HTTPS adapter, generated typed client |
 | `packages/core` | Domain types, envelope encryption, policy primitives |
-| `packages/api-contract` | Shared schemas, OpenAPI contract, generated client |
+| `packages/api-contract` | Shared Zod schemas and the committed OpenAPI document |
 | PostgreSQL | Metadata, ciphertext, policy, audit chain |
 | Keyring file | KEK, wrapped keys, outside the database |
 | Reverse proxy | TLS termination, HSTS, request limits |
+
+## CLI and contract generation
+
+`apps/cli` is a private ESM package with the `ov` binary. It depends on `blendsdk/cmdline` for
+strict group parsers, `blendsdk/api-client` for the transport contract and bearer refresh, and
+`@openvault/server/init` for the shared bootstrap primitive.
+
+`apps/server/scripts/api-contract.ts` instantiates the real CLI-facing controllers, attaches
+one documentation table, builds the OpenAPI 3.1 document, and generates the typed client:
+
+| Artifact | Location |
+|---|---|
+| OpenAPI document | `packages/api-contract/openapi.json` |
+| Generated client | `apps/cli/src/generated/` |
+| Drift gate | `pnpm api:check`, run by `pnpm verify` |
+
+The generated client is committed. Biome ignores it because the generator owns its formatting.
+The server does not depend on the CLI, so the workspace graph stays acyclic. The real-server CLI
+end-to-end test spawns the built binary from `apps/server/tests/integration/cli.spec.test.ts`.
 
 ## Request path
 

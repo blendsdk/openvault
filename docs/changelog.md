@@ -38,8 +38,21 @@
   `consumer.update` audit events.
 - `POST /v1/admin/scaffold`: idempotent project/identity reuse, object-scope reader grants,
   atomic join-token rotation, and per-service Compose and manifest output.
+- `ov` CLI: bootstrap, login/logout/whoami, CLI sessions, projects, versioned secrets,
+  certificates, identities, roles, access explanation, audit query/verify/export, Docker
+  scaffold, `run --`, doctor, and static shell completion.
+- Generated CLI API contract: `packages/api-contract/openapi.json` and a typed client in
+  `apps/cli/src/generated`, with `pnpm api:check` drift detection in `pnpm verify`.
+- Protected CLI credential storage with `0700`/`0600` checks, atomic replacement, symlink
+  rejection, a cross-process lock, and native-Windows fail-closed behavior.
+- Shared bootstrap `ov init`: idempotent keyring, internal CA, server certificate,
+  organization, administrator, and signing-key creation; recovery guard for a missing keyring;
+  one-time bootstrap password file.
+- CLI `run` delivery through a private temporary directory, a strict manifest, environment
+  sanitization, signal forwarding, and cleanup on every exit path.
+- `pnpm api:generate` / `pnpm api:check`, plus OpenAPI/Architecture/CLI documentation.
 
-### Planned
+### Deferred
 
-- `ov` CLI wrapper for the scaffold, login, and the remaining command groups.
+- `ov backup`, `ov restore`, and `ov kek rotate` operations (backup and rotation release).
 - Minimal web UI.
