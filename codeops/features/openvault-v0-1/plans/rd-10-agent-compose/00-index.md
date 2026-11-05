@@ -1,7 +1,7 @@
 # RD-10 Agent Delivery and Compose Implementation Plan
 
 > **Feature**: Per-service agent with join/renew, manifest-driven tmpfs delivery, atomic writes, local status socket, wrapper mode, consumer heartbeats, and the Compose scaffold backend.
-> **Status**: Plan Preflighted
+> **Status**: Done
 > **Created**: 2026-11-05 09:41
 > **Preflight**: [00-preflight-report.md](00-preflight-report.md) — passed after three review lenses
 > **Implements**: openvault-v0-1/RD-10

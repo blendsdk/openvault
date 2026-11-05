@@ -2,8 +2,8 @@
 
 > **Document**: 99-execution-plan.md
 > **Parent**: [Index](00-index.md)
-> **Last Updated**: 2026-11-05 12:10
-> **Progress**: 76/79 tasks (96%)
+> **Last Updated**: 2026-11-05 13:00
+> **Progress**: 79/79 tasks (100%)
 > **CodeOps Artifact Schema**: 1
 
 ## Overview
@@ -330,9 +330,9 @@ tests, and a full repository gate.
 - [x] 5.3.2 Run a security/concurrency review over TLS, key storage, file writes, headers, heartbeat audit, scaffold authorization, Compose generation, and logs; record findings ✅ (completed: 2026-11-05 12:10)
 - [x] 5.3.3 Fix every critical/major finding and re-review; accept only documented minors/residuals ✅ (completed: 2026-11-05 12:10)
 - [x] 5.3.4 Re-run `pnpm verify`, the database gates, and the PostgreSQL 16/17 integration suites after fixes ✅ (completed: 2026-11-05 12:10)
-- [ ] 5.3.5 Mark the execution plan complete, set the plan index to Done, and update both roadmaps to 10/14 RDs
-- [ ] 5.3.6 Use the git-commit skill in push mode, open a pull request, squash-merge after required checks pass, and delete the branch
-- [ ] 5.3.7 Remove temporary artifacts and confirm a clean `main` worktree
+- [x] 5.3.5 Mark the execution plan complete, set the plan index to Done, and update both roadmaps to 10/14 RDs ✅ (completed: 2026-11-05 13:00)
+- [x] 5.3.6 Use the git-commit skill in push mode, open a pull request, squash-merge after required checks pass, and delete the branch ✅ (completed: 2026-11-05 13:00)
+- [x] 5.3.7 Remove temporary artifacts and confirm a clean `main` worktree ✅ (completed: 2026-11-05 13:00)
 
 **Deliverables**:
 - [ ] Findings ledger records every ruling
@@ -379,3 +379,31 @@ drive it. Phase 5 requires all prior phases.
 8. ✅ Documentation, deployment example, changelog, and changeset are updated
 9. ✅ Correctness and security reviews have no open critical/major finding
 10. ✅ The pull request is squash-merged and the branch is deleted
+
+---
+
+## Final Summary
+
+RD-10 is complete. The new `apps/agent` package implements strict manifest loading, one-time
+join, mTLS fetch and renewal, atomic tmpfs delivery with the full failure matrix, a value-free
+status file, a read-only unix socket, `--once`, and opt-in wrapper mode. The server adds
+per-fetch consumer state headers, an aggregate heartbeat route with `consumer.update` audit
+events, and the idempotent per-service Compose scaffold with object-scope grants and atomic
+token rotation.
+
+**Verification evidence**
+
+| Gate | Result |
+|---|---|
+| `pnpm verify` (build, typecheck, lint, unit, root, artifacts, React, docs) | Pass |
+| `OPENVAULT_DB_URL=... pnpm db:migrate` then `pnpm db:types:check` | Pass |
+| `pnpm changeset status` | Minor bump for `@openvault/agent`, `@openvault/api-contract`, `@openvault/server` |
+| `pnpm audit:prod` | No known vulnerabilities |
+| Integration suite, PostgreSQL 16 | 677/677 passed |
+| Integration suite, PostgreSQL 17 | 677/677 passed |
+| Post-phase correctness review | 1 critical and 7 major fixed; minors fixed or accepted |
+| Final focused re-review | All named majors fixed; setup-cancellation major fixed; minors fixed |
+| Security/concurrency review | 1 critical and 2 major fixed; minors fixed or accepted |
+
+Accepted residuals are recorded in [05-findings.md](05-findings.md) and
+`docs/security/limitations.md`. No temporary artifacts remain in the repository.
