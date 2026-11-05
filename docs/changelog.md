@@ -51,8 +51,15 @@
 - CLI `run` delivery through a private temporary directory, a strict manifest, environment
   sanitization, signal forwarding, and cleanup on every exit path.
 - `pnpm api:generate` / `pnpm api:check`, plus OpenAPI/Architecture/CLI documentation.
+- `ov backup` / `ov restore`: passphrase-encrypted age archives containing a logical database
+  dump, keyring, redacted config, public CA, and audit checkpoints; checksum verification,
+  empty-target safety, audit-chain and secret/CA verification on restore.
+- `ov kek rotate`: rewrap of secret and certificate data keys, audit keys, CA keys, and JWT
+  seeds with byte-identical value ciphertext; old-key removal only after a full `kek_id` check.
+- New `backup.restore` audit action and `@openvault/server/ops` package surface.
 
 ### Deferred
 
-- `ov backup`, `ov restore`, and `ov kek rotate` operations (backup and rotation release).
+- The remaining backup and rotation program: secret/certificate rotation workflows, Compose
+  hardening, least-privilege role provisioning, and reference-stack release engineering.
 - Minimal web UI.

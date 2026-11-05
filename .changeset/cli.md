@@ -20,5 +20,10 @@ bootstrap administrator, and signing key. It is idempotent, never rotates the CA
 a missing keyring with existing wrapped state, and writes a generated password only to a
 one-time `0600` file.
 
-`ov backup`, `ov restore`, and `ov kek rotate` are registered and safety-gated but remain
-deferred to the backup and rotation release.
+`ov backup` and `ov restore` create and verify passphrase-encrypted age archives containing a
+logical database dump, keyring, redacted config, public CA, and audit checkpoints. `ov kek
+rotate` rewraps every stored key without re-encrypting values and removes the old key only
+after full verification.
+
+The remaining RD-13 operations (secret/certificate rotation workflows, Compose hardening,
+least-privilege role provisioning, and release engineering) are still owned by RD-13.

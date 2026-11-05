@@ -1545,6 +1545,7 @@
                 "audit.export",
                 "audit.prune",
                 "backup.create",
+                "backup.restore",
                 "certificate.expiry_warning"
               ]
             }
@@ -1702,6 +1703,7 @@
                               "audit.export",
                               "audit.prune",
                               "backup.create",
+                              "backup.restore",
                               "certificate.expiry_warning"
                             ]
                           },
@@ -1875,6 +1877,7 @@
                 "audit.export",
                 "audit.prune",
                 "backup.create",
+                "backup.restore",
                 "certificate.expiry_warning"
               ]
             }

@@ -26,6 +26,20 @@ describe("CLI error mapping", () => {
     );
   });
 
+  it("should preserve an operations error code without matching TLS text", () => {
+    const mismatch = new Error("The backup file database.json failed verification");
+    mismatch.name = "OpsError";
+    Object.defineProperty(mismatch, "code", { value: "backup_checksum_mismatch" });
+    const mapped = asCliError(mismatch);
+    expect(mapped.code).toBe("backup_checksum_mismatch");
+    expect(mapped.exitCode).toBe(1);
+
+    const configuration = new Error("bad path");
+    configuration.name = "OpsError";
+    Object.defineProperty(configuration, "code", { value: "ops_configuration" });
+    expect(asCliError(configuration).exitCode).toBe(2);
+  });
+
   it("should preserve a bootstrap error code and choose the usage exit code", () => {
     const recovery = new Error("restore the keyring from backup");
     recovery.name = "InitError";

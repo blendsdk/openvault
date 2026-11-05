@@ -6,7 +6,7 @@
 ## Overview
 
 This component defines every `ov` command, the `run` delivery model, the Docker scaffold, the
-bootstrap command, doctor, completion, and the three RD-13-gated commands. Each command uses
+bootstrap command, doctor, completion, and the backup/restore/KEK operations. Each command uses
 the generated client from [03-02](03-02-api-contract.md), the runtime from
 [03-01](03-01-cli-runtime.md), and the existing server contracts.
 
@@ -46,9 +46,9 @@ the generated client from [03-02](03-02-api-contract.md), the runtime from
 | docker | `scaffold` | `project service` | `--secret`, `--compose-project`, `--out`, `--force` | `POST /v1/admin/scaffold` |
 | run | `run` | child after `--` | `--manifest` | data reads |
 | init | `init` | — | `--prepare`, `--keyring`, `--internal-ca`, `--ca-public-dir`, `--tls-cert`, `--tls-key`, `--base-url`, `--org`, `--admin-name`, `--admin-email`, `--password-file`, `--generate-password`, `--bootstrap-password-file` | local `runInit` (DB URL from `OPENVAULT_DB_URL`) |
-| backup | `backup` | — | `--out`, `--passphrase-file` | RD-13 |
-| restore | `restore` | `archive` | `--yes`, `--passphrase-file` | RD-13 |
-| kek | `rotate` | — | `--yes` | RD-13 |
+| backup | `backup` | — | `--out`, `--passphrase-file`, `--keyring`, `--internal-ca`, `--force` | local `runBackup` |
+| restore | `restore` | `archive` | `--yes`, `--passphrase-file`, `--keyring`, `--internal-ca`, `--force` | local `runRestore` |
+| kek | `rotate` | — | `--yes`, `--dry-run`, `--keyring` | local `runKekRotate` |
 | doctor | `doctor` | — | — | `/ready`, `/v1/auth/cli/me`, `Date` |
 | completion | `completion` | `shell` | — | local |
 
@@ -376,20 +376,46 @@ Init and the server must run as the same non-root UID/GID so the `0600` keyring 
 are readable. The reference Compose must set that contract; RD-13 owns the final UID
 hardening (AR-42).
 
-### Deferred commands
+### Backup, restore, and KEK rotation
 
-`ov backup`, `ov restore`, and `ov kek rotate` parse and validate their options. `restore` and
-`rotate` prompt unless `--yes`; a missing confirmation in a non-interactive process exits 2
-before any operation. After a confirmed invocation they throw:
+The three operations live in `apps/server/src/ops` and are exposed as `@openvault/server/ops`.
+The CLI validates the environment and options, obtains the passphrase, and calls the module
+directly; the archive and keyring never travel over HTTP.
 
-```text
-not_implemented: <command> is delivered by RD-13 (backup, rotation, and operations); no server operation exists in this release
-```
-
-Exit code 1. The root help marks them `[RD-13]`. This is the explicit AR-2 boundary and the
-named RD-13 deferral: RD-11's client surface is complete; the three operations remain owned by
-RD-13 and are not claimed as implemented.
-
+- `backup`:
+  - Require `OPENVAULT_DB_URL`, `OPENVAULT_KEYRING`, and `OPENVAULT_INTERNAL_CA` (or derive
+    `ca.pem` beside `OPENVAULT_TLS_CERT`). Resolve paths relative to the CLI cwd.
+  - Read the passphrase from `--passphrase-file`, `OPENVAULT_BACKUP_PASSPHRASE_FILE`, or a
+    hidden TTY prompt. The value is never argv, logged, or written to the archive manifest.
+  - Dump every public base table except `blendsdk_migrations` as JSON rows. Build the
+    `database.json`, `keyring.json`, `config.json`, `ca.pem`, and `checkpoints.ndjson` files.
+  - Record SHA-256 for each file in the manifest, encrypt the JSON container with age using the
+    passphrase, and write the archive atomically with mode `0600`. Refuse an existing output
+    unless `--force`.
+  - Record `backup.create` with the format and row count.
+- `restore`:
+  - Read the archive with a 2 GiB bound, decrypt it, validate the manifest and every checksum,
+    and verify the archived `ca.pem` matches the current `ca_keys` row before touching the
+    target.
+  - Use `OPENVAULT_RESTORE_DB_URL` (falling back to the migration/app URL) for migrations and
+    data loading. Disable triggers for all data tables inside one transaction, refuse a
+    non-empty target unless `--force`, truncate, insert every row, re-enable triggers, and
+    reset serial sequences. Seed tables `org` and `policy_state` do not count as user data.
+  - Write the restored keyring `0600` and public CA `0644`; on a keyring write failure restore
+    the previous keyring bytes.
+  - Verify the audit chain, decrypt one current secret per project, and sign a probe
+    certificate with the restored CA key. Record `backup.restore`.
+  - A non-interactive restore without `--yes` exits 2 before reading the archive.
+- `kek rotate`:
+  - Require the keyring and DB; confirm unless `--yes`; `--dry-run` reports candidate counts
+    without changing the keyring or rows.
+  - Generate the next `kek-<n>`, publish it as current with the old key still present, then in
+    one transaction disable the key-table immutability triggers and rewrap secret and
+    certificate data keys, audit keys, CA scalars, and JWT seeds. Value ciphertext is never
+    re-encrypted.
+  - Verify that no row references the old `kek_id`, remove the old key from the keyring, and
+    reload it. Record `kek.rotate` start and completion events. The command must run as a table
+    owner with the server stopped.
 ### Doctor and completion
 
 `ov doctor`:
@@ -417,7 +443,10 @@ does not call the API. An unknown shell exits 2.
 | Scaffold token | Printed once; never in a file | AR-18 |
 | Broken audit chain | Exit 1, print reason and first bad id | AR-20 |
 | Ambiguous role revoke | Exit 2 with matching assignment ids | AR-23 |
-| RD-13 command | `not_implemented`, exit 1 | AR-2 |
+| Backup output exists | `backup_target_exists`, exit 1 | AR-61 |
+| Restore target non-empty | `restore_target_not_empty`, exit 1 | AR-62 |
+| Restore/rotation role is not owner | `restore_requires_owner`/`kek_rotation_requires_owner`, exit 1 | AR-62, AR-63 |
+| Archive/checksum failure | `backup_archive_invalid`/`backup_checksum_mismatch`, exit 1 | AR-61 |
 | Init existing CA | Reuse; warning only | AR-33 |
 | Init password | One-time file; never stdout | AR-34 |
 
@@ -429,7 +458,7 @@ does not call the API. An unknown shell exits 2.
 - `run` with a child that writes its env and file paths; required/optional failures; cleanup.
 - Scaffold writes two files with no token; the token is printed once; idempotent re-run.
 - Audit verify exit 1 on a broken response; export streams to a `0600` file.
-- Deferred commands parse, prompt, and return `not_implemented`.
+- Backup/restore/KEK CLI mapping and confirmation behavior; database-backed backup, restore, corruption, and rewrap integration tests.
 - Doctor pass/fail for readiness, credentials, TLS, and clock.
 - Completion output contains every group.
 - Real-server binary E2E in `apps/server/tests/integration/cli.spec.test.ts`.

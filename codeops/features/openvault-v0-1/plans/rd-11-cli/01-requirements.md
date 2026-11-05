@@ -20,6 +20,9 @@
   without the token and printing the token once.
 - `ov run --` with a strict CLI manifest, private temporary delivery, env/file injection, and
   clean child lifecycle.
+- `ov backup`, `ov restore`, and `ov kek rotate` backed by `apps/server/src/ops`: an
+  age-encrypted logical backup, a checksum-verified restore, and a KEK rewrap that preserves
+  value ciphertext.
 - `ov init` implemented as the shared RD-11/RD-13 bootstrap primitive.
 - `ov doctor`, static shell completion, JSON/human output, exit codes, and redacted verbose logs.
 - Tests: credential/dispatcher/command unit tests with a real HTTPS fake vault; real-server
@@ -27,35 +30,20 @@
 - Documentation, deployment example verification, changelog, and changeset.
 
 ### Deferred / out of this plan
-- `ov backup`, `ov restore`, and `ov kek rotate` operations (RD-13). The commands are registered
-  and safety-gated but return `not_implemented` until RD-13's routes exist (AR-2). This is a
-  named cross-feature deferral; see the acceptance exception below.
+- The remaining RD-13 operations: secret and certificate rotation workflows, Compose hardening,
+  least-privilege role provisioning, scheduled off-box checkpoints, and release engineering.
+  The three RD-11 commands are implemented; the broader RD-13 program is not.
 - The web UI (RD-12), image build/publish/signing (RD-14), OIDC CLI login, multi-account
   profiles, a TUI, and interactive secret editing (RD-11 Won't Have).
-- Any new server product route other than the bootstrap module's local command surface.
+- Any new server product route other than the operations and bootstrap local surfaces.
 - Any database migration.
-
-## Acceptance Exception
-
-RD-11's Must Have lists `ov backup`, `ov restore`, and `ov kek rotate`, and acceptance 1 says
-every command in the table runs against the reference stack. Those three operations require
-RD-13's archive format, restore sequence, and KEK rewrap service. RD-11 Integration Points say
-RD-13 supplies backup/restore/rotation, and RD-13 Must Have owns the archive and rotation.
-
-This plan therefore records a **named deferral**: the command surface is delivered and gated,
-but the operations are owned by RD-13 and are not claimed as implemented. The final report and
-roadmap note state this explicitly. Implementing the archive or KEK rewrap here would pull
-RD-13 forward and duplicate its security tests; that larger scope was rejected (AR-2). RD-11 is
-complete when the client surface and every non-RD-13 command are verified; the three commands
-remain an RD-13 acceptance item.
 
 ## Acceptance Criteria
 
 RD-11 owns its acceptance criteria. This plan adds these executable criteria:
 
-1. Every RD-11 command whose backend exists runs through the generated client against the
-   reference-style server, and `ov --help` lists every group and command. The three RD-13-backed
-   commands are registered, gated, and explicitly deferred (see Acceptance Exception).
+1. Every RD-11 command runs through the generated client or the local operations module
+   against the reference-style server, and `ov --help` lists every group and command.
 2. `ov secret set name --stdin` never places the value in `process.argv`; a test inspects the
    spawned process arguments and the recorded request body.
 3. `ov run --project payments -- ./start.sh` parses options before `--` and spawns the command
@@ -83,7 +71,17 @@ RD-11 owns its acceptance criteria. This plan adds these executable criteria:
     and one matching server certificate/key pair; the CA is never rotated; a missing keyring
     with wrapped rows fails closed; the password is written only when the admin is created and
     meets the 12-character policy.
-14. `pnpm verify`, `pnpm api:check`, `pnpm db:types:check`, `pnpm changeset status`,
+14. `ov backup` produces an age-encrypted archive containing the logical database dump,
+    keyring, redacted config, public CA, and checkpoints; a wrong passphrase or checksum
+    failure changes nothing. `ov restore` restores every row into an empty migrated target,
+    verifies the audit chain, decrypts one current secret per project, and signs a probe
+    certificate with the restored CA. A non-empty target is refused without `--force`.
+15. `ov kek rotate` rewraps secret and certificate data keys, audit keys, CA keys, and JWT
+    seeds; value ciphertext is byte-identical before and after; no row references the old KEK
+    before it is removed from the keyring.
+16. Restore and rotation require a role that owns the tables; the app role fails with a clear
+    ownership error. Both operations write audit events.
+17. `pnpm verify`, `pnpm api:check`, `pnpm db:types:check`, `pnpm changeset status`,
     `pnpm audit:prod`, the docs build, and the integration suite pass on PostgreSQL 16 and 17.
 
 ## Plan-local decisions
@@ -91,7 +89,11 @@ RD-11 owns its acceptance criteria. This plan adds these executable criteria:
 | Decision | Chosen | AR Ref |
 |---|---|---|
 | Package and binary | `apps/cli`, `@openvault/cli`, `ov` | AR-1 |
-| RD-13 boundary | Registered, gated, named deferral; acceptance exception recorded | AR-2 |
+| RD-13 boundary | Backup/restore/KEK rotate implemented; remaining RD-13 program deferred | AR-2 |
+| Backup format | age-encrypted logical JSON dump | AR-61 |
+| Restore safety | Owner role, empty target or --force, --yes | AR-62 |
+| KEK rotation | Rewrap only; verify counts; maintenance window | AR-63 |
+| Operations audit | `backup.create`, `backup.restore`, `kek.rotate` | AR-64 |
 | Bootstrap | Server `init` module plus CLI delegation | AR-3 |
 | Dispatcher | Global extraction + positional conversion + cmdline groups | AR-4, AR-5 |
 | Contract | Real controllers + metadata table → OpenAPI + client | AR-6, AR-7 |

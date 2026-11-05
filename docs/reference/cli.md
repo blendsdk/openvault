@@ -135,10 +135,33 @@ child command and is never parsed.
 including `--password-file` and `--bootstrap-password-file`, must be absolute. See
 [Configuration](/reference/configuration#cli-and-bootstrap).
 
-### Deferred operations
+### Backup, restore, and KEK rotation
 
-`ov backup`, `ov restore`, and `ov kek rotate` are registered and safety-gated, but their
-operations belong to the backup and rotation release. They exit 1 with `not_implemented`.
+| Command | Options | Purpose |
+|---|---|---|
+| `ov backup` | `--out`, `--passphrase-file`, `--keyring`, `--internal-ca`, `--force` | Write one encrypted age archive |
+| `ov restore <archive>` | `--passphrase-file`, `--keyring`, `--internal-ca`, `--ca-public-dir`, `--force`, `--yes` | Restore into a migrated target |
+| `ov kek rotate` | `--dry-run`, `--keyring`, `--yes` | Rewrap every key with a new KEK |
+
+`backup` uses `OPENVAULT_DB_URL`, `OPENVAULT_KEYRING`, `OPENVAULT_INTERNAL_CA` (or a
+`ca.pem` beside `OPENVAULT_TLS_CERT`), and `OPENVAULT_BACKUP_PASSPHRASE_FILE` or
+`--passphrase-file`. The archive contains a logical JSON database dump, the keyring, a
+redacted configuration manifest, the public CA, and audit checkpoints. It is encrypted with
+age using the passphrase.
+
+`restore` uses `OPENVAULT_DB_URL` for the restored application connection and
+`OPENVAULT_RESTORE_DB_URL` (falling back to `OPENVAULT_MIGRATION_DB_URL`) for migrations and
+data loading. Both URLs must target the same database; the restore role must own the tables so
+user triggers can be disabled. A non-empty target is refused unless `--force` is set; `--yes`
+is required for the destructive confirmation. Stop the server during restore. The command
+verifies checksums and the archived keyring before touching the target, then verifies the
+restored audit chain, one current secret per project, and a CA signing probe. `--ca-public-dir`
+writes the public CA to the proxy's `ca.pem` as well.
+
+`kek rotate` rewraps secret and certificate data keys, audit keys, CA keys, and JWT seeds
+without re-encrypting values. It removes the old key only after every `kek_id` is verified.
+Run it during a maintenance window with the server stopped, as the role that owns the key
+tables.
 
 ## Credentials
 

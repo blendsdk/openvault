@@ -5,7 +5,8 @@
 > **Audit target**: all plan documents in `codeops/features/openvault-v0-1/plans/rd-11-cli/`
 > **Context**: RD-01, RD-02, RD-04, RD-05, RD-06, RD-08, RD-09, RD-10, RD-11, RD-13, RD-14, the existing controllers/contracts, `blendsdk/cmdline`/`api-client`/`codegen`, and the reference Compose files
 > **Iterations**: 2 (three independent review lenses, then a plan revision)
-> **Status**: ✅ PREFLIGHT PASSED — every actionable critical/major finding resolved; the RD-13 command deferral is explicitly recorded; the schema-drift limitation is disclosed
+> **Status**: ✅ PREFLIGHT PASSED — every actionable critical/major finding resolved at planning time
+> **Post-execution update (2026-11-06)**: the self-authored RD-13 command deferral was rejected by user review of PR #29. `ov backup`, `ov restore`, and `ov kek rotate` were implemented through `apps/server/src/ops` and verified. The deferral references below are superseded; see [05-findings.md](05-findings.md) §Operations Findings.
 
 > **⚠️ SAME-SESSION REVIEW:** The plan and this report were produced in the same session. Independent correctness and security/concurrency reviews run again during execution. This report records the planning-stage preflight only.
 
@@ -49,7 +50,7 @@
 | DC-16 | Major | `cmdline.execute` signature was wrong. | Corrected to `execute(context, { argv, write })` (03-01). |
 | DC-17 | Major | Generated files use single quotes and fail Biome. | Biome ignores `apps/cli/src/generated/**` and `openapi.json`; `api:check` owns them (AR-52, ST-136). |
 | DC-18 | Major | The contract table is the schema source; `api:check` cannot see a controller schema change. | Disclosed the limitation; representative E2E commands parse real responses and catch schema drift at the command boundary (03-02). |
-| DC-19 | Major | RD-11's three RD-13-backed commands are not executed. | Recorded as a named cross-feature deferral with an explicit acceptance exception; the final report states it (AR-2, 01 §Acceptance Exception). |
+| DC-19 | Major | RD-11's three RD-13-backed commands are not executed. | Superseded: the commands were implemented in the post-execution operations slice (AR-2, 05-findings §Operations Findings). |
 | DC-20 | Major | `ov access explain` used value/private routes, requiring `secret.read`. | Resolve names through `listSecrets`/`listCertificates` only (AR-21, ST-94). |
 | DC-21 | Major | `role grant --object` has no object type; names can collide. | Require `--object-type secret|certificate` (AR-50, ST-90). |
 | DC-22 | Major | `audit list --project` passed a name to a ULID field. | Resolve names or use `--project-id` (AR-49, ST-97). |
@@ -91,7 +92,7 @@
 | CR-13 | Major | Phase 1 test scope. | Split spec by owning phase (99). |
 | CR-14 | Major | Missing E2E/init test tasks and wrong paths. | Added tasks and moved DB tests to `tests/integration/` (AR-53, 99). |
 | CR-15 | Major | Missing preflight/findings artifacts. | Created both. |
-| CR-16 | Major | RD-13 acceptance gap. | Named deferral and acceptance exception (AR-2, 01). |
+| CR-16 | Major | RD-13 acceptance gap. | Superseded: backup/restore/KEK rotate implemented and tested (AR-2, 05-findings). |
 | CR-17 | Minor | `--org` was silently ignored. | Update the org name and bump policy version (AR-43). |
 | CR-18 | Minor | Password policy bypass. | `validateNewPassword` (AR-34). |
 | CR-19 | Minor | Audit export content type. | Stream-only contract + adapter check (AR-58). |
@@ -140,8 +141,9 @@ These are recorded in `docs/security/limitations.md` during Phase 5:
 
 1. **Native Windows credential store.** The CLI fails closed on native Windows because Node cannot
    enforce an owner-only ACL; WSL uses the POSIX path (AR-10).
-2. **RD-13-backed commands.** `ov backup`, `ov restore`, and `ov kek rotate` are registered and
-   gated; their operations remain RD-13 acceptance items (AR-2).
+2. **RD-13-backed commands.** Superseded after user review: `ov backup`, `ov restore`, and
+   `ov kek rotate` are implemented through `apps/server/src/ops`; the remaining RD-13 program
+   (secret/certificate rotation workflows, Compose hardening, role provisioning) is deferred.
 3. **Bootstrap credential rotation.** The v0.1 generated password is not force-changed because the
    CLI has no password-change route and RD-12 is not available; the one-time file must be removed
    after first use (AR-34).
@@ -174,4 +176,5 @@ These are recorded in `docs/security/limitations.md` during Phase 5:
 missing keyring with wrapped state, never exposes the CA scalar, validates TLS material, and
 handles the password lifecycle safely. The CLI runtime preflights credentials, maps runtime
 errors, retries 429 in the adapter, and keeps tokens out of argv, logs, and generated files.
-The three RD-13-backed commands are a named, explicit deferral, not a silent narrowing.
+The three RD-13-backed commands were initially a named deferral; user review rejected that
+narrowing, and the post-execution operations slice implemented them.

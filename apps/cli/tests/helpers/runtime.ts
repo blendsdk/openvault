@@ -22,7 +22,10 @@ export interface TestRuntime {
 /** Creates one isolated CLI runtime. */
 export function createTestRuntime(
   vault: FakeVault,
-  overrides: Pick<Partial<CliRuntime>, "runInit"> = {},
+  overrides: Pick<
+    Partial<CliRuntime>,
+    "runInit" | "runBackup" | "runRestore" | "runKekRotate"
+  > = {},
 ): TestRuntime {
   const directory = mkdtempSync(join(tmpdir(), "openvault-cli-test-"));
   const env: NodeJS.ProcessEnv = {

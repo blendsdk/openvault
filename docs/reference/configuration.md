@@ -53,6 +53,8 @@ server process.
 |---|---|---|---|
 | `OPENVAULT_URL` | none | for `ov login` and `ov doctor` | HTTPS origin of the public API; no credentials, path, query, or fragment |
 | `OPENVAULT_CA_FILE` | none | recommended | PEM bundle that verifies the server; must match the proxy's certificate chain |
+| `OPENVAULT_BACKUP_PASSPHRASE_FILE` | none | for non-interactive backup/restore | `0600` file with the archive passphrase; at least 12 characters |
+| `OPENVAULT_RESTORE_DB_URL` | `OPENVAULT_MIGRATION_DB_URL` or `OPENVAULT_DB_URL` | for restore | Owner/migrator URL used to disable triggers, truncate, and load rows |
 
 The bootstrap command `ov init` reads the server database and file settings from the
 environment. It never accepts the database URL as a command-line option, because a PostgreSQL
@@ -78,6 +80,24 @@ it is the reference Compose provisioner. The generated password is written once 
 `0600` and is never printed. Re-running init does not rotate the CA or replace an existing
 administrator password. If the keyring is missing but wrapped state exists, init fails closed
 and asks for a restore from backup.
+
+## Backup, restore, and KEK rotation
+
+`ov backup` requires `OPENVAULT_DB_URL`, `OPENVAULT_KEYRING`, and
+`OPENVAULT_INTERNAL_CA` (or a `ca.pem` beside `OPENVAULT_TLS_CERT`). The archive is encrypted
+with age using the passphrase from `--passphrase-file`, `OPENVAULT_BACKUP_PASSPHRASE_FILE`, or
+an interactive hidden prompt. The v0.1 archive contains a logical JSON row dump, the raw
+keyring, a redacted configuration manifest, the public CA, and audit checkpoints. It is not a
+`pg_dump` custom-format archive.
+
+`ov restore` uses `OPENVAULT_RESTORE_DB_URL` for migrations and data loading. It must target
+the same database as `OPENVAULT_DB_URL`, and that role must own the tables so user triggers can
+be disabled. Stop the server during restore. The target must be empty unless `--force` is
+supplied, and `--yes` is required in a non-interactive session.
+
+`ov kek rotate` also needs table ownership. Stop the server first: a running process holds the
+old keyring in memory and could write a row with the old `kek_id` after the CLI's verification.
+The command removes the old key only after every key table has been checked.
 
 ## Audit maintenance
 
@@ -164,7 +184,7 @@ group- or world-writable directory, stops startup.
 
 Age-encrypted keyrings are deferred to a later release. Setting
 `OPENVAULT_KEYRING_PASSPHRASE_FILE` fails closed with an unsupported-feature error; there is
-no plaintext fallback. `ov init` creates the keyring file; backup, restore, and KEK rotation are later releases.
+no plaintext fallback. `ov init` creates the keyring file; `ov backup`, `ov restore`, and `ov kek rotate` consume and replace it.
 
 ## Workload CA
 
@@ -173,8 +193,8 @@ The public CA certificate at `OPENVAULT_INTERNAL_CA` must match the CA key store
 never returned. The deployment provisioner generates the CA once. Re-running the provisioner
 does not rotate it. Startup fails closed if the row is missing, the KEK cannot unwrap it, or it does not match
 the public certificate. `/ready` signs and verifies a short test certificate with the loaded
-key; it does not re-read the row. KEK rotation and backup/restore are later releases; they
-must re-wrap and restore the wrapped `ca_keys` row together with the public certificate.
+key; it does not re-read the row. `ov kek rotate` re-wraps the `ca_keys` row; `ov restore`
+re-materializes the public certificate and verifies the restored CA key.
 
 ## Readiness
 

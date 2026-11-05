@@ -74,7 +74,8 @@ describe("CLI dispatcher", () => {
     ]) {
       expect(result.stdout).toContain(group);
     }
-    expect(result.stdout).toContain("RD-13");
+    expect(result.stdout).toContain("backup");
+    expect(result.stdout).not.toContain("RD-13");
   });
 
   it("should print the version", async () => {
@@ -99,11 +100,11 @@ describe("CLI dispatcher", () => {
     expect(result.stdout).toContain("versions");
   });
 
-  it("should execute a single-command group and return its exit code", async () => {
+  it("should execute a single-command group and validate its environment", async () => {
     const harness = runtime();
-    const result = await harness.run(["backup"]);
-    expect(result.code).toBe(1);
-    expect(result.stderr).toContain("RD-13");
+    const result = await harness.run(["backup", "--out", "/tmp/backup.age"]);
+    expect(result.code).toBe(2);
+    expect(result.stderr).toContain("OPENVAULT_DB_URL");
   });
 
   it("should reject an unknown top-level option in JSON mode", async () => {
@@ -138,10 +139,10 @@ describe("CLI dispatcher", () => {
   it("should emit a JSON error when --json is set", async () => {
     const harness = runtime();
     const result = await harness.run(["--json", "backup"]);
-    expect(result.code).toBe(1);
+    expect(result.code).toBe(2);
     const parsed = JSON.parse(result.stderr) as { success: boolean; error: { code: string } };
     expect(parsed.success).toBe(false);
-    expect(parsed.error.code).toBe("not_implemented");
+    expect(parsed.error.code).toBe("usage_error");
   });
 
   it("should print completion for each shell", async () => {

@@ -616,13 +616,114 @@ describe("CLI commands against a real HTTPS vault", () => {
     expect(result.code).toBe(2);
   });
 
-  it("should gate restore and KEK rotation in a non-interactive session", async () => {
-    runtime = createTestRuntime(vault);
-    expect((await runtime.run(["restore", "archive.tar"])).code).toBe(2);
-    expect((await runtime.run(["restore", "archive.tar", "--yes"])).code).toBe(1);
-    expect((await runtime.run(["kek", "rotate"])).code).toBe(2);
-    expect((await runtime.run(["kek", "rotate", "--yes"])).code).toBe(1);
-    expect((await runtime.run(["backup"])).code).toBe(1);
+  it("should map backup options and require a non-interactive passphrase", async () => {
+    let captured: Record<string, unknown> | undefined;
+    runtime = createTestRuntime(vault, {
+      runBackup: async (options) => {
+        captured = options as unknown as Record<string, unknown>;
+        return {
+          outPath: options.outPath,
+          bytes: 10,
+          sha256: "a".repeat(64),
+          createdAt: "2026-11-05T12:00:00.000Z",
+          objectCount: 1,
+          tables: ["secrets"],
+        };
+      },
+    });
+    runtime.env.OPENVAULT_DB_URL = "postgres://user:pass@localhost:5432/db";
+    runtime.env.OPENVAULT_KEYRING = join(runtime.directory, "keyring.json");
+    runtime.env.OPENVAULT_INTERNAL_CA = join(runtime.directory, "ca.pem");
+    const passphrase = join(runtime.directory, "passphrase.txt");
+    writeFileSync(passphrase, "correct horse battery staple\n", { mode: 0o600 });
+    chmodSync(passphrase, 0o600);
+    const out = join(runtime.directory, "backup.age");
+    const result = await runtime.run([
+      "backup",
+      "--out",
+      out,
+      "--passphrase-file",
+      passphrase,
+      "--force",
+    ]);
+    expect(result.code, result.stderr).toBe(0);
+    expect(captured?.passphrase).toBe("correct horse battery staple");
+    expect(captured?.outPath).toBe(out);
+    expect(captured?.force).toBe(true);
+    expect(result.stdout).toContain("Wrote");
+
+    const missing = await runtime.run(["backup", "--out", out]);
+    expect(missing.code).toBe(2);
+    expect(missing.stderr).toContain("passphrase");
+  });
+
+  it("should gate restore and KEK rotation and call the injected operations", async () => {
+    let restored = false;
+    let rotated = false;
+    runtime = createTestRuntime(vault, {
+      runRestore: async (options) => {
+        restored = true;
+        return {
+          objectCount: 2,
+          tables: ["projects", "secrets"],
+          auditOk: true,
+          secretsVerified: 1,
+          caVerified: true,
+          internalCaPath: options.internalCaPath,
+        };
+      },
+      runKekRotate: async () => {
+        rotated = true;
+        return {
+          oldKekId: "kek-1",
+          newKekId: "kek-2",
+          counts: {
+            secretVersions: 1,
+            certificateVersions: 0,
+            auditKeys: 1,
+            caKeys: 1,
+            signingKeys: 1,
+          },
+          dryRun: false,
+          oldKeyRemoved: true,
+        };
+      },
+    });
+    runtime.env.OPENVAULT_DB_URL = "postgres://user:pass@localhost:5432/db";
+    runtime.env.OPENVAULT_KEYRING = join(runtime.directory, "keyring.json");
+    runtime.env.OPENVAULT_INTERNAL_CA = join(runtime.directory, "ca.pem");
+    const passphrase = join(runtime.directory, "passphrase.txt");
+    writeFileSync(passphrase, "correct horse battery staple\n", { mode: 0o600 });
+    chmodSync(passphrase, 0o600);
+
+    const denied = await runtime.run([
+      "restore",
+      join(runtime.directory, "backup.age"),
+      "--passphrase-file",
+      passphrase,
+    ]);
+    expect(denied.code).toBe(2);
+    expect(restored).toBe(false);
+
+    const accepted = await runtime.run([
+      "restore",
+      join(runtime.directory, "backup.age"),
+      "--passphrase-file",
+      passphrase,
+      "--yes",
+    ]);
+    expect(accepted.code, accepted.stderr).toBe(0);
+    expect(restored).toBe(true);
+
+    const rotateDenied = await runtime.run(["kek", "rotate"]);
+    expect(rotateDenied.code).toBe(2);
+    expect(rotated).toBe(false);
+    const rotateAccepted = await runtime.run(["kek", "rotate", "--yes"]);
+    expect(rotateAccepted.code, rotateAccepted.stderr).toBe(0);
+    expect(rotated).toBe(true);
+    expect(rotateAccepted.stdout).toContain("kek-2");
+    const dryRun = await runtime.run(["kek", "rotate", "--dry-run"]);
+    expect(dryRun.code, dryRun.stderr).toBe(0);
   });
 
   it("should explain certificate and project access", async () => {
