@@ -3,7 +3,14 @@ import type { VaultClient } from "./client.js";
 import { VaultClientError } from "./client.js";
 import type { AgentConfig } from "./config.js";
 import { AgentError } from "./errors.js";
-import { atomicWriteFile, ensureSecureDirectory, removeFile, safePath } from "./fs-utils.js";
+import {
+  abortStaged,
+  commitStaged,
+  ensureSecureDirectory,
+  removeFile,
+  safePath,
+  stageFile,
+} from "./fs-utils.js";
 import type { AgentLogger } from "./logger.js";
 import type { AgentManifest, ManifestEntry } from "./manifest.js";
 import type { AgentStateStore, ManagedFiles, StoredIdentity } from "./state.js";
@@ -24,6 +31,8 @@ export interface DeliveredEntry {
   readonly required: boolean;
   /** Manifest entry used for targets. */
   readonly entry: ManifestEntry;
+  /** True when the value cannot be exported as UTF-8 environment. */
+  readonly envError: boolean;
 }
 
 /** One entry state in a delivery snapshot. */
@@ -81,6 +90,16 @@ export interface DeliveryOptions {
   readonly identity: StoredIdentity;
   readonly logger: AgentLogger;
   readonly now?: () => number;
+  /** Returns true after a terminal failure; no write may proceed. */
+  readonly isCancelled?: () => boolean;
+}
+
+/** A cycle aborted by the terminal handler; the handler removes files last. */
+export class DeliveryCancelledError extends Error {
+  public constructor() {
+    super("Delivery cancelled");
+    this.name = "DeliveryCancelledError";
+  }
 }
 
 /** Decodes the response value into bytes. */
@@ -129,6 +148,7 @@ export class Delivery {
   #identity: StoredIdentity;
   readonly #logger: AgentLogger;
   readonly #now: () => number;
+  readonly #isCancelled: () => boolean;
   readonly #delivered = new Map<string, DeliveredEntry>();
   #snapshot: DeliverySnapshot = { state: "ok", requiredReady: false, entries: [] };
 
@@ -143,6 +163,7 @@ export class Delivery {
     this.#identity = options.identity;
     this.#logger = options.logger;
     this.#now = options.now ?? Date.now;
+    this.#isCancelled = options.isCancelled ?? (() => false);
   }
 
   /** Returns the last delivered value for one manifest entry. */
@@ -182,13 +203,23 @@ export class Delivery {
 
     for (const entry of this.#manifest.entries) {
       try {
+        this.#assertActive();
         const response = await this.#read(entry, state);
+        this.#assertActive();
         const value = decodeValue(response);
+        let envError = false;
         if (entry.env.length > 0) {
-          // Validate every env target now so startup does not write a mixed set.
-          for (const target of entry.env) {
-            void target;
+          try {
             decodeEnvValue(value);
+          } catch {
+            if (!entry.optional) {
+              throw new DeliveryTerminalError(
+                "agent_request_rejected",
+                true,
+                "Environment value is not valid UTF-8",
+              );
+            }
+            envError = true;
           }
         }
         const delivered: DeliveredEntry = {
@@ -199,16 +230,23 @@ export class Delivery {
           deliveredAt: new Date(this.#now()),
           required: !entry.optional,
           entry,
+          envError,
         };
+        if (envError) {
+          state = "degraded";
+        }
         staged.set(entry.name, delivered);
         statuses.set(entry.name, {
           name: entry.name,
           required: !entry.optional,
-          state: "ok",
+          state: envError ? "degraded" : "ok",
           versionId: response.version.id,
           updatedAt: delivered.deliveredAt.toISOString(),
         });
       } catch (error) {
+        if (error instanceof DeliveryCancelledError) {
+          throw error;
+        }
         const failure = this.#asClientError(error);
         const mapped = stateForFailure(failure, entry.optional);
         if (!entry.optional && failure.kind === "transient") {
@@ -243,7 +281,15 @@ export class Delivery {
     for (const [name, entry] of staged) {
       this.#delivered.set(name, entry);
     }
-    this.#writeManagedFiles(previous, this.#fileTargets());
+    try {
+      this.#writeManagedFiles(previous, this.#fileTargets(), true);
+    } catch (error) {
+      throw new DeliveryTerminalError(
+        "agent_state_write_failed",
+        false,
+        error instanceof AgentError ? error.message : "Output write failed",
+      );
+    }
     this.#snapshot = this.#buildSnapshot(state, statuses);
     this.#logger.info("agent_startup_ok", {
       state: this.#snapshot.state,
@@ -267,17 +313,30 @@ export class Delivery {
     const previous = this.#store.loadManagedFiles(this.#manifest.outputDir);
     const next = new Map(this.#delivered);
     const statuses = new Map<string, DeliveredEntryStatus>();
-    let state: AgentConsumerState = "ok";
+    let state: AgentConsumerState =
+      this.#snapshot.state === "failed" ? "failed" : this.#snapshot.state;
+    let degraded = state === "degraded";
 
     for (const entry of this.#manifest.entries) {
       const before = next.get(entry.name);
       try {
+        this.#assertActive();
         const response = await this.#read(entry, state);
+        this.#assertActive();
         const value = decodeValue(response);
+        let envError = false;
         if (entry.env.length > 0) {
-          for (const target of entry.env) {
-            void target;
+          try {
             decodeEnvValue(value);
+          } catch {
+            if (!entry.optional) {
+              throw new DeliveryTerminalError(
+                "agent_request_rejected",
+                true,
+                "Environment value is not valid UTF-8",
+              );
+            }
+            envError = true;
           }
         }
         const delivered: DeliveredEntry = {
@@ -288,16 +347,23 @@ export class Delivery {
           deliveredAt: new Date(this.#now()),
           required: !entry.optional,
           entry,
+          envError,
         };
+        if (envError) {
+          state = "degraded";
+        }
         next.set(entry.name, delivered);
         statuses.set(entry.name, {
           name: entry.name,
           required: !entry.optional,
-          state: "ok",
+          state: envError ? "degraded" : "ok",
           versionId: response.version.id,
           updatedAt: delivered.deliveredAt.toISOString(),
         });
       } catch (error) {
+        if (error instanceof DeliveryCancelledError) {
+          throw error;
+        }
         const failure = this.#asClientError(error);
         const mapped = stateForFailure(failure, entry.optional);
         if (mapped === "failed") {
@@ -312,6 +378,7 @@ export class Delivery {
           );
         }
         state = "degraded";
+        degraded = true;
         if (failure.kind === "not_found") {
           next.delete(entry.name);
           this.#removeEntryFiles(entry);
@@ -346,12 +413,15 @@ export class Delivery {
     for (const [name, entry] of next) {
       this.#delivered.set(name, entry);
     }
+    if (!degraded) {
+      state = "ok";
+    }
     try {
-      this.#writeManagedFiles(previous, this.#fileTargets());
+      this.#writeManagedFiles(previous, this.#fileTargets(), false);
     } catch (error) {
       throw new DeliveryTerminalError(
         "agent_state_write_failed",
-        true,
+        false,
         error instanceof AgentError ? error.message : "Output write failed",
       );
     }
@@ -361,6 +431,13 @@ export class Delivery {
       requiredReady: this.#snapshot.requiredReady,
     });
     return this.#snapshot;
+  }
+
+  /** Throws when the runner has entered the terminal path. */
+  #assertActive(): void {
+    if (this.#isCancelled()) {
+      throw new DeliveryCancelledError();
+    }
   }
 
   /** Removes every managed file known from the current and previous ledgers. */
@@ -374,16 +451,30 @@ export class Delivery {
     } catch {
       // A corrupt ledger must not block the credential-failure cleanup.
     }
-    for (const name of names) {
-      removeFile(safePath(this.#manifest.outputDir, name));
+    let firstError: unknown;
+    try {
+      for (const name of names) {
+        try {
+          removeFile(safePath(this.#manifest.outputDir, name));
+        } catch (error) {
+          firstError ??= error;
+        }
+      }
+    } finally {
+      this.#delivered.clear();
     }
-    this.#delivered.clear();
+    if (firstError !== undefined) {
+      throw firstError;
+    }
   }
 
-  /** Removes the files for one entry. */
+  /** Removes files for one entry only when the agent previously managed them. */
   #removeEntryFiles(entry: ManifestEntry): void {
+    const managed = new Set(this.#store.loadManagedFiles(this.#manifest.outputDir)?.files ?? []);
     for (const target of entry.files) {
-      removeFile(safePath(this.#manifest.outputDir, target.name));
+      if (managed.has(target.name) || this.#delivered.has(entry.name)) {
+        removeFile(safePath(this.#manifest.outputDir, target.name));
+      }
     }
   }
 
@@ -417,8 +508,15 @@ export class Delivery {
    * The temporary files are created before any rename; a failure removes the
    * managed set so startup cannot leave a mixed old/new view.
    */
-  #writeManagedFiles(previous: ManagedFiles | undefined, fileTargets: readonly string[]): void {
-    const next = new Set(fileTargets);
+  #writeManagedFiles(
+    previous: ManagedFiles | undefined,
+    fileTargets: readonly string[],
+    removeOnFailure: boolean,
+  ): void {
+    this.#assertActive();
+    const manifestTargets = new Set(fileTargets);
+    const deliveredTargets = new Set<string>();
+    const staged = [];
     try {
       for (const entry of this.#manifest.entries) {
         const delivered = this.#delivered.get(entry.name);
@@ -426,12 +524,16 @@ export class Delivery {
           continue;
         }
         for (const target of entry.files) {
+          this.#assertActive();
           const path = safePath(this.#manifest.outputDir, target.name);
-          atomicWriteFile(path, delivered.value, target.mode);
+          staged.push(stageFile(path, delivered.value, target.mode));
+          deliveredTargets.add(target.name);
         }
       }
+      this.#assertActive();
+      commitStaged(staged);
       for (const old of previous?.files ?? []) {
-        if (!next.has(old)) {
+        if (!manifestTargets.has(old)) {
           removeFile(safePath(this.#manifest.outputDir, old));
         }
       }
@@ -439,10 +541,13 @@ export class Delivery {
         version: 1,
         outputDir: this.#manifest.outputDir,
         manifestHash: this.#manifest.hash,
-        files: [...next],
+        files: [...deliveredTargets],
       });
     } catch (error) {
-      this.removeManagedFiles();
+      abortStaged(staged);
+      if (removeOnFailure) {
+        this.removeManagedFiles();
+      }
       throw error instanceof AgentError
         ? error
         : new AgentError("agent_state_write_failed", "Output write failed", { cause: error });

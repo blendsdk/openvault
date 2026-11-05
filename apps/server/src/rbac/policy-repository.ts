@@ -642,7 +642,9 @@ export class PolicyRepository {
               p.status AS principal_status
          FROM role_assignments r
          JOIN principals p ON p.id = r.principal_id
-        WHERE ${LIVE_ASSIGNMENT} AND r.principal_id = :principalId
+        WHERE ${LIVE_ASSIGNMENT}
+          AND r.principal_id = :principalId
+          AND (r.expires_at IS NULL OR r.expires_at > now())
         ORDER BY r.created_at DESC, r.id DESC`,
       { principalId },
     );

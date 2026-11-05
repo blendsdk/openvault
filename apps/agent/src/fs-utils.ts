@@ -69,11 +69,81 @@ export function safePath(root: string, name: string): string {
   return path;
 }
 
+/** One staged temporary file. */
+export interface StagedFile {
+  /** Temporary path in the target directory. */
+  readonly temporary: string;
+  /** Final target path. */
+  readonly target: string;
+}
+
+/**
+ * Stages one file without touching the target.
+ *
+ * @param path - Final target path.
+ * @param data - Bytes to write.
+ * @param mode - Final mode applied to the temporary file.
+ * @returns The staged descriptor.
+ */
+export function stageFile(path: string, data: Buffer | string, mode: number): StagedFile {
+  const temporary = resolve(dirname(path), `.openvault-${randomBytes(8).toString("hex")}.tmp`);
+  let fd: number | undefined;
+  try {
+    fd = openSync(temporary, "wx", 0o600);
+    writeFileSync(fd, data);
+    fchmodSync(fd, mode);
+    fsyncSync(fd);
+    closeSync(fd);
+    fd = undefined;
+    return { temporary, target: path };
+  } catch (error) {
+    if (fd !== undefined) {
+      try {
+        closeSync(fd);
+      } catch {
+        // Preserve the original failure.
+      }
+    }
+    try {
+      rmSync(temporary, { force: true });
+    } catch {
+      // Ignore cleanup failure.
+    }
+    throw new AgentError("agent_state_write_failed", "File staging failed", { cause: error });
+  }
+}
+
+/** Removes staged temporary files. */
+export function abortStaged(files: readonly StagedFile[]): void {
+  for (const file of files) {
+    try {
+      rmSync(file.temporary, { force: true });
+    } catch {
+      // Ignore cleanup failure.
+    }
+  }
+}
+
+/** Commits every staged file in order and flushes each directory. */
+export function commitStaged(files: readonly StagedFile[]): void {
+  const directories = new Set<string>();
+  try {
+    for (const file of files) {
+      renameSync(file.temporary, file.target);
+      directories.add(dirname(file.target));
+    }
+  } finally {
+    for (const directory of directories) {
+      fsyncDirectory(directory);
+    }
+  }
+}
+
 /** Flushes a directory entry after a rename. */
 function fsyncDirectory(path: string): void {
   let fd: number | undefined;
   try {
-    fd = openSync(path, constants.O_RDONLY | constants.O_NOFOLLOW);
+    fd = openSync(path, constants.O_RDONLY | constants.O_NOFOLLOW | constants.O_NONBLOCK);
     fsyncSync(fd);
   } catch {
     // A best-effort directory flush. The file itself is already durable.
@@ -137,7 +207,7 @@ export function atomicWriteFile(path: string, data: Buffer | string, mode: numbe
 export function readRegularFile(path: string): Buffer | undefined {
   let fd: number | undefined;
   try {
-    fd = openSync(path, constants.O_RDONLY | constants.O_NOFOLLOW);
+    fd = openSync(path, constants.O_RDONLY | constants.O_NOFOLLOW | constants.O_NONBLOCK);
   } catch (error) {
     if (typeof error === "object" && error !== null && Reflect.get(error, "code") === "ENOENT") {
       return undefined;

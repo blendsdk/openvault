@@ -1,3 +1,4 @@
+import type { ClientRequest } from "node:http";
 import { request as httpsRequest } from "node:https";
 import type {
   AgentCertificateResponse,
@@ -87,9 +88,25 @@ function isTlsFailure(code: string | undefined): boolean {
   return TLS_EXACT.has(code) || TLS_PREFIXES.some((prefix) => code.startsWith(prefix));
 }
 
+/** Exact socket-family codes that are safe to retry. */
+const NETWORK_CODES = new Set([
+  "ECONNREFUSED",
+  "ECONNRESET",
+  "ECONNABORTED",
+  "ETIMEDOUT",
+  "ENOTFOUND",
+  "EAI_AGAIN",
+  "EPIPE",
+  "EHOSTUNREACH",
+  "ENETUNREACH",
+  "ENETDOWN",
+  "EHOSTDOWN",
+  "ERR_SOCKET_CONNECTION_TIMEOUT",
+]);
+
 /** Returns true for a network/socket failure that should be retried. */
 function isNetworkFailure(code: string | undefined): boolean {
-  return code !== undefined && /^E[A-Z0-9_]+$/.test(code);
+  return code !== undefined && NETWORK_CODES.has(code);
 }
 
 /** Parses a JSON body or throws a terminal client error. */
@@ -132,6 +149,7 @@ export class VaultClient {
   readonly #caPem: string;
   readonly #timeoutMs: number;
   readonly #maxResponseBytes: number;
+  readonly #active = new Set<ClientRequest>();
 
   /**
    * @param options - Origin, CA PEM, and bounds.
@@ -141,6 +159,14 @@ export class VaultClient {
     this.#caPem = options.caPem;
     this.#timeoutMs = options.timeoutMs ?? DEFAULT_TIMEOUT_MS;
     this.#maxResponseBytes = options.maxResponseBytes ?? MAX_RESPONSE_BYTES;
+  }
+
+  /** Aborts every in-flight request. */
+  public cancel(): void {
+    for (const request of this.#active) {
+      request.destroy(new Error("agent cancelled"));
+    }
+    this.#active.clear();
   }
 
   /**
@@ -280,6 +306,11 @@ export class VaultClient {
           });
         },
       );
+      this.#active.add(request);
+      const settle = (): void => {
+        this.#active.delete(request);
+      };
+      request.on("close", settle);
       request.on("timeout", () => {
         request.destroy(new Error("request timeout"));
       });

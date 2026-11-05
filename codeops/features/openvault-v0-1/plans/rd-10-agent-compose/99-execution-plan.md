@@ -2,8 +2,8 @@
 
 > **Document**: 99-execution-plan.md
 > **Parent**: [Index](00-index.md)
-> **Last Updated**: 2026-11-05 11:20
-> **Progress**: 72/79 tasks (91%)
+> **Last Updated**: 2026-11-05 12:10
+> **Progress**: 76/79 tasks (96%)
 > **CodeOps Artifact Schema**: 1
 
 ## Overview
@@ -326,10 +326,10 @@ tests, and a full repository gate.
 **Reference**: [00-index.md](00-index.md) · project quality policy
 **Objective**: Review the phase, resolve findings, merge through a pull request, and leave a clean tree.
 
-- [ ] 5.3.1 Run a correctness review over the agent and server changes; record findings in `05-findings.md`
-- [ ] 5.3.2 Run a security/concurrency review over TLS, key storage, file writes, headers, heartbeat audit, scaffold authorization, Compose generation, and logs; record findings
-- [ ] 5.3.3 Fix every critical/major finding and re-review; accept only documented minors/residuals
-- [ ] 5.3.4 Re-run `pnpm verify`, the database gates, and the PostgreSQL 16/17 integration suites after fixes
+- [x] 5.3.1 Run a correctness review over the agent and server changes; record findings in `05-findings.md` ✅ (completed: 2026-11-05 12:10)
+- [x] 5.3.2 Run a security/concurrency review over TLS, key storage, file writes, headers, heartbeat audit, scaffold authorization, Compose generation, and logs; record findings ✅ (completed: 2026-11-05 12:10)
+- [x] 5.3.3 Fix every critical/major finding and re-review; accept only documented minors/residuals ✅ (completed: 2026-11-05 12:10)
+- [x] 5.3.4 Re-run `pnpm verify`, the database gates, and the PostgreSQL 16/17 integration suites after fixes ✅ (completed: 2026-11-05 12:10)
 - [ ] 5.3.5 Mark the execution plan complete, set the plan index to Done, and update both roadmaps to 10/14 RDs
 - [ ] 5.3.6 Use the git-commit skill in push mode, open a pull request, squash-merge after required checks pass, and delete the branch
 - [ ] 5.3.7 Remove temporary artifacts and confirm a clean `main` worktree

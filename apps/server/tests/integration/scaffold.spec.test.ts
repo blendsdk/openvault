@@ -288,6 +288,11 @@ describe.skipIf(trustedHost === undefined)("compose scaffold", () => {
       body: { project: name, service: "api", entries: ["db-password"] },
     });
     expect(rejected.status).toBe(422);
+    const notCreated = await testDb.db.executeQuery<{ count: number }>(
+      "SELECT count(*)::int AS count FROM projects WHERE name = :name",
+      { name },
+    );
+    expect(notCreated.records[0]?.count).toBe(0);
     const created = await send({
       method: "POST",
       path: "/v1/admin/scaffold",
@@ -387,5 +392,74 @@ describe.skipIf(trustedHost === undefined)("compose scaffold", () => {
     });
     expect(response.status).toBe(403);
     expect(errorCode(response)).toBe("access_denied");
+  });
+  it("should ignore an expired broader grant when reusing an identity", async () => {
+    const actor = await insertUser();
+    await assign(actor, "org.admin", "org", "org");
+    const projectId = await insertProject(`scaffold-${id().slice(-8).toLowerCase()}`);
+    const projectName =
+      (
+        await testDb.db.executeQuery<{ name: string }>("SELECT name FROM projects WHERE id = :id", {
+          id: projectId,
+        })
+      ).records[0]?.name ?? "";
+    await insertSecret(projectId, "db-password");
+    const identityId = id();
+    await testDb.db.executeQuery(
+      `INSERT INTO principals (id, kind, name, owner_project_id, status)
+       VALUES (:id, 'service', 'api', :projectId, 'active')`,
+      { id: identityId, projectId },
+    );
+    await testDb.db.executeQuery(
+      `INSERT INTO role_assignments (id, principal_id, role, scope_type, scope_id, granted_by, expires_at)
+       VALUES (:id, :principalId, 'secrets.reader', 'project', :projectId, :principalId, now() - interval '1 hour')`,
+      { id: id(), principalId: identityId, projectId },
+    );
+    const response = await send({
+      method: "POST",
+      path: "/v1/admin/scaffold",
+      headers: await sessionHeaders(actor),
+      body: { project: projectName, service: "api", entries: ["db-password"] },
+    });
+    expect(response.status).toBe(200);
+    const body = scaffoldEnvelope.parse(response.json).data;
+    expect(body.identity.id).toBe(identityId);
+  });
+
+  it("should serialize concurrent scaffolds with different entry sets", async () => {
+    const actor = await insertUser();
+    await assign(actor, "org.admin", "org", "org");
+    const projectId = await insertProject(`scaffold-${id().slice(-8).toLowerCase()}`);
+    const projectName =
+      (
+        await testDb.db.executeQuery<{ name: string }>("SELECT name FROM projects WHERE id = :id", {
+          id: projectId,
+        })
+      ).records[0]?.name ?? "";
+    const alphaId = await insertSecret(projectId, "alpha");
+    const betaId = await insertSecret(projectId, "beta");
+    const headers = await sessionHeaders(actor);
+    const [first, second] = await Promise.all([
+      send({
+        method: "POST",
+        path: "/v1/admin/scaffold",
+        headers,
+        body: { project: projectName, service: "api", entries: ["alpha"] },
+      }),
+      send({
+        method: "POST",
+        path: "/v1/admin/scaffold",
+        headers,
+        body: { project: projectName, service: "api", entries: ["beta"] },
+      }),
+    ]);
+    expect(first.status).toBe(200);
+    expect(second.status).toBe(200);
+    const rows = await testDb.db.executeQuery<{ scope_id: string }>(
+      "SELECT scope_id FROM role_assignments WHERE principal_id = :id AND role = 'secrets.reader' AND scope_type = 'object'",
+      { id: scaffoldEnvelope.parse(first.json).data.identity.id },
+    );
+    expect(rows.records).toHaveLength(1);
+    expect([alphaId, betaId]).toContain(rows.records[0]?.scope_id);
   });
 });

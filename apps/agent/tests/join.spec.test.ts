@@ -1,4 +1,12 @@
-import { chmodSync, mkdtempSync, readFileSync, rmSync, statSync, writeFileSync } from "node:fs";
+import {
+  chmodSync,
+  existsSync,
+  mkdtempSync,
+  readFileSync,
+  rmSync,
+  statSync,
+  writeFileSync,
+} from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
@@ -174,5 +182,45 @@ describe("agent join", () => {
     await expect(
       joinAgent({ config, manifest, store, client, logger: silentAgentLogger }),
     ).rejects.toMatchObject({ code: "agent_join_failed" });
+  });
+  it("should delete a stale pending renewal file", async () => {
+    const fake = await startFakeVault();
+    cleanups.push(() => fake.close());
+    const { config, store } = await setup(fake);
+    store.prepare();
+    const path = join(config.stateDir, "pending-renewal.json");
+    writeFileSync(
+      path,
+      JSON.stringify({
+        version: 1,
+        privateKeyPem: "key",
+        csrPem: "csr",
+        createdAt: "2020-01-01T00:00:00.000Z",
+      }),
+      { mode: 0o600 },
+    );
+    chmodSync(path, 0o600);
+    expect(store.loadPendingRenewal()).toBeUndefined();
+    expect(existsSync(path)).toBe(false);
+  });
+
+  it("should classify an untrusted server certificate as a credential failure", async () => {
+    const fake = await startFakeVault();
+    cleanups.push(() => fake.close());
+    const other = await startFakeVault();
+    cleanups.push(() => other.close());
+    const client = new VaultClient({ baseUrl: fake.url, caPem: other.caPem });
+    await expect(
+      client.join({
+        token: "A".repeat(43),
+        csr: "not-a-csr",
+        consumer: {
+          composeProject: "payments",
+          composeService: "api",
+          hostname: "api-1",
+          manifestHash: `sha256:${"b".repeat(64)}`,
+        },
+      }),
+    ).rejects.toMatchObject({ kind: "credential" });
   });
 });

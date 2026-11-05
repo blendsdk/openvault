@@ -353,11 +353,15 @@ export class AgentRenewService {
               },
             );
             const previous = await this.#consumers.findForUpdate(locked.id, tx);
-            const consumer = await this.#consumers.upsert(tx, {
-              principalId: locked.id,
-              projectId: locked.owner_project_id,
-              consumer: input.consumer,
-            });
+            const consumer = await this.#consumers.upsert(
+              tx,
+              {
+                principalId: locked.id,
+                projectId: locked.owner_project_id,
+                consumer: input.consumer,
+              },
+              { preserveState: true },
+            );
             if (this.#audit !== undefined) {
               await this.#audit.record(
                 {

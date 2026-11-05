@@ -90,6 +90,7 @@ export class ScaffoldService {
   readonly #policy: PolicyService;
   readonly #policyRepository: PolicyRepository;
   readonly #now: () => number;
+  readonly #identityLocks = new Map<string, Promise<void>>();
 
   /**
    * @param options - Database and existing project/identity/assignment services.
@@ -141,63 +142,83 @@ export class ScaffoldService {
     }
 
     const identity = await this.#resolveIdentity(actorId, project.id, input.service, context);
-    const live = await this.#policyRepository.listAllLiveForPrincipal(identity.id);
-    const broader = live.find(isBroaderGrant);
-    if (broader !== undefined) {
-      throw new ScaffoldServiceError(
-        409,
-        "identity_scope_conflict",
-        "The service identity already has a broader live grant; use a different service name or revoke it",
-      );
-    }
+    return await this.#withIdentityLock(identity.id, async () => {
+      const live = await this.#policyRepository.listAllLiveForPrincipal(identity.id);
+      const broader = live.find(isBroaderGrant);
+      if (broader !== undefined) {
+        throw new ScaffoldServiceError(
+          409,
+          "identity_scope_conflict",
+          "The service identity already has a broader live grant; use a different service name or revoke it",
+        );
+      }
 
-    const requested = new Set(secrets.values());
-    for (const assignment of live) {
-      if (
-        assignment.role === "secrets.reader" &&
-        assignment.scopeType === "object" &&
-        !requested.has(assignment.scopeId)
-      ) {
-        await this.#assignments.delete(actorId, assignment.id, context);
+      const requested = new Set(secrets.values());
+      for (const assignment of live) {
+        if (
+          assignment.role === "secrets.reader" &&
+          assignment.scopeType === "object" &&
+          !requested.has(assignment.scopeId)
+        ) {
+          await this.#assignments.delete(actorId, assignment.id, context);
+        }
+      }
+
+      const assignments: ScaffoldAssignment[] = [];
+      for (const [name, secretId] of secrets) {
+        const assignment = await this.#ensureAssignment(actorId, identity.id, secretId, context);
+        assignments.push({ name, assignment: toAssignment(assignment) });
+      }
+
+      const joinToken: JoinTokenResponse = await this.#identities.rotateJoinToken(
+        actorId,
+        identity.id,
+        undefined,
+        context,
+      );
+
+      return {
+        project: {
+          id: project.id,
+          name: project.name,
+          createdAt: project.createdAt.toISOString(),
+          updatedAt: project.updatedAt.toISOString(),
+          deletedAt: project.deletedAt?.toISOString() ?? null,
+        },
+        identity,
+        assignments,
+        joinToken,
+        compose: renderCompose({
+          project: project.name,
+          service: input.service,
+          entries: input.entries,
+        }),
+        manifest: renderManifest({
+          project: project.name,
+          service: input.service,
+          entries: input.entries,
+        }),
+        manifestFile: manifestFileName(input.service),
+      };
+    });
+  }
+
+  /** Serializes grant reconciliation and token issuance per identity. */
+  async #withIdentityLock<T>(identityId: string, action: () => Promise<T>): Promise<T> {
+    const previous = this.#identityLocks.get(identityId) ?? Promise.resolve();
+    const current = previous.then(action);
+    const tail = current.then(
+      () => undefined,
+      () => undefined,
+    );
+    this.#identityLocks.set(identityId, tail);
+    try {
+      return await current;
+    } finally {
+      if (this.#identityLocks.get(identityId) === tail) {
+        this.#identityLocks.delete(identityId);
       }
     }
-
-    const assignments: ScaffoldAssignment[] = [];
-    for (const [name, secretId] of secrets) {
-      const assignment = await this.#ensureAssignment(actorId, identity.id, secretId, context);
-      assignments.push({ name, assignment: toAssignment(assignment) });
-    }
-
-    const joinToken: JoinTokenResponse = await this.#identities.rotateJoinToken(
-      actorId,
-      identity.id,
-      undefined,
-      context,
-    );
-
-    return {
-      project: {
-        id: project.id,
-        name: project.name,
-        createdAt: project.createdAt.toISOString(),
-        updatedAt: project.updatedAt.toISOString(),
-        deletedAt: project.deletedAt?.toISOString() ?? null,
-      },
-      identity,
-      assignments,
-      joinToken,
-      compose: renderCompose({
-        project: project.name,
-        service: input.service,
-        entries: input.entries,
-      }),
-      manifest: renderManifest({
-        project: project.name,
-        service: input.service,
-        entries: input.entries,
-      }),
-      manifestFile: manifestFileName(input.service),
-    };
   }
 
   /** Resolves or creates the active project. */

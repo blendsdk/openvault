@@ -121,6 +121,18 @@ export function parseArguments(argv: readonly string[]): ParsedOptions {
   if (command === "health" && (once || childArgs.length > 0)) {
     throw new AgentError("agent_config_invalid", "health does not accept run options");
   }
+  if (
+    command === "health" &&
+    (manifest !== undefined ||
+      outputDir !== undefined ||
+      stateDir !== undefined ||
+      socket !== undefined)
+  ) {
+    throw new AgentError(
+      "agent_config_invalid",
+      "health only accepts --status-file, --ready, and --max-age",
+    );
+  }
   if (command === "run" && (ready || maxAgeMs !== undefined)) {
     throw new AgentError("agent_config_invalid", "health-only option used with run");
   }

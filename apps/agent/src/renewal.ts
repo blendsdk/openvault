@@ -7,7 +7,12 @@ import { AgentError } from "./errors.js";
 import { consumerMetadata, generateKeyMaterial, storedIdentity } from "./join.js";
 import type { AgentLogger } from "./logger.js";
 import type { AgentManifest } from "./manifest.js";
-import { type AgentStateStore, certificateWindow, type StoredIdentity } from "./state.js";
+import {
+  type AgentStateStore,
+  certificateMatchesKey,
+  certificateWindow,
+  type StoredIdentity,
+} from "./state.js";
 
 /** One renewal result. */
 export type RenewalOutcome =
@@ -36,10 +41,7 @@ export class RenewalTerminalError extends Error {
    * @param message - Short static message.
    */
   public constructor(
-    public readonly code:
-      | "agent_credential_rejected"
-      | "agent_renewal_terminal"
-      | "agent_secret_not_found",
+    public readonly code: "agent_credential_rejected" | "agent_renewal_terminal",
     public readonly removeFiles: boolean,
     message: string,
   ) {
@@ -97,7 +99,7 @@ function mapFailure(error: unknown): RenewalOutcome {
       );
     }
     if (error.kind === "not_found") {
-      throw new RenewalTerminalError("agent_secret_not_found", true, "Renewal resource not found");
+      throw new RenewalTerminalError("agent_renewal_terminal", true, "Renewal resource not found");
     }
     throw new RenewalTerminalError("agent_renewal_terminal", true, "Renewal request failed");
   }
@@ -161,6 +163,13 @@ export async function renewOnce(options: RenewalOptions): Promise<RenewalOutcome
     return outcome;
   }
 
+  if (!certificateMatchesKey(response.certificatePem, pending.privateKeyPem)) {
+    throw new RenewalTerminalError(
+      "agent_renewal_terminal",
+      true,
+      "Renewal returned a mismatched certificate",
+    );
+  }
   const identity = storedIdentity(response, pending.privateKeyPem, now());
   options.store.saveIdentity(identity);
   options.store.deletePendingRenewal();

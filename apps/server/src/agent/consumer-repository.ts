@@ -153,7 +153,11 @@ export class ConsumerRepository {
    * @param input - Server-derived ownership and reported metadata.
    * @returns The persisted row.
    */
-  public async upsert(tx: QueryExecutor, input: ConsumerUpsertInput): Promise<ConsumerRecord> {
+  public async upsert(
+    tx: QueryExecutor,
+    input: ConsumerUpsertInput,
+    options: { readonly preserveState?: boolean } = {},
+  ): Promise<ConsumerRecord> {
     const result = await tx.executeQuery<ConsumerRow>(
       `INSERT INTO consumers
          (id, principal_id, project_id, compose_project, compose_service, hostname,
@@ -167,7 +171,7 @@ export class ConsumerRepository {
          compose_service = EXCLUDED.compose_service,
          hostname = EXCLUDED.hostname,
          manifest_hash = EXCLUDED.manifest_hash,
-         state = 'ok',
+         state = CASE WHEN :preserveState THEN consumers.state ELSE 'ok' END,
          last_seen = now()
        RETURNING id, principal_id, project_id, compose_project, compose_service, hostname,
                  manifest_hash, state, first_seen, last_seen`,
@@ -179,6 +183,7 @@ export class ConsumerRepository {
         composeService: input.consumer.composeService,
         hostname: input.consumer.hostname,
         manifestHash: input.consumer.manifestHash,
+        preserveState: options.preserveState === true,
       },
     );
     const row = result.records[0];

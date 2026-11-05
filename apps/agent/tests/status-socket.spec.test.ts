@@ -117,6 +117,7 @@ describe("status and local socket", () => {
       deliveredAt: new Date(),
       required: true,
       entry: { name: "db-password", files: [], env: [], optional: false },
+      envError: false,
     };
     const handle = await startLocalSocket({
       path: socketPath,

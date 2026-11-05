@@ -1,4 +1,5 @@
 import { type ChildProcess, spawn } from "node:child_process";
+import { once } from "node:events";
 import { readFileSync } from "node:fs";
 import type { AgentConsumerState } from "@openvault/api-contract";
 import { VaultClient } from "./client.js";
@@ -27,7 +28,6 @@ export interface AgentRunnerOptions {
 }
 
 const MAX_TIMER_MS = 24 * 60 * 60 * 1_000;
-const RENEW_RETRY_MS = 30_000;
 
 /** Reads the CA bundle with a bound. */
 function readCaBundle(path: string): string {
@@ -74,6 +74,10 @@ export class AgentRunner {
   };
   #cancelled = false;
   #refreshing = false;
+  #activeRefresh: Promise<void> | undefined;
+  #renewalBackoffMs = 1_000;
+  #lastAttemptAt = new Date().toISOString();
+  #lastSuccessAt: string | null = null;
   #renewalStopped = false;
   #refreshTimer: NodeJS.Timeout | undefined;
   #renewalTimer: NodeJS.Timeout | undefined;
@@ -172,6 +176,8 @@ export class AgentRunner {
     this.#cancelled = true;
     this.#exitCode = code;
     this.#clearTimers();
+    this.#client?.cancel();
+    await this.#terminateChild();
     await this.#socket?.close().catch(() => undefined);
     this.#socket = undefined;
     this.#stopResolve?.(code);
@@ -202,6 +208,7 @@ export class AgentRunner {
       identity,
       logger: this.#logger,
       now: this.#now,
+      isCancelled: () => this.#cancelled,
     });
     this.#statusWriter = new StatusWriter(this.#config.statusFile);
   }
@@ -220,6 +227,10 @@ export class AgentRunner {
 
   /** Writes the status document for the current snapshot. */
   #writeStatus(snapshot: DeliverySnapshot): void {
+    this.#lastAttemptAt = new Date(this.#now()).toISOString();
+    if (snapshot.state !== "failed") {
+      this.#lastSuccessAt = this.#lastAttemptAt;
+    }
     this.#statusWriter?.write(this.#statusDocument(snapshot));
   }
 
@@ -238,8 +249,8 @@ export class AgentRunner {
       manifestHash: this.#manifest.hash,
       identityId: this.#identity?.identityId ?? "",
       certificateNotAfter: this.#identity?.notAfter ?? "",
-      lastAttemptAt: new Date(this.#now()).toISOString(),
-      lastSuccessAt: snapshot.state === "failed" ? null : new Date(this.#now()).toISOString(),
+      lastAttemptAt: this.#lastAttemptAt,
+      lastSuccessAt: this.#lastSuccessAt,
       refreshMs,
       staleAfterMs,
       renewal: this.#renewal,
@@ -287,18 +298,27 @@ export class AgentRunner {
       return;
     }
     this.#refreshing = true;
-    try {
+    const task = (async (): Promise<void> => {
       const snapshot = await this.#delivery?.refresh();
-      if (snapshot === undefined) {
+      if (snapshot === undefined || this.#cancelled) {
         return;
       }
       this.#snapshot = snapshot;
       this.#writeStatus(snapshot);
       await this.#heartbeat(snapshot.state);
+    })();
+    this.#activeRefresh = task;
+    try {
+      await task;
     } catch (error) {
+      this.#activeRefresh = undefined;
+      if (this.#cancelled) {
+        return;
+      }
       await this.#terminal(error);
       return;
     } finally {
+      this.#activeRefresh = undefined;
       this.#refreshing = false;
     }
     this.#scheduleRefresh();
@@ -360,6 +380,7 @@ export class AgentRunner {
         now: this.#now,
       });
       if (outcome.kind === "renewed" || outcome.kind === "adopted") {
+        this.#renewalBackoffMs = 1_000;
         this.#identity = outcome.identity;
         this.#delivery?.updateIdentity(outcome.identity);
         this.#renewal = {
@@ -386,7 +407,9 @@ export class AgentRunner {
       }
       this.#renewal = { ...this.#renewal, state: "degraded" };
       this.#writeStatus(this.#snapshot ?? this.#emptySnapshot());
-      this.#scheduleRenewal(RENEW_RETRY_MS);
+      const delay = this.#renewalBackoffMs + Math.floor(this.#random() * 1_000);
+      this.#renewalBackoffMs = Math.min(this.#renewalBackoffMs * 2, 300_000);
+      this.#scheduleRenewal(delay);
     } catch (error) {
       await this.#terminal(error);
     }
@@ -394,7 +417,7 @@ export class AgentRunner {
 
   /** Starts the wrapper child after the first successful fetch. */
   #startWrapperChild(): void {
-    if (this.#wrapper === undefined) {
+    if (this.#wrapper === undefined || this.#cancelled) {
       return;
     }
     const environment = { ...process.env };
@@ -405,7 +428,7 @@ export class AgentRunner {
     }
     for (const entry of this.#manifest.entries) {
       const delivered = this.#delivery?.getDelivered(entry.name);
-      if (delivered === undefined) {
+      if (delivered === undefined || delivered.envError) {
         continue;
       }
       for (const target of entry.env) {
@@ -420,10 +443,29 @@ export class AgentRunner {
       shell: false,
     });
     this.#child = child;
+    child.once("error", (error) => {
+      void this.#terminal(error);
+    });
     child.once("exit", (code, signal) => {
       const exitCode = signal === null ? (code ?? 1) : 1;
       void this.stop(exitCode);
     });
+  }
+
+  /** Terminates the wrapper child with a bounded grace period. */
+  async #terminateChild(): Promise<void> {
+    const child = this.#child;
+    if (child === undefined || child.exitCode !== null || child.signalCode !== null) {
+      return;
+    }
+    child.kill("SIGTERM");
+    await Promise.race([
+      once(child, "exit").then(() => undefined),
+      new Promise<void>((resolve) => setTimeout(resolve, 5_000)),
+    ]);
+    if (child.exitCode === null && child.signalCode === null) {
+      child.kill("SIGKILL");
+    }
   }
 
   /** Runs the terminal handler once. */
@@ -433,25 +475,42 @@ export class AgentRunner {
     }
     this.#cancelled = true;
     this.#exitCode = 1;
+    this.#client?.cancel();
     this.#clearTimers();
+    if (this.#activeRefresh !== undefined) {
+      try {
+        await this.#activeRefresh;
+      } catch {
+        // The active cycle observes the cancellation flag.
+      }
+      this.#activeRefresh = undefined;
+    }
     const removeFiles =
       error instanceof DeliveryTerminalError || error instanceof RenewalTerminalError
         ? error.removeFiles
         : true;
-    if (removeFiles) {
-      try {
-        this.#delivery?.removeManagedFiles();
-      } catch {
-        this.#logger.error("agent_cleanup_failed", { code: agentErrorCode(error) });
-      }
-    }
     const code =
       error instanceof DeliveryTerminalError || error instanceof RenewalTerminalError
         ? error.code
         : agentErrorCode(error);
+    if (code === "agent_credential_rejected") {
+      try {
+        this.#store.clearIdentity();
+      } catch {
+        this.#logger.warn("agent_state_clear_failed", { code });
+      }
+    }
+    if (removeFiles) {
+      try {
+        this.#delivery?.removeManagedFiles();
+      } catch {
+        this.#logger.error("agent_cleanup_failed", { code });
+      }
+    }
     this.#logger.error("agent_terminal", { code });
     this.#renewal = { ...this.#renewal, state: "failed" };
     try {
+      this.#lastAttemptAt = new Date(this.#now()).toISOString();
       this.#statusWriter?.write({
         ...this.#statusDocument({
           ...(this.#snapshot ?? this.#emptySnapshot()),
@@ -464,14 +523,7 @@ export class AgentRunner {
       // A status write failure cannot change the terminal outcome.
     }
     await this.#heartbeat("failed");
-    if (this.#child !== undefined && !this.#child.killed) {
-      this.#child.kill("SIGTERM");
-      setTimeout(() => {
-        if (this.#child !== undefined && !this.#child.killed) {
-          this.#child.kill("SIGKILL");
-        }
-      }, 5_000).unref?.();
-    }
+    await this.#terminateChild();
     await this.#socket?.close().catch(() => undefined);
     this.#socket = undefined;
     this.#stopResolve?.(this.#exitCode);

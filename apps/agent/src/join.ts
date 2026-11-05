@@ -8,7 +8,7 @@ import type { AgentConfig } from "./config.js";
 import { AgentError } from "./errors.js";
 import type { AgentLogger } from "./logger.js";
 import type { AgentManifest } from "./manifest.js";
-import type { AgentStateStore, StoredIdentity } from "./state.js";
+import { type AgentStateStore, certificateMatchesKey, type StoredIdentity } from "./state.js";
 
 /** Generated key material for a join or renewal request. */
 export interface GeneratedKeyMaterial {
@@ -149,6 +149,9 @@ export async function joinAgent(options: JoinAgentOptions): Promise<StoredIdenti
   for (;;) {
     try {
       const response = await options.client.join(request);
+      if (!certificateMatchesKey(response.certificatePem, generated.privateKeyPem)) {
+        throw new AgentError("agent_join_failed", "Join returned a mismatched certificate");
+      }
       const identity = storedIdentity(response, generated.privateKeyPem, now());
       options.store.saveIdentity(identity);
       options.logger.info("agent_joined", {

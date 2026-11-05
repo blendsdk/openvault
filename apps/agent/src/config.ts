@@ -1,3 +1,4 @@
+import { readFileSync, statSync } from "node:fs";
 import { isAbsolute } from "node:path";
 import { identityNameSchema, projectNameSchema } from "@openvault/api-contract";
 import { z } from "zod";
@@ -99,6 +100,17 @@ export function loadAgentConfig(env: NodeJS.ProcessEnv): AgentConfig {
   const caFile = env.OPENVAULT_CA_FILE;
   if (caFile === undefined || caFile.length === 0 || !isAbsolute(caFile)) {
     throw new AgentError("agent_config_invalid", "OPENVAULT_CA_FILE must be an absolute path");
+  }
+  try {
+    const stat = statSync(caFile);
+    if (!stat.isFile() || stat.size === 0 || stat.size > 1_048_576) {
+      throw new Error("invalid CA file");
+    }
+    if (!readFileSync(caFile, "utf8").includes("BEGIN CERTIFICATE")) {
+      throw new Error("no certificate");
+    }
+  } catch {
+    throw new AgentError("agent_config_invalid", "OPENVAULT_CA_FILE must be a readable PEM bundle");
   }
 
   let joinToken: string | undefined;

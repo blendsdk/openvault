@@ -155,4 +155,56 @@ entries:
     await delivery.startup();
     expect(chunks.join("")).not.toContain("SENTINEL_VALUE_DO_NOT_LOG");
   });
+  it("should SIGKILL a wrapper child that ignores SIGTERM", async () => {
+    const fake = await startFakeVault();
+    cleanups.push(() => fake.close());
+    fake.values.set("db-password", { value: "wrapper-secret", encoding: "utf8" });
+    const directory = mkdtempSync(join(tmpdir(), "openvault-agent-kill-"));
+    cleanups.push(() => rmSync(directory, { recursive: true, force: true }));
+    const manifestFile = wrapperManifest(directory);
+    const env: NodeJS.ProcessEnv = {
+      OPENVAULT_URL: fake.url.href,
+      OPENVAULT_CA_FILE: fake.caPath,
+      OPENVAULT_JOIN_TOKEN: "A".repeat(43),
+      OPENVAULT_PROJECT: "payments",
+      OPENVAULT_SERVICE: "api",
+      COMPOSE_PROJECT_NAME: "payments",
+      OPENVAULT_MANIFEST: manifestFile,
+      OPENVAULT_OUTPUT_DIR: join(directory, "out"),
+      OPENVAULT_STATE_DIR: join(directory, "state"),
+      OPENVAULT_STATUS_FILE: join(directory, "status.json"),
+      OPENVAULT_SOCKET_PATH: join(directory, "agent.sock"),
+    };
+    const config = loadAgentConfig(env);
+    const manifest = loadAgentManifest(config.manifestPath, {
+      project: config.project,
+      service: config.service,
+      outputDir: config.outputDir,
+      mode: "wrapper",
+    });
+    const pidFile = join(directory, "child.pid");
+    const script = `const fs = require("node:fs"); process.on("SIGTERM", () => {}); fs.writeFileSync(${JSON.stringify(pidFile)}, String(process.pid)); setInterval(() => {}, 1000);`;
+    const runner = new AgentRunner({
+      config,
+      manifest,
+      store: new AgentStateStore(config.stateDir),
+      logger: silentAgentLogger,
+      wrapper: { command: process.execPath, args: ["-e", script] },
+    });
+    const running = runner.run();
+    let pid = 0;
+    for (let attempt = 0; attempt < 100 && pid === 0; attempt += 1) {
+      await new Promise((resolve) => setTimeout(resolve, 50));
+      try {
+        pid = Number(readFileSync(pidFile, "utf8"));
+      } catch {
+        pid = 0;
+      }
+    }
+    expect(pid).toBeGreaterThan(0);
+    await runner.stop(0);
+    expect(await running).toBe(0);
+    await new Promise((resolve) => setTimeout(resolve, 200));
+    expect(() => process.kill(pid, 0)).toThrow();
+  }, 15_000);
 });

@@ -94,6 +94,19 @@ export function certificateWindow(
   return { notBefore, notAfter };
 }
 
+/** Returns true when a certificate and private key match. */
+export function certificateMatchesKey(certificatePem: string, privateKeyPem: string): boolean {
+  const key = privateKeyFromPem(privateKeyPem);
+  if (key === undefined) {
+    return false;
+  }
+  try {
+    return new X509Certificate(certificatePem).checkPrivateKey(key);
+  } catch {
+    return false;
+  }
+}
+
 /** Builds the private key object from stored PEM. */
 function privateKeyFromPem(pem: string): KeyObject | undefined {
   try {
@@ -134,7 +147,7 @@ function usableIdentity(identity: StoredIdentity, now: number): boolean {
 function readPrivateFile(path: string): Buffer | undefined {
   let fd: number | undefined;
   try {
-    fd = openSync(path, constants.O_RDONLY | constants.O_NOFOLLOW);
+    fd = openSync(path, constants.O_RDONLY | constants.O_NOFOLLOW | constants.O_NONBLOCK);
   } catch (error) {
     if (typeof error === "object" && error !== null && Reflect.get(error, "code") === "ENOENT") {
       return undefined;
@@ -286,6 +299,7 @@ export class AgentStateStore {
     }
     const created = Date.parse(parsed.data.createdAt);
     if (!Number.isFinite(created) || this.#now() - created >= PENDING_TTL_MS) {
+      this.deletePendingRenewal();
       return undefined;
     }
     return parsed.data;
@@ -295,6 +309,16 @@ export class AgentStateStore {
   public savePendingRenewal(pending: PendingRenewal): void {
     this.prepare();
     atomicWriteFile(join(this.#directory, PENDING_FILE), JSON.stringify(pending), FILE_MODE);
+  }
+
+  /** Removes identity and pending material after a credential rejection. */
+  public clearIdentity(): void {
+    try {
+      rmSync(join(this.#directory, IDENTITY_FILE), { force: true });
+      rmSync(join(this.#directory, PENDING_FILE), { force: true });
+    } catch {
+      throw new AgentError("agent_state_write_failed", "Identity state could not be cleared");
+    }
   }
 
   /** Deletes the pending renewal file if present. */
