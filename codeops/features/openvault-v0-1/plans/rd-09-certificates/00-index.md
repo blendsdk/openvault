@@ -1,7 +1,7 @@
 # RD-09 Certificates Implementation Plan
 
 > **Feature**: Certificate import, self-signed generation, immutable versions, public-chain/private-key separation, expiry warnings, and the RD-08 lifecycle.
-> **Status**: Plan Preflighted
+> **Status**: Done
 > **Created**: 2026-11-04 20:05
 > **Implements**: openvault-v0-1/RD-09
 > **CodeOps Artifact Schema**: 1
