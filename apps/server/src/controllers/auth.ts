@@ -142,6 +142,7 @@ export class AuthController extends BaseController {
             sessionResponseSchema.parse({
               user: {
                 id: credential.principalId,
+                sub: credential.principalId,
                 name: credential.name,
                 email: credential.email,
                 authMethod: "local",
@@ -240,7 +241,7 @@ export class AuthController extends BaseController {
           this.ok(
             res,
             sessionResponseSchema.parse({
-              user: auth.user,
+              user: { ...auth.user, sub: auth.user.id },
               expiresAt: new Date(auth.session.expiresAt).toISOString(),
               csrfToken: auth.session.csrfToken,
               mustChangePassword: auth.mustChangePassword,

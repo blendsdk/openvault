@@ -4,12 +4,15 @@ import { join } from "node:path";
 import { afterAll, describe, expect, it } from "vitest";
 import {
   buildApiDocument,
+  buildWebApiDocument,
   CONTRACT_CONTROLLERS,
   checkContract,
   generateContract,
   joinPath,
   ROUTE_DOCS,
   routeKey,
+  WEB_CONTRACT_CONTROLLERS,
+  WEB_ROUTE_DOCS,
 } from "../scripts/api-contract.js";
 
 const directories: string[] = [];
@@ -92,6 +95,39 @@ describe("CLI API contract", () => {
     }
     expect(paths).toContain("/ready");
   });
+
+  it("should document every browser route and generate a drift-free web client", async () => {
+    const document = (await buildWebApiDocument()) as unknown as DocumentShape;
+    const documented = new Set(Object.keys(WEB_ROUTE_DOCS));
+    const seen = new Set<string>();
+    for (const registration of WEB_CONTRACT_CONTROLLERS) {
+      const controller = new registration.controller({}, {});
+      for (const route of controller.routes()) {
+        const key = routeKey(route.method, joinPath(registration.basePath, route.path));
+        expect(documented.has(key), `missing web metadata for ${key}`).toBe(true);
+        expect(seen.has(key), `duplicate web route ${key}`).toBe(false);
+        seen.add(key);
+      }
+    }
+    expect([...documented].sort()).toEqual([...seen].sort());
+
+    const paths = Object.keys(document.paths);
+    expect(paths).toContain("/v1/auth/local/login");
+    expect(paths).toContain("/v1/auth/me");
+    expect(paths).toContain("/v1/auth/logout");
+    expect(paths).toContain("/v1/meta/auth");
+    expect(paths.some((path) => path.startsWith("/v1/agent"))).toBe(false);
+    expect(paths.some((path) => path.startsWith("/v1/auth/cli"))).toBe(false);
+
+    const directory = tempDirectory();
+    const outputDir = join(directory, "web-client");
+    const webOutputDir = join(directory, "web-client-2");
+    const contractFile = join(directory, "openapi.json");
+    await generateContract({ outputDir, contractFile, webOutputDir });
+    const clean = await checkContract({ outputDir, contractFile, webOutputDir });
+    expect(clean.driftedFiles).toEqual([]);
+    expect(clean.hasErrors).toBe(false);
+  }, 30_000);
 
   it("should generate a clean contract and report client drift", async () => {
     const directory = tempDirectory();

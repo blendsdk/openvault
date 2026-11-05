@@ -150,10 +150,10 @@ These are accepted for v0.1. They are documented so reviewers do not mistake the
     the server before `ov kek rotate`; otherwise a late write can use the old `kek_id` after
     the verification step. The old key is removed only after the CLI's own count check.
 50. **Bootstrap credential rotation.** The v0.1 bootstrap administrator is created with
-    `must_change=false` because the CLI has no password-change route and the web UI is not yet
-    available. The generated password is strong random material in a one-time `0600` file; the
-    operator must remove that file after first use. Revisit when a CLI password-change route or
-    the web UI lands.
+    `must_change=false` so the reference stack can complete its first login without an extra
+    interactive step. The web UI includes a password-change screen and the server enforces the
+    gate when `must_change` is set. The generated password is strong random material in a
+    one-time `0600` file; the operator must remove that file after first use.
 51. **Generated contract schema source.** `pnpm api:check` detects route and artifact drift
     against the route metadata table. A controller schema change that leaves the table untouched
     is caught by the representative command end-to-end tests, not by `api:check` alone.
@@ -173,3 +173,26 @@ These are accepted for v0.1. They are documented so reviewers do not mistake the
     restored rows for inspection; the command reports the failure rather than silently rolling
     back. If publishing the staged keyring/CA fails after commit, the staged files remain for
     manual recovery. Run restore only during a maintenance window with the server stopped.
+56. **Local login reloads the document.** The BlendSDK auth provider learns a session from
+    `GET /v1/auth/me`, so a successful local login or password change performs one same-origin
+    reload instead of keeping the previous document's in-memory state. The reload is
+    intentional and does not add a network round trip beyond the session check.
+57. **Consumers are derived.** The v0.1 API has no project-level consumer list. The consumers
+    screen reads identity detail, which embeds the latest self-reported consumer. Hostnames,
+    manifest hashes, and host paths are not displayed.
+58. **Inline styles in the UI CSP.** Fluent UI's Griffel runtime injects style elements, so the
+    UI-enabled CSP allows `style-src 'unsafe-inline'`. Scripts remain same-origin and there is
+    no `unsafe-eval`. API-only deployments keep the deny-by-default policy.
+59. **Accessibility automation scope.** Axe runs in Vitest/jsdom on login, secret detail, and
+    audit. jsdom has no layout engine, so color-contrast is excluded there; real-browser
+    Playwright checks belong to release assurance.
+60. **Certificate screens are CLI-only.** The web UI deliberately excludes certificate
+    lifecycle, private-key reads, backup/restore, and KEK rotation. Those remain CLI-only in
+    v0.1.
+61. **Project deletion has no browser recovery.** The projects screen can soft-delete a
+    project, but v0.1 has no process to restore a deleted project in the UI. The operator
+    must restore from backup. The confirmation text states this instead of implying a
+    recoverable secret state.
+62. **Clipboard clearing is best effort.** The browser can deny clipboard writes or skip the
+    delayed clear when the page is not focused. The UI reports that outcome; it cannot
+    guarantee that another application has not already read the clipboard.

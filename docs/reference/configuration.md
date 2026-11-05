@@ -55,6 +55,8 @@ server process.
 | `OPENVAULT_CA_FILE` | none | recommended | PEM bundle that verifies the server; must match the proxy's certificate chain |
 | `OPENVAULT_BACKUP_PASSPHRASE_FILE` | none | for non-interactive backup/restore | `0600` file with the archive passphrase; at least 12 characters |
 | `OPENVAULT_RESTORE_DB_URL` | `OPENVAULT_MIGRATION_DB_URL` or `OPENVAULT_DB_URL` | for restore | Owner/migrator URL used to disable triggers, truncate, and load rows |
+| `OPENVAULT_WEB_ROOT` | `apps/web/dist` beside the server | no | Built SPA directory; when absent the server runs API-only |
+| `OPENVAULT_DEV_URL` | `https://localhost:8443` | dev only | Vite proxy target for local UI development |
 
 The bootstrap command `ov init` reads the server database and file settings from the
 environment. It never accepts the database URL as a command-line option, because a PostgreSQL
@@ -98,6 +100,21 @@ supplied, and `--yes` is required in a non-interactive session.
 `ov kek rotate` also needs table ownership. Stop the server first: a running process holds the
 old keyring in memory and could write a row with the old `kek_id` after the CLI's verification.
 The command removes the old key only after every key table has been checked.
+
+## Web UI serving
+
+The server serves the built SPA when `OPENVAULT_WEB_ROOT` (or the default `apps/web/dist`)
+contains `index.html` and `assets`. Hashed assets are immutable for one year; `index.html` is
+not cached; unmatched `GET` HTML routes fall back to the SPA. Unknown API routes remain JSON
+404s. If the build is absent the server starts normally and serves no UI.
+
+The UI-enabled CSP allows same-origin scripts, connections, images, fonts, and inline style
+elements. Scripts are same-origin only and `unsafe-eval` is never allowed. API-only mode keeps
+the deny-by-default policy.
+
+For local development, `pnpm --filter @openvault/web dev` proxies `/v1` to
+`OPENVAULT_DEV_URL`, disables verification for the local certificate, and rewrites
+`Origin`/`Referer` to `OPENVAULT_BASE_URL`.
 
 ## Audit maintenance
 

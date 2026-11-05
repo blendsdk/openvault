@@ -1,3 +1,7 @@
 # The RD-09 plan quotes rejected PEM labels while documenting validation tests.
 # This finding is a documentation false positive, not key material.
 2f448324e2d104bb1d0793394d5ade7c0f70e15f:codeops/features/openvault-v0-1/plans/rd-09-certificates/07-testing-strategy.md:private-key:50
+# The web test fixture uses a high-entropy ULID as a fake secret identifier.
+# It is not credential material; the variable was renamed to avoid the generic
+# API-key heuristic, and this fingerprint covers the already-pushed commit.
+739958891772159cf43aaf7221a7bd0c1351ac7a:apps/web/tests/helpers/fake-vault.ts:generic-api-key:4

@@ -262,6 +262,13 @@ export interface PreStackOptions {
    * listener marker the way the real servers do. Production never sets this.
    */
   readonly testListener?: ListenerKind;
+  /**
+   * Whether the built browser UI is installed.
+   *
+   * API-only deployments keep the deny-by-default CSP. A UI needs same-origin
+   * scripts, connections, and the Fluent runtime's inline style elements.
+   */
+  readonly webUiEnabled?: boolean;
 }
 
 /**
@@ -300,12 +307,28 @@ export function installPreStack(
     helmet({
       contentSecurityPolicy: {
         useDefaults: false,
-        directives: {
-          defaultSrc: ["'none'"],
-          baseUri: ["'none'"],
-          frameAncestors: ["'none'"],
-          formAction: ["'none'"],
-        },
+        directives:
+          options.webUiEnabled === true
+            ? {
+                defaultSrc: ["'self'"],
+                scriptSrc: ["'self'"],
+                // Fluent UI's Griffel runtime injects style elements. Scripts
+                // stay same-origin only; there is no unsafe-eval.
+                styleSrc: ["'self'", "'unsafe-inline'"],
+                imgSrc: ["'self'", "data:"],
+                fontSrc: ["'self'"],
+                connectSrc: ["'self'"],
+                objectSrc: ["'none'"],
+                baseUri: ["'none'"],
+                frameAncestors: ["'none'"],
+                formAction: ["'self'"],
+              }
+            : {
+                defaultSrc: ["'none'"],
+                baseUri: ["'none'"],
+                frameAncestors: ["'none'"],
+                formAction: ["'none'"],
+              },
       },
       crossOriginEmbedderPolicy: false,
     }),

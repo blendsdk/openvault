@@ -107,6 +107,8 @@ describe("auth middleware implementation", () => {
     app.get("/v1/meta/auth", (_req, res) => res.status(204).end());
     app.post("/v1/meta/auth", (_req, res) => res.status(204).end());
     app.get("/v1/auth/sessions", (_req, res) => res.status(204).end());
+    app.get("/change-password", (_req, res) => res.status(204).end());
+    app.get("/assets/app.js", (_req, res) => res.status(204).end());
     app.use(errorHandler);
 
     for (const requestBuilder of [
@@ -114,6 +116,8 @@ describe("auth middleware implementation", () => {
       request(app).post("/v1/auth/password"),
       request(app).post("/v1/auth/logout"),
       request(app).get("/v1/meta/auth"),
+      request(app).get("/change-password"),
+      request(app).get("/assets/app.js"),
     ]) {
       await expect(requestBuilder).resolves.toMatchObject({ status: 204 });
     }

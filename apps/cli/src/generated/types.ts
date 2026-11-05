@@ -24,13 +24,13 @@ export type __schema0_19 = string;
 
 export type __schema0_2 = string;
 
-export type __schema0_20 = Record<string, __schema2_10>;
+export type __schema0_20 = string;
 
 export type __schema0_21 = string;
 
 export type __schema0_22 = string;
 
-export type __schema0_23 = string;
+export type __schema0_23 = Record<string, __schema2_10>;
 
 export type __schema0_24 = string;
 
@@ -40,7 +40,7 @@ export type __schema0_26 = string;
 
 export type __schema0_27 = string;
 
-export type __schema0_28 = Record<string, __schema2_16>;
+export type __schema0_28 = string;
 
 export type __schema0_29 = string;
 
@@ -48,9 +48,15 @@ export type __schema0_3 = string;
 
 export type __schema0_30 = string;
 
-export type __schema0_31 = string;
+export type __schema0_31 = Record<string, __schema2_16>;
 
 export type __schema0_32 = string;
+
+export type __schema0_33 = string;
+
+export type __schema0_34 = string;
+
+export type __schema0_35 = string;
 
 export type __schema0_4 = string;
 
@@ -165,18 +171,18 @@ export type __schema3_3 = boolean;
 
 export type __schema3_4 = {
   createdAt: string;
-  createdBy: __schema0_26;
+  createdBy: __schema0_29;
   expiresAt: string | null;
-  id: __schema0_26;
+  id: __schema0_29;
 };
 
 export type __schema3_5 = string;
 
 export type __schema3_6 = {
   createdAt: string;
-  createdBy: __schema0_30;
+  createdBy: __schema0_33;
   expiresAt: string | null;
-  id: __schema0_30;
+  id: __schema0_33;
 };
 
 export type __schema4 = string;
@@ -692,7 +698,13 @@ export type AuthLoginCliResult = {
   refreshExpiresAt: string;
   refreshToken: string;
   tokenType: 'Bearer';
-  user: { authMethod: 'local' | 'oidc'; email: string | null; id: string; name: string };
+  user: {
+    authMethod: 'local' | 'oidc';
+    email: string | null;
+    id: __schema0_12;
+    name: string;
+    sub?: __schema0_12;
+  };
 };
 
 export type AuthLogoutCliParams = { refreshToken: string };
@@ -701,7 +713,13 @@ export type AuthLogoutCliResult = unknown;
 
 export type AuthGetCliMeResult = {
   mustChangePassword: boolean;
-  user: { authMethod: 'local' | 'oidc'; email: string | null; id: string; name: string };
+  user: {
+    authMethod: 'local' | 'oidc';
+    email: string | null;
+    id: __schema0_13;
+    name: string;
+    sub?: __schema0_13;
+  };
 };
 
 export type AuthRefreshCliParams = { refreshToken: string };
@@ -713,7 +731,13 @@ export type AuthRefreshCliResult = {
   refreshExpiresAt: string;
   refreshToken: string;
   tokenType: 'Bearer';
-  user: { authMethod: 'local' | 'oidc'; email: string | null; id: string; name: string };
+  user: {
+    authMethod: 'local' | 'oidc';
+    email: string | null;
+    id: __schema0_14;
+    name: string;
+    sub?: __schema0_14;
+  };
 };
 
 export type AuthListCliSessionsResult = {
@@ -748,12 +772,12 @@ export type CertificatesListCertificatesResult = {
     daysToExpiry: number;
     deletedAt: string | null;
     fingerprint: string;
-    id: __schema0_12;
+    id: __schema0_15;
     issuer: string;
     name: string;
     notAfter: string;
     notBefore: string;
-    projectId: __schema0_12;
+    projectId: __schema0_15;
     purgeAfter: string | null;
     purgeProtected: boolean;
     sans: string[];
@@ -764,9 +788,9 @@ export type CertificatesListCertificatesResult = {
     updatedAt: string;
     version: {
       createdAt: string;
-      createdBy: __schema0_12;
+      createdBy: __schema0_15;
       fingerprint: string;
-      id: __schema0_12;
+      id: __schema0_15;
       notAfter: string;
       notBefore: string;
       serial: string;
@@ -792,12 +816,12 @@ export type CertificatesGetCertificateResult = {
   daysToExpiry: number;
   deletedAt: string | null;
   fingerprint: string;
-  id: __schema0_19;
+  id: __schema0_22;
   issuer: string;
   name: string;
   notAfter: string;
   notBefore: string;
-  projectId: __schema0_19;
+  projectId: __schema0_22;
   purgeAfter: string | null;
   purgeProtected: boolean;
   sans: string[];
@@ -808,9 +832,9 @@ export type CertificatesGetCertificateResult = {
   updatedAt: string;
   version: {
     createdAt: string;
-    createdBy: __schema0_19;
+    createdBy: __schema0_22;
     fingerprint: string;
-    id: __schema0_19;
+    id: __schema0_22;
     notAfter: string;
     notBefore: string;
     serial: string;
@@ -820,7 +844,7 @@ export type CertificatesGetCertificateResult = {
 export type CertificatesUpdateCertificateMetadataParams = {
   project: string;
   name: string;
-  tags?: __schema0_20;
+  tags?: __schema0_23;
   purgeProtected?: __schema3_3;
 };
 
@@ -837,12 +861,12 @@ export type CertificatesUpdateCertificateMetadataResult = {
   daysToExpiry: number;
   deletedAt: string | null;
   fingerprint: string;
-  id: __schema0_21;
+  id: __schema0_24;
   issuer: string;
   name: string;
   notAfter: string;
   notBefore: string;
-  projectId: __schema0_21;
+  projectId: __schema0_24;
   purgeAfter: string | null;
   purgeProtected: boolean;
   sans: string[];
@@ -853,9 +877,9 @@ export type CertificatesUpdateCertificateMetadataResult = {
   updatedAt: string;
   version: {
     createdAt: string;
-    createdBy: __schema0_21;
+    createdBy: __schema0_24;
     fingerprint: string;
-    id: __schema0_21;
+    id: __schema0_24;
     notAfter: string;
     notBefore: string;
     serial: string;
@@ -881,15 +905,15 @@ export type CertificatesGetCertificatePrivateKeyResult = {
     canWrite: boolean;
   };
   fingerprint: string;
-  id: __schema0_22;
+  id: __schema0_25;
   name: string;
   privateKeyPem: string;
-  projectId: __schema0_22;
+  projectId: __schema0_25;
   version: {
     createdAt: string;
-    createdBy: __schema0_22;
+    createdBy: __schema0_25;
     fingerprint: string;
-    id: __schema0_22;
+    id: __schema0_25;
     notAfter: string;
     notBefore: string;
     serial: string;
@@ -915,12 +939,12 @@ export type CertificatesRecoverCertificateResult = {
   daysToExpiry: number;
   deletedAt: string | null;
   fingerprint: string;
-  id: __schema0_23;
+  id: __schema0_26;
   issuer: string;
   name: string;
   notAfter: string;
   notBefore: string;
-  projectId: __schema0_23;
+  projectId: __schema0_26;
   purgeAfter: string | null;
   purgeProtected: boolean;
   sans: string[];
@@ -931,9 +955,9 @@ export type CertificatesRecoverCertificateResult = {
   updatedAt: string;
   version: {
     createdAt: string;
-    createdBy: __schema0_23;
+    createdBy: __schema0_26;
     fingerprint: string;
-    id: __schema0_23;
+    id: __schema0_26;
     notAfter: string;
     notBefore: string;
     serial: string;
@@ -944,7 +968,7 @@ export type CertificatesGenerateCertificateParams = {
   project: string;
   name: string;
   subject: string;
-  sans: __schema0_13[];
+  sans: __schema0_16[];
   keyType?: 'rsa-2048' | 'rsa-3072' | 'ec-p256';
   validityDays?: number;
   expectedVersionId?: string;
@@ -966,12 +990,12 @@ export type CertificatesGenerateCertificateResult = {
   daysToExpiry: number;
   deletedAt: string | null;
   fingerprint: string;
-  id: __schema0_14;
+  id: __schema0_17;
   issuer: string;
   name: string;
   notAfter: string;
   notBefore: string;
-  projectId: __schema0_14;
+  projectId: __schema0_17;
   purgeAfter: string | null;
   purgeProtected: boolean;
   sans: string[];
@@ -982,9 +1006,9 @@ export type CertificatesGenerateCertificateResult = {
   updatedAt: string;
   version: {
     createdAt: string;
-    createdBy: __schema0_14;
+    createdBy: __schema0_17;
     fingerprint: string;
-    id: __schema0_14;
+    id: __schema0_17;
     notAfter: string;
     notBefore: string;
     serial: string;
@@ -1026,12 +1050,12 @@ export type CertificatesImportCertificateResult = {
   daysToExpiry: number;
   deletedAt: string | null;
   fingerprint: string;
-  id: __schema0_17;
+  id: __schema0_20;
   issuer: string;
   name: string;
   notAfter: string;
   notBefore: string;
-  projectId: __schema0_17;
+  projectId: __schema0_20;
   purgeAfter: string | null;
   purgeProtected: boolean;
   sans: string[];
@@ -1042,9 +1066,9 @@ export type CertificatesImportCertificateResult = {
   updatedAt: string;
   version: {
     createdAt: string;
-    createdBy: __schema0_17;
+    createdBy: __schema0_20;
     fingerprint: string;
-    id: __schema0_17;
+    id: __schema0_20;
     notAfter: string;
     notBefore: string;
     serial: string;
@@ -1084,14 +1108,14 @@ export type SecretsListSecretsResult = {
     createdAt: string;
     currentVersion: {
       createdAt: string;
-      createdBy: __schema0_24;
+      createdBy: __schema0_27;
       expiresAt: string | null;
-      id: __schema0_24;
+      id: __schema0_27;
     } | null;
     deletedAt: string | null;
-    id: __schema0_24;
+    id: __schema0_27;
     name: string;
-    projectId: __schema0_24;
+    projectId: __schema0_27;
     purgeAfter: string | null;
     purgeProtected: boolean;
     status: 'active' | 'deleted';
@@ -1123,9 +1147,9 @@ export type SecretsCreateSecretResult = {
   createdAt: string;
   currentVersion: __schema3_4 | unknown | null;
   deletedAt: string | null;
-  id: __schema0_26;
+  id: __schema0_29;
   name: string;
-  projectId: __schema0_26;
+  projectId: __schema0_29;
   purgeAfter: string | null;
   purgeProtected: boolean;
   status: 'active' | 'deleted';
@@ -1146,16 +1170,16 @@ export type SecretsGetSecretResult = {
   };
   contentType: string;
   encoding: 'utf8' | 'base64';
-  id: __schema0_27;
+  id: __schema0_30;
   name: string;
-  projectId: __schema0_27;
+  projectId: __schema0_30;
   tags: Record<string, __schema2_15>;
   value: string;
   version: {
     createdAt: string;
-    createdBy: __schema0_27;
+    createdBy: __schema0_30;
     expiresAt: string | null;
-    id: __schema0_27;
+    id: __schema0_30;
   };
 };
 
@@ -1180,9 +1204,9 @@ export type SecretsWriteSecretValueResult = {
   createdAt: string;
   currentVersion: __schema3_6 | unknown | null;
   deletedAt: string | null;
-  id: __schema0_30;
+  id: __schema0_33;
   name: string;
-  projectId: __schema0_30;
+  projectId: __schema0_33;
   purgeAfter: string | null;
   purgeProtected: boolean;
   status: 'active' | 'deleted';
@@ -1194,7 +1218,7 @@ export type SecretsWriteSecretValueResult = {
 export type SecretsUpdateSecretMetadataParams = {
   project: string;
   name: string;
-  tags?: __schema0_28;
+  tags?: __schema0_31;
   contentType?: __schema3_5;
   purgeProtected?: __schema4_2;
 };
@@ -1212,14 +1236,14 @@ export type SecretsUpdateSecretMetadataResult = {
   createdAt: string;
   currentVersion: {
     createdAt: string;
-    createdBy: __schema0_29;
+    createdBy: __schema0_32;
     expiresAt: string | null;
-    id: __schema0_29;
+    id: __schema0_32;
   } | null;
   deletedAt: string | null;
-  id: __schema0_29;
+  id: __schema0_32;
   name: string;
-  projectId: __schema0_29;
+  projectId: __schema0_32;
   purgeAfter: string | null;
   purgeProtected: boolean;
   status: 'active' | 'deleted';
@@ -1256,14 +1280,14 @@ export type SecretsRecoverSecretResult = {
   createdAt: string;
   currentVersion: {
     createdAt: string;
-    createdBy: __schema0_31;
+    createdBy: __schema0_34;
     expiresAt: string | null;
-    id: __schema0_31;
+    id: __schema0_34;
   } | null;
   deletedAt: string | null;
-  id: __schema0_31;
+  id: __schema0_34;
   name: string;
-  projectId: __schema0_31;
+  projectId: __schema0_34;
   purgeAfter: string | null;
   purgeProtected: boolean;
   status: 'active' | 'deleted';
@@ -1276,9 +1300,9 @@ export type SecretsListSecretVersionsParams = { project: string; name: string };
 export type SecretsListSecretVersionsResult = {
   versions: {
     createdAt: string;
-    createdBy: __schema0_32;
+    createdBy: __schema0_35;
     expiresAt: string | null;
-    id: __schema0_32;
+    id: __schema0_35;
     isCurrent: boolean;
     status: 'active' | 'expired';
   }[];

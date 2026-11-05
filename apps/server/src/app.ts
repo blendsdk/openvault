@@ -1,4 +1,9 @@
+import { existsSync } from "node:fs";
+import { join, resolve } from "node:path";
+import { fileURLToPath } from "node:url";
 import { PostgreSQLDatabase } from "blendsdk/postgresql";
+import type { PluginDefinition } from "blendsdk/webafx";
+import { NotFoundError, staticFilesPlugin } from "blendsdk/webafx";
 import type { PinoLoggerProvider } from "blendsdk/webafx-pino";
 import { createLoggerPlugin } from "blendsdk/webafx-pino";
 import type { AgentAuthenticator } from "./agent/agent-authenticator.js";
@@ -42,6 +47,54 @@ import {
   type SecureApplicationDependencies,
   SecureWebApplication,
 } from "./transport/secure-application.js";
+
+/** Resolves the built web UI root, honoring an explicit deployment override. */
+function resolveWebRoot(): string {
+  const override = process.env.OPENVAULT_WEB_ROOT;
+  return override === undefined || override.length === 0
+    ? fileURLToPath(new URL("../../web/dist", import.meta.url))
+    : resolve(override);
+}
+
+/**
+ * Keeps unknown API routes JSON even when the client accepts HTML.
+ *
+ * The static plugin's SPA fallback is intentionally broad; this terminal
+ * plugin runs before it (lower priority) and sends every unmatched `/v1`
+ * request to the normal error envelope instead of `index.html`.
+ */
+function apiNotFoundPlugin(): PluginDefinition {
+  return {
+    name: "openvault-api-404",
+    priority: 19,
+    factory: async () => ({
+      terminal: async ({ express }) => {
+        express.use("/v1", (_req, _res, next) => {
+          next(new NotFoundError("Not Found"));
+        });
+      },
+    }),
+  };
+}
+
+/** Adds the browser UI when a complete build is present. */
+function installWebUi(app: SecureWebApplication, webRoot: string): { readonly enabled: boolean } {
+  if (!existsSync(join(webRoot, "index.html")) || !existsSync(join(webRoot, "assets"))) {
+    return { enabled: false };
+  }
+  app.use(
+    staticFilesPlugin({
+      root: join(webRoot, "assets"),
+      prefix: "/assets",
+      maxAge: "1y",
+      immutable: true,
+      index: false,
+    }),
+  );
+  app.use(apiNotFoundPlugin());
+  app.use(staticFilesPlugin({ root: webRoot, spa: true, maxAge: 0 }));
+  return { enabled: true };
+}
 
 /**
  * Builds the production application with validated configuration and runtime
@@ -193,7 +246,9 @@ export function createApplication(
       resolveActiveByName: async () => undefined,
     };
 
-  installPreStack(app.express, config, provider, options);
+  const webRoot = resolveWebRoot();
+  const webUi = installWebUi(app, webRoot);
+  installPreStack(app.express, config, provider, { ...options, webUiEnabled: webUi.enabled });
   if (authenticator !== undefined) {
     app.express.use(agentAuthMiddleware(authenticator, projectResolver));
   }

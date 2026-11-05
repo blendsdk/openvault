@@ -379,6 +379,7 @@ describe.skipIf(trustedHost === undefined)("local authentication", () => {
       expect(response.status).toBe(200);
       expect(data.user).toEqual({
         id: user.id,
+        sub: user.id,
         name: user.name,
         email: user.email,
         authMethod: "local",

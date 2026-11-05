@@ -736,6 +736,7 @@ describe.skipIf(trustedHost === undefined)("OIDC authentication", () => {
 
       expect(user).toEqual({
         id: expect.stringMatching(/^[0-9A-HJKMNP-TV-Z]{26}$/),
+        sub: expect.stringMatching(/^[0-9A-HJKMNP-TV-Z]{26}$/),
         name,
         email,
         authMethod: "oidc",

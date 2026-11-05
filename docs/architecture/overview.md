@@ -30,6 +30,22 @@ endpoint. There is no separate UI server and no Redis in v0.1.
 | Keyring file | KEK, wrapped keys, outside the database |
 | Reverse proxy | TLS termination, HSTS, request limits |
 
+## Web UI
+
+`apps/web` is the minimal v0.1 browser surface: login, projects, secrets with audited reveal,
+identities, permissions, audit, and consumers. It uses Fluent UI v9,
+`@blendsdk/fluentui-react-components`, `blendsdk/react` for the session bridge/loader/i18n,
+and the generated browser client.
+
+The server serves the built SPA with the WebAFX static plugins and a terminal SPA fallback.
+The admin listener allows `GET` paths outside `/v1` for the UI; the agent listener keeps its
+strict path table. The UI-enabled CSP is same-origin except for inline style elements required
+by Griffel.
+
+Secret values exist only in component state during an explicit reveal and clear on blur,
+window blur, navigation, logout, or after 60 seconds. The browser never writes values or
+tokens to web storage.
+
 ## CLI and contract generation
 
 `apps/cli` is a private ESM package with the `ov` binary. It depends on `blendsdk/cmdline` for
