@@ -1,7 +1,7 @@
 import type { AdapterRequest, AdapterResponse, RequestAdapter } from "blendsdk/api-client";
 
 const PROJECT_ID = "01ARZ3NDEKTSV4RRFFQ69G5FAV";
-const SECRET_ID = "01ARZ3NDEKTSV4RRFFQ69G5FAW";
+const VALUE_ID = "01ARZ3NDEKTSV4RRFFQ69G5FAW";
 const VERSION_ID = "01ARZ3NDEKTSV4RRFFQ69G5FAX";
 const IDENTITY_ID = "01ARZ3NDEKTSV4RRFFQ69G5FAY";
 const ASSIGNMENT_ID = "01ARZ3NDEKTSV4RRFFQ69G5FAZ";
@@ -68,7 +68,7 @@ export class FakeVault implements RequestAdapter {
   ];
   secrets = [
     {
-      id: SECRET_ID,
+      id: VALUE_ID,
       projectId: PROJECT_ID,
       name: "db-password",
       tags: { env: "prod" },
@@ -120,7 +120,7 @@ export class FakeVault implements RequestAdapter {
       principalId: IDENTITY_ID,
       role: "secrets.reader",
       scopeType: "object",
-      scopeId: SECRET_ID,
+      scopeId: VALUE_ID,
       grantedBy: ADMIN_ID,
       createdAt: "2026-11-02T10:05:00.000Z",
       expiresAt: null,
@@ -269,7 +269,7 @@ export class FakeVault implements RequestAdapter {
           return failure(403, "access_denied", "Access denied");
         }
         return ok({
-          id: SECRET_ID,
+          id: VALUE_ID,
           projectId: PROJECT_ID,
           name: secretName,
           value: this.secretValue,
@@ -386,9 +386,9 @@ export class FakeVault implements RequestAdapter {
             actorKind: "user",
             action: "secret.read",
             scopeType: "object",
-            scopeId: SECRET_ID,
+            scopeId: VALUE_ID,
             objectType: "secret",
-            objectId: SECRET_ID,
+            objectId: VALUE_ID,
             result: "allow",
             sourceIp: "172.18.0.2",
             userAgent: "test",

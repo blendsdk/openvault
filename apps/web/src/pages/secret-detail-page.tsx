@@ -360,6 +360,11 @@ export function SecretDetailPage() {
               readOnly
               value={revealed.value}
               rows={Math.min(8, Math.max(2, revealed.value.split("\n").length))}
+              onBlur={(event) => {
+                if (!revealRegion.current?.contains(event.relatedTarget as Node | null)) {
+                  clearReveal();
+                }
+              }}
             />
             <div className="value-actions">
               <Button appearance="secondary" onClick={copyRevealed}>
