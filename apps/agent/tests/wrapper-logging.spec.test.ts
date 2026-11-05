@@ -183,13 +183,17 @@ entries:
       mode: "wrapper",
     });
     const pidFile = join(directory, "child.pid");
-    const script = `const fs = require("node:fs"); process.on("SIGTERM", () => {}); fs.writeFileSync(${JSON.stringify(pidFile)}, String(process.pid)); setInterval(() => {}, 1000);`;
+    const scriptPath = join(directory, "ignore-sigterm.cjs");
+    writeFileSync(
+      scriptPath,
+      'const fs = require("node:fs"); process.on("SIGTERM", () => {}); fs.writeFileSync(process.argv[2], String(process.pid)); setInterval(() => {}, 1000);',
+    );
     const runner = new AgentRunner({
       config,
       manifest,
       store: new AgentStateStore(config.stateDir),
       logger: silentAgentLogger,
-      wrapper: { command: process.execPath, args: ["-e", script] },
+      wrapper: { command: process.execPath, args: [scriptPath, pidFile] },
     });
     const running = runner.run();
     let pid = 0;
