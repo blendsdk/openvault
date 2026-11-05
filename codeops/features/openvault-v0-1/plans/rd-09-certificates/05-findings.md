@@ -18,7 +18,7 @@ All critical and major findings were fixed; no critical or major finding remains
 | RC-908 | MINOR | config/loader | Fixed — 2,048 bound and IPv6 link-local/mapped targets rejected |
 | RC-909 | MINOR | certificates/lifecycle | Fixed — purge state compares database time |
 | RC-910 | MINOR | docs | Fixed — audit and zeroing wording corrected |
-| RC-911 | MINOR | tests | Partially fixed — rate limits, key-profile rejection, no-key audit, project normalization, superseded-version cleanup, and non-current expiry tests added; remaining gaps are listed below |
+| RC-911 | MINOR | tests | Fixed — rate limits, key-profile rejection, no-key audit, project normalization, notification cleanup, non-current expiry, intermediate warnings, non-CA rejection, and valid-agent certificate denial tests added |
 | SA-901 | MAJOR | certificates/expiry | Fixed — keyset batches of 500 bound the scan |
 | SA-902 | MINOR | certificates/generate | Fixed — SAN count/text and generated PEM bounds |
 | SA-903 | MINOR | certificates/expiry | Fixed — superseded-version notification rows are removed on renewal |
@@ -39,7 +39,7 @@ All critical and major findings were fixed; no critical or major finding remains
 | Certificate write idempotency | No `Idempotency-Key`; `expectedVersionId` is the stale-write guard. | RD-11 CLI |
 | Private-key PEM string | The DER buffer is zeroed on every path; the transient PEM string cannot be zeroed. | RD-13 security review |
 | DNS rebinding | The webhook URL is operator-controlled and never logged; DNS can rebind after validation. | RD-13 operations |
-| Agent value-read success over real mTLS | Certificate routes are denied on the agent listener; a no-certificate 401 test exists, but the valid same-project agent 401 and project-mismatch 403 matrix is not exhaustively exercised over HTTPS. | RD-10 |
+| Agent value-read success over real mTLS | Certificate routes are denied on the agent listener; valid same-project 401 and project-mismatch 403 are covered, but the secret value-read success path remains an RD-10 test. | RD-10 |
 | Write-route project existence | Read routes normalize missing/inaccessible projects; write/lifecycle routes can still distinguish a missing project from a denied one. No certificate data is exposed. | RD-12 review |
 | Certificate version history surface | No versions-list route or consumers in v0.1; a client uses `?version=` when it knows the id. | Product owner |
 

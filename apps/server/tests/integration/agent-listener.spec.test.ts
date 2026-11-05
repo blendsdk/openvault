@@ -210,6 +210,19 @@ describe("data-route guard", () => {
     expect(listAttempt.status).toBe(401);
     expect(errorCode(listAttempt)).toBe("authentication_required");
 
+    const certificateList = await send({
+      path: `/v1/data/${project.name}/certificates`,
+      cert: client,
+    });
+    expect(certificateList.status).toBe(401);
+    expect(errorCode(certificateList)).toBe("authentication_required");
+
+    const foreignCertificate = await send({
+      path: `/v1/data/${other.name}/certificates`,
+      cert: client,
+    });
+    expect(foreignCertificate.status).toBe(403);
+
     for (const name of [other.name, deleted.name]) {
       const denied = await send({ path: `/v1/data/${name}/probe`, cert: client });
       expect(denied.status, name).toBe(403);

@@ -124,6 +124,10 @@ export async function createChainFixture(
     readonly leafSans?: readonly string[];
     readonly leafNotBefore?: Date;
     readonly leafNotAfter?: Date;
+    readonly intermediateNotBefore?: Date;
+    readonly intermediateNotAfter?: Date;
+    readonly intermediateCa?: boolean;
+    readonly intermediateKeyUsage?: number;
   } = {},
 ): Promise<ChainFixture> {
   const now = options.now ?? Date.now();
@@ -147,18 +151,22 @@ export async function createChainFixture(
       ),
     ],
   });
+  const intermediateCa = options.intermediateCa ?? true;
   const intermediate = await x509.X509CertificateGenerator.create({
     serialNumber: "1002",
     subject: "CN=Fixture Intermediate",
     issuer: root.subject,
-    notBefore,
-    notAfter,
+    notBefore: options.intermediateNotBefore ?? notBefore,
+    notAfter: options.intermediateNotAfter ?? notAfter,
     publicKey: intermediateKeys.keys.publicKey,
     signingKey: rootKeys.keys.privateKey,
     extensions: [
-      new x509.BasicConstraintsExtension(true, undefined, true),
+      new x509.BasicConstraintsExtension(intermediateCa, undefined, true),
       new x509.KeyUsagesExtension(
-        x509.KeyUsageFlags.keyCertSign | x509.KeyUsageFlags.cRLSign,
+        options.intermediateKeyUsage ??
+          (intermediateCa
+            ? x509.KeyUsageFlags.keyCertSign | x509.KeyUsageFlags.cRLSign
+            : x509.KeyUsageFlags.digitalSignature),
         true,
       ),
     ],

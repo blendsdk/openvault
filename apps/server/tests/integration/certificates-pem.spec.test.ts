@@ -71,6 +71,48 @@ describe("certificate PEM parsing", () => {
     ).rejects.toMatchObject({ statusCode: 422, code: "validation_error" });
   });
 
+  it("should warn about an expired intermediate", async () => {
+    const fixture = await createChainFixture({
+      now: NOW,
+      intermediateNotBefore: new Date(NOW - 30 * 86_400_000),
+      intermediateNotAfter: new Date(NOW - 86_400_000),
+    });
+    const parsed = await parse({
+      certificatePem: fixture.leafPem,
+      chainPem: fixture.chainPem,
+      privateKeyPem: fixture.privateKeyPem,
+    });
+    expect(parsed.warnings.map((warning) => warning.code)).toContain("expired_intermediate");
+  });
+
+  it("should warn about a not-yet-valid intermediate", async () => {
+    const fixture = await createChainFixture({
+      now: NOW,
+      intermediateNotBefore: new Date(NOW + 86_400_000),
+      intermediateNotAfter: new Date(NOW + 365 * 86_400_000),
+    });
+    const parsed = await parse({
+      certificatePem: fixture.leafPem,
+      chainPem: fixture.chainPem,
+      privateKeyPem: fixture.privateKeyPem,
+    });
+    expect(parsed.warnings.map((warning) => warning.code)).toContain("not_yet_valid_intermediate");
+  });
+
+  it("should reject a non-CA or non-keyCertSign intermediate", async () => {
+    const fixture = await createChainFixture({
+      now: NOW,
+      intermediateCa: false,
+    });
+    await expect(
+      parse({
+        certificatePem: fixture.leafPem,
+        chainPem: fixture.chainPem,
+        privateKeyPem: fixture.privateKeyPem,
+      }),
+    ).rejects.toMatchObject({ statusCode: 422 });
+  });
+
   it("should import a leaf with a missing intermediate and drop the unrelated root", async () => {
     const fixture = await createChainFixture({ now: NOW });
     const parsed = await parse({
