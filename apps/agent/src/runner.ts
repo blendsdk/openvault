@@ -75,6 +75,7 @@ export class AgentRunner {
   #cancelled = false;
   #refreshing = false;
   #activeRefresh: Promise<void> | undefined;
+  #activeRenewal: Promise<void> | undefined;
   #renewalBackoffMs = 1_000;
   #lastAttemptAt = new Date().toISOString();
   #lastSuccessAt: string | null = null;
@@ -189,6 +190,7 @@ export class AgentRunner {
     this.#store.prepare();
     const caPem = readCaBundle(this.#config.caFile);
     const client = new VaultClient({ baseUrl: this.#config.url, caPem });
+    this.#client = client;
     const identity = await joinAgent({
       config: this.#config,
       manifest: this.#manifest,
@@ -196,9 +198,9 @@ export class AgentRunner {
       client,
       logger: this.#logger,
       now: this.#now,
+      isCancelled: () => this.#cancelled,
       ...(this.#sleep === undefined ? {} : { sleep: this.#sleep }),
     });
-    this.#client = client;
     this.#identity = identity;
     this.#delivery = new Delivery({
       config: this.#config,
@@ -226,10 +228,12 @@ export class AgentRunner {
   }
 
   /** Writes the status document for the current snapshot. */
-  #writeStatus(snapshot: DeliverySnapshot): void {
-    this.#lastAttemptAt = new Date(this.#now()).toISOString();
-    if (snapshot.state !== "failed") {
-      this.#lastSuccessAt = this.#lastAttemptAt;
+  #writeStatus(snapshot: DeliverySnapshot, updateDeliveryTimes = true): void {
+    if (updateDeliveryTimes) {
+      this.#lastAttemptAt = new Date(this.#now()).toISOString();
+      if (snapshot.state !== "failed") {
+        this.#lastSuccessAt = this.#lastAttemptAt;
+      }
     }
     this.#statusWriter?.write(this.#statusDocument(snapshot));
   }
@@ -368,6 +372,30 @@ export class AgentRunner {
     ) {
       return;
     }
+    const task = this.#renewalTask();
+    this.#activeRenewal = task;
+    try {
+      await task;
+    } catch (error) {
+      this.#activeRenewal = undefined;
+      if (!this.#cancelled) {
+        await this.#terminal(error);
+      }
+    } finally {
+      this.#activeRenewal = undefined;
+    }
+  }
+
+  /** One renewal attempt body. */
+  async #renewalTask(): Promise<void> {
+    if (
+      this.#cancelled ||
+      this.#renewalStopped ||
+      this.#client === undefined ||
+      this.#identity === undefined
+    ) {
+      return;
+    }
     this.#renewal = { ...this.#renewal, lastAttemptAt: new Date(this.#now()).toISOString() };
     try {
       const outcome = await renewOnce({
@@ -378,7 +406,11 @@ export class AgentRunner {
         identity: this.#identity,
         logger: this.#logger,
         now: this.#now,
+        isCancelled: () => this.#cancelled,
       });
+      if (this.#cancelled) {
+        return;
+      }
       if (outcome.kind === "renewed" || outcome.kind === "adopted") {
         this.#renewalBackoffMs = 1_000;
         this.#identity = outcome.identity;
@@ -389,7 +421,7 @@ export class AgentRunner {
           lastSuccessAt: new Date(this.#now()).toISOString(),
           nextAttemptAt: null,
         };
-        this.#writeStatus(this.#snapshot ?? this.#emptySnapshot());
+        this.#writeStatus(this.#snapshot ?? this.#emptySnapshot(), false);
         this.#scheduleRenewal();
         return;
       }
@@ -402,16 +434,18 @@ export class AgentRunner {
         this.#renewalStopped = true;
         this.#renewal = { ...this.#renewal, state: "degraded", nextAttemptAt: null };
         this.#logger.warn("agent_renewal_stale", { identityId: this.#identity.identityId });
-        this.#writeStatus(this.#snapshot ?? this.#emptySnapshot());
+        this.#writeStatus(this.#snapshot ?? this.#emptySnapshot(), false);
         return;
       }
       this.#renewal = { ...this.#renewal, state: "degraded" };
-      this.#writeStatus(this.#snapshot ?? this.#emptySnapshot());
+      this.#writeStatus(this.#snapshot ?? this.#emptySnapshot(), false);
       const delay = this.#renewalBackoffMs + Math.floor(this.#random() * 1_000);
       this.#renewalBackoffMs = Math.min(this.#renewalBackoffMs * 2, 300_000);
       this.#scheduleRenewal(delay);
     } catch (error) {
-      await this.#terminal(error);
+      if (!this.#cancelled) {
+        throw error;
+      }
     }
   }
 
@@ -459,12 +493,26 @@ export class AgentRunner {
       return;
     }
     child.kill("SIGTERM");
-    await Promise.race([
-      once(child, "exit").then(() => undefined),
-      new Promise<void>((resolve) => setTimeout(resolve, 5_000)),
-    ]);
+    let grace: NodeJS.Timeout | undefined;
+    const gracePromise = new Promise<void>((resolve) => {
+      grace = setTimeout(resolve, 5_000);
+      grace.unref?.();
+    });
+    await Promise.race([once(child, "exit").then(() => undefined), gracePromise]);
+    if (grace !== undefined) {
+      clearTimeout(grace);
+    }
     if (child.exitCode === null && child.signalCode === null) {
       child.kill("SIGKILL");
+      let killGrace: NodeJS.Timeout | undefined;
+      const killPromise = new Promise<void>((resolve) => {
+        killGrace = setTimeout(resolve, 2_000);
+        killGrace.unref?.();
+      });
+      await Promise.race([once(child, "exit").then(() => undefined), killPromise]);
+      if (killGrace !== undefined) {
+        clearTimeout(killGrace);
+      }
     }
   }
 
@@ -485,14 +533,22 @@ export class AgentRunner {
       }
       this.#activeRefresh = undefined;
     }
-    const removeFiles =
-      error instanceof DeliveryTerminalError || error instanceof RenewalTerminalError
-        ? error.removeFiles
-        : true;
+    if (this.#activeRenewal !== undefined) {
+      try {
+        await this.#activeRenewal;
+      } catch {
+        // The active renewal observes the cancellation flag.
+      }
+      this.#activeRenewal = undefined;
+    }
     const code =
       error instanceof DeliveryTerminalError || error instanceof RenewalTerminalError
         ? error.code
         : agentErrorCode(error);
+    const removeFiles =
+      error instanceof DeliveryTerminalError || error instanceof RenewalTerminalError
+        ? error.removeFiles
+        : code !== "agent_state_write_failed";
     if (code === "agent_credential_rejected") {
       try {
         this.#store.clearIdentity();

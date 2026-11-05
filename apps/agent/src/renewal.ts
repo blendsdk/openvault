@@ -31,6 +31,8 @@ export interface RenewalOptions {
   readonly identity: StoredIdentity;
   readonly logger: AgentLogger;
   readonly now?: () => number;
+  /** Returns true when the runner has entered the terminal path. */
+  readonly isCancelled?: () => boolean;
 }
 
 /** A terminal renewal failure that the runner must handle. */
@@ -163,6 +165,9 @@ export async function renewOnce(options: RenewalOptions): Promise<RenewalOutcome
     return outcome;
   }
 
+  if (options.isCancelled?.() === true) {
+    return { kind: "transient" };
+  }
   if (!certificateMatchesKey(response.certificatePem, pending.privateKeyPem)) {
     throw new RenewalTerminalError(
       "agent_renewal_terminal",

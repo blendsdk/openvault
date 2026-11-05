@@ -29,6 +29,8 @@ export interface JoinAgentOptions {
   readonly logger: AgentLogger;
   readonly now?: () => number;
   readonly sleep?: (ms: number) => Promise<void>;
+  /** Returns true when the runner has entered the terminal path. */
+  readonly isCancelled?: () => boolean;
 }
 
 const RETRY_BASE_MS = 1_000;
@@ -147,6 +149,9 @@ export async function joinAgent(options: JoinAgentOptions): Promise<StoredIdenti
   const startedAt = now();
   let attempt = 0;
   for (;;) {
+    if (options.isCancelled?.() === true) {
+      throw new AgentError("agent_join_failed", "Join cancelled");
+    }
     try {
       const response = await options.client.join(request);
       if (!certificateMatchesKey(response.certificatePem, generated.privateKeyPem)) {
@@ -170,6 +175,9 @@ export async function joinAgent(options: JoinAgentOptions): Promise<StoredIdenti
       const delay = Math.min(RETRY_BASE_MS * 2 ** (attempt - 1), RETRY_MAX_MS);
       options.logger.warn("agent_join_retry", { attempt, delayMs: delay });
       await sleep(delay);
+      if (options.isCancelled?.() === true) {
+        throw new AgentError("agent_join_failed", "Join cancelled");
+      }
     }
   }
 }

@@ -132,3 +132,6 @@ These are accepted for v0.1. They are documented so reviewers do not mistake the
     `ghcr.io/blendsdk/openvault-agent:0.1.0`; image build, signing, and publishing are release
     engineering work. The snippet includes the host-directory preparation commands so the
     deployment contract is explicit before the image is published.
+45. **Scaffold serialization.** Grant reconciliation and join-token rotation are serialized by a
+    per-identity in-process mutex. This covers the single-instance v0.1 deployment. A
+    multi-instance deployment would need a database advisory lock for the same guarantee.

@@ -315,7 +315,7 @@ export class Delivery {
     const statuses = new Map<string, DeliveredEntryStatus>();
     let state: AgentConsumerState =
       this.#snapshot.state === "failed" ? "failed" : this.#snapshot.state;
-    let degraded = state === "degraded";
+    let degraded = false;
 
     for (const entry of this.#manifest.entries) {
       const before = next.get(entry.name);
@@ -351,6 +351,7 @@ export class Delivery {
         };
         if (envError) {
           state = "degraded";
+          degraded = true;
         }
         next.set(entry.name, delivered);
         statuses.set(entry.name, {

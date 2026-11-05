@@ -68,6 +68,15 @@ describe("agent delivery", () => {
     );
   });
 
+  it("should recover from degraded to ok after a clean refresh", async () => {
+    const { fake, fixture } = await fakeWithValues();
+    await fixture.delivery.startup();
+    fake.faults.set("GET /v1/data/payments/secrets/db-password", { status: 500 });
+    expect((await fixture.delivery.refresh()).state).toBe("degraded");
+    fake.faults.delete("GET /v1/data/payments/secrets/db-password");
+    expect((await fixture.delivery.refresh()).state).toBe("ok");
+  });
+
   it("should remove every managed file and fail on a refresh 401", async () => {
     const { fake, fixture } = await fakeWithValues();
     await fixture.delivery.startup();
