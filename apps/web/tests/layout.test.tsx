@@ -1,5 +1,6 @@
 import { fireEvent, screen, waitFor } from "@testing-library/react";
 import { beforeEach, describe, expect, it } from "vitest";
+import { DOCS_BASE_URL } from "../src/docs.js";
 import { renderShell } from "./helpers/shell.js";
 
 describe("application shell", () => {
@@ -16,6 +17,15 @@ describe("application shell", () => {
     );
     expect(screen.getByRole("link", { name: "OpenVault home" })).toHaveAttribute("href", "/");
     expect(screen.getByRole("link", { name: "Projects" })).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "Docs" })).toHaveAttribute(
+      "href",
+      `${DOCS_BASE_URL}/guide/secrets#projects`,
+    );
+    expect(screen.getByRole("link", { name: "Docs" })).toHaveAttribute("target", "_blank");
+    expect(screen.getByRole("link", { name: "Docs" })).toHaveAttribute(
+      "rel",
+      "noopener noreferrer",
+    );
     expect(screen.getByRole("button", { name: "Open navigation" })).toBeInTheDocument();
     expect(screen.getByText("Projects content")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Account" })).toBeInTheDocument();
@@ -35,6 +45,10 @@ describe("application shell", () => {
     renderShell({ initialPath: "/projects/payments/secrets" });
 
     expect(screen.getByText("Project content")).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "Docs" })).toHaveAttribute(
+      "href",
+      `${DOCS_BASE_URL}/guide/secrets#secret-write-and-read`,
+    );
     fireEvent.click(screen.getByRole("button", { name: "Open navigation" }));
 
     const search = await screen.findByRole("searchbox", { name: "Search navigation" });
@@ -58,6 +72,10 @@ describe("application shell", () => {
     await waitFor(() => {
       expect(screen.getByTestId("location")).toHaveTextContent("/projects/payments/audit");
     });
+    expect(screen.getByRole("link", { name: "Docs" })).toHaveAttribute(
+      "href",
+      `${DOCS_BASE_URL}/guide/audit`,
+    );
   });
 
   it("should show an empty state when no destination matches", async () => {

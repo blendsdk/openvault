@@ -22,6 +22,11 @@ everywhere and adds the current project's sections when the route is inside a pr
 launcher search filters destinations by name and by a few related words, for example `roles`
 for Permissions or `events` for Audit. Choosing an item closes the panel and clears the query.
 
+The top bar also has a **Docs** link that opens the published guide in a new tab. The target
+follows the current screen: the project list opens the project guide, the secret list opens
+the secrets guide, secret detail opens the reveal section, and identities, permissions, audit,
+and consumers open their matching guides. Unknown routes fall back to the documentation home.
+
 The desktop sidebar remains a shortcut to Projects, and the account menu keeps the signed-in
 address and sign-out action. The theme toggle is unchanged.
 

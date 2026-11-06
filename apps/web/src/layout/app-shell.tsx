@@ -17,6 +17,7 @@ import {
   Text,
 } from "@fluentui/react-components";
 import {
+  BookOpen20Regular,
   DarkTheme20Regular,
   DocumentBulletList20Regular,
   Folder20Regular,
@@ -32,6 +33,7 @@ import type { ReactElement } from "react";
 import { useMemo, useRef, useState } from "react";
 import { Link, Outlet, useLocation, useNavigate } from "react-router";
 import { BrandMark } from "../components/brand.js";
+import { docsUrlForRoute } from "../docs.js";
 import { useSessionApi } from "../session/session-api-provider.js";
 import { useSession } from "../session/session-context.js";
 import { useThemeMode } from "../theme/theme-root.js";
@@ -165,6 +167,7 @@ export function AppShell() {
   const email = typeof auth.user?.email === "string" ? auth.user.email : undefined;
   const name = typeof auth.user?.name === "string" ? auth.user.name : "Account";
   const projectName = projectNameFromPath(location.pathname);
+  const docsUrl = docsUrlForRoute(location.pathname);
   const entries = useMemo(() => launcherEntries(projectName), [projectName]);
   const needle = query.trim().toLowerCase();
   const visibleEntries =
@@ -267,6 +270,17 @@ export function AppShell() {
           </Link>
         </div>
         <div className="app-bar-right">
+          <Button
+            as="a"
+            href={docsUrl}
+            target="_blank"
+            rel="noopener noreferrer"
+            appearance="subtle"
+            icon={<BookOpen20Regular aria-hidden="true" />}
+            aria-label="Docs"
+          >
+            <span className="desktop-only">Docs</span>
+          </Button>
           <Button
             appearance="subtle"
             icon={

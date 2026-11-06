@@ -683,6 +683,20 @@ pre {
     display: inline-flex;
   }
 
+  .app-bar-right {
+    gap: 4px;
+  }
+
+  /* Fluent text buttons keep a 96 px minimum even after the label is hidden.
+     The top-bar actions are icon-only below 1024 px, so give them their icon
+     width and keep the row inside the viewport. */
+  .app-bar-right .fui-Button {
+    justify-content: center;
+    min-width: 32px;
+    width: 32px;
+    padding-inline: 0;
+  }
+
   .app-content {
     padding: 24px 20px 48px;
   }
@@ -754,6 +768,12 @@ pre {
 
   .data-table {
     min-width: 560px;
+  }
+}
+
+@media (max-width: 359px) {
+  .brand-name {
+    display: none;
   }
 }
 

@@ -3,12 +3,12 @@
 > **Document**: 99-execution-plan.md
 > **Parent**: [Index](00-index.md)
 > **Status**: Done
-> **Last Updated**: 2026-11-06 13:10
-> **Progress**: 16/16 tasks (100%)
+> **Last Updated**: 2026-11-06 13:24
+> **Progress**: 20/20 tasks (100%)
 >
 > **Rule:** one task at a time. Mark `[x]` only after the task verifies.
 
-**Total: 16 tasks across 3 phases**
+**Total: 20 tasks across 4 phases**
 
 ---
 
@@ -70,6 +70,27 @@
 - [x] 3.3 Record the preview URL, credentials, and evidence for the user
 
 **Verify**: `pnpm verify` passes; the running review stack serves the new bundle
+
+---
+
+## Phase 4: Context-aware documentation link (#37)
+
+> **Reasoning**: low — one pure resolver and one top-bar anchor, but the link must not
+> mislead operators or leak a window handle to another origin.
+
+### Step 4.1: Documentation resolver
+
+- [x] 4.1.1 Add `docs.ts` with the absolute docs base and a route-to-guide mapping
+- [x] 4.1.2 Add unit tests for every project section, the project list, trailing slashes, and unknown routes
+
+**Verify**: `pnpm --filter @openvault/web test -- docs`
+
+### Step 4.2: Top-bar link
+
+- [x] 4.2.1 Add the book-icon Docs anchor to the app bar with `target="_blank"` and `rel="noopener noreferrer"`
+- [x] 4.2.2 Keep the docs label accessible on narrow layouts; verify the link updates after navigation
+
+**Verify**: shell layout tests and a live CDP check of the href and target
 
 ---
 

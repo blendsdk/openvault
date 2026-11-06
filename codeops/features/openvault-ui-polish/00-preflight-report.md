@@ -32,6 +32,10 @@ was reproduced before planning a change.
 | PF-15 | Minor | The mark must remain recognizable at 16 px. | Favicons render at 16×16 and 32×32. | Use a high-contrast rounded tile, one ring, and one keyhole; avoid fine detail and text. |
 | PF-16 | Info | The running review stack serves built images, not the Vite dev server. | `review.sh` builds `openvault-web:review` and the proxy serves it at `https://localhost:8443`; no OpenVault Vite process is running. | Rebuild the web image, recreate the `web` container, and capture the running app for preview. |
 | PF-17 | Info | The favicon and logo need no Dockerfile change. | `deploy/docker/web.Dockerfile` copies `apps/web/dist`; Vite copies `public/` into `dist/`. | Keep the asset pipeline unchanged. |
+| PF-18 | Major | The documentation is a separate GitHub Pages deployment, not a path on the vault host. | `docs/.vitepress/config.ts` sets `base: "/openvault/"` and `sitemap.hostname: "https://blendsdk.github.io/openvault/"`. | Use the absolute `https://blendsdk.github.io/openvault` base for the link. |
+| PF-19 | Major | The shell has no screen-to-guide mapping. | The app routes are in `apps/web/src/App.tsx`; the docs guide pages are listed in `docs/.vitepress/config.ts`. | Add `docsPathForRoute` with one case per project section and exact anchors from the guide headings. |
+| PF-20 | Minor | A new-tab link without `noopener` gives the docs page a `window.opener` handle. | Standard browser behavior for `target="_blank"`. | Render the Fluent button as an anchor with `target="_blank"` and `rel="noopener noreferrer"`. |
+| PF-21 | Minor | The docs label must stay readable on narrow top bars. | The current top bar already hides the theme label and account name below 1023 px; the docs button sits in the same row. | Render the book icon at every width and hide only the visible "Docs" text on narrow layouts; keep `aria-label="Docs"` on the anchor. |
 
 ## Resolutions before implementation
 
@@ -39,6 +43,9 @@ was reproduced before planning a change.
 - Use a shared `BrandMark` component so the shell and login page cannot drift.
 - Use one SVG for both the in-app mark and the favicon; generate a 180×180 PNG for iOS.
 - Replace margins around the page header, project details, and auth copy with flex gaps.
+- Map each UI section to its guide page and anchor; fall back to the docs home for unknown routes.
+- Open the docs link in a new tab with `noopener noreferrer`; keep the visible label accessible when
+  the text is hidden on narrow layouts.
 - Do not change API, server, CSP, or Compose contracts.
 
 ## Verification plan
@@ -49,4 +56,5 @@ was reproduced before planning a change.
 | Web tests | `pnpm --filter @openvault/web test` | Every suite passes |
 | Full verify | `pnpm verify` | All gates pass |
 | Visual | Rebuild `openvault-web:review`, capture computed metrics and screenshots | Gaps are greater than zero; launcher and logo render |
+| Docs link | Component test and live CDP check | The href matches the current section, opens a new tab, and closes nothing |
 | Accessibility | axe on the shell and existing pages | No serious or critical violations |
