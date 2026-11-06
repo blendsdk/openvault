@@ -3,6 +3,7 @@ import { CommandLineParser } from "blendsdk/cmdline";
 import { CliError } from "../errors.js";
 import type { CliRuntime, CommandGroup, GlobalOptions } from "../types.js";
 import { createCommandContext } from "./context.js";
+import { databaseUrlFromEnv } from "./database-url.js";
 import { flagOption, textOption } from "./options.js";
 
 /**
@@ -54,12 +55,7 @@ export function createInitParser(globals: GlobalOptions, runtime: CliRuntime): C
       const env = runtime.env;
       const pick = (option: string, envName: string): string | undefined =>
         textOption(options, option) ?? env[envName];
-      const databaseUrl = env.OPENVAULT_DB_URL;
-      if (databaseUrl === undefined || databaseUrl.length === 0) {
-        throw new CliError("usage_error", "OPENVAULT_DB_URL is required in the environment", {
-          exitCode: 2,
-        });
-      }
+      const databaseUrl = databaseUrlFromEnv(runtime);
       const keyringPath = pick("keyring", "OPENVAULT_KEYRING");
       if (keyringPath === undefined || keyringPath.length === 0) {
         throw new CliError("usage_error", "OPENVAULT_KEYRING or --keyring is required", {
@@ -80,7 +76,7 @@ export function createInitParser(globals: GlobalOptions, runtime: CliRuntime): C
         "bootstrap-password-file",
         "OPENVAULT_BOOTSTRAP_PASSWORD_OUTPUT",
       );
-      const migrationDatabaseUrl = env.OPENVAULT_MIGRATION_DB_URL;
+      const migrationDatabaseUrl = databaseUrlFromEnv(runtime, "OPENVAULT_MIGRATION_DB_URL", false);
       const initOptions: InitOptions = {
         databaseUrl,
         keyringPath,

@@ -52,9 +52,11 @@ Forced password changes allow only `/v1/auth/me`, `/v1/auth/password`, `/v1/auth
 
 The bootstrap administrator is created by `ov init`. The bootstrap password is written once
 to a file with mode `0600`; it is never printed to stdout, stderr, or container logs. The
-administrator must change it before any other authenticated route succeeds. `ov init`
-provisioning is owned by the CLI and operations releases; this release enforces the forced
-change and the password-change endpoint.
+bootstrap credential is created with `mustChange=false` so a fresh reference stack can complete
+its first sign-in without an interactive CLI password-change route. Change the password
+immediately from the web UI, and delete the one-time file. The server enforces the forced-change
+gate for any credential whose `must_change` flag is set; the bootstrap flag is the documented
+exception.
 
 ## OIDC
 

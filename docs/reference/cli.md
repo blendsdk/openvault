@@ -101,6 +101,7 @@ value or private key.
 | `ov audit list` | `--from`, `--to`, `--actor-id`, `--action`, `--object-type`, `--object-id`, `--result`, `--request-id`, `--project`, `--project-id`, `--limit`, `--cursor` | Query events |
 | `ov audit verify` | — | Verify the chain; exits 1 when broken |
 | `ov audit export` | filters plus `--out`, `--force` | Stream NDJSON to a `0600` file |
+| `ov audit checkpoint` | `--out` | Export the newest checkpoint for off-box retention |
 
 `--project` resolves a project name to its ULID; `--project-id` accepts the ULID directly.
 Export writes to a temporary file, checks the status and `application/x-ndjson` content type,
@@ -127,10 +128,11 @@ child command and is never parsed.
 | Command | Options | Purpose |
 |---|---|---|
 | `ov init` | `--prepare`, `--keyring`, `--internal-ca`, `--ca-public-dir`, `--tls-cert`, `--tls-key`, `--base-url`, `--org`, `--admin-name`, `--admin-email`, `--password-file`, `--generate-password`, `--bootstrap-password-file`, `--replace-ca-public` | Bootstrap the vault |
-| `ov doctor` | — | Check readiness, TLS, credentials, and clock skew |
+| `ov doctor` | `--backup-dir` | Check readiness, TLS, database, keyring, backup age, credentials, and clock skew |
 | `ov completion <bash\|zsh\|fish>` | `--shell` | Print a static completion script |
 
 `init` reads `OPENVAULT_DB_URL`, optional `OPENVAULT_MIGRATION_DB_URL`, and the matching
+`*_FILE` variants, and the matching
 `OPENVAULT_*` path/name variables. The database URL is never accepted in argv. Every path,
 including `--password-file` and `--bootstrap-password-file`, must be absolute. See
 [Configuration](/reference/configuration#cli-and-bootstrap).
@@ -140,7 +142,7 @@ including `--password-file` and `--bootstrap-password-file`, must be absolute. S
 | Command | Options | Purpose |
 |---|---|---|
 | `ov backup` | `--out`, `--passphrase-file`, `--keyring`, `--internal-ca`, `--force` | Write one encrypted age archive |
-| `ov restore <archive>` | `--passphrase-file`, `--keyring`, `--internal-ca`, `--ca-public-dir`, `--force`, `--yes` | Restore into a migrated target |
+| `ov restore <archive>` | `--passphrase-file`, `--keyring`, `--internal-ca`, `--ca-public-dir`, `--agent-certificate`, `--force`, `--yes` | Restore into a migrated target |
 | `ov kek rotate` | `--dry-run`, `--keyring`, `--yes` | Rewrap every key with a new KEK |
 
 `backup` uses `OPENVAULT_DB_URL`, `OPENVAULT_KEYRING`, `OPENVAULT_INTERNAL_CA` (or a
@@ -155,13 +157,14 @@ data loading. Both URLs must target the same database; the restore role must own
 user triggers can be disabled. A non-empty target is refused unless `--force` is set; `--yes`
 is required for the destructive confirmation. Stop the server during restore. The command
 verifies checksums and the archived keyring before touching the target, then verifies the
-restored audit chain, one current secret per project, and a CA signing probe. `--ca-public-dir`
+restored audit chain, every current secret and certificate private key, the JWT signing key,
+and a CA signing probe. `--agent-certificate` adds the pre-backup agent certificate check. `--ca-public-dir`
 writes the public CA to the proxy's `ca.pem` as well.
 
 `kek rotate` rewraps secret and certificate data keys, audit keys, CA keys, and JWT seeds
 without re-encrypting values. It removes the old key only after every `kek_id` is verified.
-Run it during a maintenance window with the server stopped, as the role that owns the key
-tables.
+Run it during a maintenance window with the server stopped. The command refuses if an
+`openvault_app` session is connected, and the role must own the key tables.
 
 ## Credentials
 

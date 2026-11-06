@@ -1,53 +1,157 @@
 name: openvault
 
+# Reference stack for one host.
+#
+# Prepare the host directories and Docker secrets before the first start:
+#   ./deploy/compose/prepare.sh
+#
+# Every service runs as a non-root user. The API and agent listeners are never
+# published; only the proxy publishes 443.
+
+x-logging: &default-logging
+  driver: json-file
+  options:
+    max-size: "10m"
+    max-file: "3"
+
+x-hardening: &hardening
+  security_opt:
+    - no-new-privileges:true
+  cap_drop:
+    - ALL
+  logging: *default-logging
+
 services:
   proxy:
-    image: caddy:2.10-alpine
+    <<: *hardening
+    image: caddy:2.10-alpine@sha256:4c6e91c6ed0e2fa03efd5b44747b625fec79bc9cd06ac5235a779726618e530d
+    user: "65534:65534"
+    read_only: true
     ports:
-      - "80:80"
       - "443:443"
     environment:
+      HOME: /tmp
       ACME_EMAIL: ${ACME_EMAIL:-admin@example.com}
+      OPENVAULT_SITE_ADDRESS: ${OPENVAULT_SITE_ADDRESS:-localhost}
     volumes:
       - ./Caddyfile:/etc/caddy/Caddyfile:ro
-      - openvault_ca_public:/etc/openvault/ca:ro
-      - caddy_data:/data
-      - caddy_config:/config
+      - ${OPENVAULT_DATA_DIR:-./data}/ca:/etc/openvault/ca:ro
+      - ${OPENVAULT_DATA_DIR:-./data}/caddy/data:/data
+      - ${OPENVAULT_DATA_DIR:-./data}/caddy/config:/config
+    tmpfs:
+      - /tmp:size=16m,mode=1777
+    cap_add:
+      - NET_BIND_SERVICE
     networks:
       edge_net: {}
       admin_net:
         ipv4_address: 172.30.0.2
+      web_net: {}
     depends_on:
       openvaultd:
         condition: service_healthy
+      web:
+        condition: service_healthy
+    deploy:
+      resources:
+        limits:
+          cpus: "0.50"
+          memory: 128M
+    restart: unless-stopped
 
   openvault-init:
-    # Runs once to create the keyring, CA, server certificate, and bootstrap admin.
-    image: ghcr.io/blendsdk/openvault:0.1.0
-    command: ["ov", "init", "--prepare"]
+    <<: *hardening
+    image: ${OPENVAULT_IMAGE:-ghcr.io/blendsdk/openvault:0.1.0}
+    entrypoint: ["/usr/local/bin/ov"]
+    command: ["init", "--prepare"]
+    user: "10001:10001"
+    read_only: true
     environment:
-      OPENVAULT_DB_URL: postgres://openvault:${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD}@postgres:5432/openvault
+      HOME: /tmp
+      OPENVAULT_BASE_URL: ${OPENVAULT_BASE_URL:-https://localhost}
+      OPENVAULT_DB_URL_FILE: /run/secrets/db_migrator_url
+      OPENVAULT_MIGRATION_DB_URL_FILE: /run/secrets/db_migrator_url
       OPENVAULT_KEYRING: /var/lib/openvault/keyring.json
       OPENVAULT_TLS_CERT: /etc/openvault/tls/server.crt
       OPENVAULT_TLS_KEY: /etc/openvault/tls/server.key
-      # The provisioner publishes only the CA certificate here for the proxy.
+      OPENVAULT_INTERNAL_CA: /etc/openvault/tls/ca.pem
       OPENVAULT_CA_PUBLIC_DIR: /etc/openvault/ca
+      OPENVAULT_BOOTSTRAP_PASSWORD_OUTPUT: /bootstrap/bootstrap-password
+    secrets:
+      - db_migrator_url
     volumes:
-      - openvault_data:/var/lib/openvault
-      - openvault_tls:/etc/openvault/tls
-      - openvault_ca_public:/etc/openvault/ca
+      - ${OPENVAULT_DATA_DIR:-./data}/openvault:/var/lib/openvault
+      - ${OPENVAULT_DATA_DIR:-./data}/bootstrap:/bootstrap
+      - ${OPENVAULT_DATA_DIR:-./data}/tls:/etc/openvault/tls
+      - ${OPENVAULT_DATA_DIR:-./data}/ca:/etc/openvault/ca
+    tmpfs:
+      - /tmp:size=32m,mode=1777
+      - /run:size=8m,mode=0755
     networks:
       - db_net
     depends_on:
       postgres:
         condition: service_healthy
+    deploy:
+      resources:
+        limits:
+          cpus: "1.00"
+          memory: 512M
+    restart: "no"
+
+  openvault-roles:
+    <<: *hardening
+    image: postgres:16-alpine@sha256:1fb72075a1de85a1d39de23c2da81baef1b71bf5c0b61a14cbbfdb072a6246d9
+    entrypoint: ["/bin/sh", "-c"]
+    command:
+      - |
+        set -eu
+        url=$$(cat /run/secrets/db_migrator_url)
+        rest=$${url#postgres://}
+        userpass=$${rest%%@*}
+        hostportdb=$${rest#*@}
+        user=$${userpass%%:*}
+        password=$${userpass#*:}
+        hostport=$${hostportdb%%/*}
+        database=$${hostportdb#*/}
+        host=$${hostport%%:*}
+        port=$${hostport#*:}
+        PGPASSWORD="$$password" PGHOST="$$host" PGPORT="$${port:-5432}" PGUSER="$$user" PGDATABASE="$$database" \
+          psql -v ON_ERROR_STOP=1 -f /sql/grants.sql
+    user: "70:70"
+    read_only: true
+    environment:
+      HOME: /tmp
+    secrets:
+      - db_migrator_url
+    volumes:
+      - ../postgres/grants.sql:/sql/grants.sql:ro
+    tmpfs:
+      - /tmp:size=16m,mode=1777
+      - /var/run/postgresql:size=8m,mode=0777
+    networks:
+      - db_net
+    depends_on:
+      openvault-init:
+        condition: service_completed_successfully
+    deploy:
+      resources:
+        limits:
+          cpus: "0.25"
+          memory: 128M
+    restart: "no"
 
   openvaultd:
-    # v0.1 target image. Until the release exists, build or pull the local image.
-    image: ghcr.io/blendsdk/openvault:0.1.0
+    <<: *hardening
+    image: ${OPENVAULT_IMAGE:-ghcr.io/blendsdk/openvault:0.1.0}
+    user: "10001:10001"
+    read_only: true
     environment:
+      HOME: /tmp
       OPENVAULT_BASE_URL: ${OPENVAULT_BASE_URL:-https://localhost}
-      OPENVAULT_DB_URL: postgres://openvault:${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD}@postgres:5432/openvault
+      OPENVAULT_DB_URL_FILE: /run/secrets/db_app_url
+      OPENVAULT_RUN_MIGRATIONS: "false"
+      OPENVAULT_PURGE_DB_URL_FILE: /run/secrets/db_purger_url
       OPENVAULT_KEYRING: /var/lib/openvault/keyring.json
       OPENVAULT_TLS_CERT: /etc/openvault/tls/server.crt
       OPENVAULT_TLS_KEY: /etc/openvault/tls/server.key
@@ -56,10 +160,16 @@ services:
       OPENVAULT_AGENT_PORT: "8444"
       OPENVAULT_TRUST_PROXY: "true"
       OPENVAULT_PROXY_CIDRS: 172.30.0.2/32
-      OPENVAULT_LOG_LEVEL: info
+      OPENVAULT_LOG_LEVEL: ${OPENVAULT_LOG_LEVEL:-info}
+    secrets:
+      - db_app_url
+      - db_purger_url
     volumes:
-      - openvault_data:/var/lib/openvault:ro
-      - openvault_tls:/etc/openvault/tls:ro
+      - ${OPENVAULT_DATA_DIR:-./data}/openvault:/var/lib/openvault:ro
+      - ${OPENVAULT_DATA_DIR:-./data}/tls:/etc/openvault/tls:ro
+    tmpfs:
+      - /tmp:size=32m,mode=1777
+      - /run:size=8m,mode=0755
     networks:
       admin_net:
         ipv4_address: 172.30.0.3
@@ -71,46 +181,112 @@ services:
       interval: 10s
       timeout: 3s
       retries: 5
-      start_period: 10s
+      start_period: 15s
     depends_on:
-      openvault-init:
+      openvault-roles:
         condition: service_completed_successfully
       postgres:
         condition: service_healthy
+    deploy:
+      resources:
+        limits:
+          cpus: "1.00"
+          memory: 512M
+    restart: unless-stopped
+
+  web:
+    <<: *hardening
+    image: ${OPENVAULT_WEB_IMAGE:-ghcr.io/blendsdk/openvault-web:0.1.0}
+    user: "101:101"
+    read_only: true
+    tmpfs:
+      - /tmp:size=16m,mode=1777
+      - /var/cache/nginx:size=16m,mode=0700
+      - /var/run:size=8m,mode=0755
+    networks:
+      - web_net
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://127.0.0.1:8080/healthz || exit 1"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+      start_period: 5s
+    deploy:
+      resources:
+        limits:
+          cpus: "0.25"
+          memory: 128M
+    restart: unless-stopped
 
   postgres:
-    image: postgres:16-alpine
+    <<: *hardening
+    image: postgres:16-alpine@sha256:1fb72075a1de85a1d39de23c2da81baef1b71bf5c0b61a14cbbfdb072a6246d9
+    user: "70:70"
+    read_only: true
+    shm_size: 256mb
     environment:
       POSTGRES_DB: openvault
-      POSTGRES_USER: openvault
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD}
+      POSTGRES_USER: openvault_bootstrap
+      POSTGRES_PASSWORD_FILE: /run/secrets/postgres_password
+      PGDATA: /var/lib/postgresql/data/pgdata
+      POSTGRES_INITDB_ARGS: --data-checksums
+    secrets:
+      - postgres_password
+      - db_migrator_password
+      - db_app_password
+      - db_purger_password
+      - db_pruner_password
     volumes:
-      - pgdata:/var/lib/postgresql/data
+      - ${OPENVAULT_DATA_DIR:-./data}/postgres:/var/lib/postgresql/data
+      - ../postgres/init-roles.sh:/docker-entrypoint-initdb.d/10-openvault-roles.sh:ro
+      - ../postgres/roles.sql:/sql/roles.sql:ro
+    tmpfs:
+      - /tmp:size=64m,mode=1777
+      - /var/run/postgresql:size=16m,mode=0777
     networks:
       - db_net
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U openvault -d openvault"]
+      test: ["CMD-SHELL", "pg_isready -U openvault_bootstrap -d openvault"]
       interval: 5s
       timeout: 5s
       retries: 10
+    deploy:
+      resources:
+        limits:
+          cpus: "2.00"
+          memory: 1G
+    restart: unless-stopped
+
+secrets:
+  postgres_password:
+    file: ${OPENVAULT_SECRETS_DIR:-./secrets}/postgres_password
+  db_migrator_password:
+    file: ${OPENVAULT_SECRETS_DIR:-./secrets}/db_migrator_password
+  db_app_password:
+    file: ${OPENVAULT_SECRETS_DIR:-./secrets}/db_app_password
+  db_purger_password:
+    file: ${OPENVAULT_SECRETS_DIR:-./secrets}/db_purger_password
+  db_pruner_password:
+    file: ${OPENVAULT_SECRETS_DIR:-./secrets}/db_pruner_password
+  db_migrator_url:
+    file: ${OPENVAULT_SECRETS_DIR:-./secrets}/db_migrator_url
+  db_app_url:
+    file: ${OPENVAULT_SECRETS_DIR:-./secrets}/db_app_url
+  db_purger_url:
+    file: ${OPENVAULT_SECRETS_DIR:-./secrets}/db_purger_url
 
 networks:
+  # The proxy's only non-internal network. It may reach ACME endpoints.
   edge_net: {}
   admin_net:
     internal: true
     ipam:
       config:
         - subnet: 172.30.0.0/24
+  web_net:
+    internal: true
   vault_net:
     name: vault_net
     internal: true
   db_net:
     internal: true
-
-volumes:
-  pgdata:
-  caddy_data:
-  caddy_config:
-  openvault_data:
-  openvault_tls:
-  openvault_ca_public:

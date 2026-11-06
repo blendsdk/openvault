@@ -201,8 +201,9 @@ target must be empty unless `--force` is set, and `--yes` is required for the de
 confirmation. Set `OPENVAULT_RESTORE_DB_URL` to an owner or migrator role that can disable
 triggers and truncate the tables; the default `OPENVAULT_DB_URL` is the application role and
 may fail with `restore_requires_owner`. Restore runs migrations, restores rows, writes the
-keyring and public CA, verifies the audit chain, decrypts one current secret per project, and
-signs a probe certificate with the restored CA key.
+keyring and public CA, verifies the audit chain, decrypts every current secret and certificate
+private key, verifies the JWT signing key, and signs a probe certificate with the restored CA
+key. Add `--agent-certificate <pem>` to verify a certificate captured before the backup.
 
 `ov kek rotate` generates a new KEK, rewraps every secret and certificate data key, audit
 key, CA scalar, and JWT seed, updates `kek_id`, verifies that no row still references the old

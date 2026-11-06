@@ -102,19 +102,21 @@ export class AuthController extends BaseController {
           }
           const credential = result.credential;
 
+          // Create the session first, then re-read the credential. Password
+          // change commits the new hash before it revokes other sessions. A
+          // login that created its session after that revocation would
+          // otherwise survive with the old password. Revalidating after the
+          // create closes both interleavings: either this login sees the new
+          // hash and revokes its own session, or the password change sees the
+          // session and revokes it.
+          const issued = await sessions.create({
+            principalId: credential.principalId,
+            authMethod: "local",
+          });
           if (!(await localLogin.revalidate(credential.principalId, credential.passwordHash))) {
-            await recordAuditOr503(() =>
-              recordLocalLoginFailure(
-                audit,
-                {
-                  ok: false,
-                  reason: "invalid_credentials",
-                  principalId: credential.principalId,
-                },
-                context,
-                "browser",
-              ),
-            );
+            await sessions
+              .revoke(issued.record.publicId, credential.principalId)
+              .catch(() => undefined);
             throw invalidCredentials();
           }
           try {
@@ -122,6 +124,9 @@ export class AuthController extends BaseController {
               recordLoginAllow(audit, credential.principalId, context, "local", "browser"),
             );
           } catch (error) {
+            await sessions
+              .revoke(issued.record.publicId, credential.principalId)
+              .catch(() => undefined);
             await credentials
               .restoreFailureState(
                 credential.principalId,
@@ -132,10 +137,6 @@ export class AuthController extends BaseController {
               .catch(() => undefined);
             throw error;
           }
-          const issued = await sessions.create({
-            principalId: credential.principalId,
-            authMethod: "local",
-          });
           setSessionCookie(res, issued.secretId, sessions.remainingSeconds(issued.record));
           this.ok(
             res,

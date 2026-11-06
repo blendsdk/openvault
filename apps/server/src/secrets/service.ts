@@ -3,7 +3,6 @@ import type {
   CapabilityFlags,
   SecretConsumerSummary,
   SecretCreateInput,
-  SecretEncoding,
   SecretList,
   SecretListQuery,
   SecretMetadata,
@@ -25,7 +24,6 @@ import {
 } from "@openvault/core";
 import type { PostgreSQLDatabase } from "blendsdk/postgresql";
 import type { AuditWriter } from "../audit/audit-writer.js";
-import { canonicalJson } from "../audit/canonical-json.js";
 import type { ProjectRepository } from "../projects/repository.js";
 import { VaultPurgerError } from "../purge/errors.js";
 import type { VaultPurger } from "../purge/vault-purger.js";
@@ -40,12 +38,7 @@ import {
   toStoredEnvelope,
 } from "./envelope.js";
 import { SecretServiceError } from "./errors.js";
-import {
-  type ClaimResult,
-  claimIdempotency,
-  requestHash,
-  validateIdempotencyKey,
-} from "./idempotency.js";
+import { claimIdempotency, requestHash, validateIdempotencyKey } from "./idempotency.js";
 import type {
   ConsumerSummary,
   ListCursor,

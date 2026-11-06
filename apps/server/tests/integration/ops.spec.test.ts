@@ -1,5 +1,5 @@
 import { randomBytes } from "node:crypto";
-import { mkdtempSync, readdirSync, readFileSync, rmSync, statSync } from "node:fs";
+import { mkdtempSync, readdirSync, readFileSync, rmSync, statSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { decryptValue, encryptValue, newUlid } from "@openvault/core";
@@ -16,6 +16,8 @@ import { runRestore } from "../../src/ops/restore.js";
 import { CaSigner } from "../../src/security/ca.js";
 import { KeyringProvider } from "../../src/security/keyring.js";
 import { SigningKeyRepository, SigningKeyService } from "../../src/security/signing-keys.js";
+import { parseAgentCsr } from "../../src/security/x509.js";
+import { createAgentCsr } from "./helpers/agent-tls.js";
 import {
   applyMigrations,
   createTestDatabase,
@@ -40,6 +42,7 @@ let certificateId: string;
 let certificateVersionId: string;
 let secretCiphertext: Buffer;
 let adminId: string;
+let agentCertificatePath: string;
 
 function tempDirectory(): string {
   const path = mkdtempSync(join(tmpdir(), "openvault-ops-"));
@@ -163,6 +166,24 @@ beforeAll(async () => {
       "UPDATE certificates SET current_version_id = :versionId WHERE id = :id",
       { id: certificateId, versionId: certificateVersionId },
     );
+    const agentCsr = await createAgentCsr();
+    const signer = await CaSigner.load({
+      database: primaryDb.db,
+      keyring,
+      caPem: readFileSync(internalCaPath, "utf8"),
+      now: Date.now,
+    });
+    try {
+      const issued = await signer.issueClientCertificate(
+        await parseAgentCsr(agentCsr.csrPem),
+        newUlid(),
+        30,
+      );
+      agentCertificatePath = join(directory, "pre-backup-agent.pem");
+      writeFileSync(agentCertificatePath, issued.certificatePem, { mode: 0o644 });
+    } finally {
+      signer.destroy();
+    }
     await recordOperationsEvent({
       database: primaryDb.db,
       keyring,
@@ -231,7 +252,21 @@ describe("operations", () => {
     });
   });
 
-  it("should restore into an empty target and verify secrets, audit, and CA", async () => {
+  it("should restore into an empty target and verify secrets, audit, CA, and agent certificate", async () => {
+    await expect(
+      runRestore({
+        archivePath: backup.outPath,
+        passphrase: PASSPHRASE,
+        databaseUrl: secondaryDb.url,
+        restoreDatabaseUrl: secondaryDb.url,
+        keyringPath: join(secondaryDirectory, "keyring.json"),
+        internalCaPath: join(secondaryDirectory, "ca.pem"),
+        agentCertificatePath: internalCaPath,
+        force: false,
+      }),
+    ).rejects.toMatchObject({ code: "restore_verification_failed" });
+    expect(readdirSync(secondaryDirectory)).toHaveLength(0);
+
     const result = await runRestore({
       archivePath: backup.outPath,
       passphrase: PASSPHRASE,
@@ -239,12 +274,16 @@ describe("operations", () => {
       restoreDatabaseUrl: secondaryDb.url,
       keyringPath: join(secondaryDirectory, "keyring.json"),
       internalCaPath: join(secondaryDirectory, "ca.pem"),
+      agentCertificatePath,
       force: false,
     });
     expect(result.objectCount).toBeGreaterThan(0);
     expect(result.auditOk).toBe(true);
     expect(result.secretsVerified).toBe(1);
+    expect(result.certificatesVerified).toBe(1);
+    expect(result.signingKeyVerified).toBe(true);
     expect(result.caVerified).toBe(true);
+    expect(result.agentCertificateVerified).toBe(true);
     expect(statSync(join(secondaryDirectory, "keyring.json")).mode & 0o777).toBe(0o600);
     expect(statSync(join(secondaryDirectory, "ca.pem")).mode & 0o777).toBe(0o644);
     const projects = await secondaryDb.db.executeQuery<{ count: string }>(
@@ -335,6 +374,36 @@ describe("operations", () => {
       }
     }
   }, 120_000);
+
+  it("should refuse KEK rotation while the runtime role is connected", async () => {
+    const settings = resolveTestDatabaseSettings();
+    const admin = new Client({ connectionString: settings.maintenanceUrl });
+    await admin.connect();
+    try {
+      await admin.query(
+        `DO $$
+         BEGIN
+           IF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'openvault_app') THEN
+             CREATE ROLE openvault_app LOGIN PASSWORD 'app-password';
+           END IF;
+         END
+         $$`,
+      );
+    } finally {
+      await admin.end();
+    }
+    const app = new Client({
+      connectionString: `postgres://openvault_app:app-password@${settings.host}:${settings.port}/${primaryDb.name}`,
+    });
+    await app.connect();
+    try {
+      await expect(runKekRotate({ databaseUrl: primaryDb.url, keyringPath })).rejects.toMatchObject(
+        { code: "kek_rotation_server_running" },
+      );
+    } finally {
+      await app.end();
+    }
+  });
 
   it("should rotate the KEK and keep value ciphertext byte-identical", async () => {
     const dry = await runKekRotate({
@@ -460,6 +529,17 @@ describe("operations", () => {
       }
     } finally {
       keyring.destroy();
+    }
+
+    const second = await runKekRotate({ databaseUrl: primaryDb.url, keyringPath });
+    expect(second.newKekId).not.toBe(rotated.newKekId);
+    expect(second.newKekId).not.toBe(rotated.oldKekId);
+    const secondKeyring = await KeyringProvider.load(keyringPath);
+    try {
+      expect(secondKeyring.status().currentId).toBe(second.newKekId);
+      expect(secondKeyring.status().keyCount).toBe(1);
+    } finally {
+      secondKeyring.destroy();
     }
   });
 });

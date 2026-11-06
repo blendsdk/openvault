@@ -11,7 +11,7 @@ const COMMANDS: Readonly<Record<string, readonly string[]>> = {
   identity: ["create", "list", "revoke", "join-token"],
   role: ["grant", "revoke"],
   access: ["explain"],
-  audit: ["list", "verify", "export"],
+  audit: ["list", "verify", "export", "checkpoint"],
   docker: ["scaffold"],
   run: ["run"],
   init: ["init"],

@@ -24,7 +24,7 @@ export function createTestRuntime(
   vault: FakeVault,
   overrides: Pick<
     Partial<CliRuntime>,
-    "runInit" | "runBackup" | "runRestore" | "runKekRotate"
+    "runInit" | "runBackup" | "runRestore" | "runKekRotate" | "runCheckpointExport"
   > = {},
 ): TestRuntime {
   const directory = mkdtempSync(join(tmpdir(), "openvault-cli-test-"));

@@ -32,6 +32,61 @@ export interface AgentCsrFixture {
   readonly publicKeySpki: Buffer;
 }
 
+/**
+ * Issues a server certificate signed by one agent test CA.
+ *
+ * Agent integration tests replace `OPENVAULT_INTERNAL_CA` with the agent CA so
+ * the listener can verify client certificates. The server leaf must chain to
+ * that same CA; the generic TLS fixture is signed by a different CA.
+ *
+ * @param ca - Agent CA fixture.
+ * @param certPath - Server certificate output path.
+ * @param keyPath - Server private-key output path.
+ */
+export async function writeServerCertificateForCa(
+  ca: AgentCaFixture,
+  certPath: string,
+  keyPath: string,
+): Promise<void> {
+  const keys = await generateP256Keys();
+  const publicKey = await x509.PublicKey.create(keys.publicKey);
+  const now = Date.now();
+  const certificate = await x509.X509CertificateGenerator.create({
+    serialNumber: randomBytes(16).toString("hex"),
+    subject: "CN=openvaultd",
+    issuer: ca.cert.subject,
+    notBefore: new Date(now - 60_000),
+    notAfter: new Date(now + 365 * 86_400_000),
+    signingAlgorithm: { name: "ECDSA", hash: "SHA-256" },
+    publicKey,
+    signingKey: ca.keys.privateKey,
+    extensions: [
+      new x509.BasicConstraintsExtension(false, undefined, true),
+      new x509.KeyUsagesExtension(x509.KeyUsageFlags.digitalSignature, true),
+      new x509.ExtendedKeyUsageExtension([x509.ExtendedKeyUsage.serverAuth], false),
+      new x509.SubjectAlternativeNameExtension(
+        [
+          { type: "dns", value: "openvaultd" },
+          { type: "dns", value: "localhost" },
+          { type: "dns", value: "vault.example.com" },
+          { type: "ip", value: "127.0.0.1" },
+        ],
+        false,
+      ),
+    ],
+  });
+  writeFileSync(certPath, certificate.toString("pem"), { mode: 0o644 });
+  chmodSync(certPath, 0o644);
+  const privateKeyDer = await globalThis.crypto.subtle.exportKey("pkcs8", keys.privateKey);
+  const keyPem = createPrivateKey({
+    key: Buffer.from(privateKeyDer),
+    format: "der",
+    type: "pkcs8",
+  }).export({ format: "pem", type: "pkcs8" });
+  writeFileSync(keyPath, keyPem, { mode: 0o600 });
+  chmodSync(keyPath, 0o600);
+}
+
 /** Client certificate and private key for the agent listener. */
 export interface AgentClientFixture {
   readonly certPem: string;

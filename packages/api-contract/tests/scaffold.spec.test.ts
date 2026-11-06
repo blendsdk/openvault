@@ -65,7 +65,7 @@ describe("scaffold contracts", () => {
         joinToken: { id: ULID, token: "A".repeat(43), expiresAt: TIMESTAMP },
         compose: "services: {}",
         manifest: "project: payments",
-        manifestFile: "openvault.${COMPOSE_PROJECT_NAME}.api.manifest.yaml",
+        manifestFile: "openvault." + "$" + "{COMPOSE_PROJECT_NAME}.payments.api.manifest.yaml",
       }),
     ).toBeDefined();
   });

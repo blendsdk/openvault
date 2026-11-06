@@ -23,9 +23,14 @@
     "db:types:check": "pnpm --filter @openvault/server db:types:check",
     "check:artifacts": "node scripts/check-artifacts.mjs",
     "check:react": "node scripts/check-single-react.mjs",
+    "check:compose": "node scripts/check-compose.mjs --self-test",
+    "security:evidence": "node scripts/security-evidence.mjs --write",
+    "security:evidence:check": "node scripts/security-evidence.mjs",
+    "security:claims": "node scripts/security-claims.mjs --write",
+    "security:claims:check": "node scripts/security-claims.mjs",
     "audit:prod": "pnpm audit --prod --audit-level=high",
     "audit:full": "pnpm audit --audit-level=high",
-    "verify": "pnpm build && pnpm typecheck && pnpm api:check && pnpm lint && pnpm test && pnpm check:artifacts && pnpm check:react && pnpm docs:build",
+    "verify": "pnpm build && pnpm typecheck && pnpm api:check && pnpm lint && pnpm test && pnpm check:artifacts && pnpm check:react && pnpm check:compose && pnpm security:evidence:check && pnpm security:claims:check && pnpm security:release-gate && pnpm docs:build",
     "docs:dev": "vitepress dev docs",
     "docs:build": "vitepress build docs",
     "docs:preview": "vitepress preview docs",
@@ -35,7 +40,8 @@
     "version": "changeset version",
     "release": "changeset publish",
     "api:generate": "pnpm --filter @openvault/server api:generate",
-    "api:check": "pnpm --filter @openvault/server api:check"
+    "api:check": "pnpm --filter @openvault/server api:check",
+    "security:release-gate": "node scripts/check-release-gate.mjs --self-test --mode alpha --version v0.0.0-alpha"
   },
   "devDependencies": {
     "@biomejs/biome": "2.6.4",

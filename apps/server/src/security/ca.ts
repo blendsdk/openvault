@@ -359,6 +359,11 @@ export class CaSigner {
       throw new CaSignerUnavailableError();
     }
 
+    const now = (options.now ?? Date.now)();
+    if (caCertificate.notBefore.getTime() > now || caCertificate.notAfter.getTime() < now) {
+      throw new CaSignerUnavailableError();
+    }
+
     const basicConstraints = caCertificate.getExtension(x509.BasicConstraintsExtension);
     if (basicConstraints === null || !basicConstraints.ca || basicConstraints.pathLength !== 0) {
       throw new CaSignerUnavailableError();

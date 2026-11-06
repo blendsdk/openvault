@@ -13,16 +13,12 @@ but designed for a small team running Docker Compose on one host.
 
 ## Status
 
-OpenVault is in early development. The current repository contains:
-
-- the pnpm/TypeScript 7 workspace and Biome toolchain
-- the envelope-encryption core with tests
-- a WebAFX server with the transport boundary, readiness, and human authentication
-- a React 19 + Fluent UI v9 web shell
-- the VitePress documentation site and GitHub Actions workflows
-
-Secrets, certificates, RBAC, the agent, and the full UI are being implemented. The target
-v0.1 behavior is described in the [documentation](https://blendsdk.github.io/openvault/).
+The v0.1 feature set is implemented and tested: secrets, certificates, RBAC, audit, the
+agent, the CLI, the web UI, encrypted backup/restore, KEK rotation, the hardened reference
+Compose stack, and the release-assurance pipeline. The remaining production gate is an
+independent external security review; alpha images are explicitly labelled not for
+production. See the [security evidence matrix](docs/security/evidence-matrix.md) and the
+[release process](docs/security/release-process.md).
 
 ## Why OpenVault?
 
@@ -77,18 +73,17 @@ pnpm docs:dev
 pnpm docs:build
 ```
 
-## Target Compose quick start
-
-The following is the v0.1 target, not yet available:
+## Compose quick start
 
 ```bash
-cp .env.example .env
+./deploy/compose/prepare.sh
+export OPENVAULT_BASE_URL=https://localhost
+export OPENVAULT_SITE_ADDRESS=localhost
 docker compose -f deploy/compose/compose.yaml up -d
-ov init
-ov login
 ```
 
-Then open `https://localhost`, create a project, and deliver a secret to a service:
+Read and remove the one-time bootstrap password under `deploy/compose/data/bootstrap/`,
+then open `https://localhost`, create a project, and deliver a secret to a service:
 
 ```bash
 ov docker scaffold payments api
@@ -119,8 +114,8 @@ deploy/        Compose stack and examples (growing)
 - Hash-chained, HMAC-protected audit log
 - No SSH for workloads
 
-The threat model and known limitations are in the documentation. Report vulnerabilities
-privately as described in [SECURITY.md](SECURITY.md).
+The threat model, evidence matrix, security claims, and known limitations are in the
+documentation. Report vulnerabilities privately as described in [SECURITY.md](SECURITY.md).
 
 ## Documentation
 

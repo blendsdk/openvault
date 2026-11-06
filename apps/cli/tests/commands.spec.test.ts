@@ -163,6 +163,28 @@ describe("CLI commands against a real HTTPS vault", () => {
     expect(statSync(out).mode & 0o777).toBe(0o600);
   });
 
+  it("should export an audit checkpoint through the injected operation", async () => {
+    let captured: { databaseUrl: string; outPath: string } | undefined;
+    runtime = createTestRuntime(vault, {
+      runCheckpointExport: async (options) => {
+        captured = options;
+        return {
+          outPath: options.outPath,
+          id: "01ARZ3NDEKTSV4RRFFQ69G5FAW",
+          lastEventId: "42",
+          createdAt: "2026-11-06T00:00:00.000Z",
+        };
+      },
+    });
+    runtime.env.OPENVAULT_DB_URL = "postgres://openvault_app:secret@localhost:5432/openvault";
+    const out = join(runtime.directory, "checkpoint.json");
+    const result = await runtime.run(["audit", "checkpoint", "--out", out]);
+    expect(result.code, result.stderr).toBe(0);
+    expect(captured?.databaseUrl).toContain("openvault_app");
+    expect(captured?.outPath).toBe(out);
+    expect(result.stdout).toContain("Exported checkpoint");
+  });
+
   it("should run a child with delivered files and environment", async () => {
     runtime = createTestRuntime(vault);
     await login();
@@ -668,7 +690,10 @@ describe("CLI commands against a real HTTPS vault", () => {
           tables: ["projects", "secrets"],
           auditOk: true,
           secretsVerified: 1,
+          certificatesVerified: 1,
+          signingKeyVerified: true,
           caVerified: true,
+          agentCertificateVerified: false,
           internalCaPath: options.internalCaPath,
         };
       },

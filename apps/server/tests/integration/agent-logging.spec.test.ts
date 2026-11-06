@@ -1,7 +1,12 @@
 import { createHash } from "node:crypto";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import type { AgentRuntime } from "../../src/agent/agent-runtime.js";
-import { type AgentTestServer, startAgentTestServer } from "./helpers/agent-app.js";
+import {
+  type AgentTestServer,
+  createAgentServerEnvironment,
+  type ServerEnvironment,
+  startAgentTestServer,
+} from "./helpers/agent-app.js";
 import {
   type AgentCaFixture,
   type AgentClientFixture,
@@ -12,7 +17,6 @@ import {
 import { testUlid } from "./helpers/fixtures.js";
 import { testRequest } from "./helpers/https.js";
 import { MemoryDestination } from "./helpers/memory-destination.js";
-import { createServerEnvironment, type ServerEnvironment } from "./helpers/server-environment.js";
 import { applyMigrations, createTestDatabase, type TestDatabase } from "./helpers/test-database.js";
 
 let testDb: TestDatabase;
@@ -46,7 +50,7 @@ beforeAll(async () => {
   testDb = await createTestDatabase();
   await applyMigrations(testDb);
   ca = await createAgentCaFixture();
-  environment = createServerEnvironment({
+  environment = await createAgentServerEnvironment(ca, {
     OPENVAULT_DB_URL: testDb.url,
     OPENVAULT_INTERNAL_CA: ca.certPath,
     OPENVAULT_PROXY_CIDRS: "127.0.0.1/32,::1/128",

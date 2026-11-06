@@ -1,0 +1,11 @@
+[Unit]
+Description=Daily OpenVault audit checkpoint export
+
+[Timer]
+OnCalendar=*-*-* 02:30:00 UTC
+RandomizedDelaySec=15m
+Persistent=true
+Unit=openvault-checkpoint.service
+
+[Install]
+WantedBy=timers.target

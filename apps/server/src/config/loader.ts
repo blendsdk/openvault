@@ -1,3 +1,4 @@
+import { readFileSync } from "node:fs";
 import { isIP } from "node:net";
 import { z } from "zod";
 import { DatabaseUrlError, parseDatabaseUrl } from "../db/url.js";
@@ -6,6 +7,7 @@ import { ConfigError } from "./errors.js";
 import {
   assertPrivateFile,
   assertRegularFile,
+  assertSecretFile,
   domainListValue,
   durationValue,
   httpsUrlValue,
@@ -14,7 +16,10 @@ import {
 } from "./parse.js";
 import type { EnvMode, LogLevel, OidcConfig, OpenVaultConfig } from "./types.js";
 
-const DEFAULT_PROXY_CIDRS = "172.16.0.0/12";
+// Loopback is the safe default. A production proxy on another container must
+// set OPENVAULT_PROXY_CIDRS explicitly; forgetting it breaks availability, not
+// the admin boundary.
+const DEFAULT_PROXY_CIDRS = "127.0.0.1/32,::1/128";
 const ENV_MODES = ["production", "development", "test"] as const;
 const LOG_LEVELS = ["error", "warn", "info", "debug"] as const;
 
@@ -119,6 +124,81 @@ function requiredField<T>(_key: string, parser: (value: string) => T) {
         return z.NEVER;
       }
     });
+}
+
+/** One parsed database URL and its raw form. */
+interface ParsedDatabaseUrl {
+  readonly raw: string;
+  readonly parsed: ReturnType<typeof parseDatabaseUrl>;
+}
+
+/** Converts one database URL string without exposing it in an error. */
+function databaseUrlValue(key: string, value: string): ParsedDatabaseUrl {
+  try {
+    return { raw: value, parsed: parseDatabaseUrl(value) };
+  } catch (error) {
+    if (error instanceof DatabaseUrlError) {
+      throw new ConfigError(key, error.message);
+    }
+    throw new ConfigError(key, "must be a valid PostgreSQL URL");
+  }
+}
+
+/** Parses an optional database URL, keeping the raw value for clients that need it. */
+function optionalDatabaseUrlField(key: string) {
+  return optionalString.transform((value, context): ParsedDatabaseUrl | undefined => {
+    if (value === undefined) {
+      return undefined;
+    }
+    try {
+      return databaseUrlValue(key, value);
+    } catch (error) {
+      context.addIssue({
+        code: "custom",
+        message: error instanceof ConfigError ? error.reason : "is invalid",
+      });
+      return z.NEVER;
+    }
+  });
+}
+
+const FILE_BACKED_DATABASE_URLS = [
+  ["OPENVAULT_DB_URL", "OPENVAULT_DB_URL_FILE"],
+  ["OPENVAULT_MIGRATION_DB_URL", "OPENVAULT_MIGRATION_DB_URL_FILE"],
+  ["OPENVAULT_PURGE_DB_URL", "OPENVAULT_PURGE_DB_URL_FILE"],
+] as const;
+
+/**
+ * Materialises `*_DB_URL` values from their `*_DB_URL_FILE` counterparts.
+ *
+ * Docker secrets are regular files mounted read-only. Reading them here keeps
+ * the database password out of the Compose model and the process environment
+ * inherited by child processes. Supplying both forms is an error rather than a
+ * silent precedence rule.
+ */
+function materializeFileBackedDatabaseUrls(environment: NodeJS.ProcessEnv): NodeJS.ProcessEnv {
+  const normalized: NodeJS.ProcessEnv = { ...environment };
+  for (const [target, fileKey] of FILE_BACKED_DATABASE_URLS) {
+    const direct = environment[target]?.trim();
+    const file = environment[fileKey]?.trim();
+    if (direct !== undefined && direct.length > 0 && file !== undefined && file.length > 0) {
+      throw new ConfigError(target, `and ${fileKey} cannot both be set`);
+    }
+    if ((direct === undefined || direct.length === 0) && file !== undefined && file.length > 0) {
+      const path = assertSecretFile(fileKey, file);
+      let value: string;
+      try {
+        value = readFileSync(path, "utf8").trim();
+      } catch {
+        throw new ConfigError(fileKey, "must be readable");
+      }
+      if (value.length === 0) {
+        throw new ConfigError(fileKey, "must not be empty");
+      }
+      normalized[target] = value;
+    }
+  }
+  return normalized;
 }
 
 /** Parses an optional integer field, falling back to the documented default. */
@@ -284,16 +364,10 @@ const configSchema = z
     OPENVAULT_BASE_URL: requiredField("OPENVAULT_BASE_URL", (value) =>
       trimTrailingSlash(httpsUrlValue("OPENVAULT_BASE_URL", value)),
     ),
-    OPENVAULT_DB_URL: requiredField("OPENVAULT_DB_URL", (value) => {
-      try {
-        return { raw: value, parsed: parseDatabaseUrl(value) };
-      } catch (error) {
-        if (error instanceof DatabaseUrlError) {
-          throw new ConfigError("OPENVAULT_DB_URL", error.message);
-        }
-        throw new ConfigError("OPENVAULT_DB_URL", "must be a valid PostgreSQL URL");
-      }
-    }),
+    OPENVAULT_DB_URL: requiredField("OPENVAULT_DB_URL", (value) =>
+      databaseUrlValue("OPENVAULT_DB_URL", value),
+    ),
+    OPENVAULT_MIGRATION_DB_URL: optionalDatabaseUrlField("OPENVAULT_MIGRATION_DB_URL"),
     ENV_MODE: z
       .preprocess(blankToUndefined, z.enum(ENV_MODES).optional())
       .transform((value): EnvMode => value ?? "production"),
@@ -353,12 +427,15 @@ const configSchema = z
     OPENVAULT_TRUST_PROXY: z
       .preprocess(blankToUndefined, z.enum(["true", "false"]).optional())
       .transform((value): boolean => (value === undefined ? true : value === "true")),
+    OPENVAULT_RUN_MIGRATIONS: z
+      .preprocess(blankToUndefined, z.enum(["true", "false"]).optional())
+      .transform((value): boolean => (value === undefined ? true : value === "true")),
     OPENVAULT_OIDC_ISSUER: optionalString,
     OPENVAULT_OIDC_CLIENT_ID: optionalString,
     OPENVAULT_OIDC_CLIENT_SECRET: optionalString,
     OPENVAULT_OIDC_REDIRECT_URL: optionalString,
     OPENVAULT_OIDC_ALLOWED_DOMAINS: optionalString,
-    OPENVAULT_PURGE_DB_URL: optionalString,
+    OPENVAULT_PURGE_DB_URL: optionalDatabaseUrlField("OPENVAULT_PURGE_DB_URL"),
     OPENVAULT_CERT_EXPIRY_HOUR: integerField("OPENVAULT_CERT_EXPIRY_HOUR", 3, 0, 23),
     OPENVAULT_CERT_EXPIRY_WEBHOOK_URL: optionalString,
     OPENVAULT_CERT_EXPIRY_WEBHOOK_SECRET: z.preprocess(
@@ -400,6 +477,25 @@ const configSchema = z
         message: "must differ from OPENVAULT_ADMIN_PORT",
       });
     }
+
+    const appDatabase = value.OPENVAULT_DB_URL.parsed;
+    for (const [field, candidate] of [
+      ["OPENVAULT_MIGRATION_DB_URL", value.OPENVAULT_MIGRATION_DB_URL],
+      ["OPENVAULT_PURGE_DB_URL", value.OPENVAULT_PURGE_DB_URL],
+    ] as const) {
+      if (
+        candidate !== undefined &&
+        (candidate.parsed.host !== appDatabase.host ||
+          candidate.parsed.port !== appDatabase.port ||
+          candidate.parsed.database !== appDatabase.database)
+      ) {
+        context.addIssue({
+          code: "custom",
+          path: [field],
+          message: "must target the same database as OPENVAULT_DB_URL",
+        });
+      }
+    }
   })
   .transform((value, context): OpenVaultConfig => {
     const adminPort = value.OPENVAULT_ADMIN_PORT ?? value.PORT ?? 8443;
@@ -429,9 +525,12 @@ const configSchema = z
       envMode: value.ENV_MODE,
       databaseUrl: value.OPENVAULT_DB_URL.raw,
       database: Object.freeze(value.OPENVAULT_DB_URL.parsed),
+      ...(value.OPENVAULT_MIGRATION_DB_URL === undefined
+        ? {}
+        : { migrationDatabaseUrl: value.OPENVAULT_MIGRATION_DB_URL.raw }),
       ...(value.OPENVAULT_PURGE_DB_URL === undefined
         ? {}
-        : { purgeDatabaseUrl: value.OPENVAULT_PURGE_DB_URL }),
+        : { purgeDatabaseUrl: value.OPENVAULT_PURGE_DB_URL.raw }),
       keyringPath: value.OPENVAULT_KEYRING,
       ...(value.OPENVAULT_KEYRING_PASSPHRASE_FILE === undefined
         ? {}
@@ -453,6 +552,7 @@ const configSchema = z
         : { certExpiryWebhookSecret: value.OPENVAULT_CERT_EXPIRY_WEBHOOK_SECRET }),
       sessionTtlHours: value.OPENVAULT_SESSION_TTL_HOURS,
       trustProxy: value.OPENVAULT_TRUST_PROXY,
+      runMigrationsAtStartup: value.OPENVAULT_RUN_MIGRATIONS,
       proxyCidrs: value.OPENVAULT_PROXY_CIDRS,
       logLevel: value.OPENVAULT_LOG_LEVEL,
     });
@@ -477,7 +577,8 @@ const configSchema = z
  * ```
  */
 export function loadConfig(environment: NodeJS.ProcessEnv = process.env): OpenVaultConfig {
-  const result = configSchema.safeParse(environment);
+  const normalized = materializeFileBackedDatabaseUrls(environment);
+  const result = configSchema.safeParse(normalized);
   if (!result.success) {
     const issue = result.error.issues[0];
     const key = issue?.path.length ? String(issue.path[0]) : "ENV";

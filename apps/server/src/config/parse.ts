@@ -133,6 +133,24 @@ export function assertPrivateFile(key: string, raw: string): string {
   return path;
 }
 
+/**
+ * Checks that a file is a readable regular file that is not group- or
+ * world-writable.
+ *
+ * Docker secrets are mounted read-only, often with mode `0444`. Requiring
+ * exactly `0600` would reject the standard secret mount, while allowing any
+ * writable-bit would let another user replace the credential. This check keeps
+ * the useful middle ground.
+ */
+export function assertSecretFile(key: string, raw: string): string {
+  const path = assertRegularFile(key, raw);
+  const mode = statSync(path).mode & 0o777;
+  if ((mode & 0o022) !== 0) {
+    throw new ConfigError(key, "must not be group- or world-writable");
+  }
+  return path;
+}
+
 /** Parses a comma-separated domain allowlist and validates each label. */
 export function domainListValue(environment: NodeJS.ProcessEnv, key: string): readonly string[] {
   const raw = optionalValue(environment, key);

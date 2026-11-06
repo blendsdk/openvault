@@ -1,9 +1,11 @@
+import { resolve } from "node:path";
 import { AUDIT_ACTIONS, type AuditAction } from "@openvault/api-contract";
 import { CommandLineParser } from "blendsdk/cmdline";
 import { CliError } from "../errors.js";
 import { formatTable, formatTime } from "../output.js";
 import type { CliRuntime, CommandGroup, GlobalOptions } from "../types.js";
 import { createCommandContext } from "./context.js";
+import { databaseUrlFromEnv } from "./database-url.js";
 import { numberOption, requiredText, textOption } from "./options.js";
 import { projectId } from "./resolve.js";
 
@@ -183,13 +185,34 @@ export function createAuditParser(globals: GlobalOptions, runtime: CliRuntime): 
     },
   });
 
+  parser.addCommand({
+    name: "checkpoint",
+    description: "Export the newest audit checkpoint for off-box retention",
+    options: [
+      { name: "out", type: "string", required: true, description: "Output file; must not exist" },
+    ],
+    handler: async (options) => {
+      const databaseUrl = databaseUrlFromEnv(runtime);
+      const outPath = resolve(runtime.cwd, requiredText(options, "out"));
+      const runner =
+        runtime.runCheckpointExport ?? (await import("@openvault/server/ops")).runCheckpointExport;
+      const result = await runner({ databaseUrl, outPath });
+      context.render(
+        result,
+        (value) =>
+          `Exported checkpoint ${value.id} (last event ${value.lastEventId}) to ${value.outPath}`,
+      );
+      return undefined;
+    },
+  });
+
   return parser;
 }
 
 /** The audit group definition. */
 export const auditGroup: CommandGroup = {
   name: "audit",
-  summary: "Query, verify, and export the audit chain",
-  commands: ["list", "verify", "export"],
+  summary: "Query, verify, export, and checkpoint the audit chain",
+  commands: ["list", "verify", "export", "checkpoint"],
   createParser: createAuditParser,
 };

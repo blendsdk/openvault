@@ -6,7 +6,12 @@ import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { z } from "zod";
 import type { AgentRuntimeCore } from "../../src/agent/agent-runtime.js";
 import { x509 } from "../../src/security/x509.js";
-import { type AgentTestServer, startAgentTestServer } from "./helpers/agent-app.js";
+import {
+  type AgentTestServer,
+  createAgentServerEnvironment,
+  type ServerEnvironment,
+  startAgentTestServer,
+} from "./helpers/agent-app.js";
 import {
   type AgentCaFixture,
   createAgentCaFixture,
@@ -15,7 +20,6 @@ import {
 } from "./helpers/agent-tls.js";
 import { testUlid } from "./helpers/fixtures.js";
 import { type TestRequestOptions, type TestResponse, testRequest } from "./helpers/https.js";
-import { createServerEnvironment, type ServerEnvironment } from "./helpers/server-environment.js";
 import { applyMigrations, createTestDatabase, type TestDatabase } from "./helpers/test-database.js";
 
 const errorEnvelope = z.object({
@@ -173,7 +177,7 @@ beforeAll(async () => {
   testDb = await createTestDatabase();
   await applyMigrations(testDb);
   ca = await createAgentCaFixture();
-  environment = createServerEnvironment({
+  environment = await createAgentServerEnvironment(ca, {
     OPENVAULT_DB_URL: testDb.url,
     OPENVAULT_INTERNAL_CA: ca.certPath,
     OPENVAULT_PROXY_CIDRS: "127.0.0.1/32,::1/128",

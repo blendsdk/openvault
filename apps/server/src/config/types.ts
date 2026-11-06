@@ -38,6 +38,8 @@ export interface OpenVaultConfig {
   readonly envMode: EnvMode;
   readonly databaseUrl: string;
   readonly database: PostgreSQLConfig;
+  /** Raw migrator URL used for startup DDL; absent when the app role also migrates. */
+  readonly migrationDatabaseUrl?: string;
   /** Raw dedicated purge URL; absent when purge is unavailable. */
   readonly purgeDatabaseUrl?: string;
   readonly keyringPath: string;
@@ -57,6 +59,8 @@ export interface OpenVaultConfig {
   readonly certExpiryWebhookSecret?: string;
   readonly sessionTtlHours: number;
   readonly trustProxy: boolean;
+  /** Run migrations at startup; false when a one-shot init job already did it. */
+  readonly runMigrationsAtStartup: boolean;
   readonly proxyCidrs: readonly Cidr[];
   readonly logLevel: LogLevel;
 }

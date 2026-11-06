@@ -14,9 +14,10 @@ Use this before putting OpenVault in front of real workloads.
 ## Network
 
 - [ ] The server is not attached to application networks.
-- [ ] Only the proxy exposes ports 80 and 443.
+- [ ] Only the proxy publishes a host port, and it is 443.
 - [ ] Admin `8443` is not published; the `OPENVAULT_PROXY_CIDRS` source guard is
   authoritative, and `admin_net` placement is defense in depth.
+- [ ] The static web container is on `web_net` only; it is not published.
 - [ ] Agent `8444` is on `vault_net` only and is not published.
 - [ ] PostgreSQL is on `db_net` only.
 - [ ] Agents are the only containers on both `vault_net` and an app network.
@@ -32,11 +33,13 @@ Use this before putting OpenVault in front of real workloads.
 - [ ] Workload certificates are short-lived and renewed.
 - [ ] Revoked identities are removed from service.
 - [ ] Certificate expiry alerts reach a real channel.
-- [ ] The keyring file is mode `0600`; age encryption is unavailable in the current release.
+- [ ] The keyring file is mode `0600`; the keyring itself is not age-encrypted in v0.1, so the host directory and backups are the protection boundary.
+- [ ] The backup archive passphrase is stored separately from the archive.
 
 ## Identity
 
-- [ ] The bootstrap password was changed.
+- [ ] The bootstrap password was changed immediately and its one-time file was removed.
+- [ ] The one-time bootstrap file is outside the runtime container mount.
 - [ ] OIDC, if used, enforces MFA at the provider.
 - [ ] JIT provisioning is disabled or limited to allowed domains.
 - [ ] The last organization administrator is documented.
@@ -60,9 +63,13 @@ Use this before putting OpenVault in front of real workloads.
 
 ## Operations
 
-- [ ] A restore drill succeeded.
-- [ ] KEK rotation was tested.
+- [ ] A restore drill succeeded, including a pre-backup agent certificate.
+- [ ] KEK rotation was tested; the pre-rotation keyring is kept with old backups.
 - [ ] The keyring is backed up separately.
 - [ ] `ov init` provisioned the keyring and TLS material.
+- [ ] `openvault_migrator`, `openvault_app`, `openvault_purger`, and `openvault_pruner` are separate login roles.
+- [ ] Every container runs non-root with a read-only root, dropped capabilities, and resource limits.
+- [ ] Daily backup and checkpoint timers run and copy off-box.
+- [ ] `ov doctor --backup-dir` passes.
 - [ ] Monitoring alerts on `/ready`, agent health, and certificate expiry.
-- [ ] The threat model and limitations were reviewed.
+- [ ] The threat model, evidence matrix, and limitations were reviewed.

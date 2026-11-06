@@ -118,7 +118,10 @@ export class OidcIdentityService {
       throw new OidcAccessDeniedError();
     }
 
-    const merged = { ...input.claims, ...input.userInfo };
+    // The ID token is the stronger assertion; UserInfo only fills missing
+    // fields. This prevents a weaker UserInfo response from overriding email or
+    // email_verified.
+    const merged = { ...input.userInfo, ...input.claims };
     const emailValue = merged.email;
     if (merged.email_verified !== true || typeof emailValue !== "string") {
       throw new OidcAccessDeniedError();

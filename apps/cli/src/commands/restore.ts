@@ -3,19 +3,9 @@ import { CommandLineParser } from "blendsdk/cmdline";
 import { CliError } from "../errors.js";
 import type { CliRuntime, CommandGroup, GlobalOptions } from "../types.js";
 import { createCommandContext } from "./context.js";
+import { databaseUrlFromEnv } from "./database-url.js";
 import { flagOption, requiredText, textOption } from "./options.js";
 import { resolvePassphrase } from "./passphrase.js";
-
-/** Resolves one required environment path. */
-function envPath(runtime: CliRuntime, name: string): string {
-  const value = runtime.env[name];
-  if (value === undefined || value.length === 0) {
-    throw new CliError("usage_error", `${name} is required in the environment`, {
-      exitCode: 2,
-    });
-  }
-  return value;
-}
 
 /** Builds the restore group parser. */
 export function createRestoreParser(
@@ -37,13 +27,19 @@ export function createRestoreParser(
         description: "Public internal CA path (default: OPENVAULT_INTERNAL_CA)",
       },
       { name: "ca-public-dir", type: "string", description: "Proxy CA directory for ca.pem" },
+      {
+        name: "agent-certificate",
+        type: "string",
+        description: "Pre-backup agent certificate PEM to verify after restore",
+      },
       { name: "force", type: "boolean", description: "Replace a non-empty target" },
     ],
     handler: async (options) => {
       const archivePath = resolve(runtime.cwd, requiredText(options, "archive"));
-      const databaseUrl = envPath(runtime, "OPENVAULT_DB_URL");
+      const databaseUrl = databaseUrlFromEnv(runtime);
       const restoreDatabaseUrl =
-        runtime.env.OPENVAULT_RESTORE_DB_URL ?? runtime.env.OPENVAULT_MIGRATION_DB_URL;
+        databaseUrlFromEnv(runtime, "OPENVAULT_RESTORE_DB_URL", false) ??
+        databaseUrlFromEnv(runtime, "OPENVAULT_MIGRATION_DB_URL", false);
       const keyringRaw = textOption(options, "keyring") ?? runtime.env.OPENVAULT_KEYRING;
       if (keyringRaw === undefined) {
         throw new CliError("usage_error", "OPENVAULT_KEYRING is required", { exitCode: 2 });
@@ -71,6 +67,8 @@ export function createRestoreParser(
       });
       const caPublicDir =
         textOption(options, "ca-public-dir") ?? runtime.env.OPENVAULT_CA_PUBLIC_DIR;
+      const agentCertificateRaw =
+        textOption(options, "agent-certificate") ?? runtime.env.OPENVAULT_RESTORE_AGENT_CERTIFICATE;
       const runner = runtime.runRestore ?? (await import("@openvault/server/ops")).runRestore;
       const result = await runner({
         archivePath,
@@ -80,6 +78,9 @@ export function createRestoreParser(
         keyringPath: resolve(runtime.cwd, keyringRaw),
         internalCaPath: resolve(runtime.cwd, internalCaRaw),
         ...(caPublicDir === undefined ? {} : { caPublicDir: resolve(runtime.cwd, caPublicDir) }),
+        ...(agentCertificateRaw === undefined
+          ? {}
+          : { agentCertificatePath: resolve(runtime.cwd, agentCertificateRaw) }),
         force: flagOption(options, "force"),
       });
       context.render(
@@ -88,7 +89,10 @@ export function createRestoreParser(
           `Restored ${value.objectCount} rows across ${value.tables.length} tables\n` +
           `audit chain: ${value.auditOk ? "ok" : "broken"}\n` +
           `secrets verified: ${value.secretsVerified}\n` +
+          `certificate private keys verified: ${value.certificatesVerified}\n` +
+          `JWT signing key: ${value.signingKeyVerified ? "verified" : "failed"}\n` +
           `CA key: ${value.caVerified ? "verified" : "failed"}\n` +
+          `pre-backup agent certificate: ${value.agentCertificateVerified ? "verified" : "not supplied"}\n` +
           `public CA: ${value.internalCaPath}`,
       );
       return undefined;

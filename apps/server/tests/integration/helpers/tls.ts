@@ -121,7 +121,7 @@ export function createTlsFixture(options: { readonly extraIp?: string } = {}): T
     "-subj",
     "/CN=localhost",
   ]);
-  const san = ["DNS:localhost", "IP:127.0.0.1"];
+  const san = ["DNS:localhost", "DNS:openvaultd", "DNS:vault.example.com", "IP:127.0.0.1"];
   if (options.extraIp !== undefined) {
     san.push(`IP:${options.extraIp}`);
   }

@@ -14,7 +14,12 @@ import { bootstrapAgentRuntime } from "../../src/agent/bootstrap.js";
 import { CaSignerUnavailableError } from "../../src/security/ca.js";
 import { KeyringProvider } from "../../src/security/keyring.js";
 import { TlsMaterial } from "../../src/transport/tls.js";
-import { type AgentTestServer, startAgentTestServer } from "./helpers/agent-app.js";
+import {
+  type AgentTestServer,
+  createAgentServerEnvironment,
+  type ServerEnvironment,
+  startAgentTestServer,
+} from "./helpers/agent-app.js";
 import { DATA_PROBE_SECRET, registerAgentDataProbe } from "./helpers/agent-runtime.js";
 import {
   type AgentCaFixture,
@@ -24,7 +29,6 @@ import {
 } from "./helpers/agent-tls.js";
 import { testUlid } from "./helpers/fixtures.js";
 import { testRequest } from "./helpers/https.js";
-import { createServerEnvironment, type ServerEnvironment } from "./helpers/server-environment.js";
 import { applyMigrations, createTestDatabase, type TestDatabase } from "./helpers/test-database.js";
 
 const errorEnvelope = z.object({
@@ -107,7 +111,7 @@ beforeAll(async () => {
   testDb = await createTestDatabase();
   await applyMigrations(testDb);
   ca = await createAgentCaFixture();
-  environment = createServerEnvironment({
+  environment = await createAgentServerEnvironment(ca, {
     OPENVAULT_DB_URL: testDb.url,
     OPENVAULT_INTERNAL_CA: ca.certPath,
     OPENVAULT_PROXY_CIDRS: "127.0.0.1/32,::1/128",
@@ -275,7 +279,7 @@ describe("readiness and startup", () => {
   it("should abort runtime creation when the CA row is missing or mismatched", async () => {
     const wrongCa = await createAgentCaFixture();
     try {
-      const wrongEnvironment = createServerEnvironment({
+      const wrongEnvironment = await createAgentServerEnvironment(wrongCa, {
         OPENVAULT_DB_URL: testDb.url,
         OPENVAULT_INTERNAL_CA: wrongCa.certPath,
       });
