@@ -6,6 +6,7 @@ import { LoginPage } from "../src/pages/login-page.js";
 import { SecretDetailPage } from "../src/pages/secret-detail-page.js";
 import { FakeVault } from "./helpers/fake-vault.js";
 import { renderPage, renderProjectPage, testSession } from "./helpers/render.js";
+import { renderShell } from "./helpers/shell.js";
 
 async function expectNoSeriousAxe(container: HTMLElement): Promise<void> {
   const results = await axe.run(container, {
@@ -52,6 +53,12 @@ describe("accessibility", () => {
     const vault = new FakeVault();
     const result = renderProjectPage(<AuditPage />, { vault });
     await screen.findByText("secret.read");
+    await expectNoSeriousAxe(result.container);
+  });
+
+  it("should pass axe on the application shell", async () => {
+    const result = renderShell();
+    await screen.findByRole("button", { name: "Open navigation" });
     await expectNoSeriousAxe(result.container);
   });
 });

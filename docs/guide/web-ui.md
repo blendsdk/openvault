@@ -15,6 +15,16 @@ one session check with the cookie already set. The password is never stored. Whe
 is flagged for a password change, the reload lands on the password-change screen; the server
 allows only the UI assets and the password/me/logout routes until the change succeeds.
 
+## Navigation
+
+The top bar uses the BlendSDK `AppLauncher` at every viewport width. It lists **Projects**
+everywhere and adds the current project's sections when the route is inside a project. The
+launcher search filters destinations by name and by a few related words, for example `roles`
+for Permissions or `events` for Audit. Choosing an item closes the panel and clears the query.
+
+The desktop sidebar remains a shortcut to Projects, and the account menu keeps the signed-in
+address and sign-out action. The theme toggle is unchanged.
+
 ## Daily flows
 
 | Screen | What it does |
@@ -97,11 +107,12 @@ and there is no `unsafe-eval`. API-only deployments keep the deny-by-default pol
 Every input has a label and an associated error. Page errors use `role="alert"`; loading
 regions use `aria-busy`; tables have captions and header scope; status uses text and icons,
 not color alone. Keyboard operation covers login, reveal, navigation, dialogs, and logout.
-The layout has a persistent sidebar at desktop widths and a menu-driven top bar below
-1024 px; tables scroll horizontally at 768 px.
+The layout has a persistent sidebar at desktop widths, a launcher-driven top bar at every
+width, and tables that scroll horizontally at 768 px. Page titles, eyebrows, and descriptions
+use a consistent vertical rhythm rather than zero-margin stacking.
 
-Axe runs in the Vitest/jsdom suite on login, secret detail, and audit. Browser automation
-across real engines belongs to the release assurance work.
+Axe runs in the Vitest/jsdom suite on login, secret detail, audit, and the application shell.
+Browser automation across real engines belongs to the release assurance work.
 
 ## Out of scope in v0.1
 

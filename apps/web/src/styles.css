@@ -102,15 +102,12 @@ pre {
 }
 
 .brand-mark {
-  display: inline-grid;
+  display: block;
+  flex: 0 0 auto;
   width: 32px;
   height: 32px;
-  place-items: center;
   border-radius: 8px;
-  background: var(--colorBrandBackground, #0f6cbd);
-  color: var(--colorNeutralForegroundOnBrand, #fff);
-  font-size: 13px;
-  letter-spacing: 0.04em;
+  box-shadow: 0 1px 3px rgba(15, 35, 60, 0.24);
 }
 
 .brand-name {
@@ -173,15 +170,22 @@ pre {
   gap: 24px;
 }
 
+.project-shell {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
 .project-context {
   display: flex;
   flex-direction: column;
-  gap: 6px;
+  gap: 10px;
 }
 
 .breadcrumb {
   color: var(--colorNeutralForeground3, #616161);
   font-size: 13px;
+  line-height: 1.4;
 }
 
 .breadcrumb a {
@@ -195,10 +199,18 @@ pre {
   gap: 16px;
 }
 
+.project-context-details {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  min-width: 0;
+}
+
 .project-context-name {
   margin: 0;
   font-size: 18px;
   font-weight: 600;
+  line-height: 1.3;
 }
 
 .project-context-row p {
@@ -212,10 +224,18 @@ pre {
   gap: 20px;
 }
 
+.page-header-text {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  min-width: 0;
+}
+
 .page-header h1 {
   margin: 0;
   font-size: 28px;
-  line-height: 1.2;
+  line-height: 1.25;
+  letter-spacing: -0.01em;
 }
 
 .page-header h1:focus {
@@ -223,9 +243,10 @@ pre {
 }
 
 .page-eyebrow {
-  margin-bottom: 6px;
+  margin: 0;
   color: var(--colorNeutralForeground3, #616161);
   font-size: 13px;
+  line-height: 1.4;
 }
 
 .page-eyebrow a {
@@ -235,6 +256,28 @@ pre {
 .page-description,
 .muted {
   color: var(--colorNeutralForeground3, #616161);
+}
+
+.page-description {
+  margin: 0;
+  max-width: 72ch;
+  line-height: 1.55;
+}
+
+.launcher-empty {
+  margin: 0;
+  max-width: 280px;
+  color: var(--colorNeutralForeground3, #616161);
+}
+
+/* The launcher grid is 320 px wide by default. Constrain the surface and its
+   lists on very narrow phones so the panel never leaves the viewport. */
+[data-app-launcher-surface] {
+  max-width: calc(100vw - 8px);
+}
+
+[data-app-launcher-surface] ul {
+  width: min(320px, calc(100vw - 48px));
 }
 
 .page-actions {
@@ -452,10 +495,12 @@ pre {
 .empty-state-title {
   margin: 0;
   font-size: 20px;
+  line-height: 1.3;
 }
 
 .empty-state-copy {
   max-width: 560px;
+  margin: 0;
 }
 
 .empty-state-actions {
@@ -530,6 +575,12 @@ pre {
 .login-card h1 {
   margin: 0;
   font-size: 26px;
+  line-height: 1.25;
+}
+
+.login-card > p {
+  margin: 0;
+  line-height: 1.55;
 }
 
 .divider {
@@ -658,7 +709,7 @@ pre {
   .project-context {
     display: flex;
     flex-direction: column;
-    gap: 6px;
+    gap: 10px;
   }
 
   .breadcrumb {

@@ -95,46 +95,48 @@ export function ProjectRoute() {
   const base = `/projects/${encodeURIComponent(project.name)}`;
   return (
     <ProjectContext.Provider value={{ project, projects: all, reload: projects.reload }}>
-      <header className="project-context">
-        <nav className="breadcrumb" aria-label="Breadcrumb">
-          <Link to="/">Projects</Link>
-          <span aria-hidden="true"> / </span>
-          <span>{project.name}</span>
-        </nav>
-        <div className="project-context-row">
-          <div>
-            <p className="project-context-name">{project.name}</p>
-            <p className="muted">
-              Created {new Date(project.createdAt).toLocaleDateString()} ·{" "}
-              {project.certificateCount} certificate
-              {project.certificateCount === 1 ? "" : "s"} · id <code>{project.id}</code>
-            </p>
+      <div className="project-shell">
+        <header className="project-context">
+          <nav className="breadcrumb" aria-label="Breadcrumb">
+            <Link to="/">Projects</Link>
+            <span aria-hidden="true"> / </span>
+            <span>{project.name}</span>
+          </nav>
+          <div className="project-context-row">
+            <div className="project-context-details">
+              <p className="project-context-name">{project.name}</p>
+              <p className="muted">
+                Created {new Date(project.createdAt).toLocaleDateString()} ·{" "}
+                {project.certificateCount} certificate
+                {project.certificateCount === 1 ? "" : "s"} · id <code>{project.id}</code>
+              </p>
+            </div>
+            <Button size="small" onClick={projects.reload}>
+              Refresh
+            </Button>
           </div>
-          <Button size="small" onClick={projects.reload}>
-            Refresh
-          </Button>
-        </div>
-      </header>
-      <nav className="section-nav" aria-label="Project sections">
-        {SECTIONS.map((section) => {
-          const to = `${base}${section.suffix}`;
-          const active =
-            section.end === true
-              ? location.pathname === base || location.pathname === `${base}/`
-              : location.pathname.startsWith(to);
-          return (
-            <Link
-              key={section.label}
-              to={to}
-              className={active ? "section-link section-link-active" : "section-link"}
-              aria-current={active ? "page" : undefined}
-            >
-              {section.label}
-            </Link>
-          );
-        })}
-      </nav>
-      <Outlet />
+        </header>
+        <nav className="section-nav" aria-label="Project sections">
+          {SECTIONS.map((section) => {
+            const to = `${base}${section.suffix}`;
+            const active =
+              section.end === true
+                ? location.pathname === base || location.pathname === `${base}/`
+                : location.pathname.startsWith(to);
+            return (
+              <Link
+                key={section.label}
+                to={to}
+                className={active ? "section-link section-link-active" : "section-link"}
+                aria-current={active ? "page" : undefined}
+              >
+                {section.label}
+              </Link>
+            );
+          })}
+        </nav>
+        <Outlet />
+      </div>
     </ProjectContext.Provider>
   );
 }

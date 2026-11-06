@@ -1,0 +1,29 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-labelledby="title">
+  <title id="title">OpenVault</title>
+  <defs>
+    <linearGradient id="vault-bg" x1="8" y1="6" x2="56" y2="58" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#2b88d8" />
+      <stop offset="1" stop-color="#0b4f8a" />
+    </linearGradient>
+  </defs>
+  <rect x="2" y="2" width="60" height="60" rx="15" fill="url(#vault-bg)" />
+  <rect
+    x="2.75"
+    y="2.75"
+    width="58.5"
+    height="58.5"
+    rx="14.25"
+    fill="none"
+    stroke="#ffffff"
+    stroke-opacity="0.18"
+    stroke-width="1.5"
+  />
+  <circle cx="32" cy="32" r="18.5" fill="none" stroke="#ffffff" stroke-width="3.5" />
+  <circle cx="32" cy="32" r="13" fill="#0a4679" fill-opacity="0.4" />
+  <circle cx="22.5" cy="22.5" r="1.9" fill="#ffffff" fill-opacity="0.92" />
+  <circle cx="41.5" cy="22.5" r="1.9" fill="#ffffff" fill-opacity="0.92" />
+  <circle cx="22.5" cy="41.5" r="1.9" fill="#ffffff" fill-opacity="0.92" />
+  <circle cx="41.5" cy="41.5" r="1.9" fill="#ffffff" fill-opacity="0.92" />
+  <circle cx="32" cy="29" r="6" fill="#ffffff" />
+  <path d="M32 32.5V43" stroke="#ffffff" stroke-width="5" stroke-linecap="round" />
+</svg>

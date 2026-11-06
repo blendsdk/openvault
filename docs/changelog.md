@@ -10,6 +10,9 @@
 - React 19 + Fluent UI v9 web UI using `@blendsdk/fluentui-react-components` and
   `blendsdk/react`: local/OIDC login, projects, secrets with audited masked reveal, identities,
   permissions, audit search/verification, consumers, dark mode, and responsive navigation.
+- Application-shell polish: the BlendSDK `AppLauncher` for global and project navigation with
+  search, a vault-dial brand mark and favicon, and consistent vertical spacing for page
+  headers and descriptions.
 - VitePress documentation site with GitHub Pages deployment.
 - CI, CodeQL, dependency review, and secret-scan workflows.
 - Server-side service identities, administrative lifecycle, join-token issuance, CA/X.509

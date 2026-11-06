@@ -48,16 +48,20 @@ const security = [
   { text: "Reporting a vulnerability", link: "/security/reporting" },
 ];
 
+const base = "/openvault/";
+
 export default defineConfig({
   title: "OpenVault",
   description: "Self-hosted secret and certificate store for Docker Compose projects.",
-  base: "/openvault/",
+  base,
   cleanUrls: true,
   lastUpdated: true,
+  head: [["link", { rel: "icon", type: "image/svg+xml", href: `${base}logo.svg` }]],
   sitemap: {
     hostname: "https://blendsdk.github.io/openvault/",
   },
   themeConfig: {
+    logo: "/logo.svg",
     nav: [
       { text: "Guide", link: "/guide/getting-started" },
       { text: "Reference", link: "/reference/api" },
