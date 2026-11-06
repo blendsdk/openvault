@@ -26,9 +26,8 @@ features:
 
 ## Status
 
-OpenVault is in early development. The repository currently contains the workspace,
-envelope-encryption core, WebAFX server skeleton, web shell, and this documentation site.
-Secrets, certificates, RBAC, the agent, and the full UI are being implemented.
+The v0.1 feature set is implemented and tested. A production-labelled image remains gated
+on the independent external review; alpha images are explicitly not for production.
 
-See [Getting started](/guide/getting-started) for the developer preview and the target v0.1
-installation flow.
+See [Getting started](/guide/getting-started) for the installation flow, or the
+[security evidence matrix](/security/evidence-matrix) for the test-to-control mapping.

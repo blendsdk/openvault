@@ -1,5 +1,6 @@
 import { createPrivateKey, type KeyObject, X509Certificate } from "node:crypto";
 import { readFileSync } from "node:fs";
+import { isIP } from "node:net";
 import type { OpenVaultConfig } from "../config/index.js";
 
 /** Raised when TLS certificate, key, or CA material is missing or invalid. */
@@ -28,6 +29,54 @@ function assertCurrentlyValid(key: string, certificate: X509Certificate): void {
   const to = Date.parse(certificate.validTo);
   if (!Number.isFinite(from) || !Number.isFinite(to) || now < from || now > to) {
     throw new TlsMaterialError(key, "must be currently valid");
+  }
+}
+
+/**
+ * Checks that the leaf was signed by the configured CA.
+ *
+ * `checkIssued` only compares issuer and key-identifier fields; it does not
+ * verify the signature. Both checks are required because two CAs can share a
+ * subject name.
+ */
+function assertIssuedBy(
+  key: string,
+  certificate: X509Certificate,
+  caCertificate: X509Certificate,
+): void {
+  let signatureOk = false;
+  try {
+    signatureOk = certificate.verify(caCertificate.publicKey);
+  } catch {
+    signatureOk = false;
+  }
+  if (!certificate.checkIssued(caCertificate) || !signatureOk) {
+    throw new TlsMaterialError(key, "must be signed by the configured internal CA");
+  }
+  let hasServiceName = false;
+  try {
+    hasServiceName = certificate.checkHost("openvaultd") !== undefined;
+  } catch {
+    hasServiceName = false;
+  }
+  if (!hasServiceName) {
+    throw new TlsMaterialError(key, "must include the openvaultd DNS name");
+  }
+}
+
+/** Checks that the leaf covers the configured public host. */
+function assertCoversPublicHost(key: string, certificate: X509Certificate, hostname: string): void {
+  let covered = false;
+  try {
+    covered =
+      isIP(hostname) === 0
+        ? certificate.checkHost(hostname) !== undefined
+        : certificate.checkIP(hostname) !== undefined;
+  } catch {
+    covered = false;
+  }
+  if (!covered) {
+    throw new TlsMaterialError(key, "must cover the configured public host");
   }
 }
 
@@ -116,6 +165,8 @@ export class TlsMaterial {
       throw new TlsMaterialError("OPENVAULT_INTERNAL_CA", "must be self-verifying");
     }
     assertCurrentlyValid("OPENVAULT_INTERNAL_CA", caCertificate);
+    assertIssuedBy("OPENVAULT_TLS_CERT", certificate, caCertificate);
+    assertCoversPublicHost("OPENVAULT_TLS_CERT", certificate, config.baseUrl.hostname);
 
     return new TlsMaterial(certPem, keyPem, keyObject, caPem, certificate, caCertificate);
   }
@@ -137,5 +188,6 @@ export class TlsMaterial {
     }
     assertCurrentlyValid("OPENVAULT_TLS_CERT", this.certificate);
     assertCurrentlyValid("OPENVAULT_INTERNAL_CA", this.caCertificate);
+    assertIssuedBy("OPENVAULT_TLS_CERT", this.certificate, this.caCertificate);
   }
 }

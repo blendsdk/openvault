@@ -291,6 +291,9 @@ export async function restoreDatabase(
   dump: DatabaseDump,
   options: RestoreDatabaseOptions,
 ): Promise<RestoreDatabaseResult> {
+  // Serialize restores on the target database. The session lock is released
+  // when the caller closes this client, including on every error path.
+  await client.query("SELECT pg_advisory_lock(hashtext('openvault:restore:v1'))");
   const dumpTables = Object.keys(dump.tables).sort();
   if (dumpTables.length === 0) {
     throw new OpsError("restore_archive_invalid", "The database dump has no tables");

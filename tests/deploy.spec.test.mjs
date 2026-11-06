@@ -76,8 +76,9 @@ describe("deployment contract", () => {
     const compose = readCompose();
     const volumes = compose.services.proxy.volumes.map((entry) => String(entry));
 
-    expect(volumes.some((entry) => entry.includes("openvault_tls"))).toBe(false);
-    expect(volumes.some((entry) => entry.includes("openvault_ca_public"))).toBe(true);
+    expect(volumes.some((entry) => entry.includes("/tls"))).toBe(false);
+    expect(volumes.some((entry) => entry.includes("/keyring"))).toBe(false);
+    expect(volumes.some((entry) => entry.includes("/ca:/etc/openvault/ca:ro"))).toBe(true);
   });
 
   it("passes the required transport and proxy environment", () => {
@@ -89,7 +90,9 @@ describe("deployment contract", () => {
     expect(environment.OPENVAULT_INTERNAL_CA).toBe("/etc/openvault/tls/ca.pem");
     expect(environment.OPENVAULT_TRUST_PROXY).toBe("true");
     expect(environment.OPENVAULT_PROXY_CIDRS).toBe("172.30.0.2/32");
-    expect(environment.OPENVAULT_LOG_LEVEL).toBe("info");
+    expect(environment.OPENVAULT_LOG_LEVEL).toContain("info");
+    expect(environment.OPENVAULT_RUN_MIGRATIONS).toBe("false");
+    expect(environment.OPENVAULT_MIGRATION_DB_URL_FILE).toBeUndefined();
   });
 
   it("never publishes the admin or agent port on the host", () => {

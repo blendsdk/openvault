@@ -62,10 +62,30 @@
   SPA fallback, and a UI-enabled same-origin CSP.
 - Web UI tests: component behavior, storage/URL/console leak checks, CSRF strategy, and axe on
   login, secret detail, and audit.
+- Restore verification of a pre-backup agent certificate with `--agent-certificate`, plus the
+  restore drill and agent-certificate negative test.
+- `OPENVAULT_*_DB_URL_FILE` support for Docker secrets, a separate startup migrator URL, and
+  least-privilege `openvault_migrator`, `openvault_app`, `openvault_purger`, and
+  `openvault_pruner` roles with an ownership assertion.
+- Hardened four-service Compose stack: non-root users, read-only roots, capability drops,
+  no-new-privileges, resource limits, log rotation, Docker secrets, internal networks, and a
+  static web container. `pnpm check:compose` enforces the contract.
+- Server, agent, and web Dockerfiles with digest-pinned base images.
+- `ov doctor` database, keyring, TLS, clock, and 24-hour backup-age checks.
+- `ov audit checkpoint --out` and systemd timers for daily encrypted backup and off-box
+  checkpoint export.
+- Threat-model-to-test evidence matrix, security-claims ledger, and generated documentation
+  pages checked by `pnpm verify`.
+- Release workflow: amd64 build, BuildKit SBOM/provenance, Trivy HIGH/CRITICAL gate, Cosign
+  keyless signing, signature verification, GitHub release assets, and an alpha-only manual
+  mode labelled not for production.
+- Weekly dependency audit and container rescan workflow.
+- Incident response runbook, release process, branch-protection evidence, external-review
+  packet, and a fail-closed production-label gate.
 
 ### Deferred
 
-- The remaining backup and rotation program: secret/certificate rotation workflows, Compose
-  hardening, least-privilege role provisioning, and reference-stack release engineering.
-- Certificate screens and browser automation across real engines; v0.1 keeps certificates in
-  the CLI and runs axe in jsdom.
+- The independent external review is pending; a production-labelled image is blocked until it
+  is approved.
+- Multi-arch images, certificate screens, and real-browser Playwright checks across engines;
+  v0.1 keeps certificates in the CLI and runs axe in jsdom.

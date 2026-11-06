@@ -11,8 +11,12 @@ import type {
 } from "../../../src/transport/secure-application.js";
 import { TlsMaterial } from "../../../src/transport/tls.js";
 import type { AgentCaFixture } from "./agent-tls.js";
-import { seedCaKey } from "./agent-tls.js";
+import { seedCaKey, writeServerCertificateForCa } from "./agent-tls.js";
 import type { ServerEnvironment } from "./server-environment.js";
+import { createServerEnvironment } from "./server-environment.js";
+
+export type { ServerEnvironment } from "./server-environment.js";
+
 import type { TestDatabase } from "./test-database.js";
 
 /** A running application backed by the real agent runtime. */
@@ -24,6 +28,31 @@ export interface AgentTestServer {
   readonly keyring: KeyringProvider;
   readonly tls: TlsMaterial;
   stop(): Promise<void>;
+}
+
+/**
+ * Creates a server environment whose server certificate is signed by the agent
+ * test CA, and whose client trust bundle is that same CA.
+ *
+ * @param ca - Agent CA fixture.
+ * @param overrides - Environment values that replace the defaults.
+ * @returns A configured environment with matching server and client trust.
+ */
+export async function createAgentServerEnvironment(
+  ca: AgentCaFixture,
+  overrides: NodeJS.ProcessEnv = {},
+): Promise<ServerEnvironment> {
+  const environment = createServerEnvironment({
+    ...overrides,
+    OPENVAULT_INTERNAL_CA: ca.certPath,
+  });
+  await writeServerCertificateForCa(
+    ca,
+    environment.config.tlsCertPath,
+    environment.config.tlsKeyPath,
+  );
+  Object.assign(environment.tls, { caPem: ca.certPem, caPath: ca.certPath });
+  return environment;
 }
 
 /**

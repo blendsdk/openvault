@@ -1,15 +1,19 @@
 import type { AgentConsumer } from "@openvault/api-contract";
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
 import { AgentServiceError } from "../../src/agent/errors.js";
-import { type AgentTestServer, startAgentTestServer } from "./helpers/agent-app.js";
+import {
+  type AgentTestServer,
+  createAgentServerEnvironment,
+  startAgentTestServer,
+} from "./helpers/agent-app.js";
 import { createAgentCaFixture, createAgentCsr } from "./helpers/agent-tls.js";
 import { type AuditActors, resetAuditTables, seedAuditActors } from "./helpers/audit-harness.js";
 import { type BaseFixture, seedBase } from "./helpers/fixtures.js";
-import { createServerEnvironment } from "./helpers/server-environment.js";
+import type { ServerEnvironment } from "./helpers/server-environment.js";
 import { applyMigrations, createTestDatabase, type TestDatabase } from "./helpers/test-database.js";
 
 let testDb: TestDatabase;
-let environment: ReturnType<typeof createServerEnvironment>;
+let environment: ServerEnvironment;
 let server: AgentTestServer;
 let base: BaseFixture;
 let actors: AuditActors;
@@ -40,7 +44,7 @@ beforeAll(async () => {
   base = await seedBase(testDb.db);
   actors = await seedAuditActors(testDb.db, base);
   const ca = await createAgentCaFixture();
-  environment = createServerEnvironment({
+  environment = await createAgentServerEnvironment(ca, {
     OPENVAULT_DB_URL: testDb.url,
     OPENVAULT_INTERNAL_CA: ca.certPath,
   });

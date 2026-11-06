@@ -13,6 +13,7 @@ const guide = [
   { text: "Certificates", link: "/guide/certificates" },
   { text: "Audit", link: "/guide/audit" },
   { text: "Backup and restore", link: "/guide/backup-restore" },
+  { text: "Operations", link: "/guide/operations" },
   { text: "Rotation", link: "/guide/rotation" },
   { text: "Troubleshooting", link: "/guide/troubleshooting" },
 ];
@@ -34,8 +35,15 @@ const architecture = [
 
 const security = [
   { text: "Threat model", link: "/security/threat-model" },
+  { text: "Evidence matrix", link: "/security/evidence-matrix" },
+  { text: "Security claims", link: "/security/claims" },
   { text: "Known limitations", link: "/security/limitations" },
   { text: "Hardening checklist", link: "/security/hardening" },
+  { text: "Review gates", link: "/security/review-gates" },
+  { text: "Release process", link: "/security/release-process" },
+  { text: "Release evidence", link: "/security/release-evidence" },
+  { text: "External review", link: "/security/external-review" },
+  { text: "Incident response", link: "/security/incident-response" },
   { text: "Reporting a vulnerability", link: "/security/reporting" },
 ];
 

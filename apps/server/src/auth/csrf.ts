@@ -6,13 +6,7 @@ import { isSafeMethod } from "./middleware.js";
 import type { SessionService } from "./sessions.js";
 
 const LOCAL_LOGIN_PATH = "/v1/auth/local/login";
-const CLI_PATH_PREFIX = "/v1/auth/cli";
 const CSRF_MESSAGE = "Invalid or missing CSRF token";
-
-/** Reports whether a path belongs to the bearer/refresh-token CLI surface. */
-function isCliPath(path: string): boolean {
-  return path === CLI_PATH_PREFIX || path.startsWith(`${CLI_PATH_PREFIX}/`);
-}
 
 function csrfError(): ApiError {
   return new ApiError(403, "csrf_invalid", CSRF_MESSAGE);
@@ -21,12 +15,12 @@ function csrfError(): ApiError {
 /**
  * Enforces a same-origin browser context on cookie-authenticated mutations.
  *
- * The guard applies when a session is attached or when the request targets the
- * local login route (which establishes a session and has no context yet).
- * Bearer/mTLS routes and every `/v1/auth/cli` route pass through to their own
- * authentication, even if a browser cookie is present. If `Origin` is present
- * it must match the configured origin;
- * otherwise `Sec-Fetch-Site` must be `same-origin`.
+ * The guard applies when a browser session is attached or when the request
+ * targets the local login route (which establishes a session and has no context
+ * yet). Bearer and mTLS routes pass through to their own authentication. A
+ * browser cookie attached to any path, including a CLI path, is still treated
+ * as browser traffic. If `Origin` is present it must match the configured
+ * origin; otherwise `Sec-Fetch-Site` must be `same-origin`.
  *
  * @param config - Validated runtime configuration.
  * @returns Express middleware.
@@ -44,13 +38,6 @@ export function originGuard(config: OpenVaultConfig): RequestHandler {
       path = normalizeRequestPath(req.originalUrl || req.url);
     } catch (error) {
       next(error);
-      return;
-    }
-
-    if (isCliPath(path)) {
-      // CLI routes authorize on a bearer or refresh token and never read the
-      // browser cookie, so a cookie must not trigger browser-only guards.
-      next();
       return;
     }
 
@@ -87,10 +74,10 @@ export function originGuard(config: OpenVaultConfig): RequestHandler {
  * Applies the WebAFX CSRF token check only to authenticated browser requests.
  *
  * The session middleware must run first. Requests without a resolved browser
- * context (bearer, mTLS, unauthenticated, or any `/v1/auth/cli` path) pass
- * through; their route authentication decides the response. A session revoked
- * between the middleware and the mutation returns `401 authentication_required`;
- * otherwise the expected token is the current session's CSRF value.
+ * context (bearer, mTLS, or unauthenticated) pass through; their route
+ * authentication decides the response. A session revoked between the middleware
+ * and the mutation returns `401 authentication_required`; otherwise the expected
+ * token is the current session's CSRF value.
  *
  * @param sessions - Session service used for the liveness check.
  * @returns Express middleware.
@@ -101,14 +88,7 @@ export function csrfGuard(sessions: SessionService): RequestHandler {
   });
 
   return async (req: Request, res: Response, next: NextFunction) => {
-    let path: string;
-    try {
-      path = normalizeRequestPath(req.originalUrl || req.url);
-    } catch (error) {
-      next(error);
-      return;
-    }
-    if (isCliPath(path) || req.auth?.kind !== "browser") {
+    if (req.auth?.kind !== "browser") {
       next();
       return;
     }

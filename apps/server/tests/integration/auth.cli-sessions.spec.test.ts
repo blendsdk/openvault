@@ -190,8 +190,8 @@ describe.skipIf(trustedTestHost === undefined)("command-line family listing", ()
         method: "DELETE",
         headers: { cookie },
       }),
-      401,
-      "authentication_required",
+      403,
+      "csrf_invalid",
     );
   });
 });

@@ -4,19 +4,32 @@
 
 | Item | Why |
 |---|---|
-| PostgreSQL dump | Objects, ciphertext, policy, audit chain |
+| PostgreSQL logical dump | Objects, ciphertext, policy, audit chain |
 | Keyring file | The KEK and older keys needed to decrypt |
 | Configuration snapshot | OIDC issuer, URLs, limits |
 | Public internal CA certificate | Agent mTLS trust anchor; the wrapped private key is in the database dump |
 | Audit checkpoints | Off-box integrity anchor |
 
 The database without the keyring is unreadable. The keyring without the database is
-useless. Back them up together, encrypted.
+useless. Back them up together, encrypted. The archive passphrase is a second factor
+and must be stored separately.
+
+## Targets
+
+| Target | Value |
+|---|---|
+| RPO | 24 hours |
+| RTO | 1 hour |
+| Archive retention | At least the audit retention window (180 days by default) |
+
+An untested backup is not a backup. Run the drill after every schema or release
+change, and keep the newest checkpoint off-box.
 
 ## Backup
 
 ```bash
-ov backup --out /backup/openvault-2026-10-29.age
+ov backup --out /var/backups/openvault/openvault-$(date -u +%Y%m%dT%H%M%SZ).age
+ov audit checkpoint --out /var/backups/openvault/checkpoint-$(date -u +%Y%m%dT%H%M%SZ).json
 ```
 
 The archive contains a logical JSON database dump, the keyring, the redacted configuration
@@ -24,8 +37,23 @@ manifest, the public internal CA certificate, and the audit checkpoints. It is e
 age using a passphrase from a `0600` file or a hidden prompt. Recipient-key encryption is not
 implemented in v0.1.
 
-The backup passphrase is a second factor. Store it separately from the archive. The keyring
-inside the archive is plaintext JSON before encryption; the archive must remain `0600`.
+`OPENVAULT_DB_URL_FILE` can point at a Docker secret instead of putting the URL in the
+process environment. `ov doctor --backup-dir` fails when the newest `.age` archive is
+older than 24 hours.
+
+### Schedule
+
+Install the units in `deploy/systemd/`:
+
+```bash
+sudo cp deploy/systemd/openvault-*.service deploy/systemd/openvault-*.timer /etc/systemd/system/
+sudo systemctl daemon-reload
+sudo systemctl enable --now openvault-backup.timer openvault-checkpoint.timer
+```
+
+Set `OPENVAULT_OFFBOX_TARGET` in `/etc/openvault/backup.env` so each unit copies the
+archive or checkpoint to an independent host. The cron equivalents are in
+`deploy/systemd/README.md`.
 
 ## Restore
 
@@ -34,15 +62,21 @@ replace a non-empty one. Set `OPENVAULT_RESTORE_DB_URL` to an owner/migrator rol
 tables.
 
 ```bash
-ov restore /backup/openvault-2026-10-29.age --yes
+ov restore /var/backups/openvault/openvault-2026-11-06T02-00-00Z.age \
+  --agent-certificate /var/backups/openvault/pre-backup-agent.pem \
+  --yes
 ```
 
 The command verifies the archive checksums and the archived keyring before touching the
 target, runs migrations, restores every row, and publishes the restored keyring and public CA.
 Set `OPENVAULT_CA_PUBLIC_DIR` or pass `--ca-public-dir` to also publish the proxy's `ca.pem`.
-It then verifies the audit chain, decrypts one current secret per project, and signs a probe
-certificate with the restored CA key. The v0.1 schema does not store agent certificate PEMs,
-so the pre-backup agent-certificate check is not possible; the CA probe covers the signing key.
+It then verifies the audit chain, decrypts every current secret and certificate private key,
+signs and verifies a JWT probe, signs a probe certificate with the restored CA key, and
+verifies the supplied pre-backup agent certificate against the restored CA.
+
+The agent certificate is optional. The schema does not store agent leaf PEMs, so the drill
+saves a live certificate before the backup and passes it to restore. Without the flag, the CA
+probe still verifies the signing key; the result reports the agent check as `not supplied`.
 
 If the restored CA differs from the CA that signed the current server certificate, re-provision
 the server TLS pair after restore. The server fails closed on a certificate that does not chain
@@ -50,19 +84,38 @@ to the restored CA.
 
 ## Drill
 
-Before relying on backups, run a full drill:
+Run this on a disposable host or database. It exercises every RD-13 restore criterion:
 
-```bash
-ov backup --out /tmp/ov-backup.age
-docker compose down -v
-docker compose up -d
-ov restore /tmp/ov-backup.age
-ov audit verify
-```
+1. Create a project with one secret and one certificate.
+2. Join a test agent and save its client certificate PEM.
+3. Take an encrypted backup and export the newest checkpoint.
+4. Destroy the target database, keyring, and TLS material. Keep a copy of the old data for
+   comparison.
+5. Restore into an empty database with `--agent-certificate`.
+6. Confirm the output reports `audit chain: ok`, the expected `secrets verified` and
+   `certificate private keys verified` counts, `JWT signing key: verified`, `CA key: verified`,
+   and `pre-backup agent certificate: verified`.
+7. Sign in, read one secret per project, and run `ov audit verify`.
+8. Record the elapsed time; it must stay under the one-hour RTO.
 
-Document the result. An untested backup is not a backup.
+The automated equivalent is `apps/server/tests/integration/ops.spec.test.ts`. It covers a
+tampered archive, a wrong passphrase, a checksum mismatch, a non-empty target, a non-superuser
+owner role, an invalid agent certificate, and a successful restore with the saved certificate.
+
+## Break-glass
+
+Keep these in separate custody locations:
+
+- The keyring file.
+- The encrypted archive.
+- The backup passphrase.
+- The last off-box checkpoint.
+
+There is no always-on second administrator. The offline restore is the recovery path. After a
+restore, rotate every credential and value before returning the service to users.
 
 ## Next
 
 - [Rotation](/guide/rotation)
-- [Hardening](/security/hardening)
+- [Operations](/guide/operations)
+- [Incident response](/security/incident-response)

@@ -10,18 +10,55 @@
   }
 }
 
-https://localhost {
+# Set OPENVAULT_SITE_ADDRESS to the public host (without a scheme). It must
+# match the host in OPENVAULT_BASE_URL.
+{$OPENVAULT_SITE_ADDRESS:localhost} {
   tls internal
-  header Strict-Transport-Security "max-age=31536000; includeSubDomains"
 
-  reverse_proxy openvaultd:8443 {
-    transport http {
-      tls
-      tls_trust_pool file /etc/openvault/ca/ca.pem
-      tls_server_name openvaultd
-      read_timeout 30s
-      write_timeout 30s
-      keepalive 10s
+  header {
+    Strict-Transport-Security "max-age=31536000; includeSubDomains"
+    X-Content-Type-Options "nosniff"
+    Referrer-Policy "no-referrer"
+    X-Frame-Options "DENY"
+    -Server
+  }
+
+  # API and readiness stay on the internal admin listener.
+  handle /v1/* {
+    reverse_proxy openvaultd:8443 {
+      transport http {
+        tls
+        tls_trust_pool file /etc/openvault/ca/ca.pem
+        tls_server_name openvaultd
+        read_timeout 30s
+        write_timeout 30s
+        keepalive 10s
+      }
     }
+  }
+
+  handle /health {
+    reverse_proxy openvaultd:8443 {
+      transport http {
+        tls
+        tls_trust_pool file /etc/openvault/ca/ca.pem
+        tls_server_name openvaultd
+      }
+    }
+  }
+
+  handle /ready {
+    reverse_proxy openvaultd:8443 {
+      transport http {
+        tls
+        tls_trust_pool file /etc/openvault/ca/ca.pem
+        tls_server_name openvaultd
+      }
+    }
+  }
+
+  # Everything else is the static SPA. The web container owns its CSP.
+  handle {
+    reverse_proxy web:8080
   }
 }

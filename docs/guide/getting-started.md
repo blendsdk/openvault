@@ -1,9 +1,9 @@
 # Getting started
 
-::: warning Early development
-OpenVault is under active development. The developer commands, the `ov` CLI, the web UI, and
-the API in this repository are implemented and tested; image publishing and release
-assurance are still in progress.
+::: warning Release status
+The v0.1 feature set, the `ov` CLI, the web UI, and the API in this repository are
+implemented and tested. A production-labelled image is blocked until the independent external
+review is approved; alpha images are explicitly not for production.
 :::
 
 ## What OpenVault is

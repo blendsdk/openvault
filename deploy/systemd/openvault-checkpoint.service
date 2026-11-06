@@ -1,0 +1,22 @@
+[Unit]
+Description=OpenVault audit checkpoint export
+Documentation=https://github.com/blendsdk/openvault/blob/main/docs/guide/audit.md
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+User=openvault
+Group=openvault
+EnvironmentFile=/etc/openvault/backup.env
+ExecStart=/bin/sh -c 'umask 077; mkdir -p /var/backups/openvault; exec /usr/local/bin/ov audit checkpoint --out "/var/backups/openvault/checkpoint-$(date -u +%%Y%%m%%dT%%H%%M%%SZ).json"'
+ExecStartPost=/bin/sh -c 'if [ -n "$OPENVAULT_OFFBOX_TARGET" ]; then rsync -a /var/backups/openvault/checkpoint-*.json "$OPENVAULT_OFFBOX_TARGET"/; fi'
+Nice=10
+PrivateTmp=true
+NoNewPrivileges=true
+ProtectSystem=strict
+ProtectHome=true
+ReadWritePaths=/var/backups/openvault
+
+[Install]
+WantedBy=multi-user.target

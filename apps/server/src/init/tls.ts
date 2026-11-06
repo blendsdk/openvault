@@ -150,7 +150,13 @@ function validatePair(
   if (!certificate.checkPrivateKey(keyObject)) {
     throw new InitError("init_tls", "The server certificate and private key do not match");
   }
-  if (!certificate.checkIssued(ca)) {
+  let signatureOk = false;
+  try {
+    signatureOk = certificate.verify(ca.publicKey);
+  } catch {
+    signatureOk = false;
+  }
+  if (!certificate.checkIssued(ca) || !signatureOk) {
     throw new InitError("init_tls", "The server certificate is not signed by the current CA");
   }
   const notBefore = Date.parse(certificate.validFrom);
@@ -163,14 +169,25 @@ function validatePair(
   ) {
     throw new InitError("init_tls", "The server certificate is not currently valid");
   }
-  const sans = certificate.subjectAltName ?? "";
   for (const name of names.dnsNames) {
-    if (!sans.includes(`DNS:${name}`)) {
+    let covered = false;
+    try {
+      covered = certificate.checkHost(name) !== undefined;
+    } catch {
+      covered = false;
+    }
+    if (!covered) {
       throw new InitError("init_tls", `The server certificate is missing DNS:${name}`);
     }
   }
   for (const address of names.ipAddresses) {
-    if (!sans.includes(`IP Address:${address}`)) {
+    let covered = false;
+    try {
+      covered = certificate.checkIP(address) !== undefined;
+    } catch {
+      covered = false;
+    }
+    if (!covered) {
       throw new InitError("init_tls", `The server certificate is missing IP:${address}`);
     }
   }

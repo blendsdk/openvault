@@ -6,7 +6,6 @@ import type {
   CertificateList,
   CertificateListQuery,
   CertificateMetadata,
-  CertificateMetadataUpdateRequest,
   CertificatePrivateKeyResponse,
   CertificatePublicResponse,
   CertificateReadQuery,
@@ -286,7 +285,7 @@ export class CertificateService {
   async #write(
     actorId: string,
     projectId: string,
-    projectName: string,
+    _projectName: string,
     name: string,
     material: ParsedCertificateMaterial,
     options: {

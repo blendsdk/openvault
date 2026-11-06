@@ -5,7 +5,6 @@ import type { CertificateExpiryRepository, NotificationClaim } from "./repositor
 import type { CertificateExpiryWebhook, ExpiryWebhookPayload } from "./webhook.js";
 
 const DAY_MS = 86_400_000;
-const LEASE_MS = 3_600_000;
 const EXPIRY_BATCH = 500;
 
 /** Minimal logger surface used by the expiry job. */

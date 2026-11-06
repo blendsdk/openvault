@@ -3,8 +3,8 @@
 > **Feature-Set**: OpenVault v0.1
 > **Status**: In Progress
 > **Created**: 2026-10-29
-> **Last Updated**: 2026-11-06 15:00
-> **Progress**: 12 / 14 (86%)
+> **Last Updated**: 2026-11-06 18:30
+> **Progress**: 14 / 14 (100%)
 > **CodeOps Artifact Schema**: 1
 
 ## Legend
@@ -25,7 +25,7 @@
 | RD-08 | Projects and secrets | [RD-08](requirements/RD-08-projects-secrets.md) | [rd-08-projects-secrets](plans/rd-08-projects-secrets/00-index.md) | Done | ✅ | 2026-11-04 | depends on RD-06, RD-07 |
 | RD-09 | Certificates | [RD-09](requirements/RD-09-certificates.md) | [rd-09-certificates](plans/rd-09-certificates/00-index.md) | Done | ✅ | 2026-11-05 | depends on RD-08 |
 | RD-10 | Agent delivery and Compose | [RD-10](requirements/RD-10-agent-compose.md) | [rd-10-agent-compose](plans/rd-10-agent-compose/00-index.md) | Done | ✅ | 2026-11-05 | depends on RD-05, RD-07, RD-08 |
-| RD-11 | CLI | [RD-11](requirements/RD-11-cli.md) | [rd-11-cli](plans/rd-11-cli/00-index.md) | Done | ✅ | 2026-11-05 | depends on RD-04, RD-06, RD-08, RD-09, RD-10; backup/restore/KEK rotate delivered; remaining RD-13 program pending |
+| RD-11 | CLI | [RD-11](requirements/RD-11-cli.md) | [rd-11-cli](plans/rd-11-cli/00-index.md) | Done | ✅ | 2026-11-05 | depends on RD-04, RD-06, RD-08, RD-09, RD-10; backup/restore/KEK rotate delivered; remaining operations program completed by RD-13 |
 | RD-12 | Web UI | [RD-12](requirements/RD-12-web-ui.md) | [rd-12-web-ui](plans/rd-12-web-ui/00-index.md) | Done | ✅ | 2026-11-06 | depends on RD-03, RD-06, RD-08, RD-10 |
-| RD-13 | Backup, rotation, operations | [RD-13](requirements/RD-13-backup-rotation-ops.md) | — | RD Drafted | ✏️ | 2026-11-06 | depends on RD-02, RD-05, RD-08, RD-09; backup/restore/KEK rotate delivered by RD-11; remaining operations, Compose hardening, and roles pending |
-| RD-14 | Security assurance and release | [RD-14](requirements/RD-14-security-release.md) | — | RD Drafted | ✏️ | 2026-10-29 | depends on all prior RDs |
+| RD-13 | Backup, rotation, operations | [RD-13](requirements/RD-13-backup-rotation-ops.md) | [rd-13-operations](plans/rd-13-operations/00-index.md) | Done | ✅ | 2026-11-06 | depends on RD-02, RD-05, RD-08, RD-09; backup/restore/KEK rotate delivered by RD-11 |
+| RD-14 | Security assurance and release | [RD-14](requirements/RD-14-security-release.md) | [rd-14-release](plans/rd-14-release/00-index.md) | Done | ✅ | 2026-11-06 | depends on all prior RDs; production label remains gated on the external review approval file |

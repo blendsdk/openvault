@@ -1,0 +1,310 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - "v*.*.*"
+  workflow_dispatch:
+    inputs:
+      mode:
+        description: "alpha publishes a not-for-production image; production requires an approved external review"
+        type: choice
+        options: [alpha, production]
+        default: alpha
+      version:
+        description: "Version label, for example v0.1.0 or v0.1.0-alpha.1"
+        type: string
+        required: true
+
+permissions:
+  contents: read
+
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  gate:
+    name: Release gate
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    outputs:
+      mode: ${{ steps.resolve.outputs.mode }}
+      version: ${{ steps.resolve.outputs.version }}
+      tags: ${{ steps.resolve.outputs.tags }}
+      short: ${{ steps.resolve.outputs.short }}
+      production: ${{ steps.resolve.outputs.production }}
+      not_for_production: ${{ steps.resolve.outputs.not_for_production }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          persist-credentials: false
+
+      - name: Set up Node
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: 24.21.0
+
+      - name: Resolve release mode and tags
+        id: resolve
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          DISPATCH_MODE: ${{ inputs.mode }}
+          DISPATCH_VERSION: ${{ inputs.version }}
+          REF_NAME: ${{ github.ref_name }}
+          SHORT_SHA: ${{ github.sha }}
+        run: |
+          set -eu
+          SHORT=$(printf '%s' "$SHORT_SHA" | cut -c1-12)
+          if [ "$EVENT_NAME" = "workflow_dispatch" ]; then
+            MODE="$DISPATCH_MODE"
+            VERSION="$DISPATCH_VERSION"
+          else
+            MODE=production
+            VERSION="$REF_NAME"
+          fi
+          case "$MODE" in
+            alpha)
+              TAGS="alpha
+          sha-${SHORT}"
+              PRODUCTION=false
+              NOT_FOR_PRODUCTION=true
+              ;;
+            production)
+              TAGS="${VERSION}
+          ${VERSION#v}
+          latest
+          sha-${SHORT}"
+              PRODUCTION=true
+              NOT_FOR_PRODUCTION=false
+              ;;
+            *)
+              echo "unknown mode: $MODE" >&2
+              exit 2
+              ;;
+          esac
+          if [ "$EVENT_NAME" = "workflow_dispatch" ] && [ "$MODE" = "production" ]; then
+            case "$GITHUB_REF" in
+              refs/tags/v*) ;;
+              *) echo "production dispatch must run from a v* tag" >&2; exit 2 ;;
+            esac
+          fi
+          echo "mode=$MODE" >> "$GITHUB_OUTPUT"
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+          echo "short=$SHORT" >> "$GITHUB_OUTPUT"
+          echo "production=$PRODUCTION" >> "$GITHUB_OUTPUT"
+          echo "not_for_production=$NOT_FOR_PRODUCTION" >> "$GITHUB_OUTPUT"
+          {
+            echo "tags<<EOF"
+            echo "$TAGS"
+            echo "EOF"
+          } >> "$GITHUB_OUTPUT"
+
+      - name: Enforce the release gate
+        env:
+          MODE: ${{ steps.resolve.outputs.mode }}
+          VERSION: ${{ steps.resolve.outputs.version }}
+          COMMIT: ${{ github.sha }}
+        run: node scripts/check-release-gate.mjs --mode "$MODE" --version "$VERSION" --commit "$COMMIT"
+
+  build:
+    name: Build and sign ${{ matrix.name }}
+    needs: gate
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+      id-token: write
+      attestations: write
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: openvault
+            file: deploy/docker/server.Dockerfile
+          - name: openvault-agent
+            file: deploy/docker/agent.Dockerfile
+          - name: openvault-web
+            file: deploy/docker/web.Dockerfile
+    steps:
+      - name: Checkout
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          persist-credentials: false
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@8d2750c68a42422c14e847fe6c8ac0403b4cbd6f # v3
+
+      - name: Log in to GHCR
+        uses: docker/login-action@c94ce9fb468520275223c153574b00df6fe4bcc9 # v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build, attest, and push
+        id: build
+        uses: docker/build-push-action@10e90e3645eae34f1e60eeb005ba3a3d33f178e8 # v6
+        with:
+          context: .
+          file: ${{ matrix.file }}
+          platforms: linux/amd64
+          push: true
+          # Build to a staging tag. The final release tags are created only
+          # after the scan and signature pass.
+          tags: ghcr.io/blendsdk/${{ matrix.name }}:staging-${{ needs.gate.outputs.short }}
+          labels: |
+            org.opencontainers.image.title=${{ matrix.name }}
+            org.opencontainers.image.description=OpenVault self-hosted secret and certificate store
+            org.opencontainers.image.licenses=Apache-2.0
+            org.opencontainers.image.source=https://github.com/blendsdk/openvault
+            org.opencontainers.image.revision=${{ github.sha }}
+            org.opencontainers.image.version=${{ needs.gate.outputs.version }}
+            org.opencontainers.image.openvault.production=${{ needs.gate.outputs.production }}
+            org.opencontainers.image.openvault.not-for-production=${{ needs.gate.outputs.not_for_production }}
+          provenance: mode=max
+          sbom: true
+
+      - name: Scan for HIGH and CRITICAL findings
+        uses: aquasecurity/trivy-action@b6643a29fecd7f34b3597bc6acb0a98b03d33ff8 # v0.33.1
+        with:
+          scan-type: image
+          image-ref: ghcr.io/blendsdk/${{ matrix.name }}@${{ steps.build.outputs.digest }}
+          format: table
+          severity: HIGH,CRITICAL
+          exit-code: "1"
+          ignore-unfixed: true
+
+      - name: Generate SPDX SBOM
+        uses: anchore/sbom-action@e22c389904149dbc22b58101806040fa8d37a610 # v0
+        with:
+          image: ghcr.io/blendsdk/${{ matrix.name }}@${{ steps.build.outputs.digest }}
+          format: spdx-json
+          output-file: sbom-${{ matrix.name }}.spdx.json
+          upload-artifact: false
+
+      - name: Install Cosign
+        uses: sigstore/cosign-installer@398d4b0eeef1380460a10c8013a76f728fb906ac # v3
+
+      - name: Sign the image by digest
+        env:
+          IMAGE: ghcr.io/blendsdk/${{ matrix.name }}@${{ steps.build.outputs.digest }}
+        run: cosign sign --yes "$IMAGE"
+
+      - name: Verify the signature
+        env:
+          IMAGE: ghcr.io/blendsdk/${{ matrix.name }}@${{ steps.build.outputs.digest }}
+        run: |
+          cosign verify "$IMAGE" \
+            --certificate-identity-regexp '^https://github.com/blendsdk/openvault/.github/workflows/release.yml@refs/.*$' \
+            --certificate-oidc-issuer https://token.actions.githubusercontent.com
+
+      - name: Record the digest
+        env:
+          IMAGE: ghcr.io/blendsdk/${{ matrix.name }}
+          DIGEST: ${{ steps.build.outputs.digest }}
+        run: printf '%s@%s\n' "$IMAGE" "$DIGEST" > digest-${{ matrix.name }}.txt
+
+      - name: Upload release evidence
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: release-${{ matrix.name }}
+          path: |
+            digest-${{ matrix.name }}.txt
+            sbom-${{ matrix.name }}.spdx.json
+          if-no-files-found: error
+
+  publish:
+    name: Publish release evidence
+    needs: [gate, build]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      packages: write
+    steps:
+      - name: Checkout
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          persist-credentials: false
+
+      - name: Download release evidence
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
+        with:
+          pattern: release-*
+          merge-multiple: true
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@8d2750c68a42422c14e847fe6c8ac0403b4cbd6f # v3
+
+      - name: Log in to GHCR
+        uses: docker/login-action@c94ce9fb468520275223c153574b00df6fe4bcc9 # v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Promote the scanned digests to release tags
+        env:
+          TAGS: ${{ needs.gate.outputs.tags }}
+        run: |
+          set -eu
+          for digest_file in digest-*.txt; do
+            image=$(cut -d@ -f1 "$digest_file")
+            digest=$(cut -d@ -f2 "$digest_file")
+            while IFS= read -r tag; do
+              [ -z "$tag" ] && continue
+              docker buildx imagetools create --tag "${image}:${tag}" "${image}@${digest}"
+            done <<EOF
+          ${TAGS}
+          EOF
+          done
+
+      - name: Summarize
+        env:
+          MODE: ${{ needs.gate.outputs.mode }}
+          VERSION: ${{ needs.gate.outputs.version }}
+        run: |
+          {
+            echo "## OpenVault ${VERSION} (${MODE})"
+            echo
+            echo '```'
+            cat digest-*.txt
+            echo '```'
+            echo
+            echo "SBOMs: $(ls sbom-*.spdx.json | tr '\n' ' ')"
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Create the GitHub release
+        if: needs.gate.outputs.mode == 'production'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          VERSION: ${{ needs.gate.outputs.version }}
+        run: |
+          set -eu
+          {
+            echo "OpenVault ${VERSION}"
+            echo
+            echo "Release images (amd64, signed with Cosign keyless):"
+            echo
+            echo '```'
+            cat digest-*.txt
+            echo '```'
+            echo
+            echo "Verify an image with:"
+            echo
+            echo '```'
+            echo "cosign verify ghcr.io/blendsdk/openvault@<digest> \\"
+            echo "  --certificate-identity-regexp '^https://github.com/blendsdk/openvault/.github/workflows/release.yml@refs/.*$' \\"
+            echo "  --certificate-oidc-issuer https://token.actions.githubusercontent.com"
+            echo '```'
+          } > release-notes.md
+          if gh release view "$VERSION" >/dev/null 2>&1; then
+            gh release upload "$VERSION" sbom-*.spdx.json digest-*.txt --clobber
+            gh release edit "$VERSION" --notes-file release-notes.md
+          else
+            gh release create "$VERSION" sbom-*.spdx.json digest-*.txt \
+              --title "OpenVault ${VERSION}" \
+              --notes-file release-notes.md
+          fi

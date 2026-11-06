@@ -503,8 +503,11 @@ export async function runInit(options: InitOptions): Promise<InitResult> {
   const lockPath = join(dirname(keyringPath), "init.lock");
   const migrationUrl = options.migrationDatabaseUrl ?? options.databaseUrl;
 
+  // Bootstrap writes create the CA, administrator, signing key, and audit key.
+  // Use the owner/migrator connection so the runtime role never needs DDL or
+  // writes to key tables.
   const database = new PostgreSQLDatabase({
-    ...parseDatabaseUrl(options.databaseUrl),
+    ...parseDatabaseUrl(migrationUrl),
     poolConfig: { connectionTimeoutMillis: 2_000 },
     enableGracefulShutdown: false,
   });

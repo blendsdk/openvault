@@ -11,7 +11,10 @@ bind. The server requires Node.js 24.7 or newer (the built-in Argon2 API).
 | `OPENVAULT_ADMIN_PORT` | `8443` | no | Canonical admin HTTPS port |
 | `PORT` | — | no | Compatibility alias for `OPENVAULT_ADMIN_PORT`; a conflict is an error |
 | `OPENVAULT_AGENT_PORT` | `8444` | no | Agent TLS port; join is token-authenticated, other routes are mTLS; must differ from the admin port |
-| `OPENVAULT_DB_URL` | — | yes | PostgreSQL connection string |
+| `OPENVAULT_DB_URL` | — | one URL form | Runtime PostgreSQL connection string; the server connects as `openvault_app` |
+| `OPENVAULT_DB_URL_FILE` | — | one URL form | Read the runtime URL from a regular file that is not group- or world-writable; Docker secrets are `0444` and work |
+| `OPENVAULT_MIGRATION_DB_URL` | none | no | Migrator URL used for startup DDL; must target the same host, port, and database |
+| `OPENVAULT_MIGRATION_DB_URL_FILE` | none | no | File form of the migrator URL |
 | `OPENVAULT_KEYRING` | — | yes | Absolute path to a regular file with mode `0600` |
 | `OPENVAULT_KEYRING_PASSPHRASE_FILE` | none | no | Reserved for age keyrings; setting it fails closed in the current release |
 | `OPENVAULT_TLS_CERT` | — | yes | Readable server certificate PEM |
@@ -23,6 +26,7 @@ bind. The server requires Node.js 24.7 or newer (the built-in Argon2 API).
 | `OPENVAULT_OIDC_ALLOWED_DOMAINS` | none | no | Comma-separated domain allowlist |
 | `OPENVAULT_SECRET_MAX_BYTES` | `65536` | no | 1024–65536; decoded value limit enforced by the secret routes |
 | `OPENVAULT_PURGE_DB_URL` | none | no | Dedicated `openvault_purger` PostgreSQL URL used only by secret and certificate purge |
+| `OPENVAULT_PURGE_DB_URL_FILE` | none | no | File form of the purge URL |
 | `OPENVAULT_CERT_MAX_BYTES` | `131072` | no | 1024–131072; combined public chain bound; the private key is separately limited to 16,384 bytes |
 | `OPENVAULT_CERT_EXPIRY_HOUR` | `3` | no | 0–23 UTC; daily expiry-scan hour |
 | `OPENVAULT_CERT_EXPIRY_WEBHOOK_URL` | none | no | HTTPS URL (loopback HTTP outside production); credentials, fragments, and production link-local/metadata targets are rejected |
@@ -34,10 +38,17 @@ bind. The server requires Node.js 24.7 or newer (the built-in Argon2 API).
 | `OPENVAULT_SESSION_TTL_HOURS` | `8` | no | 1–24 |
 | `OPENVAULT_LOG_LEVEL` | `info` | no | `error`, `warn`, `info`, or `debug` |
 | `OPENVAULT_TRUST_PROXY` | `true` | no | Trust forwarded headers only from peers in `OPENVAULT_PROXY_CIDRS` |
-| `OPENVAULT_PROXY_CIDRS` | `172.16.0.0/12` | no | Comma-separated IPv4/IPv6 CIDRs; canonical network addresses only |
+| `OPENVAULT_RUN_MIGRATIONS` | `true` | no | Run startup migrations; set `false` when a one-shot init job already migrated |
+| `OPENVAULT_PROXY_CIDRS` | `127.0.0.1/32,::1/128` | no | Comma-separated IPv4/IPv6 CIDRs; set the proxy address explicitly in a multi-container deployment |
 
 `OPENVAULT_ADMIN_PORT` wins over `PORT`. If both are set and differ, startup fails with a
 keyed error. The agent port must differ from the resolved admin port.
+
+`OPENVAULT_DB_URL_FILE`, `OPENVAULT_MIGRATION_DB_URL_FILE`, and
+`OPENVAULT_PURGE_DB_URL_FILE` read the URL from a file instead of the environment. The file
+must be a regular file and must not be group- or world-writable; Docker secrets mount as
+`0444`. Setting both the direct and file forms is an error. The migrator and purge URLs must
+target the same host, port, and database as `OPENVAULT_DB_URL`; they may use a different role.
 
 `OPENVAULT_SESSION_TTL_HOURS` is an absolute lifetime measured from session creation, not a
 sliding idle timeout. `OPENVAULT_OIDC_ALLOWED_DOMAINS` enables JIT provisioning; without it,
@@ -55,6 +66,9 @@ server process.
 | `OPENVAULT_CA_FILE` | none | recommended | PEM bundle that verifies the server; must match the proxy's certificate chain |
 | `OPENVAULT_BACKUP_PASSPHRASE_FILE` | none | for non-interactive backup/restore | `0600` file with the archive passphrase; at least 12 characters |
 | `OPENVAULT_RESTORE_DB_URL` | `OPENVAULT_MIGRATION_DB_URL` or `OPENVAULT_DB_URL` | for restore | Owner/migrator URL used to disable triggers, truncate, and load rows |
+| `OPENVAULT_RESTORE_DB_URL_FILE` | none | for restore | File form of the restore URL |
+| `OPENVAULT_RESTORE_AGENT_CERTIFICATE` | none | no | Pre-backup agent certificate PEM verified after restore |
+| `OPENVAULT_BACKUP_DIR` | none | for `ov doctor` | Directory checked against the 24-hour RPO |
 | `OPENVAULT_WEB_ROOT` | `apps/web/dist` beside the server | no | Built SPA directory; when absent the server runs API-only |
 | `OPENVAULT_DEV_URL` | `https://localhost:8443` | dev only | Vite proxy target for local UI development |
 
@@ -95,7 +109,10 @@ keyring, a redacted configuration manifest, the public CA, and audit checkpoints
 `ov restore` uses `OPENVAULT_RESTORE_DB_URL` for migrations and data loading. It must target
 the same database as `OPENVAULT_DB_URL`, and that role must own the tables so user triggers can
 be disabled. Stop the server during restore. The target must be empty unless `--force` is
-supplied, and `--yes` is required in a non-interactive session.
+supplied, and `--yes` is required in a non-interactive session. The command verifies the
+archive checksums, every current secret and certificate private key, the JWT signing key, the
+audit chain, and the CA key before reporting success. `--agent-certificate` adds the pre-backup
+agent certificate check.
 
 `ov kek rotate` also needs table ownership. Stop the server first: a running process holds the
 old keyring in memory and could write a row with the old `kek_id` after the CLI's verification.
@@ -118,8 +135,10 @@ For local development, `pnpm --filter @openvault/web dev` proxies `/v1` to
 
 ## Audit maintenance
 
-Pruning and checkpoint export are separate server-side commands. They read the same server
-configuration as the process and the prune command additionally reads:
+`ov audit checkpoint --out <file>` exports the newest checkpoint using
+`OPENVAULT_DB_URL` or `OPENVAULT_DB_URL_FILE`. It is safe to schedule and does not modify
+the chain. Pruning is a separate server-side command. It reads the same server
+configuration as the process and additionally reads:
 
 | Variable | Default | Required | Notes |
 |---|---|---|---|
@@ -145,11 +164,30 @@ authoritative check.
 
 Requests with a non-JSON body under `/v1` are rejected with `415`.
 
+## Least-privilege database roles
+
+| Role | Ownership | Purpose |
+|---|---|---|
+| `openvault_migrator` | Database, schema, tables | Migrations and restore |
+| `openvault_app` | None | Server runtime DML |
+| `openvault_purger` | None | Controlled purge |
+| `openvault_pruner` | None | Controlled audit prune |
+
+The server runs startup migrations with `OPENVAULT_MIGRATION_DB_URL` and then serves
+traffic with `OPENVAULT_DB_URL`. The runtime role cannot create tables or delete audit
+events. `deploy/postgres/grants.sql` asserts that the migrator owns every application
+table, so a drifted deployment fails loudly instead of silently granting the runtime role
+DDL. Re-run `grants.sql` after a migration that adds a table the purge or prune path must
+access.
+
 ## Secret and certificate purge
 
 Secret and certificate purge need a dedicated login role named `openvault_purger`, because
-the database trigger rejects deletes from the application role. Set `OPENVAULT_PURGE_DB_URL` to
-that role's URL and grant:
+the database trigger rejects deletes from the application role. The reference stack creates
+all four roles with `deploy/postgres/roles.sql`, makes `openvault_migrator` the database and
+table owner, and applies `deploy/postgres/grants.sql`. Set `OPENVAULT_PURGE_DB_URL` to that
+role's URL or point `OPENVAULT_PURGE_DB_URL_FILE` at a Docker secret. The equivalent grants
+are:
 
 ```sql
 GRANT SELECT ON projects TO openvault_purger;

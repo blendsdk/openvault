@@ -18,4 +18,6 @@ Do not include real secrets, private keys, tokens, or production hostnames. If a
 secret may have leaked, rotate it first.
 
 The full policy, including scope and response expectations, is in
-[SECURITY.md](https://github.com/blendsdk/openvault/blob/main/SECURITY.md).
+[SECURITY.md](https://github.com/blendsdk/openvault/blob/main/SECURITY.md). If a
+credential may already be in use, follow the [incident response runbook](incident-response.md)
+before reporting.

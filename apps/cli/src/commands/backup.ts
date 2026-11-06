@@ -3,6 +3,7 @@ import { CommandLineParser } from "blendsdk/cmdline";
 import { CliError } from "../errors.js";
 import type { CliRuntime, CommandGroup, GlobalOptions } from "../types.js";
 import { createCommandContext } from "./context.js";
+import { databaseUrlFromEnv } from "./database-url.js";
 import { flagOption, requiredText, textOption } from "./options.js";
 import { resolvePassphrase } from "./passphrase.js";
 
@@ -36,7 +37,7 @@ export function createBackupParser(globals: GlobalOptions, runtime: CliRuntime):
       { name: "force", type: "boolean", description: "Replace an existing archive" },
     ],
     handler: async (options) => {
-      const databaseUrl = envPath(runtime, "OPENVAULT_DB_URL");
+      const databaseUrl = databaseUrlFromEnv(runtime);
       const keyringPath = resolve(
         runtime.cwd,
         textOption(options, "keyring") ?? envPath(runtime, "OPENVAULT_KEYRING"),

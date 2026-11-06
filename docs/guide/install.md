@@ -1,10 +1,5 @@
 # Install
 
-::: warning Target documentation
-The Compose stack and `ov init` are part of the v0.1 target. The developer install works
-today.
-:::
-
 ## Requirements
 
 | Component | Version |
@@ -28,22 +23,34 @@ pnpm verify
 ## Reference Compose installation
 
 ```bash
-cp .env.example .env
+./deploy/compose/prepare.sh
+export OPENVAULT_BASE_URL=https://vault.example.com
+export OPENVAULT_SITE_ADDRESS=vault.example.com
 docker compose -f deploy/compose/compose.yaml up -d
 ```
 
-The reference stack contains:
+`prepare.sh` creates the persistent host directories and Docker secrets with the
+non-root owners the containers require. It needs root or equivalent permission once.
+It never overwrites an existing secret.
+
+The stack runs:
 
 | Service | Purpose |
 |---|---|
-| `proxy` | TLS termination and HSTS |
-| `openvaultd` | WebAFX API, UI, auth, policy, audit |
+| `proxy` | Public TLS, HSTS, API/UI routing |
+| `openvaultd` | API, auth, policy, audit, agent listener |
+| `web` | Static SPA |
 | `postgres` | Metadata, ciphertext, audit chain |
+| `openvault-init` | One-shot keyring, CA, TLS, organization, bootstrap admin |
+| `openvault-roles` | One-shot least-privilege database grants |
 
-The vault UI is served at `https://localhost` in the reference stack. Replace the
-self-signed certificate with a trusted one for anything beyond local use.
+Only the proxy publishes port 443. The admin listener (`8443`) and agent listener
+(`8444`) stay on internal networks. Replace the `tls internal` certificate with a
+trusted certificate for anything beyond local use.
 
 ## First initialization
+
+The Compose stack runs `ov init --prepare` automatically. For a manual install:
 
 ```bash
 ov init
@@ -59,10 +66,9 @@ This creates:
 - the JWT signing key, wrapped by the KEK
 
 Re-running `ov init` does not rotate an existing CA. The bootstrap password is written once
-to a file with mode `0600`; it is never printed to stdout, stderr, or container logs. Unlike
-the browser flow, the v0.1 bootstrap credential is not force-changed because the CLI has no
-password-change route and the web UI is not yet available. Use the password, then delete the
-one-time file.
+to a file with mode `0600`; it is never printed to stdout, stderr, or container logs. Sign in
+through the web UI, change the password, then delete the one-time file. If the file is lost
+before the first login, start again with an empty database.
 
 `ov init` creates the keyring and TLS material used by the reference stack. The keyring and
 password directories must be owned by the current user and must not be group- or
@@ -77,15 +83,32 @@ world-writable. Losing it means losing every secret.
 Age-encrypted keyrings are not supported in the current release. Setting
 `OPENVAULT_KEYRING_PASSPHRASE_FILE` stops startup rather than falling back to plaintext.
 
+## Verify a release image
+
+Production images are signed with Cosign keyless and carry SBOM and provenance
+attestations. Alpha images are explicitly labelled not for production.
+
+```bash
+IMAGE=ghcr.io/blendsdk/openvault@sha256:<digest>
+cosign verify "$IMAGE" \
+  --certificate-identity-regexp '^https://github.com/blendsdk/openvault/.github/workflows/release.yml@refs/.*$' \
+  --certificate-oidc-issuer https://token.actions.githubusercontent.com
+
+docker buildx imagetools inspect "$IMAGE"
+```
+
+Use the digest from the GitHub release, not a floating tag. The same procedure applies to
+`openvault-agent` and `openvault-web`. See [Release process](/security/release-process).
+
 ## Ports and networks
 
 | Port | Listener | Exposure |
 |---|---|---|
-| 80 | Caddy HTTP redirect / ACME | Host |
 | 443 | Caddy public TLS | Host |
 | 8443 | Admin HTTPS | `admin_net` only; not published |
 | 8444 | Agent TLS (token join + mTLS) | `vault_net` only; not published |
-| 5432 | PostgreSQL | `db_net` only |
+| 8080 | Static web | `web_net` only; not published |
+| 5432 | PostgreSQL | `db_net` only; not published |
 
 The proxy reaches the admin listener on `admin_net`. Agents use the separate listener on
 `vault_net`; the first join is token-authenticated, and every later agent request uses mTLS.
@@ -95,4 +118,5 @@ Agents never use the admin port. Application containers must not join
 ## Next
 
 - [Docker Compose](/guide/docker-compose)
+- [Operations](/guide/operations)
 - [Authentication](/guide/authentication)

@@ -16,7 +16,9 @@ These are accepted for v0.1. They are documented so reviewers do not mistake the
    distinguishes the two. A database administrator who deletes every event and every
    checkpoint leaves an empty chain that cannot prove prior existence. The append-only
    trigger only defends against a role that is not the table owner and not a superuser.
-6. **Single node.** No high availability. RPO 24 hours with daily backups; RTO 1 hour.
+6. **Single node.** No high availability. RPO 24 hours with daily encrypted backups and
+   off-box checkpoint export; RTO 1 hour. The schedule is operator-managed, not an
+   always-on backup daemon.
 7. **Environment injection.** Environment variables cannot update a running process and
    leak through `/proc`, children, and crash dumps. Prefer files.
 8. **Browser sessions.** Sessions live in memory in v0.1. A restart signs users out.
@@ -128,10 +130,10 @@ These are accepted for v0.1. They are documented so reviewers do not mistake the
     for Compose project/service. The agent validates safe values, but a direct malicious join
     could store control characters. Tightening the shared contract is deferred to the identity
     surface.
-44. **Agent image.** The scaffold references
-    `ghcr.io/blendsdk/openvault-agent:0.1.0`; image build, signing, and publishing are release
-    engineering work. The snippet includes the host-directory preparation commands so the
-    deployment contract is explicit before the image is published.
+44. **Release images.** The repository builds server, agent, and web images and the release
+    workflow scans, signs, and attests them. No production-labelled image exists until the
+    independent external review is approved. Alpha images are explicitly labelled not for
+    production. The scaffold's image tag is replaced by the signed digest for production.
 45. **Scaffold serialization.** Grant reconciliation and join-token rotation are serialized by a
     per-identity in-process mutex. This covers the single-instance v0.1 deployment. A
     multi-instance deployment would need a database advisory lock for the same guarantee.
@@ -146,14 +148,17 @@ These are accepted for v0.1. They are documented so reviewers do not mistake the
 48. **Restore ownership.** Restore and KEK rotation disable immutability triggers inside a
     transaction. They require an owner/migrator role; the application role fails with
     `restore_requires_owner` or `kek_rotation_requires_owner`.
-49. **Rotation maintenance window.** A running server holds the old keyring in memory. Stop
-    the server before `ov kek rotate`; otherwise a late write can use the old `kek_id` after
-    the verification step. The old key is removed only after the CLI's own count check.
+49. **Rotation maintenance window.** A running server holds the old keyring in memory. The
+    command refuses while a session user named `openvault_app` is connected, but a deployment
+    that gives the server a different role name bypasses that check. Stop the server before
+    `ov kek rotate`; otherwise a late write can use the old `kek_id` after the verification
+    step. The old key is removed only after the CLI's own count check.
 50. **Bootstrap credential rotation.** The v0.1 bootstrap administrator is created with
     `must_change=false` so the reference stack can complete its first login without an extra
     interactive step. The web UI includes a password-change screen and the server enforces the
-    gate when `must_change` is set. The generated password is strong random material in a
-    one-time `0600` file; the operator must remove that file after first use.
+    gate when `must_change` is set. Change the bootstrap password immediately and remove the
+    one-time `0600` file after first use. The file lives outside the runtime container's keyring
+    mount, so an application compromise does not read it.
 51. **Generated contract schema source.** `pnpm api:check` detects route and artifact drift
     against the route metadata table. A controller schema change that leaves the table untouched
     is caught by the representative command end-to-end tests, not by `api:check` alone.
@@ -196,3 +201,46 @@ These are accepted for v0.1. They are documented so reviewers do not mistake the
 62. **Clipboard clearing is best effort.** The browser can deny clipboard writes or skip the
     delayed clear when the page is not focused. The UI reports that outcome; it cannot
     guarantee that another application has not already read the clipboard.
+63. **Agent certificate restore check.** The v0.1 schema does not store agent leaf certificate
+    PEMs. A restore that needs the pre-backup agent check supplies the certificate saved by the
+    drill with `--agent-certificate`; without it the CA probe still verifies the signing key.
+64. **Split web container.** The reference stack serves the SPA from a separate nginx container
+    so the API and UI have independent hardening. The server can also serve the SPA when
+    `OPENVAULT_WEB_ROOT` points at a build; the Compose stack assigns the UI CSP to the web
+    container.
+65. **Create-once roles.** `deploy/postgres/init-roles.sh` runs only on a fresh PostgreSQL data
+    directory. An existing volume needs the roles and grants applied manually. Re-run
+    `grants.sql` after a migration that adds a table the purge or prune path must access.
+66. **Bind-mount ownership.** The reference stack uses host directories, not Docker-managed
+    volumes, so the operator can set the exact non-root UID and mode. `prepare.sh` needs root
+    (or equivalent) once; a rootless Docker host must map the same UIDs.
+67. **External review is a gate, not code.** The repository can verify test evidence, signed
+    images, SBOMs, scans, and branch protection. It cannot perform the independent human review;
+    a production label remains blocked until the approval file is completed.
+68. **Off-box retention.** The systemd timers run on the vault host and push to an operator
+    destination. If the host and the destination are lost together, the RPO is not met. Keep the
+    checkpoint anchor on independent storage.
+69. **Browser refresh retry receipt.** Browser refresh keeps a ten-second receipt for the
+    previous session secret so a lost response can be retried. Anyone who already holds the
+    old cookie can use that window to obtain the rotated cookie. This is a retry aid, not a
+    theft detector; CLI refresh reuse detection is strict. The window is documented in the
+    claims ledger instead of being described as full browser reuse detection.
+70. **CA rotation.** There is no supported online CA rotation command. A suspected CA
+    compromise requires a fresh deployment, a restore from a pre-compromise backup, new
+    server TLS material, new agent join tokens, and re-issued workload identities.
+71. **Lost join response.** The agent persists its identity only after the join response. If the
+    response is lost after the server commits the token, a retry receives `join_token_used` and
+    the operator must issue a new token. Join replay is bounded by the one-time token instead.
+72. **Restore freshness.** Restore restores an archive as-is. An old archive can undo later
+    revocations and role removals. The command records the archive hash and timestamp in the
+    audit event, but an off-box checkpoint comparison and an anti-rollback flag are follow-up
+    work.
+73. **OIDC identity linking.** There is no administrator route to link a verified OIDC identity
+    to an existing principal. A collision is denied rather than auto-linked; linking requires a
+    controlled database procedure.
+74. **Prune evidence window.** The boundary checkpoint is written before the prefix delete, but
+    a failure after the delete and before the completion event leaves the prune recorded only by
+    the checkpoint. An intent event is follow-up work.
+75. **Agent renewal second factor.** Renewal accepts the current certificate and a fresh key.
+    A stolen certificate can renew until an administrator revokes the identity. Per-certificate
+    revocation or a second factor for key-changing renewal is follow-up work.

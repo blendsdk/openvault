@@ -82,7 +82,15 @@ const PRUNE_DETAIL_KEYS: ReadonlySet<string> = new Set([
 ]);
 
 /** Details keys permitted on backup events. */
-const BACKUP_DETAIL_KEYS: ReadonlySet<string> = new Set(["format", "objectCount", "phase"]);
+const BACKUP_DETAIL_KEYS: ReadonlySet<string> = new Set([
+  "format",
+  "objectCount",
+  "phase",
+  "archiveSha256",
+  "archiveCreatedAt",
+  "secretsVerified",
+  "certificatesVerified",
+]);
 
 /** Details keys permitted on certificate policy events. */
 const CERTIFICATE_DETAIL_KEYS: ReadonlySet<string> = new Set([

@@ -9,11 +9,7 @@ import { PolicyRepository } from "../../src/rbac/policy-repository.js";
 import { PolicyService } from "../../src/rbac/policy-service.js";
 import { KeyringProvider } from "../../src/security/keyring.js";
 import { type AuditActors, resetAuditTables, seedAuditActors } from "./helpers/audit-harness.js";
-import {
-  createChainFixture,
-  createExpiredFixture,
-  createSelfSignedFixture,
-} from "./helpers/certificate-fixtures.js";
+import { createExpiredFixture, createSelfSignedFixture } from "./helpers/certificate-fixtures.js";
 import { type BaseFixture, seedBase } from "./helpers/fixtures.js";
 import { createServerEnvironment } from "./helpers/server-environment.js";
 import { applyMigrations, createTestDatabase, type TestDatabase } from "./helpers/test-database.js";

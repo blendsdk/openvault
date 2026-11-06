@@ -1,0 +1,586 @@
+{
+  "version": 1,
+  "updated": "2026-11-06",
+  "threats": [
+    {
+      "id": "T-01",
+      "threat": "A network attacker intercepts admin, browser, or agent traffic",
+      "protection": "TLS 1.2+, HSTS, a separate mTLS agent listener, and a proxy-only admin listener",
+      "evidence": [
+        {
+          "type": "test",
+          "file": "apps/server/tests/integration/transport.spec.test.ts",
+          "name": "serves health over TLS and rejects a plaintext request"
+        },
+        {
+          "type": "test",
+          "file": "apps/server/tests/integration/agent-listener.spec.test.ts",
+          "name": "should allow the certificate project and reject foreign or deleted projects"
+        }
+      ]
+    },
+    {
+      "id": "T-02",
+      "threat": "Credential stuffing or password guessing against a local account",
+      "protection": "Argon2id, per-address and per-account limits, lockout, and a generic failure response",
+      "evidence": [
+        {
+          "type": "test",
+          "file": "apps/server/tests/integration/auth.local.test.ts",
+          "name": "should lock the credential for fifteen minutes after five failures and refuse a correct password"
+        },
+        {
+          "type": "test",
+          "file": "apps/server/tests/integration/auth.local.test.ts",
+          "name": "should reject the eleventh attempt for one identifier from separate addresses with a rate-limit error"
+        }
+      ]
+    },
+    {
+      "id": "T-03",
+      "threat": "A stolen browser session cookie is replayed",
+      "protection": "Host-scoped HttpOnly Secure SameSite cookie, CSRF token, rotation, and absolute expiry",
+      "evidence": [
+        {
+          "type": "test",
+          "file": "apps/server/tests/integration/auth.sessions.test.ts",
+          "name": "should rotate the secret and CSRF token on refresh while keeping the session identity"
+        },
+        {
+          "type": "test",
+          "file": "apps/server/tests/auth/cookie.impl.test.ts",
+          "name": "should set the host-scoped hardened attributes"
+        }
+      ]
+    },
+    {
+      "id": "T-04",
+      "threat": "A cross-site request performs a state change with the user's cookie",
+      "protection": "Origin and Fetch Metadata checks plus a per-session CSRF header on every unsafe method",
+      "evidence": [
+        {
+          "type": "test",
+          "file": "apps/server/tests/auth/csrf.spec.test.ts",
+          "name": "should reject an unsafe request that omits the CSRF header even when the session is valid"
+        },
+        {
+          "type": "test",
+          "file": "apps/web/tests/session.test.tsx",
+          "name": "should add credentials and the CSRF header to unsafe methods"
+        }
+      ]
+    },
+    {
+      "id": "T-05",
+      "threat": "A stolen CLI access or refresh token is replayed",
+      "protection": "Short-lived JWTs and rotating refresh tokens with reuse detection and family revocation",
+      "evidence": [
+        {
+          "type": "test",
+          "file": "apps/server/tests/integration/auth.cli-refresh.spec.test.ts",
+          "name": "should revoke the whole family and reject the current refresh token when a rotated token is reused"
+        }
+      ]
+    },
+    {
+      "id": "T-06",
+      "threat": "A principal performs an action outside its role, scope, or project",
+      "protection": "Deny-by-default RBAC with org, project, and object scopes and capability flags",
+      "evidence": [
+        {
+          "type": "test",
+          "file": "apps/server/tests/integration/rbac-policy.spec.test.ts",
+          "name": "should deny every action when the principal has no assignment"
+        },
+        {
+          "type": "test",
+          "file": "apps/server/tests/integration/rbac-policy.spec.test.ts",
+          "name": "should never inherit upward from an object assignment"
+        }
+      ]
+    },
+    {
+      "id": "T-07",
+      "threat": "A service identity reaches control-plane actions",
+      "protection": "A service ceiling in the policy engine rejects control-plane actions even with a forged assignment",
+      "evidence": [
+        {
+          "type": "test",
+          "file": "apps/server/tests/integration/rbac-policy.spec.test.ts",
+          "name": "should deny control-plane actions to a service principal even with a forged row"
+        }
+      ]
+    },
+    {
+      "id": "T-08",
+      "threat": "A compromised workload reads another project's delivered files",
+      "protection": "Per-project and per-service host directories, a manifest that cannot change project or root, and a read-only application mount",
+      "evidence": [
+        {
+          "type": "test",
+          "file": "apps/agent/tests/manifest.spec.test.ts",
+          "name": "should reject a mismatched project, service, or output directory"
+        },
+        {
+          "type": "test",
+          "file": "apps/server/tests/scaffold-renderer.impl.test.ts",
+          "name": "should produce distinct per-service and per-project paths"
+        }
+      ]
+    },
+    {
+      "id": "T-09",
+      "threat": "A stolen agent certificate is used after revocation",
+      "protection": "Atomic identity revocation, certificate invalidation, listener cache invalidation, and files removed on 401/403",
+      "evidence": [
+        {
+          "type": "test",
+          "file": "apps/server/tests/integration/agent-listener.spec.test.ts",
+          "name": "should revoke new, reused, and renewal connections within the process"
+        },
+        {
+          "type": "test",
+          "file": "apps/server/tests/integration/agent-revoke.impl.test.ts",
+          "name": "should clear both local caches after an atomic revoke"
+        }
+      ]
+    },
+    {
+      "id": "T-10",
+      "threat": "A database dump exposes secret or certificate plaintext",
+      "protection": "AES-256-GCM envelope encryption with a KEK outside the database and per-object AAD",
+      "evidence": [
+        {
+          "type": "test",
+          "file": "apps/server/tests/integration/secrets-crypto.spec.test.ts",
+          "name": "should encrypt and decrypt through the provider"
+        },
+        {
+          "type": "test",
+          "file": "apps/server/tests/integration/schema.spec.test.ts",
+          "name": "should reject invalid secret envelope lengths and oversized ciphertext"
+        }
+      ]
+    },
+    {
+      "id": "T-11",
+      "threat": "A stolen backup exposes plaintext or is silently corrupted",
+      "protection": "An age passphrase archive with a checksum manifest and a preflight keyring check",
+      "evidence": [
+        {
+          "type": "test",
+          "file": "apps/server/tests/integration/ops.spec.test.ts",
+          "name": "should create a verifiable encrypted archive and reject tampering"
+        },
+        {
+          "type": "test",
+          "file": "apps/server/tests/integration/ops.spec.test.ts",
+          "name": "should restore into an empty target and verify secrets, audit, CA, and agent certificate"
+        }
+      ]
+    },
+    {
+      "id": "T-12",
+      "threat": "The keyring is read, replaced, or serialized into a log",
+      "protection": "Absolute path, exact 0600, no symlinks, status-only serialization, and redacted logs",
+      "evidence": [
+        {
+          "type": "test",
+          "file": "apps/server/tests/keyring.spec.test.ts",
+          "name": "rejects a keyring file that is not exactly 0600"
+        },
+        {
+          "type": "test",
+          "file": "apps/server/tests/keyring.spec.test.ts",
+          "name": "serializes only status fields"
+        }
+      ]
+    },
+    {
+      "id": "T-13",
+      "threat": "An attacker edits, deletes, or truncates the audit chain",
+      "protection": "Hash chain, HMAC, checkpoints, and verification that reports the first broken event",
+      "evidence": [
+        {
+          "type": "test",
+          "file": "apps/server/tests/integration/audit-verify.spec.test.ts",
+          "name": "should detect an edited details value and an edited hash"
+        },
+        {
+          "type": "test",
+          "file": "apps/server/tests/integration/audit-verify.spec.test.ts",
+          "name": "should detect a deleted tail even when a newer checkpoint exists"
+        }
+      ]
+    },
+    {
+      "id": "T-14",
+      "threat": "A secret, token, CSR, or key is written to a log",
+      "protection": "Pino path redaction, request URL sanitization, and agent event-only logging",
+      "evidence": [
+        {
+          "type": "test",
+          "file": "apps/server/tests/logging.spec.test.ts",
+          "name": "masks the documented top-level, one-level, and request-body paths"
+        },
+        {
+          "type": "test",
+          "file": "apps/server/tests/integration/agent-logging.spec.test.ts",
+          "name": "should log stable outcomes without tokens, CSRs, or key material"
+        }
+      ]
+    },
+    {
+      "id": "T-15",
+      "threat": "Injection or path traversal reaches SQL, the filesystem, or a route",
+      "protection": "Parameterized SQL, strict schemas, canonical paths, and malformed-encoding rejection",
+      "evidence": [
+        {
+          "type": "test",
+          "file": "apps/server/tests/integration/transport.spec.test.ts",
+          "name": "normalises path variants and rejects malformed encodings"
+        },
+        {
+          "type": "test",
+          "file": "apps/server/tests/integration/transport.impl.test.ts",
+          "name": "rejects malformed percent encoding at the live listener"
+        }
+      ]
+    },
+    {
+      "id": "T-16",
+      "threat": "An oversized or malformed body exhausts memory or bypasses a limit",
+      "protection": "Body limits, decoded-value limits, and bounded CSR and certificate envelopes",
+      "evidence": [
+        {
+          "type": "test",
+          "file": "apps/server/tests/integration/transport.impl.test.ts",
+          "name": "parses a chunked body once and still applies the secret limit"
+        },
+        {
+          "type": "test",
+          "file": "apps/server/tests/agent/csr.impl.test.ts",
+          "name": "should reject empty and oversized envelopes before ASN.1 parsing"
+        }
+      ]
+    },
+    {
+      "id": "T-17",
+      "threat": "A flood or repeated request bypasses a rate limit",
+      "protection": "Per-IP, per-account, per-principal, per-family, and per-route buckets with bounded state",
+      "evidence": [
+        {
+          "type": "test",
+          "file": "apps/server/tests/integration/secrets-http.spec.test.ts",
+          "name": "should limit one principal and keep separate buckets"
+        },
+        {
+          "type": "test",
+          "file": "apps/server/tests/agent/rate-limits.impl.test.ts",
+          "name": "should limit joins per source address"
+        }
+      ]
+    },
+    {
+      "id": "T-18",
+      "threat": "A container escapes its intended privileges or reaches the Docker socket",
+      "protection": "Non-root users, read-only roots, capability drops, no-new-privileges, resource limits, and no socket mount",
+      "evidence": [
+        {
+          "type": "script",
+          "file": "scripts/check-compose.mjs",
+          "name": "validateCompose"
+        },
+        {
+          "type": "manual",
+          "file": "docs/security/hardening.md",
+          "check": "Review the host, network, and container checklist before deployment."
+        }
+      ]
+    },
+    {
+      "id": "T-19",
+      "threat": "A browser secret value leaks into storage, the URL, or the console",
+      "protection": "Reveal lives only in component state, clears on blur/navigation/timeout, and is never stored",
+      "evidence": [
+        {
+          "type": "test",
+          "file": "apps/web/tests/secret-detail.test.tsx",
+          "name": "should mask the value and read it only on reveal"
+        },
+        {
+          "type": "test",
+          "file": "apps/web/tests/secrets-list.test.tsx",
+          "name": "should create a secret and clear the value from the dialog"
+        }
+      ]
+    },
+    {
+      "id": "T-20",
+      "threat": "The admin listener is reachable without the proxy or health source guard",
+      "protection": "Proxy CIDR allowlist, loopback-only health and readiness, and no published admin port",
+      "evidence": [
+        {
+          "type": "test",
+          "file": "apps/server/tests/integration/transport.spec.test.ts",
+          "name": "allows health and readiness but not general admin routes"
+        },
+        {
+          "type": "test",
+          "file": "apps/server/tests/integration/transport.spec.test.ts",
+          "name": "matches IPv4, IPv4-mapped, and IPv6 peers and rejects mixed families"
+        }
+      ]
+    }
+  ],
+  "securityCategories": [
+    {
+      "id": "authorization-matrix",
+      "label": "Authorization matrix and service ceiling",
+      "evidence": [
+        {
+          "type": "test",
+          "file": "apps/server/tests/integration/rbac-policy.spec.test.ts",
+          "name": "should honor the role matrix and scope eligibility"
+        }
+      ]
+    },
+    {
+      "id": "injection",
+      "label": "Injection and path traversal",
+      "evidence": [
+        {
+          "type": "test",
+          "file": "apps/server/tests/integration/transport.impl.test.ts",
+          "name": "rejects malformed percent encoding at the live listener"
+        }
+      ]
+    },
+    {
+      "id": "oversized-bodies",
+      "label": "Oversized bodies",
+      "evidence": [
+        {
+          "type": "test",
+          "file": "apps/server/tests/integration/transport.impl.test.ts",
+          "name": "parses a chunked body once and still applies the secret limit"
+        }
+      ]
+    },
+    {
+      "id": "rate-limits",
+      "label": "Rate limits",
+      "evidence": [
+        {
+          "type": "test",
+          "file": "apps/server/tests/integration/auth.local.test.ts",
+          "name": "should reject the sixth login from one address within a minute with a rate-limit error"
+        }
+      ]
+    },
+    {
+      "id": "csrf",
+      "label": "CSRF",
+      "evidence": [
+        {
+          "type": "test",
+          "file": "apps/server/tests/auth/csrf.spec.test.ts",
+          "name": "should reject an unsafe request when the Origin does not match the configured origin"
+        }
+      ]
+    },
+    {
+      "id": "session-rotation",
+      "label": "Session rotation",
+      "evidence": [
+        {
+          "type": "test",
+          "file": "apps/server/tests/auth/sessions.spec.test.ts",
+          "name": "should issue a new secret and CSRF token while keeping the public identity and expiry"
+        }
+      ]
+    },
+    {
+      "id": "token-reuse",
+      "label": "Token reuse",
+      "evidence": [
+        {
+          "type": "test",
+          "file": "apps/server/tests/integration/auth.cli-refresh.spec.test.ts",
+          "name": "should allow exactly one of two concurrent refreshes and revoke the family for both tokens"
+        }
+      ]
+    },
+    {
+      "id": "mtls-rejection",
+      "label": "mTLS rejection",
+      "evidence": [
+        {
+          "type": "test",
+          "file": "apps/server/tests/integration/transport.spec.test.ts",
+          "name": "rejects missing and untrusted client certificates and accepts the trusted one"
+        }
+      ]
+    },
+    {
+      "id": "audit-tamper",
+      "label": "Audit tamper",
+      "evidence": [
+        {
+          "type": "test",
+          "file": "apps/server/tests/integration/audit-verify.spec.test.ts",
+          "name": "should detect a deleted middle event at the next retained row"
+        }
+      ]
+    },
+    {
+      "id": "redaction",
+      "label": "Redaction",
+      "evidence": [
+        {
+          "type": "test",
+          "file": "apps/server/tests/logging.spec.test.ts",
+          "name": "masks the documented top-level, one-level, and request-body paths"
+        }
+      ]
+    },
+    {
+      "id": "tmpfs-isolation",
+      "label": "Tmpfs isolation",
+      "evidence": [
+        {
+          "type": "test",
+          "file": "apps/server/tests/scaffold-renderer.impl.test.ts",
+          "name": "should produce distinct per-service and per-project paths"
+        },
+        {
+          "type": "manual",
+          "file": "docs/security/hardening.md",
+          "check": "Verify each service has its own 0700 host tmpfs directory and a read-only application mount."
+        }
+      ]
+    },
+    {
+      "id": "no-value-leakage",
+      "label": "No secret-value leakage",
+      "evidence": [
+        {
+          "type": "test",
+          "file": "apps/web/tests/secret-detail.test.tsx",
+          "name": "should mask the value and read it only on reveal"
+        },
+        {
+          "type": "test",
+          "file": "apps/server/tests/integration/agent-logging.spec.test.ts",
+          "name": "should log stable outcomes without tokens, CSRs, or key material"
+        }
+      ]
+    }
+  ],
+  "requiredSpecs": [
+    {
+      "rd": "RD-01",
+      "files": [
+        "apps/server/tests/config.spec.test.ts",
+        "apps/server/tests/integration/migrations.spec.test.ts"
+      ]
+    },
+    {
+      "rd": "RD-02",
+      "files": [
+        "apps/server/tests/integration/transport.spec.test.ts",
+        "apps/server/tests/integration/readiness.spec.test.ts"
+      ]
+    },
+    {
+      "rd": "RD-03",
+      "files": [
+        "apps/server/tests/auth/password.spec.test.ts",
+        "apps/server/tests/auth/sessions.spec.test.ts",
+        "apps/server/tests/auth/csrf.spec.test.ts"
+      ]
+    },
+    {
+      "rd": "RD-04",
+      "files": [
+        "apps/server/tests/integration/auth.cli-login.spec.test.ts",
+        "apps/server/tests/integration/auth.cli-refresh.spec.test.ts"
+      ]
+    },
+    {
+      "rd": "RD-05",
+      "files": [
+        "apps/server/tests/integration/agent-join.spec.test.ts",
+        "apps/server/tests/integration/ca-x509.spec.test.ts",
+        "apps/server/tests/integration/service-principals.spec.test.ts"
+      ]
+    },
+    {
+      "rd": "RD-06",
+      "files": [
+        "apps/server/tests/integration/rbac-policy.spec.test.ts",
+        "apps/server/tests/integration/rbac-catalog.spec.test.ts"
+      ]
+    },
+    {
+      "rd": "RD-07",
+      "files": [
+        "apps/server/tests/integration/audit-chain.spec.test.ts",
+        "apps/server/tests/integration/audit-security.spec.test.ts"
+      ]
+    },
+    {
+      "rd": "RD-08",
+      "files": [
+        "apps/server/tests/integration/secrets-crypto.spec.test.ts",
+        "apps/server/tests/integration/secrets-lifecycle.spec.test.ts"
+      ]
+    },
+    {
+      "rd": "RD-09",
+      "files": [
+        "apps/server/tests/integration/certificates-pem.spec.test.ts",
+        "apps/server/tests/integration/certificates-lifecycle.spec.test.ts",
+        "apps/server/tests/integration/certificates-expiry.spec.test.ts"
+      ]
+    },
+    {
+      "rd": "RD-10",
+      "files": [
+        "apps/agent/tests/delivery.spec.test.ts",
+        "apps/agent/tests/join.spec.test.ts",
+        "apps/server/tests/integration/scaffold.spec.test.ts"
+      ]
+    },
+    {
+      "rd": "RD-11",
+      "files": [
+        "apps/cli/tests/commands.spec.test.ts",
+        "apps/server/tests/integration/ops.spec.test.ts"
+      ]
+    },
+    {
+      "rd": "RD-12",
+      "files": [
+        "apps/server/tests/integration/web-ui.spec.test.ts",
+        "apps/web/tests/secret-detail.test.tsx",
+        "apps/web/tests/login.test.tsx"
+      ]
+    },
+    {
+      "rd": "RD-13",
+      "files": [
+        "apps/server/tests/integration/ops.spec.test.ts",
+        "apps/server/tests/integration/roles.spec.test.ts",
+        "apps/cli/tests/doctor.impl.test.ts"
+      ]
+    },
+    {
+      "rd": "RD-14",
+      "files": [
+        "apps/server/tests/integration/rbac-release.spec.test.ts",
+        "apps/server/tests/auth/csrf.spec.test.ts"
+      ]
+    }
+  ]
+}

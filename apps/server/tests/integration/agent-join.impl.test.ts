@@ -5,10 +5,14 @@ import { AgentJoinService } from "../../src/agent/agent-join-service.js";
 import type { AgentRuntimeCore } from "../../src/agent/agent-runtime.js";
 import { ConsumerRepository } from "../../src/agent/consumer-repository.js";
 import { CaSigner } from "../../src/security/ca.js";
-import { type AgentTestServer, startAgentTestServer } from "./helpers/agent-app.js";
+import {
+  type AgentTestServer,
+  createAgentServerEnvironment,
+  type ServerEnvironment,
+  startAgentTestServer,
+} from "./helpers/agent-app.js";
 import { type AgentCaFixture, createAgentCaFixture, createAgentCsr } from "./helpers/agent-tls.js";
 import { testUlid } from "./helpers/fixtures.js";
-import { createServerEnvironment, type ServerEnvironment } from "./helpers/server-environment.js";
 import { applyMigrations, createTestDatabase, type TestDatabase } from "./helpers/test-database.js";
 
 const consumer: AgentConsumer = {
@@ -37,7 +41,7 @@ beforeAll(async () => {
   testDb = await createTestDatabase();
   await applyMigrations(testDb);
   ca = await createAgentCaFixture();
-  environment = createServerEnvironment({
+  environment = await createAgentServerEnvironment(ca, {
     OPENVAULT_DB_URL: testDb.url,
     OPENVAULT_INTERNAL_CA: ca.certPath,
     OPENVAULT_PROXY_CIDRS: "127.0.0.1/32,::1/128",

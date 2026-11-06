@@ -50,14 +50,45 @@ export interface KekRotateResult {
   readonly oldKeyRemoved: boolean;
 }
 
-/** Chooses the next `kek-<n>` identifier. */
+/**
+ * Creates a fresh KEK identifier.
+ *
+ * Keys are never reused. A counter would need durable state outside the
+ * keyring; a random identifier avoids that state and still fits the key-id
+ * grammar (`kek-` plus 24 hex characters).
+ */
 function nextKekId(ids: readonly string[]): string {
   const used = new Set(ids);
-  let index = 1;
-  while (used.has(`kek-${index}`)) {
-    index += 1;
+  for (;;) {
+    const candidate = `kek-${randomBytes(12).toString("hex")}`;
+    if (!used.has(candidate)) {
+      return candidate;
+    }
   }
-  return `kek-${index}`;
+}
+
+/**
+ * Refuses rotation while the application role is connected.
+ *
+ * The reference server connects as `openvault_app`. A live process holds the
+ * old keyring in memory and can write a row with the old `kek_id` after the
+ * rotation count check. This is the one runtime invariant the CLI can observe
+ * from the database.
+ */
+async function assertNoRuntimeConnection(database: PostgreSQLDatabase): Promise<void> {
+  const result = await database.executeQuery<{ count: number }>(
+    `SELECT count(*)::int AS count
+       FROM pg_stat_activity
+      WHERE datname = current_database()
+        AND usename = 'openvault_app'
+        AND pid <> pg_backend_pid()`,
+  );
+  if ((result.records[0]?.count ?? 0) > 0) {
+    throw new OpsError(
+      "kek_rotation_server_running",
+      "The application role is connected; stop openvaultd before rotating the KEK",
+    );
+  }
 }
 
 /** Rewraps one key and returns all three fields. */
@@ -232,6 +263,7 @@ async function runKekRotateLocked(options: KekRotateOptions): Promise<KekRotateR
   let oldProvider: KeyringProvider | undefined;
   let newProvider: KeyringProvider | undefined;
   try {
+    await assertNoRuntimeConnection(database);
     oldProvider = await KeyringProvider.load(options.keyringPath);
     await recordOperationsEvent({
       database,

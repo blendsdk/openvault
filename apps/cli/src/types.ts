@@ -57,6 +57,10 @@ export interface CliRuntime {
   readonly runKekRotate?: (
     options: import("@openvault/server/ops").KekRotateOptions,
   ) => Promise<import("@openvault/server/ops").KekRotateResult>;
+  /** Injected audit-checkpoint export function for tests. */
+  readonly runCheckpointExport?: (
+    options: import("@openvault/server/ops").CheckpointExportOptions,
+  ) => Promise<import("@openvault/server/ops").CheckpointExportResult>;
 }
 
 /** One command group. */

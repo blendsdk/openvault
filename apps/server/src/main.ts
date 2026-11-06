@@ -13,12 +13,48 @@ import { TlsMaterial } from "./transport/tls.js";
 
 let keyring: KeyringProvider | undefined;
 
+/**
+ * Runs startup migrations with the migrator URL when one is configured.
+ *
+ * The BlendSDK migration runner reads `OPENVAULT_DB_URL`, so this helper
+ * temporarily supplies the migrator URL and restores the previous value even
+ * when migration fails. The application database connection then uses the
+ * runtime role from `config.database`.
+ */
+async function runStartupMigrations(
+  databaseUrl: string,
+  migrationDatabaseUrl: string | undefined,
+  runAtStartup: boolean,
+): Promise<void> {
+  if (!runAtStartup) {
+    return;
+  }
+  // The runner reads OPENVAULT_DB_URL. Pass the explicit value even when no
+  // migration URL was configured, because a file-backed URL never appears in
+  // process.env.
+  const previous = process.env.OPENVAULT_DB_URL;
+  process.env.OPENVAULT_DB_URL = migrationDatabaseUrl ?? databaseUrl;
+  try {
+    await runMigrations({ command: "up", configPath: migrationConfigPath });
+  } finally {
+    if (previous === undefined) {
+      delete process.env.OPENVAULT_DB_URL;
+    } else {
+      process.env.OPENVAULT_DB_URL = previous;
+    }
+  }
+}
+
 try {
   const config = loadConfig(process.env);
   keyring = await KeyringProvider.load(config.keyringPath);
   const tls = TlsMaterial.load(config);
 
-  await runMigrations({ command: "up", configPath: migrationConfigPath });
+  await runStartupMigrations(
+    config.databaseUrl,
+    config.migrationDatabaseUrl,
+    config.runMigrationsAtStartup,
+  );
 
   const database = new PostgreSQLDatabase({
     ...config.database,

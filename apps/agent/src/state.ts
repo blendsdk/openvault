@@ -3,7 +3,7 @@ import { closeSync, constants, fstatSync, openSync, readFileSync, rmSync } from 
 import { join } from "node:path";
 import { z } from "zod";
 import { AgentError } from "./errors.js";
-import { atomicWriteFile, currentUid, ensureSecureDirectory, readRegularFile } from "./fs-utils.js";
+import { atomicWriteFile, currentUid, ensureSecureDirectory } from "./fs-utils.js";
 
 /** Persisted identity material. */
 export interface StoredIdentity {

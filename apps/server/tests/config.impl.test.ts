@@ -1,3 +1,4 @@
+import { chmodSync } from "node:fs";
 import { afterEach, describe, expect, it } from "vitest";
 import {
   ConfigError,
@@ -6,7 +7,11 @@ import {
   loadConfig,
   parseCidrList,
 } from "../src/config/index.js";
-import { type ConfigFixture, createConfigFixture } from "./helpers/config-fixture.js";
+import {
+  type ConfigFixture,
+  createConfigFixture,
+  writeFixtureFile,
+} from "./helpers/config-fixture.js";
 
 let fixture: ConfigFixture | undefined;
 
@@ -18,6 +23,14 @@ afterEach(() => {
 function config() {
   fixture = createConfigFixture();
   return loadConfig(fixture.env);
+}
+
+/** Returns the fixture created by the current test. */
+function currentFixture(): ConfigFixture {
+  if (fixture === undefined) {
+    throw new Error("fixture is not initialized");
+  }
+  return fixture;
 }
 
 describe("WebAFX settings bridge", () => {
@@ -35,6 +48,70 @@ describe("WebAFX settings bridge", () => {
     expect(settings.CORS).toBe(false);
     expect(settings.TRUST_PROXY).toBe(false);
     expect(settings.BODY_LIMIT).toBe("1mb");
+  });
+});
+
+describe("file-backed database URLs", () => {
+  it("reads a Docker-style readonly secret file", () => {
+    fixture = createConfigFixture();
+    const current = currentFixture();
+    const path = writeFixtureFile(
+      current.directory,
+      "db-url",
+      "postgres://openvault_app:secret@localhost:5432/openvault\n",
+      0o444,
+    );
+    delete current.env.OPENVAULT_DB_URL;
+    current.env.OPENVAULT_DB_URL_FILE = path;
+
+    const config = loadConfig(current.env);
+
+    expect(config.databaseUrl).toContain("openvault_app");
+    expect(config.database.user).toBe("openvault_app");
+    expect(config.database.database).toBe("openvault");
+  });
+
+  it("rejects direct and file forms together", () => {
+    fixture = createConfigFixture();
+    const current = currentFixture();
+    const path = writeFixtureFile(
+      current.directory,
+      "db-url",
+      "postgres://openvault_app:secret@localhost:5432/openvault\n",
+      0o444,
+    );
+    current.env.OPENVAULT_DB_URL_FILE = path;
+
+    expect(() => loadConfig(current.env)).toThrowError(/cannot both be set/);
+  });
+
+  it("rejects a group-writable secret file", () => {
+    fixture = createConfigFixture();
+    const current = currentFixture();
+    const path = writeFixtureFile(
+      current.directory,
+      "db-url",
+      "postgres://openvault_app:secret@localhost:5432/openvault\n",
+      0o620,
+    );
+    chmodSync(path, 0o620);
+    delete current.env.OPENVAULT_DB_URL;
+    current.env.OPENVAULT_DB_URL_FILE = path;
+
+    expect(() => loadConfig(current.env)).toThrowError(/group- or world-writable/);
+  });
+
+  it("accepts a migrator URL on the same database and rejects another target", () => {
+    fixture = createConfigFixture();
+    const current = currentFixture();
+    current.env.OPENVAULT_MIGRATION_DB_URL =
+      "postgres://openvault_migrator:secret@localhost:5432/openvault";
+
+    expect(loadConfig(current.env).migrationDatabaseUrl).toContain("openvault_migrator");
+
+    current.env.OPENVAULT_MIGRATION_DB_URL =
+      "postgres://openvault_migrator:secret@localhost:5432/other";
+    expect(() => loadConfig(current.env)).toThrowError(/same database/);
   });
 });
 

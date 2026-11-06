@@ -12,7 +12,8 @@ export type OpsErrorCode =
   | "restore_archive_invalid"
   | "kek_rotation_failed"
   | "kek_rotation_incomplete"
-  | "kek_rotation_requires_owner";
+  | "kek_rotation_requires_owner"
+  | "kek_rotation_server_running";
 
 /** One backup, restore, or rotation failure. */
 export class OpsError extends Error {

@@ -198,7 +198,7 @@ export class ScaffoldService {
           service: input.service,
           entries: input.entries,
         }),
-        manifestFile: manifestFileName(input.service),
+        manifestFile: manifestFileName(input.project, input.service),
       };
     });
   }

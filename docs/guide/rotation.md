@@ -14,9 +14,14 @@ the consumer first if the old value must keep working during the transition.
 
 ## KEK rotation
 
-Stop the server first. A running process holds the old keyring in memory and can write a row
-with the old `kek_id` after the CLI verifies the rotation. Run the command as a role that owns
-the key tables; it temporarily disables the immutability triggers.
+Stop the server first. The command refuses to run while an `openvault_app` session is
+connected. A running process holds the old keyring in memory and can write a row with the old
+`kek_id` after the CLI verifies the rotation. Run the command as a role that owns the key
+tables; it temporarily disables the immutability triggers.
+
+Copy the current keyring to the backup evidence store before rotating. A backup taken before
+the rotation needs the keyring that existed when it was taken; the rotation removes the old
+key after it verifies the new one.
 
 ```bash
 ov kek rotate --dry-run

@@ -3,6 +3,7 @@ import { CommandLineParser } from "blendsdk/cmdline";
 import { CliError } from "../errors.js";
 import type { CliRuntime, CommandGroup, GlobalOptions } from "../types.js";
 import { createCommandContext } from "./context.js";
+import { databaseUrlFromEnv } from "./database-url.js";
 import { flagOption, textOption } from "./options.js";
 
 /** Builds the KEK group parser. */
@@ -17,12 +18,7 @@ export function createKekParser(globals: GlobalOptions, runtime: CliRuntime): Co
       { name: "keyring", type: "string", description: "Keyring path (default: OPENVAULT_KEYRING)" },
     ],
     handler: async (options) => {
-      const databaseUrl = runtime.env.OPENVAULT_DB_URL;
-      if (databaseUrl === undefined || databaseUrl.length === 0) {
-        throw new CliError("usage_error", "OPENVAULT_DB_URL is required in the environment", {
-          exitCode: 2,
-        });
-      }
+      const databaseUrl = databaseUrlFromEnv(runtime);
       const keyringRaw = textOption(options, "keyring") ?? runtime.env.OPENVAULT_KEYRING;
       if (keyringRaw === undefined) {
         throw new CliError("usage_error", "OPENVAULT_KEYRING is required", { exitCode: 2 });
