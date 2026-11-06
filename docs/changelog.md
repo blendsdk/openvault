@@ -70,6 +70,9 @@
 - Hardened four-service Compose stack: non-root users, read-only roots, capability drops,
   no-new-privileges, resource limits, log rotation, Docker secrets, internal networks, and a
   static web container. `pnpm check:compose` enforces the contract.
+- Disposable local review environment (`deploy/compose/review.sh`): loopback-only proxy,
+  local TLS, ownership setup through Docker, synthetic projects and secrets, a signed-in CLI
+  shell, and guarded reset.
 - Server, agent, and web Dockerfiles with digest-pinned base images.
 - `ov doctor` database, keyring, TLS, clock, and 24-hour backup-age checks.
 - `ov audit checkpoint --out` and systemd timers for daily encrypted backup and off-box

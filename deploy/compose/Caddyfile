@@ -1,5 +1,8 @@
 {
   email {$ACME_EMAIL}
+  # The proxy runs as a non-root, read-only container. Trust for a local CA is
+  # installed by the operator or the review script, never inside the container.
+  skip_install_trust
   servers {
     timeouts {
       read_header 10s

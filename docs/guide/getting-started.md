@@ -57,15 +57,29 @@ Build the docs:
 pnpm docs:dev
 ```
 
+## Full-stack review
+
+The fastest way to see the full product is the disposable review stack. It builds local images,
+seeds synthetic data, and exposes only `https://localhost:8443`:
+
+```bash
+./deploy/compose/review.sh up
+./deploy/compose/review.sh password
+```
+
+See [Review the app](/guide/review) for the walkthrough, demo data, and cleanup.
+
 ## Reference stack flow
 
 ```bash
-cp .env.example .env
+./deploy/compose/prepare.sh
+export OPENVAULT_BASE_URL=https://localhost
+export OPENVAULT_SITE_ADDRESS=localhost
 docker compose -f deploy/compose/compose.yaml up -d
-ov login --url https://localhost --identifier admin@openvault.local
 ```
 
-Then:
+Then read the bootstrap password through the init container, sign in, and delete the copy. See
+[Docker Compose](/guide/docker-compose#bootstrap-password). Then:
 
 1. Create a project in the UI at `https://localhost`.
 2. Store a secret and reveal it once to confirm the audited read.
