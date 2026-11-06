@@ -23,13 +23,15 @@ import {
 } from "../helpers/test-database.js";
 
 const ROLE_PASSWORD = randomBytes(18).toString("base64url");
+const APP_PASSWORD = "app-password";
+const SHARED_PASSWORD = "test-password";
 const ROLES = [
-  "openvault_migrator",
-  "openvault_app",
-  "openvault_auth",
-  "openvault_purger",
-  "openvault_pruner",
-];
+  ["openvault_migrator", ROLE_PASSWORD],
+  ["openvault_app", APP_PASSWORD],
+  ["openvault_auth", ROLE_PASSWORD],
+  ["openvault_purger", SHARED_PASSWORD],
+  ["openvault_pruner", SHARED_PASSWORD],
+] as const;
 
 let testDb: TestDatabase;
 let base: BaseFixture;
@@ -49,14 +51,14 @@ function connectionFor(url: string, user: string, password: string): PostgreSQLD
   });
 }
 
-async function ensureRole(admin: Client, name: string): Promise<void> {
+async function ensureRole(admin: Client, name: string, password: string): Promise<void> {
   const existing = await admin.query("SELECT 1 FROM pg_roles WHERE rolname = $1", [name]);
   if (existing.rowCount === 0) {
     await admin.query(
-      `CREATE ROLE ${name} LOGIN NOSUPERUSER NOCREATEDB NOCREATEROLE NOINHERIT PASSWORD '${ROLE_PASSWORD}'`,
+      `CREATE ROLE ${name} LOGIN NOSUPERUSER NOCREATEDB NOCREATEROLE NOINHERIT PASSWORD '${password}'`,
     );
   } else {
-    await admin.query(`ALTER ROLE ${name} PASSWORD '${ROLE_PASSWORD}'`);
+    await admin.query(`ALTER ROLE ${name} PASSWORD '${password}'`);
   }
 }
 
@@ -85,8 +87,8 @@ beforeAll(async () => {
         "refusing to reset production role names; set OPENVAULT_TEST_DISPOSABLE_ROLES=1 in a disposable cluster",
       );
     }
-    for (const role of ROLES) {
-      await ensureRole(admin, role);
+    for (const [role, password] of ROLES) {
+      await ensureRole(admin, role, password);
     }
     await admin.query("ALTER SCHEMA public OWNER TO openvault_migrator");
     await admin.query(`
@@ -120,7 +122,7 @@ beforeAll(async () => {
     await grantClient.end();
   }
 
-  appDb = connectionFor(testDb.url, "openvault_app", ROLE_PASSWORD);
+  appDb = connectionFor(testDb.url, "openvault_app", APP_PASSWORD);
   authDb = connectionFor(testDb.url, "openvault_auth", ROLE_PASSWORD);
 }, 60_000);
 
