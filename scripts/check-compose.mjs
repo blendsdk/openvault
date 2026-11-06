@@ -9,9 +9,10 @@
  */
 import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
-import { parse } from "yaml";
+import { parse, parseDocument } from "yaml";
 
 const path = fileURLToPath(new URL("../deploy/compose/compose.yaml", import.meta.url));
+const reviewPath = fileURLToPath(new URL("../deploy/compose/compose.review.yaml", import.meta.url));
 
 /** Collects one contract failure. */
 function check(condition, message, failures) {
@@ -187,11 +188,42 @@ export function validateCompose(document) {
   return failures;
 }
 
+/**
+ * Checks the local review overlay.
+ *
+ * The overlay exists to expose the UI on loopback without weakening the base
+ * deployment contract. It must not introduce a second published port, a
+ * non-loopback bind, or a privileged service.
+ *
+ * @param document - The parsed review overlay.
+ * @returns One message per contract failure.
+ */
+export function validateReviewCompose(document) {
+  const failures = [];
+  const all = services(document);
+  for (const [name, service] of Object.entries(all)) {
+    check(service.privileged !== true, `${name}: review overlay must not be privileged`, failures);
+    const ports = service.ports ?? [];
+    if (name !== "proxy") {
+      check(ports.length === 0, `${name}: review overlay must not publish a port`, failures);
+      continue;
+    }
+    check(ports.length === 1, "proxy: review overlay must publish exactly one port", failures);
+    const port = String(ports[0] ?? "");
+    check(port.startsWith("127.0.0.1:"), "proxy: review port must bind loopback only", failures);
+    check(port.endsWith(":443"), "proxy: review port must target 443", failures);
+  }
+  return failures;
+}
+
 /** Runs the contract and an in-memory negative-control self test. */
 function main() {
   const source = readFileSync(path, "utf8");
   const document = parse(source, { merge: true });
   const failures = validateCompose(document);
+  const reviewSource = readFileSync(reviewPath, "utf8");
+  const reviewDocument = parseDocument(reviewSource, { merge: true }).toJS();
+  failures.push(...validateReviewCompose(reviewDocument));
   if (process.argv.includes("--self-test")) {
     const broken = structuredClone(document);
     delete broken.services.openvaultd.read_only;
@@ -211,6 +243,21 @@ function main() {
     ]) {
       if (!negative.some((entry) => entry.includes(expected))) {
         failures.push(`self-test did not catch: ${expected}`);
+      }
+    }
+    const brokenReview = structuredClone(reviewDocument);
+    brokenReview.services.proxy.ports = ["0.0.0.0:8443:443"];
+    brokenReview.services.openvaultd = {
+      ...structuredClone(document.services.openvaultd),
+      ports: ["8443:8443"],
+    };
+    const negativeReview = validateReviewCompose(brokenReview);
+    for (const expected of [
+      "proxy: review port must bind loopback only",
+      "openvaultd: review overlay must not publish a port",
+    ]) {
+      if (!negativeReview.some((entry) => entry.includes(expected))) {
+        failures.push(`review self-test did not catch: ${expected}`);
       }
     }
   }

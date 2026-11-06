@@ -3,6 +3,7 @@ import { Button } from "@fluentui/react-components";
 import { useState } from "react";
 import { useForm } from "react-hook-form";
 import { Navigate, useLocation } from "react-router";
+import { BrandMark } from "../components/brand.js";
 import { ErrorAlert } from "../components/feedback.js";
 import { useAsync } from "../hooks/use-async.js";
 import { reloadTo } from "../session/reload.js";
@@ -74,9 +75,7 @@ export function LoginPage() {
     <main className="login-page">
       <section className="login-card" aria-labelledby="login-title">
         <div className="brand brand-large">
-          <span className="brand-mark" aria-hidden="true">
-            OV
-          </span>
+          <BrandMark />
           <span className="brand-name">OpenVault</span>
         </div>
         <h1 id="login-title">Sign in</h1>

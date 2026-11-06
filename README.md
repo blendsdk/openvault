@@ -73,6 +73,20 @@ pnpm docs:dev
 pnpm docs:build
 ```
 
+## Review the app locally
+
+The review script builds the current checkout, starts the full stack on loopback, and seeds
+synthetic projects, secrets, certificates, identities, grants, and audit events:
+
+```bash
+./deploy/compose/review.sh up
+./deploy/compose/review.sh password
+```
+
+Open `https://localhost:8443` and sign in as `admin@openvault.local`. See
+[Review the app](docs/guide/review.md) for the walkthrough, browser security checks, and
+cleanup.
+
 ## Compose quick start
 
 ```bash
@@ -82,8 +96,16 @@ export OPENVAULT_SITE_ADDRESS=localhost
 docker compose -f deploy/compose/compose.yaml up -d
 ```
 
-Read and remove the one-time bootstrap password under `deploy/compose/data/bootstrap/`,
-then open `https://localhost`, create a project, and deliver a secret to a service:
+Read the one-time password through the init container, remove the copy, then open
+`https://localhost`, create a project, and deliver a secret to a service:
+
+```bash
+install -m 0600 /dev/null /tmp/openvault-bootstrap
+docker compose -f deploy/compose/compose.yaml cp \
+  openvault-init:/bootstrap/bootstrap-password /tmp/openvault-bootstrap
+cat /tmp/openvault-bootstrap
+rm -f /tmp/openvault-bootstrap
+```
 
 ```bash
 ov docker scaffold payments api

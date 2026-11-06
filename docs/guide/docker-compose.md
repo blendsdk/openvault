@@ -31,6 +31,10 @@ as the site address. `prepare.sh` creates:
 - `data/caddy` owned by UID 65534.
 - Docker secrets for the PostgreSQL bootstrap password and four role URLs.
 
+File-backed Compose secrets are bind mounts rather than Swarm secrets. `prepare.sh` makes the
+secret files `0444` so the non-root service users can read them; the `0700` secrets directory
+keeps other host users out.
+
 Set `OPENVAULT_DATA_DIR` and `OPENVAULT_SECRETS_DIR` to move them. The script never
 overwrites an existing secret. It needs root or equivalent permission once to set
 the non-root ownership. A rootless Docker host must map the same UIDs.
@@ -60,13 +64,16 @@ purge or prune path must access.
 
 ## Bootstrap password
 
-The init container writes a one-time password file to
-`data/bootstrap/bootstrap-password` with mode `0600`. It is never printed to logs.
-Read it, sign in, change the password, and delete the file:
+The init container writes a one-time password file with mode `0600`. It is never printed to
+logs. The data directory is owned by the container user, so read the password through the init
+container rather than the host path:
 
 ```bash
-cat data/bootstrap/bootstrap-password
-rm -f data/bootstrap/bootstrap-password
+install -m 0600 /dev/null /tmp/openvault-bootstrap
+docker compose -f deploy/compose/compose.yaml cp \
+  openvault-init:/bootstrap/bootstrap-password /tmp/openvault-bootstrap
+cat /tmp/openvault-bootstrap
+rm -f /tmp/openvault-bootstrap
 ```
 
 If the file is lost before the first login, start again with an empty database. There is

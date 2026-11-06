@@ -20,6 +20,13 @@ pnpm install
 pnpm verify
 ```
 
+For a disposable full-stack environment with synthetic data, use the
+[local review setup](/guide/review) instead:
+
+```bash
+./deploy/compose/review.sh up
+```
+
 ## Reference Compose installation
 
 ```bash
@@ -66,9 +73,22 @@ This creates:
 - the JWT signing key, wrapped by the KEK
 
 Re-running `ov init` does not rotate an existing CA. The bootstrap password is written once
-to a file with mode `0600`; it is never printed to stdout, stderr, or container logs. Sign in
-through the web UI, change the password, then delete the one-time file. If the file is lost
-before the first login, start again with an empty database.
+to a file with mode `0600`; it is never printed to stdout, stderr, or container logs. Read it
+through the init container, sign in through the web UI, change the password, then remove the
+temporary copy:
+
+```bash
+install -m 0600 /dev/null /tmp/openvault-bootstrap
+docker compose -f deploy/compose/compose.yaml cp \
+  openvault-init:/bootstrap/bootstrap-password /tmp/openvault-bootstrap
+cat /tmp/openvault-bootstrap
+rm -f /tmp/openvault-bootstrap
+```
+
+If the password is lost before the first login, start again with an empty database.
+
+File-backed Compose secrets are bind mounts. `prepare.sh` makes them `0444` so non-root
+container users can read them; the `0700` secrets directory keeps other host users out.
 
 `ov init` creates the keyring and TLS material used by the reference stack. The keyring and
 password directories must be owned by the current user and must not be group- or

@@ -1,0 +1,16 @@
+# Local review overlay for the reference stack.
+#
+# Use it through `deploy/compose/review.sh`, which also builds the images,
+# prepares the host directories, copies the generated CA and bootstrap
+# password into `data/review/`, and seeds synthetic data.
+#
+# Only the proxy is reachable from the host, and only on the loopback
+# interface. The API, agent, web, and database listeners stay on their
+# internal Docker networks.
+services:
+  openvault-init:
+    environment:
+      OPENVAULT_BOOTSTRAP_ADMIN_EMAIL: ${OPENVAULT_REVIEW_ADMIN:-admin@openvault.local}
+  proxy:
+    ports: !override
+      - "127.0.0.1:${OPENVAULT_REVIEW_PORT:-8443}:443"
