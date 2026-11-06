@@ -1,6 +1,6 @@
 # Release evidence
 
-> **Snapshot**: 2026-11-06, commit after the RD-13/RD-14 work
+> **Snapshot**: 2026-11-06, `af95d02` after the RD-13/RD-14 work
 > **Production image**: not published
 
 ## Branch protection
@@ -32,6 +32,7 @@ change was needed.
 | Dependency review | `Review dependency changes` |
 | Docs build | `Build documentation` |
 | Compose hardening | `pnpm check:compose` inside `Verify` |
+| Container images | Server, agent, and web images built locally from the merged tree; server `ov --version` and web CSP/health smoke passed |
 | Security evidence and claims | `pnpm security:evidence:check` and `pnpm security:claims:check` inside `Verify` |
 
 ## Release image evidence
