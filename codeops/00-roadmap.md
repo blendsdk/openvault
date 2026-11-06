@@ -1,6 +1,6 @@
 # Portfolio Roadmap: OpenVault
 
-> **Status**: Active
+> **Status**: Done
 > **Last Updated**: 2026-11-06 18:30
 > **Features**: 1 / 1 done
 > **CodeOps Artifact Schema**: 1

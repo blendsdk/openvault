@@ -1,7 +1,7 @@
 # Roadmap: OpenVault v0.1
 
 > **Feature-Set**: OpenVault v0.1
-> **Status**: In Progress
+> **Status**: Done
 > **Created**: 2026-10-29
 > **Last Updated**: 2026-11-06 18:30
 > **Progress**: 14 / 14 (100%)
