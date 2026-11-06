@@ -34,6 +34,7 @@ describe("audit security contracts", () => {
   it("should expose only the documented policy detail keys", () => {
     expect([...allowedDetailKeys("identity.create")].sort()).toEqual([
       "denialCount",
+      "phase",
       "policyVersion",
       "reason",
       "version",

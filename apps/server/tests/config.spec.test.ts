@@ -189,6 +189,45 @@ describe("OIDC configuration", () => {
 
     expect(config.oidc?.redirectUrl.href).toBe("https://vault.example.com/v1/auth/callback");
     expect(config.oidc?.allowedDomains).toEqual(["example.com", "sub.example.com"]);
+    expect(config.oidc?.endpointOrigins).toEqual(["https://id.example.com"]);
+  });
+
+  it("should allow extra endpoint origins and reject unsafe origin values", () => {
+    const { env } = validFixture();
+    const complete = {
+      ...env,
+      OPENVAULT_OIDC_ISSUER: "https://id.example.com",
+      OPENVAULT_OIDC_CLIENT_ID: "client",
+      OPENVAULT_OIDC_CLIENT_SECRET: "oidc-secret",
+    };
+
+    const config = loadConfig({
+      ...complete,
+      OPENVAULT_OIDC_ENDPOINT_ORIGINS: "https://cdn.example.com,https://id.example.com/",
+    });
+    expect(config.oidc?.endpointOrigins).toEqual([
+      "https://id.example.com",
+      "https://cdn.example.com",
+    ]);
+
+    for (const value of [
+      "http://cdn.example.com",
+      "https://*.example.com",
+      "https://cdn.example.com/path",
+      "https://user:pass@cdn.example.com",
+    ]) {
+      expect(
+        requireConfigError(() =>
+          loadConfig({ ...complete, OPENVAULT_OIDC_ENDPOINT_ORIGINS: value }),
+        ).key,
+        value,
+      ).toBe("OPENVAULT_OIDC_ENDPOINT_ORIGINS");
+    }
+    expect(
+      requireConfigError(() =>
+        loadConfig({ ...env, OPENVAULT_OIDC_ENDPOINT_ORIGINS: "https://cdn.example.com" }),
+      ).key,
+    ).toBe("OPENVAULT_OIDC_ISSUER");
   });
 
   it("rejects an invalid redirect URL or domain label", () => {
@@ -232,6 +271,7 @@ describe("redacted support output", () => {
     expect(redacted).toContain('"clientSecret":"***"');
     expect(redacted).toContain(env.OPENVAULT_KEYRING);
     expect(redacted).toContain(env.OPENVAULT_TLS_CERT);
+    expect(toRedactedConfig(config).oidc?.endpointOrigins).toEqual(["https://id.example.com"]);
   });
 });
 

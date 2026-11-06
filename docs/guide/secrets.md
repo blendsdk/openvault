@@ -145,8 +145,10 @@ GRANT SELECT, DELETE ON certificate_expiry_notifications TO openvault_purger;
 
 Do not make the role a superuser, a table owner, or a member of any owner role. The server verifies
 the database, session user, and role memberships on every purge. Without a valid URL, the
-server still starts and only purge returns 503. A failed purge writes an error outcome; a crash
-between the destructive delete and its outcome event leaves the deletion without evidence.
+server still starts and only purge returns 503. The authorization event is written before the
+destructive delete, and a completion event follows a successful delete. A crash or audit outage
+can leave the authorization event without the completion event; that means the outcome is
+unknown, not that the purge definitely succeeded.
 
 ## Audit and errors
 
@@ -158,8 +160,8 @@ never contain a value, ciphertext, or key id.
 
 | Status | Meaning |
 |---|---|
-| 403 | The caller has no grant for the action anywhere |
-| 404 | The project, secret, or version is missing or outside the caller's visible scope |
+| 403 | The caller can list secrets in the project or already knows the object, but lacks the action |
+| 404 | The project, secret, or version is missing, or the caller cannot list the collection and cannot distinguish hidden from missing |
 | 409 | Name conflict, idempotency conflict, version limit, or lifecycle conflict |
 | 410 | The requested version has expired |
 | 413 | The decoded value is above 65,536 bytes |

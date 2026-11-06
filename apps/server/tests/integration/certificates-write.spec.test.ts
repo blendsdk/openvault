@@ -144,6 +144,6 @@ describe("certificate import and renewal", () => {
         certificatePem: fixture.certificatePem,
         privateKeyPem: fixture.privateKeyPem,
       }),
-    ).rejects.toMatchObject({ statusCode: 404, code: "project_not_found" });
+    ).rejects.toMatchObject({ statusCode: 404, code: "certificate_not_found" });
   });
 });

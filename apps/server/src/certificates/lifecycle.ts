@@ -8,6 +8,7 @@ import type { PostgreSQLDatabase } from "blendsdk/postgresql";
 import type { AuditWriter } from "../audit/audit-writer.js";
 import type { ProjectRepository } from "../projects/repository.js";
 import type { PolicyAuditContext } from "../rbac/audit.js";
+import { canListCollection } from "../rbac/collection-visibility.js";
 import { PolicyUnavailableError } from "../rbac/errors.js";
 import type { PolicyDecision, PolicyService } from "../rbac/policy-service.js";
 import { CertificateServiceError } from "./errors.js";
@@ -50,8 +51,8 @@ export interface CertificateLifecycleOptions {
 }
 
 /** Maps a denial to the published visibility status. */
-function denialError(decision: PolicyDecision): CertificateServiceError {
-  if (decision.reason === "scope_mismatch" || decision.reason === "expired_assignment") {
+function denialError(hideExistence: boolean): CertificateServiceError {
+  if (hideExistence) {
     return new CertificateServiceError(404, "certificate_not_found", "Resource not found");
   }
   return new CertificateServiceError(403, "access_denied", "Access denied");
@@ -361,6 +362,12 @@ export class CertificateLifecycle {
       await fail("service_unavailable", 503);
       return;
     }
+    // Persist authorization before the independent purge transaction commits.
+    // If the process dies after the delete, this event is the durable evidence
+    // that the destructive action was authorized.
+    await this.#policy.recordDecision(decision, context, undefined, {
+      details: { phase: "authorized" },
+    });
     try {
       await purger.deleteCertificate(certificate.id, project.id, name);
     } catch (error) {
@@ -416,17 +423,19 @@ export class CertificateLifecycle {
       );
       throw new CertificateServiceError(503, "service_unavailable", "Service unavailable");
     }
-    await this.#policy.recordDecision(decision, context);
+    await this.#policy.recordDecision(decision, context, undefined, {
+      details: { phase: "completed" },
+    });
   }
 
   /** Resolves an active project by name. */
   async #activeProject(name: string) {
     if (!projectNameSchema.safeParse(name).success) {
-      throw new CertificateServiceError(404, "project_not_found", "Project not found");
+      throw new CertificateServiceError(404, "certificate_not_found", "Resource not found");
     }
     const project = await this.#projectRepository.findActiveByName(this.#database, name);
     if (project === undefined) {
-      throw new CertificateServiceError(404, "project_not_found", "Project not found");
+      throw new CertificateServiceError(404, "certificate_not_found", "Resource not found");
     }
     return project;
   }
@@ -434,7 +443,7 @@ export class CertificateLifecycle {
   /** Resolves one certificate including deleted rows. */
   async #certificateByName(projectId: string, name: string): Promise<CertificateRecord> {
     if (!certificateNameSchema.safeParse(name).success) {
-      throw new CertificateServiceError(404, "certificate_not_found", "Certificate not found");
+      throw new CertificateServiceError(404, "certificate_not_found", "Resource not found");
     }
     const certificate = await this.#repository.findCertificateByName(
       this.#database,
@@ -442,7 +451,7 @@ export class CertificateLifecycle {
       name,
     );
     if (certificate === undefined) {
-      throw new CertificateServiceError(404, "certificate_not_found", "Certificate not found");
+      throw new CertificateServiceError(404, "certificate_not_found", "Resource not found");
     }
     return certificate;
   }
@@ -451,7 +460,7 @@ export class CertificateLifecycle {
   async #activeCertificate(projectId: string, name: string): Promise<CertificateRecord> {
     const certificate = await this.#certificateByName(projectId, name);
     if (certificate.deletedAt !== null) {
-      throw new CertificateServiceError(404, "certificate_not_found", "Certificate not found");
+      throw new CertificateServiceError(404, "certificate_not_found", "Resource not found");
     }
     return certificate;
   }
@@ -476,8 +485,30 @@ export class CertificateLifecycle {
     );
     if (!decision.allowed) {
       await this.#policy.recordDecision(decision, context);
-      throw denialError(decision);
+      throw await this.#denyName(decision, projectId, context);
     }
+  }
+
+  /**
+   * Chooses 403 or 404 for a name-addressed lifecycle denial.
+   *
+   * A caller that can list certificates knows the collection exists and gets
+   * 403 for an action it lacks. Every other caller gets the same 404 as a
+   * missing name.
+   */
+  async #denyName(
+    decision: PolicyDecision,
+    projectId: string,
+    context?: PolicyAuditContext,
+  ): Promise<CertificateServiceError> {
+    const canList = await canListCollection({
+      policy: this.#policy,
+      actorId: decision.actorId,
+      listAction: "certificate.list",
+      projectId,
+      ...(context === undefined ? {} : { context }),
+    });
+    return denialError(!canList);
   }
 
   /** Authorizes one object action and returns the decision used for the joined/deny event. */
@@ -501,7 +532,7 @@ export class CertificateLifecycle {
     );
     if (!decision.allowed) {
       await this.#policy.recordDecision(decision, context);
-      throw denialError(decision);
+      throw await this.#denyName(decision, projectId, context);
     }
     return decision;
   }

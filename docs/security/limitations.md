@@ -54,8 +54,10 @@ These are accepted for v0.1. They are documented so reviewers do not mistake the
 21. **Signing-key cache freshness.** A process refreshes the current/previous signing-key
     snapshot when it is older than 30 seconds. A rotation in another process is observed within
     that bound; a due previous key is rejected at the overlap boundary even while the cached
-    snapshot still lists it. There is no operator-facing JWT signing-key rotation command in
-    this release. KEK re-wrap is provided separately by `ov kek rotate`.
+    snapshot still lists it. A previous public key is imported only when it derives from the
+    KEK-authenticated wrapped seed; a mismatch is ignored and current-key verification continues.
+    There is no operator-facing JWT signing-key rotation command in this release. KEK re-wrap is
+    provided separately by `ov kek rotate`.
 22. **CLI refresh counters.** Refresh IP and family buckets are in memory. A restart clears
     them, and a multi-instance deployment does not share them.
 23. **Agent join and renewal counters.** Join IP and renewal principal/IP buckets are in
@@ -75,9 +77,10 @@ These are accepted for v0.1. They are documented so reviewers do not mistake the
     certificate can never be purged, so its name remains reserved permanently even after
     retention. Recover it before retention or use a different name.
 28. **Purge evidence window.** The destructive secret or certificate purge runs on a dedicated
-    `openvault_purger` session, separate from the audit chain. A crash between the delete and
-    its outcome event leaves the deletion without evidence. The allow decision is not written
-    before the delete.
+    `openvault_purger` session, separate from the audit chain. The actor-attributed authorization
+    event is written before the delete, and a completion event follows a successful delete. A
+    crash or audit outage can leave authorization without completion; that means the outcome is
+    unknown, not that the purge definitely succeeded.
 29. **Idempotency retention.** Idempotency rows expire after 24 hours but are not removed by a
     scheduler; cleanup is an operational task. A KEK rotation invalidates outstanding keys and
     returns 409 on replay.
@@ -149,8 +152,8 @@ These are accepted for v0.1. They are documented so reviewers do not mistake the
     transaction. They require an owner/migrator role; the application role fails with
     `restore_requires_owner` or `kek_rotation_requires_owner`.
 49. **Rotation maintenance window.** A running server holds the old keyring in memory. The
-    command refuses while a session user named `openvault_app` is connected, but a deployment
-    that gives the server a different role name bypasses that check. Stop the server before
+    command refuses while `openvault_app` or `openvault_auth` is connected, but a deployment
+    that gives the server different role names bypasses that check. Stop the server before
     `ov kek rotate`; otherwise a late write can use the old `kek_id` after the verification
     step. The old key is removed only after the CLI's own count check.
 50. **Bootstrap credential rotation.** The v0.1 bootstrap administrator is created with
@@ -244,3 +247,12 @@ These are accepted for v0.1. They are documented so reviewers do not mistake the
 75. **Agent renewal second factor.** Renewal accepts the current certificate and a fresh key.
     A stolen certificate can renew until an administrator revokes the identity. Per-certificate
     revocation or a second factor for key-changing renewal is follow-up work.
+76. **Control-plane read exposure.** `openvault_app` keeps `SELECT` on the control-plane tables
+    for backup and read-only joins. A leaked app role can read password hashes, refresh hashes,
+    and OIDC links, but cannot write them. Moving `ov backup` to the migrator/owner URL would
+    remove the read exposure.
+77. **Signing-key insert availability.** The runtime role can still insert a `current` signing
+    key because rotation uses the application connection. A database writer can therefore create
+    a malformed current row and cause a fail-closed 503 for CLI token issuance and verification.
+    It cannot forge a valid key without the KEK, so this is an availability risk, not token
+    substitution.

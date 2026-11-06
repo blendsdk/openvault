@@ -239,7 +239,7 @@ describe("certificate lifecycle", () => {
       });
       await expect(lifecycle.purge(actors.orgAdmin, "foundation", name)).rejects.toMatchObject({
         statusCode: 404,
-        code: "project_not_found",
+        code: "certificate_not_found",
       });
     } finally {
       await testDb.db.executeQuery("UPDATE projects SET deleted_at = NULL WHERE id = :id", {

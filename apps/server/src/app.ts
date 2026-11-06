@@ -117,6 +117,21 @@ export function createApplication(
     throw new Error("Provide either an agent runtime or an identity runtime, not both");
   }
   const app = new SecureWebApplication(config, dependencies);
+  const authDatabase = dependencies.authDatabase ?? dependencies.database;
+  app.registerService({
+    name: "authDatabase",
+    type: "singleton",
+    factory: () => authDatabase,
+    ...(authDatabase === dependencies.database
+      ? {}
+      : {
+          dispose: async (instance: unknown) => {
+            if (instance instanceof PostgreSQLDatabase) {
+              await instance.disconnect();
+            }
+          },
+        }),
+  });
   const provider: PinoLoggerProvider =
     dependencies.logger ?? createLoggerProvider(config, dependencies.loggerDestination);
   const auditDatabase =
@@ -139,7 +154,7 @@ export function createApplication(
         keyring: dependencies.keyring,
       });
       return createPolicyRuntime({
-        database: dependencies.database,
+        database: authDatabase,
         logger: provider,
         audit: auditCore.policyAudit,
       });
@@ -183,8 +198,8 @@ export function createApplication(
   });
 
   const agentConsumerService = new AgentConsumerService({
-    database: dependencies.database,
-    consumers: new ConsumerRepository(dependencies.database),
+    database: authDatabase,
+    consumers: new ConsumerRepository(authDatabase),
     audit: auditRuntime.service,
     logger: provider,
   });
@@ -224,7 +239,7 @@ export function createApplication(
     dependencies.agentRuntime?.identityRuntime ??
     dependencies.identityRuntime ??
     createIdentityRuntime({
-      database: dependencies.database,
+      database: authDatabase,
       config,
       policyRuntime,
     });
@@ -499,6 +514,7 @@ export function createApplication(
     createAuthPlugin({
       config,
       database: dependencies.database,
+      authDatabase,
       keyring: dependencies.keyring,
       logger: provider,
       ...(dependencies.authOverrides === undefined

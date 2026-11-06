@@ -28,6 +28,7 @@ import type { ProjectRepository } from "../projects/repository.js";
 import { VaultPurgerError } from "../purge/errors.js";
 import type { VaultPurger } from "../purge/vault-purger.js";
 import type { PolicyAuditContext } from "../rbac/audit.js";
+import { canListCollection } from "../rbac/collection-visibility.js";
 import { PolicyUnavailableError } from "../rbac/errors.js";
 import type { PolicyDecision, PolicyService } from "../rbac/policy-service.js";
 import {
@@ -98,11 +99,12 @@ function isUniqueViolation(error: unknown): boolean {
 
 /** Maps a denial to the published visibility status. */
 function denialError(
-  decision: PolicyDecision,
   notFoundCode: "project_not_found" | "secret_not_found",
+  hideExistence: boolean,
+  message = "Resource not found",
 ): SecretServiceError {
-  if (decision.reason === "scope_mismatch" || decision.reason === "expired_assignment") {
-    return new SecretServiceError(404, notFoundCode, "Resource not found");
+  if (hideExistence) {
+    return new SecretServiceError(404, notFoundCode, message);
   }
   return new SecretServiceError(403, "access_denied", "Access denied");
 }
@@ -207,24 +209,24 @@ export class SecretService {
     if (!secretNameSchema.safeParse(input.name).success) {
       throw new SecretServiceError(422, "validation_error", "Validation failed");
     }
+    const secretId = newUlid();
+    const versionId = newUlid();
+    const resource = { type: "secret" as const, id: secretId, projectId: project.id };
+    const decision = await this.#policy.authorize(actorId, "secret.write", resource, context, {
+      audit: false,
+    });
+    if (!decision.allowed) {
+      await this.#policy.recordDecision(decision, context);
+      throw await this.#denyName(decision, "secret_not_found", project.id, context);
+    }
     const expiresAt = this.#futureDate(input.expiresAt);
     const key = validateIdempotencyKey(idempotencyKey);
     const encoding = input.encoding ?? "utf8";
     const contentType = input.contentType ?? "text/plain";
     const tags = input.tags ?? {};
     const decoded = decodeRequestValue(input.value, encoding, this.#secretMaxBytes);
-    const secretId = newUlid();
-    const versionId = newUlid();
-    const resource = { type: "secret" as const, id: secretId, projectId: project.id };
 
     try {
-      const decision = await this.#policy.authorize(actorId, "secret.write", resource, context, {
-        audit: false,
-      });
-      if (!decision.allowed) {
-        await this.#policy.recordDecision(decision, context);
-        throw denialError(decision, "project_not_found");
-      }
       let envelope: ReturnType<typeof toStoredEnvelope>;
       try {
         envelope = toStoredEnvelope(
@@ -370,23 +372,23 @@ export class SecretService {
     }
     const secret = await this.#repository.findSecretByName(this.#database, project.id, name);
     if (secret === undefined) {
-      throw new SecretServiceError(404, "secret_not_found", "Secret not found");
+      throw new SecretServiceError(404, "secret_not_found", "Resource not found");
+    }
+    const versionId = newUlid();
+    const resource = { type: "secret" as const, id: secret.id, projectId: project.id };
+    const decision = await this.#policy.authorize(actorId, "secret.write", resource, context, {
+      audit: false,
+    });
+    if (!decision.allowed) {
+      await this.#policy.recordDecision(decision, context);
+      throw await this.#denyName(decision, "secret_not_found", project.id, context);
     }
     const expiresAt = this.#futureDate(input.expiresAt);
     const key = validateIdempotencyKey(idempotencyKey);
     const encoding = input.encoding ?? "utf8";
     const decoded = decodeRequestValue(input.value, encoding, this.#secretMaxBytes);
-    const versionId = newUlid();
-    const resource = { type: "secret" as const, id: secret.id, projectId: project.id };
 
     try {
-      const decision = await this.#policy.authorize(actorId, "secret.write", resource, context, {
-        audit: false,
-      });
-      if (!decision.allowed) {
-        await this.#policy.recordDecision(decision, context);
-        throw denialError(decision, "secret_not_found");
-      }
       let envelope: ReturnType<typeof toStoredEnvelope>;
       try {
         envelope = toStoredEnvelope(
@@ -451,7 +453,7 @@ export class SecretService {
           }
           const locked = await this.#repository.lockSecret(tx, secret.id);
           if (locked === undefined || locked.deletedAt !== null) {
-            throw new SecretServiceError(404, "secret_not_found", "Secret not found");
+            throw new SecretServiceError(404, "secret_not_found", "Resource not found");
           }
           if ((await this.#repository.countVersions(tx, secret.id)) >= MAX_VERSIONS) {
             throw new SecretServiceError(409, "secret_version_limit", "Version limit reached");
@@ -526,7 +528,7 @@ export class SecretService {
     const project = await this.#activeProject(projectName);
     const secret = await this.#repository.findSecretByName(this.#database, project.id, name);
     if (secret === undefined || secret.deletedAt !== null) {
-      throw new SecretServiceError(404, "secret_not_found", "Secret not found");
+      throw new SecretServiceError(404, "secret_not_found", "Resource not found");
     }
     const resource = { type: "secret" as const, id: secret.id, projectId: project.id };
     const decision = await this.#policy.authorize(actorId, "secret.read", resource, context, {
@@ -534,7 +536,7 @@ export class SecretService {
     });
     if (!decision.allowed) {
       await this.#policy.recordDecision(decision, context);
-      throw denialError(decision, "secret_not_found");
+      throw await this.#denyName(decision, "secret_not_found", project.id, context);
     }
 
     let version: SecretVersionRecord | undefined;
@@ -638,7 +640,7 @@ export class SecretService {
     query: SecretListQuery,
     context?: PolicyAuditContext,
   ): Promise<SecretList> {
-    const project = await this.#activeProject(projectName);
+    const project = await this.#activeProject(projectName, "project_not_found");
     const result = await this.#policy.authorizeList(
       actorId,
       "secret.list",
@@ -646,7 +648,7 @@ export class SecretService {
       context,
     );
     if (!result.decision.allowed) {
-      throw denialError(result.decision, "project_not_found");
+      throw denialError("project_not_found", true, "Project not found");
     }
     const cursor = decodeCursor(query.cursor);
     const rows = await this.#repository.listActiveSecrets(this.#database, project.id, {
@@ -702,7 +704,7 @@ export class SecretService {
     const project = await this.#activeProject(projectName);
     const secret = await this.#repository.findActiveSecret(this.#database, project.id, name);
     if (secret === undefined) {
-      throw new SecretServiceError(404, "secret_not_found", "Secret not found");
+      throw new SecretServiceError(404, "secret_not_found", "Resource not found");
     }
     const decision = await this.#policy.authorize(
       actorId,
@@ -713,7 +715,7 @@ export class SecretService {
     );
     if (!decision.allowed) {
       await this.#policy.recordDecision(decision, context);
-      throw denialError(decision, "secret_not_found");
+      throw await this.#denyName(decision, "secret_not_found", project.id, context);
     }
     await this.#policy.recordDecision(decision, context);
     const versions = await this.#repository.listVersions(this.#database, secret.id);
@@ -738,7 +740,7 @@ export class SecretService {
     const project = await this.#activeProject(projectName);
     const secret = await this.#repository.findActiveSecret(this.#database, project.id, name);
     if (secret === undefined) {
-      throw new SecretServiceError(404, "secret_not_found", "Secret not found");
+      throw new SecretServiceError(404, "secret_not_found", "Resource not found");
     }
     const decision = await this.#policy.authorize(
       actorId,
@@ -749,7 +751,7 @@ export class SecretService {
     );
     if (!decision.allowed) {
       await this.#policy.recordDecision(decision, context);
-      throw denialError(decision, "secret_not_found");
+      throw await this.#denyName(decision, "secret_not_found", project.id, context);
     }
     await this.#policy.recordDecision(decision, context);
     const consumers = await this.#repository.listConsumers(this.#database, project.id, [secret.id]);
@@ -776,7 +778,7 @@ export class SecretService {
     const project = await this.#activeProject(projectName);
     const secret = await this.#repository.findActiveSecret(this.#database, project.id, name);
     if (secret === undefined) {
-      throw new SecretServiceError(404, "secret_not_found", "Secret not found");
+      throw new SecretServiceError(404, "secret_not_found", "Resource not found");
     }
     const decision = await this.#policy.authorize(
       actorId,
@@ -787,7 +789,7 @@ export class SecretService {
     );
     if (!decision.allowed) {
       await this.#policy.recordDecision(decision, context);
-      throw denialError(decision, "secret_not_found");
+      throw await this.#denyName(decision, "secret_not_found", project.id, context);
     }
 
     try {
@@ -799,7 +801,7 @@ export class SecretService {
         await this.#repository.lockSecretName(tx, project.id, name);
         const locked = await this.#repository.lockSecret(tx, secret.id);
         if (locked === undefined || locked.deletedAt !== null) {
-          throw new SecretServiceError(404, "secret_not_found", "Secret not found");
+          throw new SecretServiceError(404, "secret_not_found", "Resource not found");
         }
         if (input.purgeProtected === false && locked.purgeProtected) {
           throw new SecretServiceError(
@@ -814,7 +816,7 @@ export class SecretService {
           purgeProtected: input.purgeProtected === true ? true : locked.purgeProtected,
         });
         if (updated === undefined) {
-          throw new SecretServiceError(404, "secret_not_found", "Secret not found");
+          throw new SecretServiceError(404, "secret_not_found", "Resource not found");
         }
         await this.#policy.recordDecision(decision, context, tx, { independent: false });
       });
@@ -856,7 +858,7 @@ export class SecretService {
     const project = await this.#activeProject(projectName);
     const secret = await this.#repository.findActiveSecret(this.#database, project.id, name);
     if (secret === undefined) {
-      throw new SecretServiceError(404, "secret_not_found", "Secret not found");
+      throw new SecretServiceError(404, "secret_not_found", "Resource not found");
     }
     const decision = await this.#policy.authorize(
       actorId,
@@ -867,7 +869,7 @@ export class SecretService {
     );
     if (!decision.allowed) {
       await this.#policy.recordDecision(decision, context);
-      throw denialError(decision, "secret_not_found");
+      throw await this.#denyName(decision, "secret_not_found", project.id, context);
     }
     try {
       await this.#database.withTransaction(async (tx) => {
@@ -878,11 +880,11 @@ export class SecretService {
         await this.#repository.lockSecretName(tx, project.id, name);
         const locked = await this.#repository.lockSecret(tx, secret.id);
         if (locked === undefined || locked.deletedAt !== null) {
-          throw new SecretServiceError(404, "secret_not_found", "Secret not found");
+          throw new SecretServiceError(404, "secret_not_found", "Resource not found");
         }
         const deleted = await this.#repository.softDelete(tx, secret.id, this.#softDeleteDays);
         if (deleted === undefined) {
-          throw new SecretServiceError(404, "secret_not_found", "Secret not found");
+          throw new SecretServiceError(404, "secret_not_found", "Resource not found");
         }
         await this.#policy.recordDecision(decision, context, tx, { independent: false });
       });
@@ -924,7 +926,7 @@ export class SecretService {
     const project = await this.#activeProject(projectName);
     const secret = await this.#repository.findSecretByName(this.#database, project.id, name);
     if (secret === undefined) {
-      throw new SecretServiceError(404, "secret_not_found", "Secret not found");
+      throw new SecretServiceError(404, "secret_not_found", "Resource not found");
     }
     const decision = await this.#policy.authorize(
       actorId,
@@ -935,7 +937,7 @@ export class SecretService {
     );
     if (!decision.allowed) {
       await this.#policy.recordDecision(decision, context);
-      throw denialError(decision, "secret_not_found");
+      throw await this.#denyName(decision, "secret_not_found", project.id, context);
     }
     try {
       await this.#database.withTransaction(async (tx) => {
@@ -948,7 +950,7 @@ export class SecretService {
         if (recovered === undefined) {
           const current = await this.#repository.findSecretById(tx, secret.id);
           if (current === undefined) {
-            throw new SecretServiceError(404, "secret_not_found", "Secret not found");
+            throw new SecretServiceError(404, "secret_not_found", "Resource not found");
           }
           throw new SecretServiceError(
             current.deletedAt === null ? 409 : 409,
@@ -998,7 +1000,7 @@ export class SecretService {
     const project = await this.#activeProject(projectName);
     const secret = await this.#repository.findSecretByName(this.#database, project.id, name);
     if (secret === undefined) {
-      throw new SecretServiceError(404, "secret_not_found", "Secret not found");
+      throw new SecretServiceError(404, "secret_not_found", "Resource not found");
     }
     const decision = await this.#policy.authorize(
       actorId,
@@ -1009,7 +1011,7 @@ export class SecretService {
     );
     if (!decision.allowed) {
       await this.#policy.recordDecision(decision, context);
-      throw denialError(decision, "secret_not_found");
+      throw await this.#denyName(decision, "secret_not_found", project.id, context);
     }
     const fail = async (
       code:
@@ -1052,6 +1054,12 @@ export class SecretService {
       );
       throw new SecretServiceError(503, "service_unavailable", "Service unavailable");
     }
+    // Persist authorization before the independent purge transaction commits.
+    // If the process dies after the delete, this event is the durable evidence
+    // that the destructive action was authorized.
+    await this.#policy.recordDecision(decision, context, undefined, {
+      details: { phase: "authorized" },
+    });
     try {
       await purger.deleteSecret(secret.id, project.id, name);
     } catch (error) {
@@ -1066,7 +1074,7 @@ export class SecretService {
           "secret_not_found",
           context,
         );
-        throw new SecretServiceError(404, "secret_not_found", "Secret not found");
+        throw new SecretServiceError(404, "secret_not_found", "Resource not found");
       }
       if (latest.deletedAt === null) {
         await this.#recordError(
@@ -1121,7 +1129,7 @@ export class SecretService {
         throw new SecretServiceError(
           error.code === "project_not_found" ? 404 : 404,
           error.code === "project_not_found" ? "project_not_found" : "secret_not_found",
-          "Secret not found",
+          "Resource not found",
         );
       }
       await this.#recordError(
@@ -1135,14 +1143,16 @@ export class SecretService {
       );
       throw new SecretServiceError(503, "service_unavailable", "Service unavailable");
     }
-    await this.#policy.recordDecision(decision, context);
+    await this.#policy.recordDecision(decision, context, undefined, {
+      details: { phase: "completed" },
+    });
   }
 
   /** Loads current metadata for a secret. */
   async #metadataResponse(actorId: string, secretId: string): Promise<SecretMetadata> {
     const secret = await this.#repository.findSecretById(this.#database, secretId);
     if (secret === undefined) {
-      throw new SecretServiceError(404, "secret_not_found", "Secret not found");
+      throw new SecretServiceError(404, "secret_not_found", "Resource not found");
     }
     const current =
       secret.currentVersionId === null
@@ -1159,14 +1169,54 @@ export class SecretService {
     return this.#metadata(secret, current, consumers.get(secret.id) ?? [], capabilities);
   }
 
-  /** Resolves an active project by name. */
-  async #activeProject(name: string) {
+  /**
+   * Chooses the public denial for a name-addressed route.
+   *
+   * A caller that can list secrets in the project already knows which names
+   * exist, so 403 is accurate. A caller that cannot list gets the same 404 for
+   * an existing and a missing name.
+   */
+  async #denyName(
+    decision: PolicyDecision,
+    notFoundCode: "project_not_found" | "secret_not_found",
+    projectId: string,
+    context?: PolicyAuditContext,
+  ): Promise<SecretServiceError> {
+    const canList = await canListCollection({
+      policy: this.#policy,
+      actorId: decision.actorId,
+      listAction: "secret.list",
+      projectId,
+      ...(context === undefined ? {} : { context }),
+    });
+    return denialError(notFoundCode, !canList);
+  }
+
+  /**
+   * Resolves an active project by name.
+   *
+   * Name-addressed routes use the secret-specific not-found code so a caller
+   * cannot distinguish a missing project from a missing secret. The list route
+   * keeps the project code because it has no secret name.
+   */
+  async #activeProject(
+    name: string,
+    notFoundCode: "project_not_found" | "secret_not_found" = "secret_not_found",
+  ) {
     if (!projectNameSchema.safeParse(name).success) {
-      throw new SecretServiceError(404, "project_not_found", "Project not found");
+      throw new SecretServiceError(
+        404,
+        notFoundCode,
+        notFoundCode === "project_not_found" ? "Project not found" : "Resource not found",
+      );
     }
     const project = await this.#projectRepository.findActiveByName(this.#database, name);
     if (project === undefined) {
-      throw new SecretServiceError(404, "project_not_found", "Project not found");
+      throw new SecretServiceError(
+        404,
+        notFoundCode,
+        notFoundCode === "project_not_found" ? "Project not found" : "Resource not found",
+      );
     }
     return project;
   }

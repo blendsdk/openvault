@@ -24,7 +24,9 @@
   `OPENVAULT_PROXY_CIDRS`; loopback may only call `/health` and `/ready`.
 - **B2** Agent to API: mTLS on a separate `vault_net` listener; the server verifies the
   client certificate against the internal CA.
-- **B3** API to database: internal `db_net`, but the database may be dumped.
+- **B3** API to database: internal `db_net`, but the database may be dumped. The data-plane and
+  control-plane connections use separate roles; a leaked `openvault_app` credential cannot write
+  authentication, RBAC, or agent-identity state.
 - **B4** API to keyring: absolute file with exact mode `0600`.
 - **B5** Agent to application: per-service tmpfs; the app reads only its own files.
 - **B6** Build to release: source, pinned actions, SBOM, scan, signature, and provenance.
@@ -67,6 +69,9 @@
 | T-18 | A container escapes its intended privileges or reaches the Docker socket | Non-root users, read-only roots, capability drops, no-new-privileges, resource limits, and no socket mount |
 | T-19 | A browser secret value leaks into storage, the URL, or the console | Reveal lives only in component state, clears on blur/navigation/timeout, and is never stored |
 | T-20 | The admin listener is reachable without the proxy or health source guard | Proxy CIDR allowlist, loopback-only health and readiness, and no published admin port |
+| T-21 | A leaked runtime database credential forges credentials, RBAC, OIDC links, or agent identity | Separate `openvault_auth` control-plane role; app role loses DML on eight identity tables; production startup assertion |
+| T-22 | Discovery metadata redirects OIDC credentials or tokens to another origin | HTTPS endpoint-origin allowlist and redirect rejection |
+| T-23 | An unassigned caller enumerates project or secret names through 403/404 differences | Collection-visibility denials with identical 404 bodies for hidden and missing names |
 
 ## Accepted risks
 

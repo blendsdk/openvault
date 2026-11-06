@@ -160,7 +160,7 @@ describe("secret lifecycle implementation", () => {
       });
       await expect(secrets.purge(actors.orgAdmin, "foundation", name)).rejects.toMatchObject({
         statusCode: 404,
-        code: "project_not_found",
+        code: "secret_not_found",
       });
     } finally {
       await testDb.db.executeQuery("UPDATE projects SET deleted_at = NULL WHERE id = :id", {

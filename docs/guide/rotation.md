@@ -14,7 +14,7 @@ the consumer first if the old value must keep working during the transition.
 
 ## KEK rotation
 
-Stop the server first. The command refuses to run while an `openvault_app` session is
+Stop the server first. The command refuses to run while an `openvault_app` or `openvault_auth` session is
 connected. A running process holds the old keyring in memory and can write a row with the old
 `kek_id` after the CLI verifies the rotation. Run the command as a role that owns the key
 tables; it temporarily disables the immutability triggers.

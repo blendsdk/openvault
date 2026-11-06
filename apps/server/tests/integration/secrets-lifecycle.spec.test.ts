@@ -5,9 +5,14 @@ import { PersistentPolicyAudit } from "../../src/audit/policy-audit.js";
 import { createAuditCore } from "../../src/audit/runtime.js";
 import { ProjectRepository } from "../../src/projects/repository.js";
 import { VaultPurger } from "../../src/purge/vault-purger.js";
+import type { PolicyAuditContext } from "../../src/rbac/audit.js";
 import { PolicyUnavailableError } from "../../src/rbac/errors.js";
 import { PolicyRepository } from "../../src/rbac/policy-repository.js";
-import { PolicyService } from "../../src/rbac/policy-service.js";
+import {
+  type PolicyDecision,
+  PolicyService,
+  type RecordDecisionOptions,
+} from "../../src/rbac/policy-service.js";
 import { SecretRepository } from "../../src/secrets/repository.js";
 import { SecretService } from "../../src/secrets/service.js";
 import { KeyringProvider } from "../../src/security/keyring.js";
@@ -27,6 +32,21 @@ let purger: VaultPurger | undefined;
 let currentTime = Date.parse("2026-11-04T12:00:00.000Z");
 
 const clock = (): number => currentTime;
+
+/** Simulates an audit outage after the purge transaction commits. */
+class CompletionFailingPolicy extends PolicyService {
+  public override async recordDecision(
+    decision: PolicyDecision,
+    context?: PolicyAuditContext,
+    tx?: Parameters<PolicyService["recordDecision"]>[2],
+    options: RecordDecisionOptions = {},
+  ): Promise<void> {
+    if (options.details?.phase === "completed") {
+      throw new PolicyUnavailableError();
+    }
+    return super.recordDecision(decision, context, tx, options);
+  }
+}
 
 function secretName(prefix: string): string {
   return `${prefix}-${newUlid().slice(-10).toLowerCase()}`;
@@ -221,11 +241,61 @@ describe("secret lifecycle", () => {
       { id: created.id },
     );
     expect(rows.records[0]?.count).toBe(0);
-    const events = await testDb.db.executeQuery<{ result: string }>(
-      "SELECT result FROM audit_events WHERE action = 'secret.purge'",
+    const events = await testDb.db.executeQuery<{ result: string; phase: string }>(
+      `SELECT result, details->>'phase' AS phase
+         FROM audit_events
+        WHERE action = 'secret.purge'
+        ORDER BY id`,
     );
-    expect(events.records).toEqual([{ result: "allow" }]);
+    expect(events.records).toEqual([
+      { result: "allow", phase: "authorized" },
+      { result: "allow", phase: "completed" },
+    ]);
     await expect(createSecret(name)).resolves.toMatchObject({ name });
+  });
+
+  it("should keep authorization evidence when the completion audit fails", async () => {
+    if (purger === undefined) {
+      return;
+    }
+    const name = secretName("completion");
+    const created = await createSecret(name);
+    await secrets.delete(actors.orgAdmin, "foundation", name);
+    await makePurgeable(created.id);
+    const core = createAuditCore({ database: testDb.db, keyring, now: clock });
+    const policy = new CompletionFailingPolicy({
+      repository: new PolicyRepository(testDb.db),
+      audit: core.policyAudit,
+      now: clock,
+    });
+    const service = new SecretService({
+      database: testDb.db,
+      keyring,
+      policy,
+      audit: core.writer,
+      projectRepository: new ProjectRepository(testDb.db),
+      repository: new SecretRepository(),
+      secretMaxBytes: 65_536,
+      softDeleteDays: 30,
+      purger,
+      now: clock,
+    });
+
+    await expect(service.purge(actors.orgAdmin, "foundation", name)).rejects.toBeInstanceOf(
+      PolicyUnavailableError,
+    );
+    const rows = await testDb.db.executeQuery<{ count: number }>(
+      "SELECT count(*)::int AS count FROM secrets WHERE id = :id",
+      { id: created.id },
+    );
+    expect(rows.records[0]?.count).toBe(0);
+    const events = await testDb.db.executeQuery<{ result: string; phase: string }>(
+      `SELECT result, details->>'phase' AS phase
+         FROM audit_events
+        WHERE action = 'secret.purge'
+        ORDER BY id`,
+    );
+    expect(events.records).toEqual([{ result: "allow", phase: "authorized" }]);
   });
 
   it("should reject purge without a configured or valid purger", async () => {
@@ -290,7 +360,7 @@ describe("secret lifecycle", () => {
       });
       await expect(secrets.read(actors.orgAdmin, "foundation", name, {})).rejects.toMatchObject({
         statusCode: 404,
-        code: "project_not_found",
+        code: "secret_not_found",
       });
     } finally {
       await testDb.db.executeQuery("UPDATE projects SET deleted_at = NULL WHERE id = :id", {

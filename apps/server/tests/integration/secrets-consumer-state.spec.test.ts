@@ -224,7 +224,7 @@ describe("agent consumer state", () => {
     expect(events.records[0]?.action).toBe("consumer.update");
   });
 
-  it("should mark a policy 403 as failed", async () => {
+  it("should mark a hidden 404 as failed", async () => {
     await testDb.db.executeQuery(
       "DELETE FROM role_assignments WHERE principal_id = :id AND role = 'secrets.reader'",
       { id: serviceId },
@@ -233,7 +233,7 @@ describe("agent consumer state", () => {
       path: `/v1/data/${projectName}/secrets/${secretName}`,
       headers: { "x-openvault-entry-optional": "false" },
     });
-    expect(response.status).toBe(403);
+    expect(response.status).toBe(404);
     expect((await consumerRow())?.state).toBe("failed");
   });
 });

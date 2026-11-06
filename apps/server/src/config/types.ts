@@ -28,6 +28,8 @@ export interface OidcConfig {
   readonly redirectUrl: URL;
   /** Optional email-domain allowlist. */
   readonly allowedDomains: readonly string[];
+  /** HTTPS origins allowed for discovery-provided endpoints. */
+  readonly endpointOrigins: readonly string[];
 }
 
 /** A validated, normalised runtime configuration. */
@@ -40,6 +42,10 @@ export interface OpenVaultConfig {
   readonly database: PostgreSQLConfig;
   /** Raw migrator URL used for startup DDL; absent when the app role also migrates. */
   readonly migrationDatabaseUrl?: string;
+  /** Raw dedicated control-plane URL; absent when the app connection is shared. */
+  readonly authDatabaseUrl?: string;
+  /** Parsed control-plane connection; absent when the app connection is shared. */
+  readonly authDatabase?: PostgreSQLConfig;
   /** Raw dedicated purge URL; absent when purge is unavailable. */
   readonly purgeDatabaseUrl?: string;
   readonly keyringPath: string;
@@ -95,6 +101,7 @@ export interface RedactedOpenVaultConfig {
     readonly clientSecret: "***";
     readonly redirectUrl: string;
     readonly allowedDomains: readonly string[];
+    readonly endpointOrigins: readonly string[];
   };
   readonly secretMaxBytes: number;
   readonly certMaxBytes: number;

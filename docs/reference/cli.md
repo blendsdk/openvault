@@ -164,7 +164,7 @@ writes the public CA to the proxy's `ca.pem` as well.
 `kek rotate` rewraps secret and certificate data keys, audit keys, CA keys, and JWT seeds
 without re-encrypting values. It removes the old key only after every `kek_id` is verified.
 Run it during a maintenance window with the server stopped. The command refuses if an
-`openvault_app` session is connected, and the role must own the key tables.
+`openvault_app` or `openvault_auth` session is connected, and the role must own the key tables.
 
 ## Credentials
 

@@ -68,25 +68,24 @@ function nextKekId(ids: readonly string[]): string {
 }
 
 /**
- * Refuses rotation while the application role is connected.
+ * Refuses rotation while a runtime role is connected.
  *
- * The reference server connects as `openvault_app`. A live process holds the
- * old keyring in memory and can write a row with the old `kek_id` after the
- * rotation count check. This is the one runtime invariant the CLI can observe
- * from the database.
+ * The reference server connects as both `openvault_app` and `openvault_auth`.
+ * Either pool can hold the old keyring in memory and write a row with the old
+ * `kek_id` after the rotation count check.
  */
 async function assertNoRuntimeConnection(database: PostgreSQLDatabase): Promise<void> {
   const result = await database.executeQuery<{ count: number }>(
     `SELECT count(*)::int AS count
        FROM pg_stat_activity
       WHERE datname = current_database()
-        AND usename = 'openvault_app'
+        AND usename IN ('openvault_app', 'openvault_auth')
         AND pid <> pg_backend_pid()`,
   );
   if ((result.records[0]?.count ?? 0) > 0) {
     throw new OpsError(
       "kek_rotation_server_running",
-      "The application role is connected; stop openvaultd before rotating the KEK",
+      "A runtime database role is connected; stop openvaultd before rotating the KEK",
     );
   }
 }

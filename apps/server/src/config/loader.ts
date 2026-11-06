@@ -12,6 +12,7 @@ import {
   durationValue,
   httpsUrlValue,
   integerValue,
+  originListValue,
   trimTrailingSlash,
 } from "./parse.js";
 import type { EnvMode, LogLevel, OidcConfig, OpenVaultConfig } from "./types.js";
@@ -164,6 +165,7 @@ function optionalDatabaseUrlField(key: string) {
 
 const FILE_BACKED_DATABASE_URLS = [
   ["OPENVAULT_DB_URL", "OPENVAULT_DB_URL_FILE"],
+  ["OPENVAULT_AUTH_DB_URL", "OPENVAULT_AUTH_DB_URL_FILE"],
   ["OPENVAULT_MIGRATION_DB_URL", "OPENVAULT_MIGRATION_DB_URL_FILE"],
   ["OPENVAULT_PURGE_DB_URL", "OPENVAULT_PURGE_DB_URL_FILE"],
 ] as const;
@@ -269,18 +271,27 @@ function buildOidc(
     readonly clientSecret?: string | undefined;
     readonly redirect?: string | undefined;
     readonly allowedDomains?: string | undefined;
+    readonly endpointOrigins?: string | undefined;
   },
   baseUrl: URL,
   context: z.RefinementCtx,
 ): OidcConfig | undefined {
-  const { issuer, clientId, clientSecret, redirect, allowedDomains } = raw;
+  const {
+    issuer,
+    clientId,
+    clientSecret,
+    redirect,
+    allowedDomains,
+    endpointOrigins: endpointOriginsRaw,
+  } = raw;
 
   if (issuer === undefined) {
     if (
       clientId !== undefined ||
       clientSecret !== undefined ||
       redirect !== undefined ||
-      allowedDomains !== undefined
+      allowedDomains !== undefined ||
+      endpointOriginsRaw !== undefined
     ) {
       context.addIssue({
         code: "custom",
@@ -350,12 +361,29 @@ function buildOidc(
     return undefined;
   }
 
+  let origins: readonly string[];
+  try {
+    origins = originListValue(
+      "OPENVAULT_OIDC_ENDPOINT_ORIGINS",
+      endpointOriginsRaw,
+      issuerUrl.origin,
+    );
+  } catch (error) {
+    context.addIssue({
+      code: "custom",
+      path: ["OPENVAULT_OIDC_ENDPOINT_ORIGINS"],
+      message: error instanceof ConfigError ? error.reason : "is invalid",
+    });
+    return undefined;
+  }
+
   return Object.freeze({
     issuer: issuerUrl,
     clientId,
     clientSecret,
     redirectUrl,
     allowedDomains: domains,
+    endpointOrigins: origins,
   });
 }
 
@@ -368,6 +396,7 @@ const configSchema = z
       databaseUrlValue("OPENVAULT_DB_URL", value),
     ),
     OPENVAULT_MIGRATION_DB_URL: optionalDatabaseUrlField("OPENVAULT_MIGRATION_DB_URL"),
+    OPENVAULT_AUTH_DB_URL: optionalDatabaseUrlField("OPENVAULT_AUTH_DB_URL"),
     ENV_MODE: z
       .preprocess(blankToUndefined, z.enum(ENV_MODES).optional())
       .transform((value): EnvMode => value ?? "production"),
@@ -435,6 +464,7 @@ const configSchema = z
     OPENVAULT_OIDC_CLIENT_SECRET: optionalString,
     OPENVAULT_OIDC_REDIRECT_URL: optionalString,
     OPENVAULT_OIDC_ALLOWED_DOMAINS: optionalString,
+    OPENVAULT_OIDC_ENDPOINT_ORIGINS: optionalString,
     OPENVAULT_PURGE_DB_URL: optionalDatabaseUrlField("OPENVAULT_PURGE_DB_URL"),
     OPENVAULT_CERT_EXPIRY_HOUR: integerField("OPENVAULT_CERT_EXPIRY_HOUR", 3, 0, 23),
     OPENVAULT_CERT_EXPIRY_WEBHOOK_URL: optionalString,
@@ -481,6 +511,7 @@ const configSchema = z
     const appDatabase = value.OPENVAULT_DB_URL.parsed;
     for (const [field, candidate] of [
       ["OPENVAULT_MIGRATION_DB_URL", value.OPENVAULT_MIGRATION_DB_URL],
+      ["OPENVAULT_AUTH_DB_URL", value.OPENVAULT_AUTH_DB_URL],
       ["OPENVAULT_PURGE_DB_URL", value.OPENVAULT_PURGE_DB_URL],
     ] as const) {
       if (
@@ -507,6 +538,7 @@ const configSchema = z
         clientSecret: value.OPENVAULT_OIDC_CLIENT_SECRET,
         redirect: value.OPENVAULT_OIDC_REDIRECT_URL,
         allowedDomains: value.OPENVAULT_OIDC_ALLOWED_DOMAINS,
+        endpointOrigins: value.OPENVAULT_OIDC_ENDPOINT_ORIGINS,
       },
       value.OPENVAULT_BASE_URL,
       context,
@@ -528,6 +560,12 @@ const configSchema = z
       ...(value.OPENVAULT_MIGRATION_DB_URL === undefined
         ? {}
         : { migrationDatabaseUrl: value.OPENVAULT_MIGRATION_DB_URL.raw }),
+      ...(value.OPENVAULT_AUTH_DB_URL === undefined
+        ? {}
+        : {
+            authDatabaseUrl: value.OPENVAULT_AUTH_DB_URL.raw,
+            authDatabase: Object.freeze(value.OPENVAULT_AUTH_DB_URL.parsed),
+          }),
       ...(value.OPENVAULT_PURGE_DB_URL === undefined
         ? {}
         : { purgeDatabaseUrl: value.OPENVAULT_PURGE_DB_URL.raw }),

@@ -138,7 +138,7 @@ deleted name is reserved permanently.
 `purge` requires a deleted certificate, a passed retention boundary, and protection off. It
 returns 409 `certificate_not_deleted`, `certificate_retention_active`, or
 `purge_protection_locked` otherwise. A deleted project hides its certificates and blocks purge
-with 404 `project_not_found`.
+with 404 `certificate_not_found`; the response does not reveal whether the project exists.
 
 ### Purge credential
 
@@ -156,7 +156,9 @@ GRANT SELECT, DELETE ON certificate_expiry_notifications TO openvault_purger;
 
 Do not make the role a superuser, a table owner, or a member of any owner role. The server
 verifies the database, session user, current user, superuser status, and ownership on every
-purge. Without a valid URL the server starts and only purge returns 503.
+purge. Without a valid URL the server starts and only purge returns 503. The authorization event
+is written before the delete; a completion event follows a successful delete. A crash can leave
+authorization without completion, which means the outcome is unknown.
 
 ## Expiry
 
@@ -206,8 +208,8 @@ before an object decision returns 404/422 without an allow event.
 
 | Status | Meaning |
 |---|---|
-| 403 | The caller lacks the action, or has `certificate.read` but not `certificate.read_private` |
-| 404 | The project, certificate, or version is missing or outside the caller's visible scope |
+| 403 | The caller can list certificates or already knows the object, but lacks the action; for example, public read without private read |
+| 404 | The project, certificate, or version is missing, or the caller cannot list the collection and cannot distinguish hidden from missing |
 | 409 | Name conflict, stale version, version limit, or lifecycle conflict |
 | 410 | The requested version has expired |
 | 413 | The public chain or private key exceeds its bound |

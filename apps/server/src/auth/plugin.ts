@@ -25,6 +25,8 @@ export interface AuthPluginOptions {
   readonly config: OpenVaultConfig;
   /** Connected PostgreSQL database. */
   readonly database: PostgreSQLDatabase;
+  /** Control-plane connection for credentials, sessions, and OIDC identities. */
+  readonly authDatabase?: PostgreSQLDatabase;
   /** Loaded KEK provider used by the JWT signer. */
   readonly keyring: KeyringProvider;
   /** Application logger shared with the request pipeline. */
@@ -66,14 +68,18 @@ export function createAuthPlugin(options: AuthPluginOptions): PluginDefinition {
           ? {}
           : { sweepIntervalMs: options.overrides.sweepIntervalMs }),
       });
-      const credentials = new CredentialsRepository(options.database);
+      const authDatabase = options.authDatabase ?? options.database;
+      const credentials = new CredentialsRepository(authDatabase);
       const localLogin = new LocalLoginService({ credentials });
       const authRateLimits = createAuthRateLimitService();
-      const cliSessions = new CliSessionRepository(options.database);
+      const cliSessions = new CliSessionRepository(authDatabase);
       const signingKeys = new SigningKeyService({
         repository: new SigningKeyRepository(options.database),
         keyring: options.keyring,
         ...(options.overrides?.now === undefined ? {} : { now: options.overrides.now }),
+        onPreviousKeyRejected: (kid) => {
+          void options.logger.warn("previous signing key rejected", { kid });
+        },
       });
       const cliAuth = new CliAuthService({ sessions: cliSessions, signingKeys });
       const cliMaintenance = new CliSessionMaintenanceService({
@@ -133,7 +139,7 @@ export function createAuthPlugin(options: AuthPluginOptions): PluginDefinition {
           ...(options.overrides?.now === undefined ? {} : { now: options.overrides.now }),
         });
         const oidcState = new OidcStateStore({ cache });
-        const oidcIdentities = new OidcIdentityService({ database: options.database });
+        const oidcIdentities = new OidcIdentityService({ database: authDatabase });
 
         app.registerService({
           name: "oidc",

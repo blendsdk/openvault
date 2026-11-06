@@ -528,7 +528,8 @@ Import/generate are create-or-renew by name: a new name returns 201 and an activ
 200 with a new immutable version. `?version=<ulid>` reads a selected version; an expired current
 version returns 410 unless explicitly selected. Metadata and lists never contain a PEM body or
 private key. `certificate.read` returns the public chain; `certificate.read_private` is required
-for the private key and returns 403 for a caller with only public read. A deleted name is
+for the private key and returns 403 for a caller with only public read or object-level access.
+A caller that cannot list certificates and cannot read the object receives 404. A deleted name is
 reserved until purge; pass `expectedVersionId` to reject a stale renewal. Purge requires a
 deleted certificate, passed retention, no protection, and `OPENVAULT_PURGE_DB_URL`; a deleted
 project blocks purge. The full behavior is in the [certificates guide](/guide/certificates).
@@ -570,8 +571,8 @@ material, CA signing key loaded at startup (including a sign/verify probe), and 
 |---|---|
 | 400 | Invalid request body or a failed OIDC callback (`oidc_callback_failed`) |
 | 401 | Missing or invalid credential (`authentication_required`, `invalid_credentials`, or `join_failed`) |
-| 403 | Policy denial, `csrf_invalid`, `password_change_required`, or `access_denied` |
-| 404 | Unknown or hidden object, `identity_not_found`, or `oidc_not_configured` |
+| 403 | Policy denial for a caller that can list the collection or already knows the object; `csrf_invalid`, `password_change_required`, or `access_denied` |
+| 404 | Unknown or hidden object; a name-addressed denial from a caller that cannot list the collection; `identity_not_found`; or `oidc_not_configured` |
 | 409 | Duplicate, last-admin, or `renewal_not_due`/`identity_name_conflict` conflict |
 | 413 | Payload too large |
 | 422 | WebAFX route validation failure, including an invalid CSR or consumer metadata |

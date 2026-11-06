@@ -331,6 +331,57 @@
           "name": "matches IPv4, IPv4-mapped, and IPv6 peers and rejects mixed families"
         }
       ]
+    },
+    {
+      "id": "T-21",
+      "threat": "A leaked runtime database credential forges credentials, RBAC, OIDC links, or agent identity",
+      "protection": "Separate openvault_auth control-plane role; app role loses DML on eight identity tables; production startup assertion",
+      "evidence": [
+        {
+          "type": "test",
+          "file": "apps/server/tests/integration/security/auth-boundary.spec.test.ts",
+          "name": "should deny every write on the eight control-plane tables to the app role"
+        },
+        {
+          "type": "test",
+          "file": "apps/server/tests/integration/security/auth-boundary.spec.test.ts",
+          "name": "should reject the startup assertion when the app connection is over-privileged"
+        }
+      ]
+    },
+    {
+      "id": "T-22",
+      "threat": "Discovery metadata redirects OIDC credentials or tokens to another origin",
+      "protection": "HTTPS endpoint-origin allowlist and redirect rejection",
+      "evidence": [
+        {
+          "type": "test",
+          "file": "apps/server/tests/auth/oidc.impl.test.ts",
+          "name": "should reject a cross-origin endpoint for every discovery field"
+        },
+        {
+          "type": "test",
+          "file": "apps/server/tests/auth/oidc.impl.test.ts",
+          "name": "should disable redirects on endpoint requests"
+        }
+      ]
+    },
+    {
+      "id": "T-23",
+      "threat": "An unassigned caller enumerates project or secret names through 403/404 differences",
+      "protection": "Collection-visibility denials with identical 404 bodies for hidden and missing names",
+      "evidence": [
+        {
+          "type": "test",
+          "file": "apps/server/tests/integration/security/enumeration.spec.test.ts",
+          "name": "should give an unassigned caller identical 404 bodies for existing and missing secret names"
+        },
+        {
+          "type": "test",
+          "file": "apps/server/tests/integration/security/enumeration.spec.test.ts",
+          "name": "should allow an object-scope reader but hide every other name"
+        }
+      ]
     }
   ],
   "securityCategories": [
