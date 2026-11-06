@@ -24,6 +24,7 @@ import type { PostgreSQLDatabase } from "blendsdk/postgresql";
 import type { AuditWriter } from "../audit/audit-writer.js";
 import type { ProjectRepository } from "../projects/repository.js";
 import type { PolicyAuditContext } from "../rbac/audit.js";
+import { canListCollection } from "../rbac/collection-visibility.js";
 import { PolicyUnavailableError } from "../rbac/errors.js";
 import type { PolicyDecision, PolicyService } from "../rbac/policy-service.js";
 import { fromStoredCertificateEnvelope, toStoredCertificateEnvelope } from "./envelope.js";
@@ -92,11 +93,12 @@ function isUniqueViolation(error: unknown): boolean {
 
 /** Maps a denial to the published visibility status. */
 function denialError(
-  decision: PolicyDecision,
   notFoundCode: "project_not_found" | "certificate_not_found",
+  hideExistence: boolean,
+  message = "Resource not found",
 ): CertificateServiceError {
-  if (decision.reason === "scope_mismatch" || decision.reason === "expired_assignment") {
-    return new CertificateServiceError(404, notFoundCode, "Resource not found");
+  if (hideExistence) {
+    return new CertificateServiceError(404, notFoundCode, message);
   }
   return new CertificateServiceError(403, "access_denied", "Access denied");
 }
@@ -306,7 +308,7 @@ export class CertificateService {
     );
     if (!decision.allowed) {
       await this.#policy.recordDecision(decision, options.context);
-      throw denialError(decision, "certificate_not_found");
+      throw await this.#denyName(decision, projectId, options.context);
     }
     let created = existing === undefined;
     try {
@@ -475,7 +477,6 @@ export class CertificateService {
     query: CertificateReadQuery,
     context?: PolicyAuditContext,
   ): Promise<CertificatePublicResponse> {
-    await this.#requireAnyRead(actorId, context);
     const project = await this.#readProject(projectName);
     const certificate = await this.#activeCertificate(project.id, name);
     const decision = await this.#policy.authorize(
@@ -487,7 +488,7 @@ export class CertificateService {
     );
     if (!decision.allowed) {
       await this.#policy.recordDecision(decision, context);
-      throw denialError(decision, "certificate_not_found");
+      throw await this.#denyName(decision, project.id, context);
     }
     const version = await this.#selectedVersion(certificate, query);
     if (query.version === undefined && version.notAfter.getTime() <= this.#now()) {
@@ -551,7 +552,6 @@ export class CertificateService {
     query: CertificateReadQuery,
     context?: PolicyAuditContext,
   ): Promise<CertificatePrivateKeyResponse> {
-    await this.#requireAnyRead(actorId, context);
     const project = await this.#readProject(projectName);
     const certificate = await this.#activeCertificate(project.id, name);
     const decision = await this.#policy.authorize(
@@ -570,10 +570,7 @@ export class CertificateService {
         { audit: false },
       );
       await this.#policy.recordDecision(decision, context);
-      if (canRead.allowed) {
-        throw new CertificateServiceError(403, "access_denied", "Access denied");
-      }
-      throw new CertificateServiceError(404, "certificate_not_found", "Certificate not found");
+      throw await this.#denyName(decision, project.id, context, canRead.allowed);
     }
     const version = await this.#selectedVersion(certificate, query);
     if (query.version === undefined && version.notAfter.getTime() <= this.#now()) {
@@ -684,7 +681,7 @@ export class CertificateService {
     query: CertificateListQuery,
     context?: PolicyAuditContext,
   ): Promise<CertificateList> {
-    const project = await this.#activeProject(projectName);
+    const project = await this.#activeProject(projectName, "project_not_found");
     const cursor = decodeCursor(query.cursor);
     const result = await this.#policy.authorizeList(
       actorId,
@@ -693,7 +690,7 @@ export class CertificateService {
       context,
     );
     if (!result.decision.allowed) {
-      throw denialError(result.decision, "project_not_found");
+      throw denialError("project_not_found", true, "Project not found");
     }
     const rows = await this.#repository.listActiveCertificates(this.#database, project.id, {
       q: query.q,
@@ -763,14 +760,31 @@ export class CertificateService {
     return this.#metadata(certificate, version, capabilities);
   }
 
-  /** Resolves an active project by name. */
-  async #activeProject(name: string) {
+  /**
+   * Resolves an active project by name.
+   *
+   * The list route keeps `project_not_found`. Name-addressed routes use
+   * `certificate_not_found` so a caller cannot tell a missing project from a
+   * missing certificate.
+   */
+  async #activeProject(
+    name: string,
+    notFoundCode: "project_not_found" | "certificate_not_found" = "certificate_not_found",
+  ) {
     if (!projectNameSchema.safeParse(name).success) {
-      throw new CertificateServiceError(404, "project_not_found", "Project not found");
+      throw new CertificateServiceError(
+        404,
+        notFoundCode,
+        notFoundCode === "project_not_found" ? "Project not found" : "Resource not found",
+      );
     }
     const project = await this.#projectRepository.findActiveByName(this.#database, name);
     if (project === undefined) {
-      throw new CertificateServiceError(404, "project_not_found", "Project not found");
+      throw new CertificateServiceError(
+        404,
+        notFoundCode,
+        notFoundCode === "project_not_found" ? "Project not found" : "Resource not found",
+      );
     }
     return project;
   }
@@ -778,7 +792,7 @@ export class CertificateService {
   /** Resolves an active certificate by name. */
   async #activeCertificate(projectId: string, name: string): Promise<CertificateRecord> {
     if (!certificateNameSchema.safeParse(name).success) {
-      throw new CertificateServiceError(404, "certificate_not_found", "Certificate not found");
+      throw new CertificateServiceError(404, "certificate_not_found", "Resource not found");
     }
     const certificate = await this.#repository.findCertificateByName(
       this.#database,
@@ -786,7 +800,7 @@ export class CertificateService {
       name,
     );
     if (certificate === undefined || certificate.deletedAt !== null) {
-      throw new CertificateServiceError(404, "certificate_not_found", "Certificate not found");
+      throw new CertificateServiceError(404, "certificate_not_found", "Resource not found");
     }
     return certificate;
   }
@@ -823,9 +837,32 @@ export class CertificateService {
     );
     if (!decision.allowed) {
       await this.#policy.recordDecision(decision, context);
-      throw denialError(decision, "project_not_found");
+      throw await this.#denyName(decision, projectId, context);
     }
     return decision;
+  }
+
+  /**
+   * Chooses the public denial for a name-addressed certificate route.
+   *
+   * A caller that can list certificates, or can already read the selected
+   * certificate, knows the name exists and receives 403. Every other caller
+   * receives the same 404 as a missing name.
+   */
+  async #denyName(
+    decision: PolicyDecision,
+    projectId: string,
+    context?: PolicyAuditContext,
+    canReadObject = false,
+  ): Promise<CertificateServiceError> {
+    const canList = await canListCollection({
+      policy: this.#policy,
+      actorId: decision.actorId,
+      listAction: "certificate.list",
+      projectId,
+      ...(context === undefined ? {} : { context }),
+    });
+    return denialError("certificate_not_found", !(canList || canReadObject));
   }
 
   /** Resolves a project for a read path, mapping missing/inaccessible to the data-plane 404. */
@@ -837,17 +874,6 @@ export class CertificateService {
         throw new CertificateServiceError(404, "certificate_not_found", "Resource not found");
       }
       throw error;
-    }
-  }
-
-  /** Requires the caller to have certificate.read somewhere before a name lookup. */
-  async #requireAnyRead(actorId: string, context?: PolicyAuditContext): Promise<void> {
-    const decision = await this.#policy.hasAny(actorId, "certificate.read", context, {
-      audit: false,
-    });
-    if (!decision.allowed) {
-      await this.#policy.recordDecision(decision, context);
-      throw new CertificateServiceError(403, "access_denied", "Access denied");
     }
   }
 

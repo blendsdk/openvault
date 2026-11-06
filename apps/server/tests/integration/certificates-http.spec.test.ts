@@ -245,7 +245,7 @@ describe("certificate HTTP routes", () => {
         userCsrf,
         "/v1/data/foundation/certificates/missing/private-key",
       );
-      expect(response.status).toBe(403);
+      expect(response.status).toBe(404);
     }
     const limitedPrivate = await sendAs(
       userCookie,

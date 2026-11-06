@@ -50,6 +50,7 @@ export function toRedactedConfig(config: OpenVaultConfig): RedactedOpenVaultConf
             clientSecret: "***" as const,
             redirectUrl: config.oidc.redirectUrl.href,
             allowedDomains: config.oidc.allowedDomains,
+            endpointOrigins: config.oidc.endpointOrigins,
           },
         }),
     secretMaxBytes: config.secretMaxBytes,

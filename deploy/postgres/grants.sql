@@ -6,7 +6,7 @@
 
 \set ON_ERROR_STOP on
 
-GRANT USAGE ON SCHEMA public TO openvault_app, openvault_purger, openvault_pruner;
+GRANT USAGE ON SCHEMA public TO openvault_app, openvault_auth, openvault_purger, openvault_pruner;
 
 -- The runtime role gets DML on application tables but never DDL and never
 -- DELETE on the audit chain. The append-only trigger is defense in depth.
@@ -19,6 +19,25 @@ REVOKE DELETE ON audit_checkpoints FROM openvault_app;
 REVOKE INSERT, UPDATE, DELETE ON ca_keys FROM openvault_app;
 REVOKE UPDATE, DELETE ON audit_keys FROM openvault_app;
 REVOKE DELETE ON signing_keys FROM openvault_app;
+REVOKE INSERT, UPDATE, DELETE ON policy_state FROM openvault_app;
+REVOKE DELETE ON projects FROM openvault_app;
+
+-- The control-plane role owns authentication, authorization, and agent
+-- identity writes. The data-plane role keeps SELECT for backup and read-only
+-- joins but loses every write verb on these tables.
+GRANT SELECT, INSERT, UPDATE, DELETE
+  ON principals, local_credentials, role_assignments, oidc_identities,
+     cli_sessions, join_tokens, workload_certs, consumers
+  TO openvault_auth;
+GRANT SELECT, UPDATE ON projects TO openvault_auth;
+GRANT SELECT ON secrets, certificates TO openvault_auth;
+GRANT SELECT, UPDATE ON policy_state TO openvault_auth;
+GRANT SELECT, INSERT ON audit_events, audit_checkpoints, audit_keys TO openvault_auth;
+GRANT USAGE, SELECT ON ALL SEQUENCES IN SCHEMA public TO openvault_auth;
+REVOKE INSERT, UPDATE, DELETE
+  ON principals, local_credentials, role_assignments, oidc_identities,
+     cli_sessions, join_tokens, workload_certs, consumers
+  FROM openvault_app;
 
 -- The purge role sees only the project name and the objects it may delete.
 GRANT SELECT ON projects TO openvault_purger;

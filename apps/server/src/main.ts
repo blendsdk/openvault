@@ -7,6 +7,7 @@ import { createAuditCore } from "./audit/runtime.js";
 import { bootstrapAuthRuntime } from "./auth/bootstrap.js";
 import { ConfigError, loadConfig } from "./config/index.js";
 import { migrationConfigPath } from "./db/config.js";
+import { AuthPrivilegeError, assertControlPlaneSeparation } from "./db/privileges.js";
 import { createLoggerProvider } from "./observability/logger.js";
 import { KeyringProvider } from "./security/keyring.js";
 import { TlsMaterial } from "./transport/tls.js";
@@ -61,6 +62,18 @@ try {
     poolConfig: { connectionTimeoutMillis: 2_000 },
     enableGracefulShutdown: false,
   });
+  const authDatabase =
+    config.authDatabase === undefined
+      ? database
+      : new PostgreSQLDatabase({
+          ...config.authDatabase,
+          poolConfig: { connectionTimeoutMillis: 2_000 },
+          enableGracefulShutdown: false,
+        });
+
+  if (config.envMode === "production") {
+    await assertControlPlaneSeparation({ appDatabase: database, authDatabase });
+  }
 
   const logger = createLoggerProvider(config);
   const auditDatabase = new PostgreSQLDatabase({
@@ -80,9 +93,11 @@ try {
     config,
     logger,
     auditCore,
+    authDatabase,
   });
   const app = createApplication(config, {
     database,
+    authDatabase,
     tls,
     keyring,
     logger,
@@ -108,7 +123,7 @@ try {
 } catch (error) {
   keyring?.destroy();
 
-  if (error instanceof ConfigError) {
+  if (error instanceof ConfigError || error instanceof AuthPrivilegeError) {
     process.stderr.write(`${error.message}\n`);
   } else if (error instanceof MigrationError) {
     process.stderr.write(`${formatMigrationError(error)}\n`);

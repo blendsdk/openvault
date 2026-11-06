@@ -42,6 +42,8 @@ export interface TransportHandle {
 /** Runtime dependencies supplied by the process entry point or a test. */
 export interface SecureApplicationDependencies {
   readonly database: PostgreSQLDatabase;
+  /** Control-plane connection; defaults to `database` in development and tests. */
+  readonly authDatabase?: PostgreSQLDatabase;
   readonly tls: TlsMaterial;
   readonly keyring: KeyringProvider;
   /** Test override; production builds probes from the runtime dependencies. */

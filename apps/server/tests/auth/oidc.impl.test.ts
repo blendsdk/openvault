@@ -20,6 +20,7 @@ const OIDC_CONFIG = {
   clientSecret: "secret",
   redirectUrl: new URL("https://vault.example.com/v1/auth/callback"),
   allowedDomains: [],
+  endpointOrigins: ["https://issuer.example"],
 };
 
 const DISCOVERY = {
@@ -113,6 +114,89 @@ describe("OidcClient discovery", () => {
 
     await expect(client.buildAuthorizationUrl({})).rejects.toBeInstanceOf(OidcUnavailableError);
   }, 10_000);
+});
+
+describe("OIDC endpoint origins", () => {
+  const crossOriginFields = [
+    "authorization_endpoint",
+    "token_endpoint",
+    "jwks_uri",
+    "userinfo_endpoint",
+  ] as const;
+
+  it("should reject a cross-origin endpoint for every discovery field", async () => {
+    for (const field of crossOriginFields) {
+      const discovery = { ...DISCOVERY, [field]: `https://collector.example/${field}` };
+      const fetched: string[] = [];
+      const fetch = async (input: RequestInfo | URL): Promise<Response> => {
+        fetched.push(String(input));
+        return Response.json(discovery);
+      };
+      const client = new OidcClient({ config: OIDC_CONFIG, fetch });
+
+      await expect(client.buildAuthorizationUrl({}), field).rejects.toBeInstanceOf(
+        OidcUnavailableError,
+      );
+      expect(
+        fetched.some((url) => url.includes("collector.example")),
+        field,
+      ).toBe(false);
+    }
+  });
+
+  it("should accept a cross-origin endpoint only when its origin is allowlisted", async () => {
+    const discovery = { ...DISCOVERY, token_endpoint: "https://collector.example/token" };
+    const fetch = async (input: RequestInfo | URL): Promise<Response> => {
+      if (String(input).includes(".well-known/openid-configuration")) {
+        return Response.json(discovery);
+      }
+      return Response.json({});
+    };
+    const client = new OidcClient({
+      config: {
+        ...OIDC_CONFIG,
+        endpointOrigins: ["https://issuer.example", "https://collector.example"],
+      },
+      fetch,
+    });
+
+    await expect(client.buildAuthorizationUrl({})).resolves.toMatchObject({
+      url: expect.stringContaining("https://issuer.example/authorize"),
+    });
+  });
+
+  it("should reject an HTTP endpoint", async () => {
+    const discovery = { ...DISCOVERY, token_endpoint: "http://issuer.example/token" };
+    const fetch = async (): Promise<Response> => Response.json(discovery);
+    const client = new OidcClient({ config: OIDC_CONFIG, fetch });
+
+    await expect(client.buildAuthorizationUrl({})).rejects.toBeInstanceOf(OidcUnavailableError);
+  });
+
+  it("should disable redirects on endpoint requests", async () => {
+    let redirectMode: string | undefined;
+    const fetch = async (input: RequestInfo | URL, init?: RequestInit): Promise<Response> => {
+      if (String(input).includes(".well-known/openid-configuration")) {
+        return Response.json(DISCOVERY);
+      }
+      redirectMode = init?.redirect;
+      throw new TypeError("redirect blocked");
+    };
+    const client = new OidcClient({ config: OIDC_CONFIG, fetch });
+    const authorization = await client.buildAuthorizationUrl({});
+    const callback = new URL("https://vault.example.com/v1/auth/callback");
+    callback.searchParams.set("code", "test-code");
+    callback.searchParams.set("state", authorization.state);
+
+    await expect(
+      client.exchangeCode({
+        callbackUrl: callback,
+        codeVerifier: authorization.codeVerifier,
+        nonce: authorization.nonce,
+      }),
+    ).rejects.toBeInstanceOf(OidcUnavailableError);
+    expect(redirectMode).toBe("error");
+  });
 });
 
 describe("OidcStateStore", () => {

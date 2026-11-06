@@ -87,6 +87,56 @@ export function httpsUrlValue(key: string, raw: string): URL {
 }
 
 /**
+ * Parses a comma-separated list of HTTPS origins.
+ *
+ * Values must be bare origins: no path, query, fragment, credentials, or
+ * wildcard. The issuer origin is always included so a provider remains usable
+ * when an operator adds a separate JWKS or UserInfo origin.
+ *
+ * @param key - Environment key used in errors.
+ * @param raw - Raw comma-separated value, or undefined for the default.
+ * @param issuerOrigin - Origin that is always allowed.
+ * @returns Canonical, deduplicated origins.
+ * @throws {ConfigError} When a value is not a safe HTTPS origin.
+ */
+export function originListValue(
+  key: string,
+  raw: string | undefined,
+  issuerOrigin: string,
+): readonly string[] {
+  const origins = new Set<string>([issuerOrigin]);
+  if (raw === undefined) {
+    return [...origins];
+  }
+  for (const entry of raw.split(",")) {
+    const value = entry.trim();
+    if (value.length === 0) {
+      throw new ConfigError(key, "must not contain an empty origin");
+    }
+    if (value.includes("*")) {
+      throw new ConfigError(key, "must not contain a wildcard");
+    }
+    let url: URL;
+    try {
+      url = new URL(value);
+    } catch {
+      throw new ConfigError(key, "must be a valid URL");
+    }
+    if (url.protocol !== "https:") {
+      throw new ConfigError(key, "must use HTTPS");
+    }
+    if (url.username.length > 0 || url.password.length > 0) {
+      throw new ConfigError(key, "must not contain credentials");
+    }
+    if (url.search.length > 0 || url.hash.length > 0 || url.pathname !== "/") {
+      throw new ConfigError(key, "must be an origin without a path, query, or fragment");
+    }
+    origins.add(url.origin);
+  }
+  return [...origins];
+}
+
+/**
  * Removes one trailing slash from a URL path.
  *
  * The base URL keeps any path component, so a deployment under

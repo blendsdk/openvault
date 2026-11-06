@@ -23,6 +23,7 @@ const POLICY_DETAIL_KEYS: ReadonlySet<string> = new Set([
   "policyVersion",
   "denialCount",
   "version",
+  "phase",
 ]);
 
 /** Rotation is the only policy action that carries a key identifier. */
@@ -100,6 +101,7 @@ const CERTIFICATE_DETAIL_KEYS: ReadonlySet<string> = new Set([
   "version",
   "mode",
   "renewal",
+  "phase",
 ]);
 
 /** Details keys permitted on certificate expiry warnings. */

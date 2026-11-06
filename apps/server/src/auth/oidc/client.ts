@@ -105,6 +105,7 @@ export class OidcClient {
   readonly #config: OidcConfig;
   readonly #fetch: typeof globalThis.fetch;
   readonly #now: () => number;
+  readonly #allowedOrigins: ReadonlySet<string>;
   readonly #timedFetch: client.CustomFetch;
   #discovery: CachedDiscovery | undefined;
 
@@ -115,12 +116,16 @@ export class OidcClient {
     this.#config = options.config;
     this.#fetch = options.fetch ?? globalThis.fetch;
     this.#now = options.now ?? Date.now;
+    this.#allowedOrigins = new Set(options.config.endpointOrigins);
     this.#timedFetch = (url, request) => {
       const body = toBodyInit(request.body);
       const init: RequestInit = {
         headers: request.headers,
         method: request.method,
-        redirect: request.redirect,
+        // A redirect could move a credential or token to an origin that was
+        // never in the discovery document. Reject every redirect instead of
+        // trying to validate the next hop.
+        redirect: "error",
         signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
         ...(body === undefined ? {} : { body }),
       };
@@ -211,6 +216,31 @@ export class OidcClient {
   }
 
   /**
+   * Rejects a discovery endpoint outside the configured HTTPS origin allowlist.
+   *
+   * @param label - Metadata field name used in the safe error message.
+   * @param raw - Endpoint URL, or undefined when the provider omits it.
+   * @throws {OidcUnavailableError} When the URL is not an allowed HTTPS origin.
+   */
+  #validateEndpoint(label: string, raw: string | undefined): void {
+    if (raw === undefined) {
+      return;
+    }
+    let url: URL;
+    try {
+      url = new URL(raw);
+    } catch {
+      throw new OidcUnavailableError(`OIDC ${label} is invalid`);
+    }
+    if (url.protocol !== "https:" || url.username !== "" || url.password !== "") {
+      throw new OidcUnavailableError(`OIDC ${label} is invalid`);
+    }
+    if (!this.#allowedOrigins.has(url.origin)) {
+      throw new OidcUnavailableError(`OIDC ${label} origin is not allowed`);
+    }
+  }
+
+  /**
    * Checks whether discovery succeeds. An outage is reported as `false`; it is
    * not a readiness dependency.
    *
@@ -266,6 +296,11 @@ export class OidcClient {
     if (discoveredIssuer !== this.#config.issuer.href) {
       throw new OidcUnavailableError("OIDC issuer mismatch");
     }
+
+    this.#validateEndpoint("authorization_endpoint", metadata.authorization_endpoint);
+    this.#validateEndpoint("token_endpoint", metadata.token_endpoint);
+    this.#validateEndpoint("jwks_uri", metadata.jwks_uri);
+    this.#validateEndpoint("userinfo_endpoint", metadata.userinfo_endpoint);
 
     this.#discovery = {
       configuration,

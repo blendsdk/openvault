@@ -228,7 +228,7 @@ describe("secret write and read", () => {
         name: secretName("missing"),
         value: "x",
       }),
-    ).rejects.toMatchObject({ statusCode: 404, code: "project_not_found" });
+    ).rejects.toMatchObject({ statusCode: 404, code: "secret_not_found" });
   });
 
   it("should reject a duplicate active or deleted name", async () => {
@@ -245,7 +245,7 @@ describe("secret write and read", () => {
     await createSecret(name);
     await expect(
       secrets.read(actors.noAccess, "foundation", name, {}, { requestId: "no-access" }),
-    ).rejects.toMatchObject({ statusCode: 403, code: "access_denied" });
+    ).rejects.toMatchObject({ statusCode: 404, code: "secret_not_found" });
     const otherReader = await insertUser("Other Reader");
     await assign(otherReader, "secrets.reader", "project", actors.projectB);
     await expect(
@@ -271,7 +271,7 @@ describe("secret write and read", () => {
     expect(read.value).toBe("value");
     await expect(
       secrets.list(objectReader, "foundation", { limit: 50 }, { requestId: "object-list" }),
-    ).rejects.toMatchObject({ statusCode: 403, code: "access_denied" });
+    ).rejects.toMatchObject({ statusCode: 404, code: "project_not_found" });
     await expect(
       secrets.versions(objectReader, "foundation", name, { requestId: "object-versions" }),
     ).resolves.toHaveLength(1);

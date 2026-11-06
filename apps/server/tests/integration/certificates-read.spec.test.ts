@@ -137,7 +137,8 @@ describe("certificate reads and lists", () => {
     const read = await service.read(reader, "foundation", name, {});
     expect(read.name).toBe(name);
     await expect(service.list(reader, "foundation", { limit: 50 })).rejects.toMatchObject({
-      statusCode: 403,
+      statusCode: 404,
+      code: "project_not_found",
     });
   });
 
@@ -229,7 +230,8 @@ describe("certificate reads and lists", () => {
     });
     const noAccess = await insertUser("No Access");
     await expect(service.read(noAccess, "foundation", name, {})).rejects.toMatchObject({
-      statusCode: 403,
+      statusCode: 404,
+      code: "certificate_not_found",
     });
   });
 

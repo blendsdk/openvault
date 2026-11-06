@@ -53,7 +53,9 @@ describe("service identity generated artifacts", () => {
     expect(ids).toContain("20261103141310_identity-guards");
     expect(ids).toContain("20261103192657_rbac-policy-state");
     expect(ids).toContain("20261103192700_policy-state-seed");
-    expect(ids).toHaveLength(9);
+    expect(ids).toContain("20261106193000_signing-key-lifecycle");
+    expect(ids).toContain("20261106194500_project-recovery-guard");
+    expect(ids).toHaveLength(11);
   });
 });
 

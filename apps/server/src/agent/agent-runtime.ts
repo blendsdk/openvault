@@ -63,6 +63,8 @@ export interface AgentRuntime extends AgentRuntimeCore {
 export interface CreateAgentRuntimeOptions {
   /** Connected database. */
   readonly database: PostgreSQLDatabase;
+  /** Control-plane connection for policy, identity, and agent-identity writes. */
+  readonly authDatabase?: PostgreSQLDatabase;
   /** Loaded keyring. */
   readonly keyring: KeyringProvider;
   /** Loaded TLS and internal CA material. */
@@ -106,10 +108,11 @@ const silentLogger: Logger = {
 export async function createAgentRuntime(
   options: CreateAgentRuntimeOptions,
 ): Promise<AgentRuntime> {
+  const authDatabase = options.authDatabase ?? options.database;
   const auditCore =
     options.auditCore ?? createAuditCore({ database: options.database, keyring: options.keyring });
   const policyRuntime = createPolicyRuntime({
-    database: options.database,
+    database: authDatabase,
     ...(options.logger === undefined ? {} : { logger: options.logger }),
     audit: auditCore.policyAudit,
   });
@@ -126,16 +129,16 @@ export async function createAgentRuntime(
     ...(options.now === undefined ? {} : { now: options.now }),
   });
   const authenticator = new DatabaseAgentAuthenticator({
-    database: options.database,
+    database: authDatabase,
     ...(options.now === undefined ? {} : { now: options.now }),
   });
-  const projectResolver = new DatabaseProjectResolver(options.database);
-  const consumers = new ConsumerRepository(options.database);
+  const projectResolver = new DatabaseProjectResolver(authDatabase);
+  const consumers = new ConsumerRepository(authDatabase);
   const renewalCache = new RenewalReplayCache(
     options.now === undefined ? {} : { now: options.now },
   );
   const renewService = new AgentRenewService({
-    database: options.database,
+    database: authDatabase,
     consumers,
     signer: caSigner,
     config: options.config,
@@ -144,7 +147,7 @@ export async function createAgentRuntime(
     ...(options.now === undefined ? {} : { now: options.now }),
   });
   const identityRuntime = createIdentityRuntime({
-    database: options.database,
+    database: authDatabase,
     config: options.config,
     policyRuntime,
     onRevoked: (principalId) => {
@@ -153,7 +156,7 @@ export async function createAgentRuntime(
     },
   });
   const joinService = new AgentJoinService({
-    database: options.database,
+    database: authDatabase,
     tokens: identityRuntime.tokens,
     consumers,
     signer: caSigner,
@@ -162,7 +165,7 @@ export async function createAgentRuntime(
   });
 
   const maintenance = new AgentMaintenanceService({
-    repository: new DatabaseAgentMaintenanceRepository(options.database),
+    repository: new DatabaseAgentMaintenanceRepository(authDatabase),
     logger: options.logger ?? silentLogger,
     ...(options.maintenanceIntervalMs === undefined
       ? {}

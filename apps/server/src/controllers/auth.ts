@@ -183,7 +183,7 @@ export class AuthController extends BaseController {
           }
 
           const passwordHash = await hashPassword(input.newPassword);
-          const database = await this.services.get<PostgreSQLDatabase>("database");
+          const database = await this.services.get<PostgreSQLDatabase>("authDatabase");
           const cliSessions = await this.services.get<CliSessionRepository>("cliSessions");
           const updated = await database.withTransaction(async (tx) => {
             await tx.executeQuery("SELECT id FROM principals WHERE id = :principalId FOR UPDATE", {

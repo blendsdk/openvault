@@ -24,7 +24,10 @@ bind. The server requires Node.js 24.7 or newer (the built-in Argon2 API).
 | `OPENVAULT_OIDC_CLIENT_ID` / `_SECRET` | none | with OIDC | Non-empty when an issuer is set |
 | `OPENVAULT_OIDC_REDIRECT_URL` | `${BASE_URL}/v1/auth/callback` | no | HTTPS URL |
 | `OPENVAULT_OIDC_ALLOWED_DOMAINS` | none | no | Comma-separated domain allowlist |
+| `OPENVAULT_OIDC_ENDPOINT_ORIGINS` | issuer origin | no | Comma-separated HTTPS origins allowed for authorization, token, JWKS, and UserInfo endpoints |
 | `OPENVAULT_SECRET_MAX_BYTES` | `65536` | no | 1024–65536; decoded value limit enforced by the secret routes |
+| `OPENVAULT_AUTH_DB_URL` | app URL in development/test | production | Dedicated `openvault_auth` PostgreSQL URL for control-plane writes |
+| `OPENVAULT_AUTH_DB_URL_FILE` | none | no | File form of the auth URL |
 | `OPENVAULT_PURGE_DB_URL` | none | no | Dedicated `openvault_purger` PostgreSQL URL used only by secret and certificate purge |
 | `OPENVAULT_PURGE_DB_URL_FILE` | none | no | File form of the purge URL |
 | `OPENVAULT_CERT_MAX_BYTES` | `131072` | no | 1024–131072; combined public chain bound; the private key is separately limited to 16,384 bytes |
@@ -45,13 +48,14 @@ bind. The server requires Node.js 24.7 or newer (the built-in Argon2 API).
 keyed error. The agent port must differ from the resolved admin port.
 
 `OPENVAULT_DB_URL_FILE`, `OPENVAULT_MIGRATION_DB_URL_FILE`, and
-`OPENVAULT_PURGE_DB_URL_FILE` read the URL from a file instead of the environment. The file
+`OPENVAULT_AUTH_DB_URL_FILE` and `OPENVAULT_PURGE_DB_URL_FILE` read the URL from a file instead of the environment. The file
 must be a regular file and must not be group- or world-writable; Docker secrets mount as
 `0444`. Setting both the direct and file forms is an error. The migrator and purge URLs must
 target the same host, port, and database as `OPENVAULT_DB_URL`; they may use a different role.
 
 `OPENVAULT_SESSION_TTL_HOURS` is an absolute lifetime measured from session creation, not a
-sliding idle timeout. `OPENVAULT_OIDC_ALLOWED_DOMAINS` enables JIT provisioning; without it,
+sliding idle timeout. The auth URL must target the same database as `OPENVAULT_DB_URL`.
+`OPENVAULT_OIDC_ALLOWED_DOMAINS` enables JIT provisioning; without it,
 OIDC identities must already be linked. JIT also requires `email_verified: true` and an exact
 domain match.
 
@@ -169,7 +173,8 @@ Requests with a non-JSON body under `/v1` are rejected with `415`.
 | Role | Ownership | Purpose |
 |---|---|---|
 | `openvault_migrator` | Database, schema, tables | Migrations and restore |
-| `openvault_app` | None | Server runtime DML |
+| `openvault_app` | None | Data-plane runtime DML and reads |
+| `openvault_auth` | None | Control-plane authentication, RBAC, and agent-identity DML |
 | `openvault_purger` | None | Controlled purge |
 | `openvault_pruner` | None | Controlled audit prune |
 
@@ -177,14 +182,17 @@ The server runs startup migrations with `OPENVAULT_MIGRATION_DB_URL` and then se
 traffic with `OPENVAULT_DB_URL`. The runtime role cannot create tables or delete audit
 events. `deploy/postgres/grants.sql` asserts that the migrator owns every application
 table, so a drifted deployment fails loudly instead of silently granting the runtime role
-DDL. Re-run `grants.sql` after a migration that adds a table the purge or prune path must
-access.
+DDL. The app role has no `INSERT`, `UPDATE`, or `DELETE` on `principals`,
+`local_credentials`, `role_assignments`, `oidc_identities`, `cli_sessions`, `join_tokens`,
+`workload_certs`, or `consumers`; those writes use `openvault_auth`. Re-run `grants.sql` after
+a migration that adds a table the purge or prune path must access. The `openvault-roles` job
+runs `ensure-auth-role.sql` on every deployment so an existing database also gets the role.
 
 ## Secret and certificate purge
 
 Secret and certificate purge need a dedicated login role named `openvault_purger`, because
 the database trigger rejects deletes from the application role. The reference stack creates
-all four roles with `deploy/postgres/roles.sql`, makes `openvault_migrator` the database and
+all five roles with `deploy/postgres/roles.sql`, makes `openvault_migrator` the database and
 table owner, and applies `deploy/postgres/grants.sql`. Set `OPENVAULT_PURGE_DB_URL` to that
 role's URL or point `OPENVAULT_PURGE_DB_URL_FILE` at a Docker secret. The equivalent grants
 are:

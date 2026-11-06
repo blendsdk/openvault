@@ -1,4 +1,4 @@
-import { randomBytes } from "node:crypto";
+import { generateKeyPairSync, randomBytes } from "node:crypto";
 import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -94,12 +94,19 @@ function requireKeyring(): KeyringProvider {
 
 /** Creates a service instance that shares the current test database and keyring. */
 function createService(
-  options: { readonly keyring?: KeyringProvider; readonly now?: () => number } = {},
+  options: {
+    readonly keyring?: KeyringProvider;
+    readonly now?: () => number;
+    readonly onPreviousKeyRejected?: (kid: string) => void;
+  } = {},
 ): SigningKeyService {
   return new SigningKeyService({
     repository: new SigningKeyRepository(testDb.db),
     keyring: options.keyring ?? requireKeyring(),
     now: options.now ?? (() => nowMs),
+    ...(options.onPreviousKeyRejected === undefined
+      ? {}
+      : { onPreviousKeyRejected: options.onPreviousKeyRejected }),
   });
 }
 
@@ -140,6 +147,20 @@ async function signingKeyRows(): Promise<SigningKeySnapshot[]> {
     activatedAt: row.activated_at,
     retiredAt: row.retired_at,
   }));
+}
+
+/** Runs a deliberately invalid update with the lifecycle guard disabled. */
+async function withLifecycleTriggerDisabled<T>(action: () => Promise<T>): Promise<T> {
+  await testDb.db.executeQuery(
+    "ALTER TABLE signing_keys DISABLE TRIGGER signing_keys_guard_lifecycle",
+  );
+  try {
+    return await action();
+  } finally {
+    await testDb.db.executeQuery(
+      "ALTER TABLE signing_keys ENABLE TRIGGER signing_keys_guard_lifecycle",
+    );
+  }
 }
 
 /** Returns the first row or fails the test with a clear message. */
@@ -299,11 +320,13 @@ describe("wrapped seed handling", () => {
     await service.ensure();
     const row = requireFirst(await signingKeyRows());
 
-    await testDb.db.executeQuery(
-      `UPDATE signing_keys
-          SET wrapped_seed = set_byte(wrapped_seed, 0, (get_byte(wrapped_seed, 0) # 255))
-        WHERE kid = :kid`,
-      { kid: row.kid },
+    await withLifecycleTriggerDisabled(() =>
+      testDb.db.executeQuery(
+        `UPDATE signing_keys
+            SET wrapped_seed = set_byte(wrapped_seed, 0, (get_byte(wrapped_seed, 0) # 255))
+          WHERE kid = :kid`,
+        { kid: row.kid },
+      ),
     );
 
     let failure: unknown;
@@ -334,11 +357,13 @@ describe("wrapped seed handling", () => {
     await service.ensure();
     const row = requireFirst(await signingKeyRows());
 
-    await testDb.db.executeQuery(
-      `UPDATE signing_keys
-          SET wrap_tag = set_byte(wrap_tag, 0, (get_byte(wrap_tag, 0) # 255))
-        WHERE kid = :kid`,
-      { kid: row.kid },
+    await withLifecycleTriggerDisabled(() =>
+      testDb.db.executeQuery(
+        `UPDATE signing_keys
+            SET wrap_tag = set_byte(wrap_tag, 0, (get_byte(wrap_tag, 0) # 255))
+          WHERE kid = :kid`,
+        { kid: row.kid },
+      ),
     );
 
     await expect(
@@ -351,10 +376,12 @@ describe("wrapped seed handling", () => {
     await service.ensure();
     const row = requireFirst(await signingKeyRows());
 
-    await testDb.db.executeQuery("UPDATE signing_keys SET kid = :replacementKid WHERE kid = :kid", {
-      kid: row.kid,
-      replacementKid: REPLACEMENT_KID,
-    });
+    await withLifecycleTriggerDisabled(() =>
+      testDb.db.executeQuery("UPDATE signing_keys SET kid = :replacementKid WHERE kid = :kid", {
+        kid: row.kid,
+        replacementKid: REPLACEMENT_KID,
+      }),
+    );
 
     await expect(
       createService().signAccessToken({ principalId: PRINCIPAL_ID, familyId: FAMILY_ID, nowMs }),
@@ -366,13 +393,131 @@ describe("wrapped seed handling", () => {
     await service.ensure();
     const row = requireFirst(await signingKeyRows());
 
-    await testDb.db.executeQuery("UPDATE signing_keys SET kek_id = 'k2' WHERE kid = :kid", {
-      kid: row.kid,
-    });
+    await withLifecycleTriggerDisabled(() =>
+      testDb.db.executeQuery("UPDATE signing_keys SET kek_id = 'k2' WHERE kid = :kid", {
+        kid: row.kid,
+      }),
+    );
 
     await expect(
       createService().signAccessToken({ principalId: PRINCIPAL_ID, familyId: FAMILY_ID, nowMs }),
     ).rejects.toBeInstanceOf(SigningKeyUnavailableError);
+  });
+});
+
+describe("previous key authentication", () => {
+  it("should reject a previous public key that does not derive from its wrapped seed", async () => {
+    const service = createService();
+    await service.ensure();
+    const current = requireFirst(await signingKeyRows());
+
+    const replacement = generateKeyPairSync("ed25519");
+    const spki = replacement.publicKey.export({ format: "der", type: "spki" });
+    const replacementKid = testUlid(950);
+    await testDb.db.executeQuery(
+      `INSERT INTO signing_keys
+         (kid, public_key, wrapped_seed, wrap_nonce, wrap_tag, kek_id, status, activated_at)
+       VALUES
+         (:kid, :publicKey, :wrappedSeed, :nonce, :tag, 'k1', 'previous', :activatedAt)`,
+      {
+        kid: replacementKid,
+        publicKey: spki.subarray(spki.length - 32),
+        wrappedSeed: randomBytes(32),
+        nonce: randomBytes(12),
+        tag: randomBytes(16),
+        activatedAt: new Date(nowMs),
+      },
+    );
+
+    const forged = await new SignJWT(tokenClaims(Math.floor(nowMs / 1_000)))
+      .setProtectedHeader({ alg: "EdDSA", kid: replacementKid })
+      .sign(replacement.privateKey);
+    await expect(createService().verifyAccessToken(forged)).rejects.toBeInstanceOf(CliTokenError);
+
+    const currentToken = await createService().signAccessToken({
+      principalId: PRINCIPAL_ID,
+      familyId: FAMILY_ID,
+      nowMs,
+    });
+    await expect(createService().verifyAccessToken(currentToken.token)).resolves.toMatchObject({
+      sub: PRINCIPAL_ID,
+      sid: FAMILY_ID,
+    });
+    expect(current.kid).not.toBe(replacementKid);
+  });
+
+  it("should report a rejected previous row and keep current verification working", async () => {
+    const rejected: string[] = [];
+    const service = createService();
+    await service.ensure();
+    const kid = testUlid(951);
+    await testDb.db.executeQuery(
+      `INSERT INTO signing_keys
+         (kid, public_key, wrapped_seed, wrap_nonce, wrap_tag, kek_id, status, activated_at)
+       VALUES
+         (:kid, :publicKey, :wrappedSeed, :nonce, :tag, 'k1', 'previous', :activatedAt)`,
+      {
+        kid,
+        publicKey: randomBytes(32),
+        wrappedSeed: randomBytes(32),
+        nonce: randomBytes(12),
+        tag: randomBytes(16),
+        activatedAt: new Date(nowMs),
+      },
+    );
+
+    const currentToken = await service.signAccessToken({
+      principalId: PRINCIPAL_ID,
+      familyId: FAMILY_ID,
+      nowMs,
+    });
+    const verifier = createService({
+      onPreviousKeyRejected: (rejectedKid) => {
+        rejected.push(rejectedKid);
+      },
+    });
+    await expect(verifier.verifyAccessToken(currentToken.token)).resolves.toMatchObject({
+      sub: PRINCIPAL_ID,
+    });
+    expect(rejected).toContain(kid);
+  });
+
+  it("should reject lifecycle mutations and illegal status transitions", async () => {
+    const service = createService();
+    await service.ensure();
+    const current = requireFirst(await signingKeyRows());
+
+    await expect(
+      testDb.db.executeQuery("UPDATE signing_keys SET activated_at = now() WHERE kid = :kid", {
+        kid: current.kid,
+      }),
+    ).rejects.toThrow();
+    await expect(
+      testDb.db.executeQuery(
+        "UPDATE signing_keys SET status = 'retired', retired_at = now() WHERE kid = :kid",
+        { kid: current.kid },
+      ),
+    ).rejects.toThrow();
+    await expect(
+      testDb.db.executeQuery("UPDATE signing_keys SET status = status WHERE kid = :kid", {
+        kid: current.kid,
+      }),
+    ).resolves.toBeDefined();
+
+    nowMs = START_MS + 60_000;
+    await service.rotate();
+    nowMs += OVERLAP_MS + 1;
+    await service.retireDue();
+    const retired = (await signingKeyRows()).find((row) => row.status === "retired");
+    if (retired === undefined) {
+      throw new Error("expected a retired key");
+    }
+    await expect(
+      testDb.db.executeQuery(
+        "UPDATE signing_keys SET status = 'current', retired_at = NULL WHERE kid = :kid",
+        { kid: retired.kid },
+      ),
+    ).rejects.toThrow();
   });
 });
 

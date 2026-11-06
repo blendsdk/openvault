@@ -1,4 +1,12 @@
-import { createCipheriv, createDecipheriv, generateKeyPairSync, randomBytes } from "node:crypto";
+import {
+  createCipheriv,
+  createDecipheriv,
+  createPrivateKey,
+  createPublicKey,
+  generateKeyPairSync,
+  randomBytes,
+  timingSafeEqual,
+} from "node:crypto";
 import { newUlid } from "@openvault/core";
 import type { PostgreSQLDatabase } from "blendsdk/postgresql";
 import { importJWK } from "jose";
@@ -510,6 +518,8 @@ export interface SigningKeyServiceOptions {
   readonly keyring: KeyringProvider;
   /** Injectable clock for tests; defaults to `Date.now`. */
   readonly now?: () => number;
+  /** Optional structured warning when an unauthenticated previous row is ignored. */
+  readonly onPreviousKeyRejected?: (kid: string) => void;
 }
 
 interface CachedCurrentKey {
@@ -538,6 +548,7 @@ export class SigningKeyService {
   readonly #repository: SigningKeyRepository;
   readonly #keyring: KeyringProvider;
   readonly #now: () => number;
+  readonly #onPreviousKeyRejected: ((kid: string) => void) | undefined;
   #current: CachedCurrentKey | undefined;
   #previous: CachedPreviousKey | undefined;
   #loadedAt: number | undefined;
@@ -550,6 +561,7 @@ export class SigningKeyService {
     this.#repository = options.repository;
     this.#keyring = options.keyring;
     this.#now = options.now ?? Date.now;
+    this.#onPreviousKeyRejected = options.onPreviousKeyRejected;
   }
 
   /**
@@ -756,7 +768,7 @@ export class SigningKeyService {
       const previousKey =
         snapshot.previous === undefined
           ? undefined
-          : await this.#importPublicKey(snapshot.previous);
+          : await this.#importPreviousKey(snapshot.previous);
       this.#current = { row: current, ...currentKeys };
       this.#previous =
         snapshot.previous === undefined || previousKey === undefined
@@ -835,6 +847,50 @@ export class SigningKeyService {
       throw new SigningKeyUnavailableError();
     } finally {
       seed.fill(0);
+    }
+  }
+
+  /**
+   * Imports a previous key only when its public bytes derive from its wrapped seed.
+   *
+   * The previous row is not authenticated by encryption alone: an attacker with
+   * database write access could replace the public key while leaving a valid
+   * wrapped seed in place. Unwrapping the seed and deriving the public key
+   * closes that mismatch. A failure is treated as an unavailable previous key,
+   * not as a service-wide failure, so current-key verification keeps working.
+   *
+   * @param row - Previous key row.
+   * @returns The verification key, or `undefined` when the row is not authentic.
+   */
+  async #importPreviousKey(row: SigningKeyRow): Promise<CryptoKey | undefined> {
+    let seed: Buffer | undefined;
+    try {
+      seed = unwrapSigningSeed(this.#keyring, row);
+      // Node's JWK importer requires `x`, which is the value being checked.
+      // Build the PKCS#8 envelope directly from the seed so the derived public
+      // key is independent of the stored public bytes.
+      const pkcs8Prefix = Buffer.from("302e020100300506032b657004220420", "hex");
+      const der = Buffer.concat([pkcs8Prefix, seed]);
+      let privateKey: ReturnType<typeof createPrivateKey>;
+      try {
+        privateKey = createPrivateKey({ key: der, format: "der", type: "pkcs8" });
+      } finally {
+        der.fill(0);
+      }
+      const spki = createPublicKey(privateKey).export({ format: "der", type: "spki" });
+      if (!Buffer.isBuffer(spki) || spki.length < 32) {
+        throw new SigningKeyUnavailableError();
+      }
+      const derived = spki.subarray(spki.length - 32);
+      if (derived.length !== 32 || !timingSafeEqual(derived, row.publicKey)) {
+        throw new SigningKeyUnavailableError();
+      }
+      return await this.#importPublicKey(row);
+    } catch {
+      this.#onPreviousKeyRejected?.(row.kid);
+      return undefined;
+    } finally {
+      seed?.fill(0);
     }
   }
 
