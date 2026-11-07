@@ -1,7 +1,7 @@
 # Security Findings Wave 2 — Execution Plan
 
 > **Type**: Feature plan · **Feature**: openvault-v0-1 · **CodeOps Artifact Schema**: 1
-> **Progress**: 34/45 tasks (76%)
+> **Progress**: 38/45 tasks (84%)
 > **Last Updated**: 2026-11-07 02:05
 > **Mode**: `--auto-design` · `--auto-commit`
 > **Reasoning**: high — credential handling, database authority, audit integrity, and session security across seven findings
@@ -128,13 +128,13 @@ Close issues #46–#52 with regression tests, production-safe configuration, and
 
 ### Session 7.1 — Specification tests
 
-- [ ] 7.1.1 Add no-proof, wrong-proof, correct-proof, replay, in-flight, concurrent-recovery, revoke, password-change, and expiry tests (ST-38…ST-44).
-- [ ] 7.1.2 Run the session tests and record the red-phase failure: the old cookie alone or the in-flight shortcut recovers the successor.
+- [x] 7.1.1 Add no-proof, wrong-proof, correct-proof, replay, in-flight, concurrent-recovery, revoke, password-change, and expiry tests (ST-38…ST-44).
+- [x] 7.1.2 Run the session tests and record the red-phase failure: the old cookie alone or the in-flight shortcut recovers the successor.
 
 ### Session 7.2 — Implementation and verification
 
-- [ ] 7.2.1 Add `hashToken`, store the old CSRF hash in receipts and in-flight entries, require the proof, consume the receipt, and pass `x-csrf-token` from the controller.
-- [ ] 7.2.2 Run the session and auth suites plus `pnpm verify`; mark phase verified.
+- [x] 7.2.1 Add `hashToken`, store the old CSRF hash in receipts and in-flight entries, require the proof, consume the receipt, and pass `x-csrf-token` from the controller.
+- [x] 7.2.2 Run the session and auth suites plus `pnpm verify`; mark phase verified.
 
 ## Phase 8 — Full verification and closeout
 

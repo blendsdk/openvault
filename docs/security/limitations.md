@@ -224,10 +224,11 @@ These are accepted for v0.1. They are documented so reviewers do not mistake the
     destination. If the host and the destination are lost together, the RPO is not met. Keep the
     checkpoint anchor on independent storage.
 69. **Browser refresh retry receipt.** Browser refresh keeps a ten-second receipt for the
-    previous session secret so a lost response can be retried. Anyone who already holds the
-    old cookie can use that window to obtain the rotated cookie. This is a retry aid, not a
-    theft detector; CLI refresh reuse detection is strict. The window is documented in the
-    claims ledger instead of being described as full browser reuse detection.
+    previous session secret so a lost response can be retried. Recovery requires the
+    pre-rotation `x-csrf-token`, which is not stored in the cookie, and the receipt is consumed
+    on the first successful recovery. A cookie thief without the CSRF token cannot use the
+    window. If the single recovery response is also lost, the operator must reauthenticate.
+    CLI refresh reuse detection remains strict.
 70. **CA rotation.** There is no supported online CA rotation command. A suspected CA
     compromise requires a fresh deployment, a restore from a pre-compromise backup, new
     server TLS material, new agent join tokens, and re-issued workload identities.

@@ -266,7 +266,11 @@ export class AuthController extends BaseController {
             throw new ApiError(401, "authentication_required", "Authentication required");
           }
 
-          const rotated = await sessions.rotate(secretId);
+          const proof = req.headers["x-csrf-token"];
+          const rotated = await sessions.rotate(
+            secretId,
+            typeof proof === "string" ? proof : undefined,
+          );
           if (rotated === undefined) {
             throw new ApiError(401, "authentication_required", "Authentication required");
           }

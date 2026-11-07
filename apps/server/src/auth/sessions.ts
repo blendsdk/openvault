@@ -1,4 +1,4 @@
-import { createHash, randomBytes } from "node:crypto";
+import { createHash, randomBytes, timingSafeEqual } from "node:crypto";
 import { newUlid } from "@openvault/core";
 import type { CacheProvider } from "blendsdk/webafx-cache";
 import type { OpenVaultConfig } from "../config/index.js";
@@ -53,13 +53,20 @@ export class SessionService {
     string,
     { secretHash: string; principalId: string; expiresAt: number }
   >();
-  readonly #rotations = new Map<string, Promise<IssuedSession | undefined>>();
+  readonly #rotations = new Map<
+    string,
+    {
+      proofReady: Promise<Buffer | undefined>;
+      promise: Promise<IssuedSession | undefined>;
+    }
+  >();
   readonly #rotationReceipts = new Map<
     string,
     {
       result: IssuedSession;
       publicId: string;
       secretHash: string;
+      oldCsrfHash: Buffer;
       expiresAt: number;
     }
   >();
@@ -128,29 +135,59 @@ export class SessionService {
    * revoked, superseded, or expired session yields `undefined`.
    *
    * @param secretId - Current secret cookie value.
-   * @returns The new secret and record, or `undefined` when the session is gone.
+   * @param proof - Pre-rotation CSRF token; required for receipt recovery and
+   * the in-flight shortcut.
+   * @returns The new secret and record, or `undefined` when the session is gone
+   * or the proof is missing or wrong.
    */
-  public rotate(secretId: string): Promise<IssuedSession | undefined> {
+  public async rotate(secretId: string, proof?: string): Promise<IssuedSession | undefined> {
     if (!isSecretId(secretId)) {
-      return Promise.resolve(undefined);
+      return undefined;
     }
 
     const oldHash = hashSecret(secretId);
     const inFlight = this.#rotations.get(oldHash);
     if (inFlight !== undefined) {
-      return inFlight;
+      const expected = await inFlight.proofReady;
+      return expected !== undefined && this.#proofMatches(expected, proof)
+        ? await inFlight.promise
+        : undefined;
     }
 
     const receipt = this.#liveReceipt(oldHash);
     if (receipt !== undefined) {
-      return Promise.resolve(receipt.result);
+      if (!this.#proofMatches(receipt.oldCsrfHash, proof)) {
+        return undefined;
+      }
+      this.#rotationReceipts.delete(oldHash);
+      return receipt.result;
     }
 
-    const rotation = this.#rotate(secretId, oldHash).finally(() => {
-      this.#rotations.delete(oldHash);
+    let resolveProof: (value: Buffer | undefined) => void = () => undefined;
+    const proofReady = new Promise<Buffer | undefined>((resolve) => {
+      resolveProof = resolve;
     });
-    this.#rotations.set(oldHash, rotation);
-    return rotation;
+    const promise = (async (): Promise<IssuedSession | undefined> => {
+      try {
+        const initial = await this.#read(secretId);
+        if (initial === undefined) {
+          resolveProof(undefined);
+          return undefined;
+        }
+        const oldCsrfHash = hashToken(initial.csrfToken);
+        resolveProof(oldCsrfHash);
+        return await this.#rotate(secretId, oldHash, oldCsrfHash);
+      } catch (error) {
+        resolveProof(undefined);
+        throw error;
+      }
+    })();
+    this.#rotations.set(oldHash, { proofReady, promise });
+    try {
+      return await promise;
+    } finally {
+      this.#rotations.delete(oldHash);
+    }
   }
 
   /**
@@ -362,6 +399,7 @@ export class SessionService {
         result: IssuedSession;
         publicId: string;
         secretHash: string;
+        oldCsrfHash: Buffer;
         expiresAt: number;
       }
     | undefined {
@@ -384,7 +422,11 @@ export class SessionService {
     return undefined;
   }
 
-  async #rotate(secretId: string, oldHash: string): Promise<IssuedSession | undefined> {
+  async #rotate(
+    secretId: string,
+    oldHash: string,
+    oldCsrfHash: Buffer,
+  ): Promise<IssuedSession | undefined> {
     const initial = await this.#read(secretId);
     if (initial === undefined) {
       return undefined;
@@ -409,10 +451,20 @@ export class SessionService {
         result,
         publicId: rotated.publicId,
         secretHash: hashSecret(secretIdNext),
+        oldCsrfHash,
         expiresAt: this.#now() + ROTATION_RECEIPT_MS,
       });
       return result;
     });
+  }
+
+  /** Compares a presented proof with the stored pre-rotation CSRF hash. */
+  #proofMatches(expected: Buffer, proof: string | undefined): boolean {
+    if (proof === undefined || proof.length === 0) {
+      return false;
+    }
+    const actual = hashToken(proof);
+    return actual.length === expected.length && timingSafeEqual(actual, expected);
   }
 
   async #read(secretId: string): Promise<SessionRecord | undefined> {
@@ -532,4 +584,9 @@ function isSecretId(value: string): boolean {
 
 function hashSecret(secretId: string): string {
   return createHash("sha256").update(secretId, "utf8").digest("hex");
+}
+
+/** Hashes a one-time proof as a fixed-length digest for a timing-safe compare. */
+function hashToken(value: string): Buffer {
+  return createHash("sha256").update(value, "utf8").digest();
 }

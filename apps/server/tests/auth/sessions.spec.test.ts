@@ -245,8 +245,8 @@ describe("session rotation", () => {
     harness.cache.reset();
 
     const [first, second] = await Promise.all([
-      harness.sessions.rotate(created.secretId),
-      harness.sessions.rotate(created.secretId),
+      harness.sessions.rotate(created.secretId, created.record.csrfToken),
+      harness.sessions.rotate(created.secretId, created.record.csrfToken),
     ]);
     const rotatedFirst = requireRotation(first);
     const rotatedSecond = requireRotation(second);
