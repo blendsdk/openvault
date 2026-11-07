@@ -638,7 +638,9 @@ export class SecretService {
           "secret.read",
           project.id,
           secret.id,
-          error instanceof PolicyUnavailableError ? "policy_unavailable" : "secret_integrity_failed",
+          error instanceof PolicyUnavailableError
+            ? "policy_unavailable"
+            : "secret_integrity_failed",
           context,
           version.id,
         );

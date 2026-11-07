@@ -241,9 +241,12 @@ These are accepted for v0.1. They are documented so reviewers do not mistake the
 73. **OIDC identity linking.** There is no administrator route to link a verified OIDC identity
     to an existing principal. A collision is denied rather than auto-linked; linking requires a
     controlled database procedure.
-74. **Prune evidence window.** The boundary checkpoint is written before the prefix delete, but
-    a failure after the delete and before the completion event leaves the prune recorded only by
-    the checkpoint. An intent event is follow-up work.
+74. **Prune evidence window.** The boundary checkpoint is written before the prefix delete. The
+    application creates a short-lived single-use authorization bound to the boundary hash, count,
+    export SHA-256, database, and cutoff. The `SECURITY DEFINER` procedure consumes it, deletes
+    the prefix, and writes a completion receipt in one transaction. A crash after the procedure
+    can still leave the chained `audit.prune` event unwritten, but the receipt and authorization
+    are durable completion evidence. The pruner login role has no direct table authority.
 75. **Agent renewal second factor.** Renewal accepts the current certificate and a fresh key.
     A stolen certificate can renew until an administrator revokes the identity. Per-certificate
     revocation or a second factor for key-changing renewal is follow-up work.

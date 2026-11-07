@@ -47,12 +47,12 @@ GRANT SELECT, DELETE ON certificates TO openvault_purger;
 GRANT SELECT, DELETE ON certificate_versions TO openvault_purger;
 GRANT SELECT, DELETE ON certificate_expiry_notifications TO openvault_purger;
 
--- The prune role can read the chain, delete a verified prefix, and write the
--- boundary checkpoint. It cannot read or modify application data.
-GRANT SELECT, DELETE ON audit_events TO openvault_pruner;
-GRANT SELECT, INSERT ON audit_checkpoints TO openvault_pruner;
-GRANT SELECT (id) ON audit_keys TO openvault_pruner;
-GRANT USAGE, SELECT ON SEQUENCE audit_checkpoints_id_seq TO openvault_pruner;
+-- The application records a single-use authorization after verification,
+-- export, and checkpoint creation. The pruner can only execute the definer
+-- procedure; it has no direct table, sequence, or column authority.
+GRANT SELECT, INSERT ON audit_prune_authorizations TO openvault_app;
+GRANT SELECT ON audit_prune_receipts TO openvault_app;
+GRANT EXECUTE ON FUNCTION public.openvault_prune_audit_prefix(text) TO openvault_pruner;
 
 -- The migrator owns every table; assert the ownership contract explicitly so a
 -- drifted deployment fails loudly instead of silently granting the app DDL.

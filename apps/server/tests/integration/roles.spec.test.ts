@@ -220,30 +220,25 @@ describe("least-privilege PostgreSQL roles", () => {
     });
   });
 
-  it("limits the pruner to the audit chain and boundary checkpoints", async () => {
-    const keyId = newUlid();
-    await app.query(
-      `INSERT INTO audit_keys (id, wrapped_key, wrap_nonce, wrap_tag, kek_id)
-       VALUES ($1, decode(repeat('00', 32), 'hex'), decode(repeat('00', 12), 'hex'),
-               decode(repeat('00', 16), 'hex'), 'kek-1')`,
-      [keyId],
-    );
-
-    await expect(pruner.query("SELECT count(*) FROM audit_events")).resolves.toBeDefined();
-    await expect(pruner.query("DELETE FROM audit_events WHERE false")).resolves.toBeDefined();
+  it("limits the pruner to the constrained procedure", async () => {
+    await expect(pruner.query("SELECT count(*) FROM audit_events")).rejects.toMatchObject({
+      code: "42501",
+    });
+    await expect(pruner.query("DELETE FROM audit_events WHERE false")).rejects.toMatchObject({
+      code: "42501",
+    });
     await expect(pruner.query("SELECT count(*) FROM secrets")).rejects.toMatchObject({
       code: "42501",
     });
-    await pruner.query("BEGIN");
-    try {
-      await pruner.query(
+    await expect(
+      pruner.query(
         `INSERT INTO audit_checkpoints (last_event_id, last_hash, hmac, audit_key_id)
-         VALUES (999999, decode(repeat('00', 32), 'hex'), decode(repeat('00', 32), 'hex'), $1)`,
-        [keyId],
-      );
-    } finally {
-      await pruner.query("ROLLBACK");
-    }
+         VALUES (999999, decode(repeat('00', 32), 'hex'), decode(repeat('00', 32), 'hex'), 'x')`,
+      ),
+    ).rejects.toMatchObject({ code: "42501" });
+    await expect(
+      pruner.query("SELECT public.openvault_prune_audit_prefix($1)", [newUlid()]),
+    ).rejects.toThrow(/prune authorization not found/);
   });
 
   it("keeps the migrator as the table owner and the runtime role separate", async () => {

@@ -148,15 +148,16 @@ configuration as the process and additionally reads:
 |---|---|---|---|
 | `OPENVAULT_PRUNE_DB_URL` | — | for `audit:prune` | PostgreSQL URL for the dedicated `openvault_pruner` session |
 
-Deployment must create a login role named `openvault_pruner` and grant it `SELECT, DELETE`
-on `audit_events`. The delete predicate reads the `id` column, so `DELETE` alone is not
-enough. Do not grant `UPDATE`, `TRUNCATE`, or ownership. The prune credential can delete any
-audit prefix at any time without writing a prune event, and its export file contains every
-tenant's events; treat the URL and file as high-value secrets. The application role must
-also be a non-owner, non-superuser role for the append-only trigger to be effective; the
-migration owner or a superuser can disable it. Run maintenance on the vault host, or supply
-the same database, keyring, TLS/CA, and base URL settings as the server. The prune command
-checks that its connection targets the same database that was verified and exported.
+Deployment must create a login role named `openvault_pruner` and grant it `EXECUTE` on
+`public.openvault_prune_audit_prefix(text)`. Do not grant table, sequence, column, `UPDATE`,
+`TRUNCATE`, or ownership privileges. The application verifies the retained chain, exports the
+prefix, writes the boundary checkpoint, and inserts a short-lived single-use authorization;
+the procedure consumes that authorization, re-checks the boundary and count, deletes the prefix,
+and writes a completion receipt in one transaction. A holder of the pruner credential alone
+cannot delete an audit prefix or write a checkpoint. The export file contains every tenant's
+events; treat the URL and file as high-value secrets. Run maintenance on the vault host, or
+supply the same database, keyring, TLS/CA, and base URL settings as the server. The prune
+command checks that its connection targets the same database that was verified and exported.
 
 ## Body limits
 

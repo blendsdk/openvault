@@ -260,8 +260,7 @@ describe("CLI commands against a real HTTPS vault", () => {
       vault.requests
         .slice(start)
         .some(
-          (request) =>
-            request.path === "/v1/auth/cli/me" && request.authorization !== undefined,
+          (request) => request.path === "/v1/auth/cli/me" && request.authorization !== undefined,
         ),
     ).toBe(true);
   });
@@ -306,8 +305,7 @@ describe("CLI commands against a real HTTPS vault", () => {
       vault.requests
         .slice(start)
         .some(
-          (request) =>
-            request.path === "/v1/auth/cli/me" && request.authorization !== undefined,
+          (request) => request.path === "/v1/auth/cli/me" && request.authorization !== undefined,
         ),
     ).toBe(false);
   });
@@ -325,8 +323,7 @@ describe("CLI commands against a real HTTPS vault", () => {
       vault.requests
         .slice(start)
         .some(
-          (request) =>
-            request.path === "/v1/auth/cli/me" && request.authorization !== undefined,
+          (request) => request.path === "/v1/auth/cli/me" && request.authorization !== undefined,
         ),
     ).toBe(false);
   });

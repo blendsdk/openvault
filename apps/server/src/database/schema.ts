@@ -486,6 +486,43 @@ auditCheckpoints.timestamptz("created_at").default("now()");
 auditCheckpoints.primaryKey().column("id");
 
 // ---------------------------------------------------------------------------
+// Audit prune
+// ---------------------------------------------------------------------------
+
+const auditPruneAuthorizations = db.table("audit_prune_authorizations");
+auditPruneAuthorizations.text("id").check(ulidExpression("id"));
+auditPruneAuthorizations.text("database_name").check(lengthBetween("database_name", 1, 63));
+auditPruneAuthorizations.bigint("last_event_id");
+auditPruneAuthorizations.bytea("last_hash").check("octet_length(last_hash) = 32");
+auditPruneAuthorizations.integer("expected_count").check("expected_count >= 0");
+auditPruneAuthorizations.bytea("export_sha256").check("octet_length(export_sha256) = 32");
+auditPruneAuthorizations.timestamptz("cutoff");
+auditPruneAuthorizations.timestamptz("created_at").default("now()");
+auditPruneAuthorizations.timestamptz("expires_at");
+auditPruneAuthorizations.timestamptz("consumed_at").nullable();
+auditPruneAuthorizations.primaryKey().column("id");
+auditPruneAuthorizations
+  .index()
+  .column("expires_at")
+  .indexName("audit_prune_authorizations_expires_idx");
+
+const auditPruneReceipts = db.table("audit_prune_receipts");
+auditPruneReceipts.text("authorization_id");
+auditPruneReceipts.text("database_name").check(lengthBetween("database_name", 1, 63));
+auditPruneReceipts.bigint("last_event_id");
+auditPruneReceipts.bytea("last_hash").check("octet_length(last_hash) = 32");
+auditPruneReceipts.integer("deleted_count").check("deleted_count >= 0");
+auditPruneReceipts.bytea("export_sha256").check("octet_length(export_sha256) = 32");
+auditPruneReceipts.timestamptz("completed_at").default("now()");
+auditPruneReceipts.primaryKey().column("authorization_id");
+auditPruneReceipts
+  .foreignKeyConstraint(auditPruneAuthorizations)
+  .from("authorization_id")
+  .to("id")
+  .onUpdate("NO ACTION")
+  .onDelete("RESTRICT");
+
+// ---------------------------------------------------------------------------
 // Idempotency
 // ---------------------------------------------------------------------------
 

@@ -60,6 +60,41 @@ export const eAuditKeys = {
 };
 
 /**
+ * Constant type for relation audit_prune_authorizations
+ * @export
+ * @constant
+ */
+export const eAuditPruneAuthorizations = {
+  $TABLE: "audit_prune_authorizations",
+  CONSUMED_AT: "consumed_at",
+  CREATED_AT: "created_at",
+  CUTOFF: "cutoff",
+  DATABASE_NAME: "database_name",
+  EXPECTED_COUNT: "expected_count",
+  EXPIRES_AT: "expires_at",
+  EXPORT_SHA256: "export_sha256",
+  ID: "id",
+  LAST_EVENT_ID: "last_event_id",
+  LAST_HASH: "last_hash",
+};
+
+/**
+ * Constant type for relation audit_prune_receipts
+ * @export
+ * @constant
+ */
+export const eAuditPruneReceipts = {
+  $TABLE: "audit_prune_receipts",
+  AUTHORIZATION_ID: "authorization_id",
+  COMPLETED_AT: "completed_at",
+  DATABASE_NAME: "database_name",
+  DELETED_COUNT: "deleted_count",
+  EXPORT_SHA256: "export_sha256",
+  LAST_EVENT_ID: "last_event_id",
+  LAST_HASH: "last_hash",
+};
+
+/**
  * Constant type for relation ca_keys
  * @export
  * @constant

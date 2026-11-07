@@ -79,6 +79,8 @@ const PRUNE_DETAIL_KEYS: ReadonlySet<string> = new Set([
   "exportedCount",
   "deletedCount",
   "checkpointId",
+  "authorizationId",
+  "exportSha256",
   "dryRun",
 ]);
 

@@ -54,7 +54,7 @@ export async function resetAuditTables(database: PostgreSQLDatabase): Promise<vo
   }
   try {
     await database.executeQuery(
-      "TRUNCATE audit_events, audit_checkpoints, audit_keys RESTART IDENTITY",
+      "TRUNCATE audit_events, audit_checkpoints, audit_keys, audit_prune_receipts, audit_prune_authorizations RESTART IDENTITY",
     );
   } finally {
     for (const [table, trigger] of AUDIT_TRIGGERS) {

@@ -1,7 +1,7 @@
 # Security Findings Wave 2 — Execution Plan
 
 > **Type**: Feature plan · **Feature**: openvault-v0-1 · **CodeOps Artifact Schema**: 1
-> **Progress**: 8/45 tasks (18%)
+> **Progress**: 17/45 tasks (38%)
 > **Last Updated**: 2026-11-07 02:05
 > **Mode**: `--auto-design` · `--auto-commit`
 > **Reasoning**: high — credential handling, database authority, audit integrity, and session security across seven findings
@@ -61,21 +61,21 @@ Close issues #46–#52 with regression tests, production-safe configuration, and
 
 ### Session 3.1 — Specification tests
 
-- [ ] 3.1.1 Add role, procedure, replay, success, receipt, and export-hash-record tests (ST-5…ST-12) against a disposable database.
-- [ ] 3.1.2 Run the new tests and record the red-phase failure: direct pruner delete succeeds.
+- [x] 3.1.1 Add role, procedure, replay, success, receipt, and export-hash-record tests (ST-5…ST-12) against a disposable database.
+- [x] 3.1.2 Run the new tests and record the red-phase failure: direct pruner delete succeeds.
 
 ### Session 3.2 — Schema and procedure
 
-- [ ] 3.2.1 Add `audit_prune_authorizations` and `audit_prune_receipts` to `schema.ts`; generate the migration and snapshot.
-- [ ] 3.2.2 Add the manual procedure migration with cleanup, fixed `search_path`, `session_user` check, and receipt insert.
-- [ ] 3.2.3 Update `grants.sql`: revoke pruner table/column rights; grant `EXECUTE` only; grant app authorization access.
-- [ ] 3.2.4 Update the schema inventory tests and counts (`migrations.spec`, `schema.spec`, `schema-identity.impl`).
-- [ ] 3.2.5 Regenerate `src/database/generated-types.ts` and `ctypes.ts` with `pnpm db:types`.
+- [x] 3.2.1 Add `audit_prune_authorizations` and `audit_prune_receipts` to `schema.ts`; generate the migration and snapshot.
+- [x] 3.2.2 Add the manual procedure migration with cleanup, fixed `search_path`, `session_user` check, and receipt insert.
+- [x] 3.2.3 Update `grants.sql`: revoke pruner table/column rights; grant `EXECUTE` only; grant app authorization access.
+- [x] 3.2.4 Update the schema inventory tests and counts (`migrations.spec`, `schema.spec`, `schema-identity.impl`).
+- [x] 3.2.5 Regenerate `src/database/generated-types.ts` and `ctypes.ts` with `pnpm db:types`.
 
 ### Session 3.3 — Application wiring and verification
 
-- [ ] 3.3.1 Add `createPruneAuthorization`, hash the export, pass the authorization id, add `authorizationId`/`exportSha256` to the `audit.prune` allowlist and result, and record receipt details.
-- [ ] 3.3.2 Update the prune CLI wiring, helper (`EXECUTE` only), `resetAuditTables`, and existing prune tests; run the audit prune suites and `pnpm verify`; mark phase verified.
+- [x] 3.3.1 Add `createPruneAuthorization`, hash the export, pass the authorization id, add `authorizationId`/`exportSha256` to the `audit.prune` allowlist and result, and record receipt details.
+- [x] 3.3.2 Update the prune CLI wiring, helper (`EXECUTE` only), `resetAuditTables`, and existing prune tests; run the audit prune suites and `pnpm verify`; mark phase verified.
 
 ## Phase 4 — App role least privilege + backup (#50)
 

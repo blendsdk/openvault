@@ -457,6 +457,198 @@
     },
     {
       "schema": "public",
+      "name": "audit_prune_authorizations",
+      "columns": [
+        {
+          "name": "consumed_at",
+          "type": "timestamptz",
+          "nullable": true
+        },
+        {
+          "name": "created_at",
+          "type": "timestamptz",
+          "nullable": false,
+          "default": "now()"
+        },
+        {
+          "name": "cutoff",
+          "type": "timestamptz",
+          "nullable": false
+        },
+        {
+          "name": "database_name",
+          "type": "text",
+          "nullable": false
+        },
+        {
+          "name": "expected_count",
+          "type": "integer",
+          "nullable": false
+        },
+        {
+          "name": "expires_at",
+          "type": "timestamptz",
+          "nullable": false
+        },
+        {
+          "name": "export_sha256",
+          "type": "bytea",
+          "nullable": false
+        },
+        {
+          "name": "id",
+          "type": "text",
+          "nullable": false
+        },
+        {
+          "name": "last_event_id",
+          "type": "bigint",
+          "nullable": false
+        },
+        {
+          "name": "last_hash",
+          "type": "bytea",
+          "nullable": false
+        }
+      ],
+      "primaryKey": {
+        "kind": "primaryKey",
+        "name": "audit_prune_authorizations_id_pkey",
+        "columns": [
+          "id"
+        ]
+      },
+      "uniqueConstraints": [],
+      "checkConstraints": [
+        {
+          "kind": "check",
+          "name": "audit_prune_authorizations_349d6258df_check",
+          "expression": "id ~ '^[0-9A-HJKMNP-TV-Z]{26}$'"
+        },
+        {
+          "kind": "check",
+          "name": "audit_prune_authorizations_93adfe320e_check",
+          "expression": "octet_length(last_hash) = 32"
+        },
+        {
+          "kind": "check",
+          "name": "audit_prune_authorizations_e74dd8e686_check",
+          "expression": "expected_count >= 0"
+        },
+        {
+          "kind": "check",
+          "name": "audit_prune_authorizations_e7cb13a6d2_check",
+          "expression": "octet_length(export_sha256) = 32"
+        },
+        {
+          "kind": "check",
+          "name": "audit_prune_authorizations_f7d4091c11_check",
+          "expression": "length(database_name) BETWEEN 1 AND 63"
+        }
+      ],
+      "foreignKeys": [],
+      "indexes": [
+        {
+          "name": "audit_prune_authorizations_expires_idx",
+          "columns": [
+            "expires_at"
+          ],
+          "unique": false,
+          "concurrent": false
+        }
+      ]
+    },
+    {
+      "schema": "public",
+      "name": "audit_prune_receipts",
+      "columns": [
+        {
+          "name": "authorization_id",
+          "type": "text",
+          "nullable": false
+        },
+        {
+          "name": "completed_at",
+          "type": "timestamptz",
+          "nullable": false,
+          "default": "now()"
+        },
+        {
+          "name": "database_name",
+          "type": "text",
+          "nullable": false
+        },
+        {
+          "name": "deleted_count",
+          "type": "integer",
+          "nullable": false
+        },
+        {
+          "name": "export_sha256",
+          "type": "bytea",
+          "nullable": false
+        },
+        {
+          "name": "last_event_id",
+          "type": "bigint",
+          "nullable": false
+        },
+        {
+          "name": "last_hash",
+          "type": "bytea",
+          "nullable": false
+        }
+      ],
+      "primaryKey": {
+        "kind": "primaryKey",
+        "name": "audit_prune_receipts_authorization_id_pkey",
+        "columns": [
+          "authorization_id"
+        ]
+      },
+      "uniqueConstraints": [],
+      "checkConstraints": [
+        {
+          "kind": "check",
+          "name": "audit_prune_receipts_8342612916_check",
+          "expression": "deleted_count >= 0"
+        },
+        {
+          "kind": "check",
+          "name": "audit_prune_receipts_93adfe320e_check",
+          "expression": "octet_length(last_hash) = 32"
+        },
+        {
+          "kind": "check",
+          "name": "audit_prune_receipts_e7cb13a6d2_check",
+          "expression": "octet_length(export_sha256) = 32"
+        },
+        {
+          "kind": "check",
+          "name": "audit_prune_receipts_f7d4091c11_check",
+          "expression": "length(database_name) BETWEEN 1 AND 63"
+        }
+      ],
+      "foreignKeys": [
+        {
+          "name": "audit_prune_receipts_authorization_id_fkey",
+          "kind": "foreignKey",
+          "columns": [
+            "authorization_id"
+          ],
+          "referencedSchema": "public",
+          "referencedTable": "audit_prune_authorizations",
+          "referencedColumns": [
+            "id"
+          ],
+          "onUpdate": "NO ACTION",
+          "onDelete": "RESTRICT"
+        }
+      ],
+      "indexes": []
+    },
+    {
+      "schema": "public",
       "name": "ca_keys",
       "columns": [
         {

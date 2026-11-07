@@ -1,3 +1,4 @@
+import { createHash } from "node:crypto";
 import { once } from "node:events";
 import {
   closeSync,
@@ -16,6 +17,7 @@ import type { AuditEventQuery } from "./audit-query.js";
 import type { AuditVerifier } from "./audit-verify.js";
 import type { AuditWriter } from "./audit-writer.js";
 import { AuditError, AuditPruneConfigError } from "./errors.js";
+import type { PruneAuthorizationInput } from "./prune-authorization.js";
 
 const DAY_MS = 86_400_000;
 
@@ -29,6 +31,10 @@ export interface AuditPruneResult {
   readonly deletedCount: number;
   /** Boundary checkpoint id, or null when there was nothing to prune. */
   readonly checkpointId: string | null;
+  /** Single-use authorization id, or null for a dry run or empty prefix. */
+  readonly authorizationId: string | null;
+  /** SHA-256 of the exported NDJSON bytes, or null when nothing was exported. */
+  readonly exportSha256: string | null;
   /** True when the command did not delete rows. */
   readonly dryRun: boolean;
 }
@@ -45,11 +51,10 @@ export interface AuditPruneOptions {
   readonly verifier: AuditVerifier;
   /** Database name verified and exported by the application connection. */
   readonly databaseName: string;
-  /** Opens the pruner-session delete transaction. */
-  readonly deletePrefix: (
-    lastEventId: string,
-    expected: { readonly database: string; readonly lastHash: Buffer; readonly count: number },
-  ) => Promise<number>;
+  /** Creates one short-lived authorization after verification and export. */
+  readonly authorizePrune: (input: PruneAuthorizationInput) => Promise<string>;
+  /** Executes the pruner-session procedure for one authorization. */
+  readonly deletePrefix: (authorizationId: string) => Promise<number>;
   /** Injectable clock. */
   readonly now?: () => number;
   /** Validated retention window. */
@@ -68,11 +73,9 @@ export class AuditPruner {
   readonly #writer: AuditWriter;
   readonly #query: AuditEventQuery;
   readonly #verifier: AuditVerifier;
-  readonly #deletePrefix: (
-    lastEventId: string,
-    expected: { readonly database: string; readonly lastHash: Buffer; readonly count: number },
-  ) => Promise<number>;
+  readonly #deletePrefix: (authorizationId: string) => Promise<number>;
   readonly #databaseName: string;
+  readonly #authorizePrune: (input: PruneAuthorizationInput) => Promise<string>;
   readonly #now: () => number;
   readonly #retentionDays: number;
 
@@ -84,6 +87,7 @@ export class AuditPruner {
     this.#writer = options.writer;
     this.#query = options.query;
     this.#verifier = options.verifier;
+    this.#authorizePrune = options.authorizePrune;
     this.#deletePrefix = options.deletePrefix;
     this.#databaseName = options.databaseName;
     this.#now = options.now ?? Date.now;
@@ -123,13 +127,15 @@ export class AuditPruner {
         exportedCount: 0,
         deletedCount: 0,
         checkpointId: null,
+        authorizationId: null,
+        exportSha256: null,
         dryRun: options.dryRun === true,
       };
       await this.#recordPrune(result);
       return result;
     }
 
-    const exportedCount = await this.#exportPrefix(options.outputPath, lastEventId);
+    const exported = await this.#exportPrefix(options.outputPath, lastEventId);
     let boundaryEvent: Awaited<ReturnType<AuditEventQuery["findEvent"]>>;
     try {
       boundaryEvent = await this.#query.findEvent(lastEventId);
@@ -152,19 +158,26 @@ export class AuditPruner {
 
     const dryRun = options.dryRun === true;
     let deletedCount = 0;
+    let authorizationId: string | null = null;
     if (!dryRun) {
-      deletedCount = await this.#deletePrefix(lastEventId, {
+      authorizationId = await this.#authorizePrune({
         database: this.#databaseName,
+        lastEventId,
         lastHash: boundaryEvent.hash,
-        count: exportedCount,
+        count: exported.count,
+        exportSha256: exported.sha256,
+        cutoff,
       });
+      deletedCount = await this.#deletePrefix(authorizationId);
     }
 
     const result: AuditPruneResult = {
       cutoff,
-      exportedCount,
+      exportedCount: exported.count,
       deletedCount,
       checkpointId,
+      authorizationId,
+      exportSha256: exported.sha256.toString("hex"),
       dryRun,
     };
     await this.#recordPrune(result);
@@ -172,11 +185,15 @@ export class AuditPruner {
   }
 
   /** Writes the prefix as NDJSON with an exclusive mode-0600 file. */
-  async #exportPrefix(outputPath: string, lastEventId: string): Promise<number> {
+  async #exportPrefix(
+    outputPath: string,
+    lastEventId: string,
+  ): Promise<{ readonly count: number; readonly sha256: Buffer }> {
     let stream: WriteStream | undefined;
     let created = false;
     let streamError: Error | undefined;
     let count = 0;
+    const digest = createHash("sha256");
     try {
       stream = createWriteStream(outputPath, { flags: "wx", mode: 0o600 });
       stream.on("error", (error: Error) => {
@@ -192,7 +209,9 @@ export class AuditPruner {
           if (streamError !== undefined) {
             throw streamError;
           }
-          if (!stream.write(`${JSON.stringify(toPublicEvent(event))}\n`)) {
+          const line = `${JSON.stringify(toPublicEvent(event))}\n`;
+          digest.update(line, "utf8");
+          if (!stream.write(line)) {
             await Promise.race([once(stream, "drain"), errorSignal]);
           }
           count += 1;
@@ -209,7 +228,7 @@ export class AuditPruner {
       } finally {
         closeSync(descriptor);
       }
-      return count;
+      return { count, sha256: digest.digest() };
     } catch (error) {
       stream?.destroy();
       if (created) {
@@ -244,6 +263,8 @@ export class AuditPruner {
         exportedCount: result.exportedCount,
         deletedCount: result.deletedCount,
         checkpointId: result.checkpointId,
+        authorizationId: result.authorizationId,
+        exportSha256: result.exportSha256,
         dryRun: result.dryRun,
       },
     });

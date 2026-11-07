@@ -6,9 +6,9 @@ const PRUNER_PASSWORD = "test-password";
 /**
  * Provisions the dedicated pruner role for one disposable database.
  *
- * The role gets `SELECT, DELETE` because PostgreSQL evaluates the delete
- * predicate against the `id` column. Returns undefined when the maintenance
- * user is not a superuser.
+ * The role gets only `EXECUTE` on the constrained prune procedure. It has no
+ * direct table, sequence, or column authority. Returns undefined when the
+ * maintenance user is not a superuser.
  *
  * @param maintenanceUrl - Maintenance connection for role creation.
  * @param testDatabase - Disposable database name.
@@ -48,7 +48,16 @@ export async function ensurePrunerRole(
   const grant = new Client({ connectionString: testUrl.toString() });
   await grant.connect();
   try {
-    await grant.query(`GRANT SELECT, DELETE ON audit_events TO ${PRUNER_USER}`);
+    await grant.query(`REVOKE ALL ON ALL TABLES IN SCHEMA public FROM ${PRUNER_USER}`);
+    await grant.query(`REVOKE ALL ON ALL SEQUENCES IN SCHEMA public FROM ${PRUNER_USER}`);
+    await grant.query(`REVOKE SELECT (id) ON audit_keys FROM ${PRUNER_USER}`);
+    await grant.query(`GRANT USAGE ON SCHEMA public TO ${PRUNER_USER}`);
+    await grant.query(
+      "REVOKE ALL ON FUNCTION public.openvault_prune_audit_prefix(text) FROM PUBLIC",
+    );
+    await grant.query(
+      `GRANT EXECUTE ON FUNCTION public.openvault_prune_audit_prefix(text) TO ${PRUNER_USER}`,
+    );
   } finally {
     await grant.end();
   }
