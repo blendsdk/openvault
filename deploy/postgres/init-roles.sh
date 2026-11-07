@@ -23,6 +23,7 @@ read_secret() {
   printf "\\set migrator_password '%s'\n" "$(read_secret db_migrator_password)"
   printf "\\set app_password '%s'\n" "$(read_secret db_app_password)"
   printf "\\set auth_password '%s'\n" "$(read_secret db_auth_password)"
+  printf "\\set backup_password '%s'\n" "$(read_secret db_backup_password)"
   printf "\\set purger_password '%s'\n" "$(read_secret db_purger_password)"
   printf "\\set pruner_password '%s'\n" "$(read_secret db_pruner_password)"
   cat /sql/roles.sql

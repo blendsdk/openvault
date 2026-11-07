@@ -584,9 +584,6 @@ export class SecretService {
       }
     }
 
-    await this.#policy.recordDecision(decision, context, undefined, {
-      details: { version: version.id },
-    });
     let bytes: Buffer;
     try {
       bytes = decryptValue(
@@ -601,25 +598,63 @@ export class SecretService {
         { maxCiphertextBytes: MAX_SECRET_CIPHERTEXT },
       );
     } catch (error) {
+      // A valid authorization is not a successful read. Record the integrity
+      // failure against the selected version before returning the error.
+      await this.#recordError(
+        actorId,
+        decision,
+        "secret.read",
+        project.id,
+        secret.id,
+        "secret_integrity_failed",
+        context,
+        version.id,
+      );
       if (error instanceof KeyringError) {
         throw new SecretServiceError(503, "service_unavailable", "Service unavailable");
       }
       throw integrityError(error);
     }
     try {
-      const encoded = encodeResponseValue(bytes);
-      const capabilities = await this.#capabilities(actorId, secret);
-      return {
-        id: secret.id,
-        projectId: project.id,
-        name: secret.name,
-        value: encoded.value,
-        encoding: encoded.encoding,
-        contentType: secret.contentType,
-        tags: secret.tags,
-        version: this.#version(version),
-        capabilities,
-      };
+      let response: SecretValueResponse;
+      try {
+        const encoded = encodeResponseValue(bytes);
+        const capabilities = await this.#capabilities(actorId, secret);
+        response = {
+          id: secret.id,
+          projectId: project.id,
+          name: secret.name,
+          value: encoded.value,
+          encoding: encoded.encoding,
+          contentType: secret.contentType,
+          tags: secret.tags,
+          version: this.#version(version),
+          capabilities,
+        };
+      } catch (error) {
+        await this.#recordError(
+          actorId,
+          decision,
+          "secret.read",
+          project.id,
+          secret.id,
+          error instanceof PolicyUnavailableError
+            ? "policy_unavailable"
+            : "secret_integrity_failed",
+          context,
+          version.id,
+        );
+        if (error instanceof PolicyUnavailableError) {
+          throw error;
+        }
+        throw integrityError(error);
+      }
+      // The allow event is written only after every integrity-sensitive step
+      // and the response object are complete.
+      await this.#policy.recordDecision(decision, context, undefined, {
+        details: { version: version.id },
+      });
+      return response;
     } finally {
       bytes.fill(0);
     }

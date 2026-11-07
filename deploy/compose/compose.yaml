@@ -117,8 +117,12 @@ services:
         host=$${hostport%%:*}
         port=$${hostport#*:}
         auth_password=$$(cat /run/secrets/db_auth_password)
+        backup_password=$$(cat /run/secrets/db_backup_password)
         bootstrap_password=$$(cat /run/secrets/postgres_password)
         { printf "\\set auth_password '%s'\n" "$$auth_password"; cat /sql/ensure-auth-role.sql; } |
+          PGPASSWORD="$$bootstrap_password" PGHOST="$$host" PGPORT="$${port:-5432}" PGUSER="openvault_bootstrap" PGDATABASE="$$database" \
+            psql -v ON_ERROR_STOP=1 -f -
+        { printf "\\set backup_password '%s'\n" "$$backup_password"; cat /sql/ensure-backup-role.sql; } |
           PGPASSWORD="$$bootstrap_password" PGHOST="$$host" PGPORT="$${port:-5432}" PGUSER="openvault_bootstrap" PGDATABASE="$$database" \
             psql -v ON_ERROR_STOP=1 -f -
         PGPASSWORD="$$password" PGHOST="$$host" PGPORT="$${port:-5432}" PGUSER="$$user" PGDATABASE="$$database" \
@@ -130,9 +134,11 @@ services:
     secrets:
       - db_migrator_url
       - db_auth_password
+      - db_backup_password
       - postgres_password
     volumes:
       - ../postgres/ensure-auth-role.sql:/sql/ensure-auth-role.sql:ro
+      - ../postgres/ensure-backup-role.sql:/sql/ensure-backup-role.sql:ro
       - ../postgres/grants.sql:/sql/grants.sql:ro
     tmpfs:
       - /tmp:size=16m,mode=1777
@@ -245,6 +251,7 @@ services:
       - db_migrator_password
       - db_app_password
       - db_auth_password
+      - db_backup_password
       - db_purger_password
       - db_pruner_password
     volumes:
@@ -277,6 +284,8 @@ secrets:
     file: ${OPENVAULT_SECRETS_DIR:-./secrets}/db_app_password
   db_auth_password:
     file: ${OPENVAULT_SECRETS_DIR:-./secrets}/db_auth_password
+  db_backup_password:
+    file: ${OPENVAULT_SECRETS_DIR:-./secrets}/db_backup_password
   db_purger_password:
     file: ${OPENVAULT_SECRETS_DIR:-./secrets}/db_purger_password
   db_pruner_password:
@@ -287,6 +296,8 @@ secrets:
     file: ${OPENVAULT_SECRETS_DIR:-./secrets}/db_app_url
   db_auth_url:
     file: ${OPENVAULT_SECRETS_DIR:-./secrets}/db_auth_url
+  db_backup_url:
+    file: ${OPENVAULT_SECRETS_DIR:-./secrets}/db_backup_url
   db_purger_url:
     file: ${OPENVAULT_SECRETS_DIR:-./secrets}/db_purger_url
 

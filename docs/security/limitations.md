@@ -211,9 +211,11 @@ These are accepted for v0.1. They are documented so reviewers do not mistake the
     so the API and UI have independent hardening. The server can also serve the SPA when
     `OPENVAULT_WEB_ROOT` points at a build; the Compose stack assigns the UI CSP to the web
     container.
-65. **Create-once roles.** `deploy/postgres/init-roles.sh` runs only on a fresh PostgreSQL data
-    directory. An existing volume needs the roles and grants applied manually. Re-run
-    `grants.sql` after a migration that adds a table the purge or prune path must access.
+65. **Create-once role bootstrap, repeated ensure.** `deploy/postgres/init-roles.sh` runs only
+    on a fresh PostgreSQL data directory. The `openvault-roles` job runs
+    `ensure-auth-role.sql`, `ensure-backup-role.sql`, and `grants.sql` on every deployment, so
+    an existing volume receives the new roles and the current privileges. Re-run `grants.sql`
+    after a migration that adds a table the runtime, purge, prune, or backup path must access.
 66. **Bind-mount ownership.** The reference stack uses host directories, not Docker-managed
     volumes, so the operator can set the exact non-root UID and mode. `prepare.sh` needs root
     (or equivalent) once; a rootless Docker host must map the same UIDs.
@@ -224,10 +226,11 @@ These are accepted for v0.1. They are documented so reviewers do not mistake the
     destination. If the host and the destination are lost together, the RPO is not met. Keep the
     checkpoint anchor on independent storage.
 69. **Browser refresh retry receipt.** Browser refresh keeps a ten-second receipt for the
-    previous session secret so a lost response can be retried. Anyone who already holds the
-    old cookie can use that window to obtain the rotated cookie. This is a retry aid, not a
-    theft detector; CLI refresh reuse detection is strict. The window is documented in the
-    claims ledger instead of being described as full browser reuse detection.
+    previous session secret so a lost response can be retried. Recovery requires the
+    pre-rotation `x-csrf-token`, which is not stored in the cookie, and the receipt is consumed
+    on the first successful recovery. A cookie thief without the CSRF token cannot use the
+    window. If the single recovery response is also lost, the operator must reauthenticate.
+    CLI refresh reuse detection remains strict.
 70. **CA rotation.** There is no supported online CA rotation command. A suspected CA
     compromise requires a fresh deployment, a restore from a pre-compromise backup, new
     server TLS material, new agent join tokens, and re-issued workload identities.
@@ -241,17 +244,25 @@ These are accepted for v0.1. They are documented so reviewers do not mistake the
 73. **OIDC identity linking.** There is no administrator route to link a verified OIDC identity
     to an existing principal. A collision is denied rather than auto-linked; linking requires a
     controlled database procedure.
-74. **Prune evidence window.** The boundary checkpoint is written before the prefix delete, but
-    a failure after the delete and before the completion event leaves the prune recorded only by
-    the checkpoint. An intent event is follow-up work.
+74. **Prune evidence window.** The boundary checkpoint is written before the prefix delete. The
+    application creates a short-lived single-use authorization bound to the boundary hash, count,
+    export SHA-256, database, and cutoff. The `SECURITY DEFINER` procedure consumes it, deletes
+    the prefix, and writes a completion receipt in one transaction. A crash after the procedure
+    can still leave the chained `audit.prune` event unwritten, but the receipt and authorization
+    are durable completion evidence. The pruner login role has no direct table authority.
 75. **Agent renewal second factor.** Renewal accepts the current certificate and a fresh key.
     A stolen certificate can renew until an administrator revokes the identity. Per-certificate
     revocation or a second factor for key-changing renewal is follow-up work.
-76. **Control-plane read exposure.** `openvault_app` keeps `SELECT` on the control-plane tables
-    for backup and read-only joins. A leaked app role can read password hashes, refresh hashes,
-    and OIDC links, but cannot write them. Moving `ov backup` to the migrator/owner URL would
-    remove the read exposure.
-77. **Signing-key insert availability.** The runtime role can still insert a `current` signing
+76. **Backup read exposure.** `openvault_backup` can read every table, including password,
+    refresh-token, join-token, and OIDC-link verifiers, because a logical backup must capture
+    the full database. The role is read-only, `NOINHERIT`, separate from the server process, and
+    receives no write or DDL privilege. Treat `OPENVAULT_BACKUP_DB_URL` as a high-value
+    credential and rotate it with the other database secrets.
+77. **Consumer summary view scope.** `openvault_app` can read `secret_consumer_summaries` for
+    every project, not only the project in the current request. The view exposes only compose
+    project/service names and last-seen timestamps; row scoping remains an application
+    responsibility, as it is for the other data-plane tables.
+78. **Signing-key insert availability.** The runtime role can still insert a `current` signing
     key because rotation uses the application connection. A database writer can therefore create
     a malformed current row and cause a fail-closed 503 for CLI token issuance and verification.
     It cannot forge a valid key without the KEK, so this is an availability risk, not token

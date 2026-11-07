@@ -29,6 +29,7 @@ const ROLES = [
   ["openvault_migrator", ROLE_PASSWORD],
   ["openvault_app", APP_PASSWORD],
   ["openvault_auth", ROLE_PASSWORD],
+  ["openvault_backup", SHARED_PASSWORD],
   ["openvault_purger", SHARED_PASSWORD],
   ["openvault_pruner", SHARED_PASSWORD],
 ] as const;
@@ -38,6 +39,7 @@ let base: BaseFixture;
 let actors: AuditActors;
 let appDb: PostgreSQLDatabase;
 let authDb: PostgreSQLDatabase;
+let backupDb: PostgreSQLDatabase;
 let migratorDb: PostgreSQLDatabase;
 
 function connectionFor(url: string, user: string, password: string): PostgreSQLDatabase {
@@ -101,6 +103,10 @@ beforeAll(async () => {
         END LOOP;
       END $$;
     `);
+    await admin.query("ALTER VIEW public.secret_consumer_summaries OWNER TO openvault_migrator");
+    await admin.query(
+      "ALTER FUNCTION public.openvault_prune_audit_prefix(text) OWNER TO openvault_migrator",
+    );
   } finally {
     await admin.end();
   }
@@ -124,11 +130,13 @@ beforeAll(async () => {
 
   appDb = connectionFor(testDb.url, "openvault_app", APP_PASSWORD);
   authDb = connectionFor(testDb.url, "openvault_auth", ROLE_PASSWORD);
+  backupDb = connectionFor(testDb.url, "openvault_backup", SHARED_PASSWORD);
 }, 60_000);
 
 afterAll(async () => {
   await appDb?.disconnect();
   await authDb?.disconnect();
+  await backupDb?.disconnect();
   await migratorDb?.disconnect();
   await testDb.cleanup();
 });
@@ -170,6 +178,68 @@ describe("control-plane database boundary", () => {
         expect(result.records[0]?.allowed, `${verb} on ${table}`).toBe(true);
       }
     }
+  });
+
+  it("should deny app reads on control-plane tables and allow the backup role", async () => {
+    for (const table of [...CONTROL_PLANE_TABLES, "policy_state", "org"]) {
+      const result = await appDb.executeQuery<{ readonly allowed: boolean }>(
+        "SELECT has_table_privilege(current_user, :table, 'SELECT') AS allowed",
+        { table },
+      );
+      expect(result.records[0]?.allowed, `app SELECT on ${table}`).toBe(false);
+    }
+    const view = await appDb.executeQuery<{ readonly allowed: boolean }>(
+      "SELECT has_table_privilege(current_user, 'secret_consumer_summaries', 'SELECT') AS allowed",
+    );
+    expect(view.records[0]?.allowed).toBe(true);
+    for (const table of [...CONTROL_PLANE_TABLES, "audit_events", "secret_consumer_summaries"]) {
+      const result = await backupDb.executeQuery<{ readonly allowed: boolean }>(
+        "SELECT has_table_privilege(current_user, :table, 'SELECT') AS allowed",
+        { table },
+      );
+      expect(result.records[0]?.allowed, `backup SELECT on ${table}`).toBe(true);
+    }
+    const write = await backupDb.executeQuery<{ readonly allowed: boolean }>(
+      "SELECT has_table_privilege(current_user, 'projects', 'INSERT') AS allowed",
+    );
+    expect(write.records[0]?.allowed).toBe(false);
+  });
+
+  it("should keep the consumer view restricted and remove app default privileges", async () => {
+    const owner = await testDb.db.executeQuery<{ readonly viewowner: string }>(
+      `SELECT viewowner FROM pg_views
+        WHERE schemaname = 'public' AND viewname = 'secret_consumer_summaries'`,
+    );
+    expect(owner.records[0]?.viewowner).toBe("openvault_migrator");
+    const columns = await testDb.db.executeQuery<{ readonly column_name: string }>(
+      `SELECT column_name FROM information_schema.columns
+        WHERE table_schema = 'public' AND table_name = 'secret_consumer_summaries'
+        ORDER BY ordinal_position`,
+    );
+    expect(columns.records.map((row) => row.column_name)).toEqual([
+      "secret_id",
+      "project_id",
+      "compose_project",
+      "compose_service",
+      "last_seen",
+    ]);
+    const defaults = await testDb.db.executeQuery<{ readonly count: number }>(
+      `SELECT count(*)::int AS count
+         FROM pg_default_acl d
+         JOIN pg_roles r ON r.oid = d.defaclrole
+        WHERE r.rolname = 'openvault_migrator'
+          AND d.defaclobjtype = 'r'
+          AND d.defaclacl::text LIKE '%openvault_app=%'`,
+    );
+    expect(defaults.records[0]?.count).toBe(0);
+    const authorizationInsert = await appDb.executeQuery<{ readonly allowed: boolean }>(
+      "SELECT has_table_privilege(current_user, 'audit_prune_authorizations', 'INSERT') AS allowed",
+    );
+    expect(authorizationInsert.records[0]?.allowed).toBe(true);
+    const receiptSelect = await appDb.executeQuery<{ readonly allowed: boolean }>(
+      "SELECT has_table_privilege(current_user, 'audit_prune_receipts', 'SELECT') AS allowed",
+    );
+    expect(receiptSelect.records[0]?.allowed).toBe(true);
   });
 
   it("should reject the startup assertion when the app connection is over-privileged", async () => {

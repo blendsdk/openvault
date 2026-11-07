@@ -486,6 +486,43 @@ auditCheckpoints.timestamptz("created_at").default("now()");
 auditCheckpoints.primaryKey().column("id");
 
 // ---------------------------------------------------------------------------
+// Audit prune
+// ---------------------------------------------------------------------------
+
+const auditPruneAuthorizations = db.table("audit_prune_authorizations");
+auditPruneAuthorizations.text("id").check(ulidExpression("id"));
+auditPruneAuthorizations.text("database_name").check(lengthBetween("database_name", 1, 63));
+auditPruneAuthorizations.bigint("last_event_id");
+auditPruneAuthorizations.bytea("last_hash").check("octet_length(last_hash) = 32");
+auditPruneAuthorizations.integer("expected_count").check("expected_count >= 0");
+auditPruneAuthorizations.bytea("export_sha256").check("octet_length(export_sha256) = 32");
+auditPruneAuthorizations.timestamptz("cutoff");
+auditPruneAuthorizations.timestamptz("created_at").default("now()");
+auditPruneAuthorizations.timestamptz("expires_at");
+auditPruneAuthorizations.timestamptz("consumed_at").nullable();
+auditPruneAuthorizations.primaryKey().column("id");
+auditPruneAuthorizations
+  .index()
+  .column("expires_at")
+  .indexName("audit_prune_authorizations_expires_idx");
+
+const auditPruneReceipts = db.table("audit_prune_receipts");
+auditPruneReceipts.text("authorization_id");
+auditPruneReceipts.text("database_name").check(lengthBetween("database_name", 1, 63));
+auditPruneReceipts.bigint("last_event_id");
+auditPruneReceipts.bytea("last_hash").check("octet_length(last_hash) = 32");
+auditPruneReceipts.integer("deleted_count").check("deleted_count >= 0");
+auditPruneReceipts.bytea("export_sha256").check("octet_length(export_sha256) = 32");
+auditPruneReceipts.timestamptz("completed_at").default("now()");
+auditPruneReceipts.primaryKey().column("authorization_id");
+auditPruneReceipts
+  .foreignKeyConstraint(auditPruneAuthorizations)
+  .from("authorization_id")
+  .to("id")
+  .onUpdate("NO ACTION")
+  .onDelete("RESTRICT");
+
+// ---------------------------------------------------------------------------
 // Idempotency
 // ---------------------------------------------------------------------------
 
@@ -672,5 +709,32 @@ idempotencyKeys
   .to("id")
   .onUpdate("NO ACTION")
   .onDelete("CASCADE");
+
+// The data-plane role needs consumer summaries for the secret metadata views.
+// A definer view exposes only the five display columns; the raw consumer,
+// principal, and assignment tables stay on the control-plane role.
+db.view("secret_consumer_summaries").as(`
+  SELECT s.id AS secret_id,
+         s.project_id,
+         c.compose_project,
+         c.compose_service,
+         c.last_seen
+    FROM secrets s
+    JOIN consumers c ON c.project_id = s.project_id
+    JOIN principals p ON p.id = c.principal_id AND p.status = 'active'
+   WHERE EXISTS (
+     SELECT 1
+       FROM role_assignments r
+      WHERE r.principal_id = c.principal_id
+        AND r.role IN ('org.admin', 'project.admin', 'secrets.manager',
+                       'secrets.officer', 'secrets.reader')
+        AND (r.expires_at IS NULL OR r.expires_at > now())
+        AND (
+          r.scope_type = 'org'
+          OR (r.scope_type = 'project' AND r.scope_id = s.project_id)
+          OR (r.scope_type = 'object' AND r.scope_id = s.id AND r.role = 'secrets.reader')
+        )
+   )
+`);
 
 export default db;

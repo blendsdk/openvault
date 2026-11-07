@@ -109,5 +109,10 @@ export function openAuthenticatedClient(
     throw new CliError("authentication_required", "Run ov login", { exitCode: 3 });
   }
   const transport = createTransportWithRuntime(document.baseUrl, globals, env, runtime);
-  return createAuthenticatedClient({ credentials, transport, runtime });
+  return createAuthenticatedClient({
+    credentials,
+    transport,
+    runtime,
+    baseUrl: document.baseUrl,
+  });
 }

@@ -175,6 +175,7 @@ ensure_secret postgres_password
 ensure_secret db_migrator_password
 ensure_secret db_app_password
 ensure_secret db_auth_password
+ensure_secret db_backup_password
 ensure_secret db_purger_password
 ensure_secret db_pruner_password
 
@@ -206,6 +207,7 @@ write_url() {
 write_url db_migrator_url openvault_migrator "$SECRETS_DIR/db_migrator_password"
 write_url db_app_url openvault_app "$SECRETS_DIR/db_app_password"
 write_url db_auth_url openvault_auth "$SECRETS_DIR/db_auth_password"
+write_url db_backup_url openvault_backup "$SECRETS_DIR/db_backup_password"
 write_url db_purger_url openvault_purger "$SECRETS_DIR/db_purger_password"
 
 if [ ! -L "$ROOT/prepare.sh" ]; then

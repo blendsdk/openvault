@@ -55,7 +55,10 @@ describe("service identity generated artifacts", () => {
     expect(ids).toContain("20261103192700_policy-state-seed");
     expect(ids).toContain("20261106193000_signing-key-lifecycle");
     expect(ids).toContain("20261106194500_project-recovery-guard");
-    expect(ids).toHaveLength(11);
+    expect(ids).toContain("20261107010908_audit-prune-authorization");
+    expect(ids).toContain("20261107010919_audit-prune-procedure");
+    expect(ids).toContain("20261107011546_secret-consumer-summary-view");
+    expect(ids).toHaveLength(14);
   });
 });
 

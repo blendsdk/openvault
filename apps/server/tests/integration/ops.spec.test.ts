@@ -198,6 +198,7 @@ beforeAll(async () => {
 
   backup = await runBackup({
     databaseUrl: primaryDb.url,
+    backupDatabaseUrl: primaryDb.url,
     keyringPath,
     internalCaPath,
     outPath: join(directory, "backup.age"),
@@ -374,6 +375,125 @@ describe("operations", () => {
       }
     }
   }, 120_000);
+
+  it("should refuse a backup dump through the application role", async () => {
+    const settings = resolveTestDatabaseSettings();
+    const admin = new Client({ connectionString: settings.maintenanceUrl });
+    await admin.connect();
+    try {
+      await admin.query(
+        `DO $$
+         BEGIN
+           IF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'openvault_app') THEN
+             CREATE ROLE openvault_app LOGIN PASSWORD 'app-password';
+           END IF;
+         END
+         $$`,
+      );
+    } finally {
+      await admin.end();
+    }
+    const appUrl = `postgres://openvault_app:app-password@${settings.host}:${settings.port}/${primaryDb.name}`;
+    const out = join(tempDirectory(), "app-role-backup.age");
+    await expect(
+      runBackup({
+        databaseUrl: appUrl,
+        backupDatabaseUrl: appUrl,
+        keyringPath,
+        internalCaPath,
+        outPath: out,
+        passphrase: PASSPHRASE,
+        env: {},
+      }),
+    ).rejects.toMatchObject({ code: "backup_role_required" });
+  });
+
+  it("should refuse a backup dump through the auth role", async () => {
+    const settings = resolveTestDatabaseSettings();
+    const admin = new Client({ connectionString: settings.maintenanceUrl });
+    await admin.connect();
+    try {
+      await admin.query(
+        `DO $$
+         BEGIN
+           IF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'openvault_auth') THEN
+             CREATE ROLE openvault_auth LOGIN PASSWORD 'auth-password';
+           ELSE
+             ALTER ROLE openvault_auth PASSWORD 'auth-password';
+           END IF;
+         END
+         $$`,
+      );
+    } finally {
+      await admin.end();
+    }
+    const authUrl = `postgres://openvault_auth:auth-password@${settings.host}:${settings.port}/${primaryDb.name}`;
+    await expect(
+      runBackup({
+        databaseUrl: authUrl,
+        backupDatabaseUrl: authUrl,
+        keyringPath,
+        internalCaPath,
+        outPath: join(tempDirectory(), "auth-role-backup.age"),
+        passphrase: PASSPHRASE,
+        env: {},
+      }),
+    ).rejects.toMatchObject({ code: "backup_role_required" });
+  });
+
+  it("should dump through the read-only backup role and audit through the app role", async () => {
+    const settings = resolveTestDatabaseSettings();
+    const admin = new Client({ connectionString: settings.maintenanceUrl });
+    await admin.connect();
+    try {
+      await admin.query(
+        `DO $$
+         BEGIN
+           IF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'openvault_backup') THEN
+             CREATE ROLE openvault_backup LOGIN PASSWORD 'backup-password';
+           ELSE
+             ALTER ROLE openvault_backup PASSWORD 'backup-password';
+           END IF;
+         END
+         $$`,
+      );
+    } finally {
+      await admin.end();
+    }
+    await primaryDb.db.executeQuery("GRANT USAGE ON SCHEMA public TO openvault_backup");
+    await primaryDb.db.executeQuery(
+      "GRANT SELECT ON ALL TABLES IN SCHEMA public TO openvault_backup",
+    );
+    const backupUrl = `postgres://openvault_backup:backup-password@${settings.host}:${settings.port}/${primaryDb.name}`;
+    const result = await runBackup({
+      databaseUrl: primaryDb.url,
+      backupDatabaseUrl: backupUrl,
+      keyringPath,
+      internalCaPath,
+      outPath: join(tempDirectory(), "backup-role.age"),
+      passphrase: PASSPHRASE,
+      env: {},
+    });
+    expect(result.objectCount).toBeGreaterThan(0);
+    const events = await primaryDb.db.executeQuery<{ readonly count: number }>(
+      "SELECT count(*)::int AS count FROM audit_events WHERE action = 'backup.create'",
+    );
+    expect(events.records[0]?.count).toBeGreaterThan(0);
+  });
+
+  it("should refuse a backup dump that targets a different database", async () => {
+    await expect(
+      runBackup({
+        databaseUrl: primaryDb.url,
+        backupDatabaseUrl: secondaryDb.url,
+        keyringPath,
+        internalCaPath,
+        outPath: join(tempDirectory(), "wrong-database.age"),
+        passphrase: PASSPHRASE,
+        env: {},
+      }),
+    ).rejects.toMatchObject({ code: "ops_configuration" });
+  });
 
   it("should refuse KEK rotation while the runtime role is connected", async () => {
     const settings = resolveTestDatabaseSettings();

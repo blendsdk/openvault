@@ -7,6 +7,7 @@ import { AuditPruner } from "./audit-prune.js";
 import { AuditEventQuery } from "./audit-query.js";
 import { AuditVerifier } from "./audit-verify.js";
 import { AuditWriter } from "./audit-writer.js";
+import { createPruneAuthorization } from "./prune-authorization.js";
 import { createPruneConnection } from "./prune-connection.js";
 
 const USAGE = "Usage: audit:prune --out <absolute-path> [--dry-run]";
@@ -64,22 +65,24 @@ async function main(): Promise<number> {
   try {
     const config = loadConfig(process.env);
     keyring = await KeyringProvider.load(config.keyringPath);
-    database = new PostgreSQLDatabase({
+    const applicationDatabase = new PostgreSQLDatabase({
       ...config.database,
       enableGracefulShutdown: false,
     });
+    database = applicationDatabase;
     const pruneConnection = await createPruneConnection(process.env.OPENVAULT_PRUNE_DB_URL);
     prune = pruneConnection;
-    const writer = new AuditWriter({ database, keyring });
-    const query = new AuditEventQuery({ database, keyring });
-    const verifier = new AuditVerifier({ database, keyring });
+    const writer = new AuditWriter({ database: applicationDatabase, keyring });
+    const query = new AuditEventQuery({ database: applicationDatabase, keyring });
+    const verifier = new AuditVerifier({ database: applicationDatabase, keyring });
     const pruner = new AuditPruner({
-      database,
+      database: applicationDatabase,
       writer,
       query,
       verifier,
       databaseName: config.database.database ?? "",
-      deletePrefix: (lastEventId, expected) => pruneConnection.deletePrefix(lastEventId, expected),
+      authorizePrune: (input) => createPruneAuthorization(applicationDatabase, input),
+      deletePrefix: (authorizationId) => pruneConnection.deletePrefix(authorizationId),
       retentionDays: config.auditRetentionDays,
     });
     const result = await pruner.prune({

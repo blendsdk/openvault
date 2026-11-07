@@ -393,6 +393,83 @@ describe.skipIf(trustedHost === undefined)("compose scaffold", () => {
     expect(response.status).toBe(403);
     expect(errorCode(response)).toBe("access_denied");
   });
+  it("should hide an existing project from an unassigned caller", async () => {
+    const actor = await insertUser();
+    const projectName = `scaffold-${id().slice(-8).toLowerCase()}`;
+    await insertProject(projectName);
+    const headers = await sessionHeaders(actor);
+    const missingName = `missing-${id().slice(-8).toLowerCase()}`;
+
+    const existing = await send({
+      method: "POST",
+      path: "/v1/admin/scaffold",
+      headers,
+      body: { project: projectName, service: "api", entries: [] },
+    });
+    const missing = await send({
+      method: "POST",
+      path: "/v1/admin/scaffold",
+      headers,
+      body: { project: missingName, service: "api", entries: [] },
+    });
+
+    expect(existing.status).toBe(404);
+    expect(missing.status).toBe(404);
+    expect(errorCode(existing)).toBe("project_not_found");
+    expect(errorEnvelope.parse(existing.json).error).toMatchObject({
+      code: "project_not_found",
+      message: "Resource not found",
+      statusCode: 404,
+    });
+    expect(errorEnvelope.parse(missing.json).error).toMatchObject({
+      code: "project_not_found",
+      message: "Resource not found",
+      statusCode: 404,
+    });
+    const denies = await testDb.db.executeQuery<{ count: number }>(
+      `SELECT count(*)::int AS count FROM audit_events
+        WHERE actor_id = :actor AND result = 'deny'`,
+      { actor },
+    );
+    expect(denies.records[0]?.count).toBe(2);
+  });
+
+  it("should hide a project from an administrator of another project", async () => {
+    const actor = await insertUser();
+    const otherProject = await insertProject(`other-${id().slice(-8).toLowerCase()}`);
+    await assign(actor, "project.admin", "project", otherProject);
+    const projectName = `scaffold-${id().slice(-8).toLowerCase()}`;
+    await insertProject(projectName);
+    const headers = await sessionHeaders(actor);
+    const missingName = `missing-${id().slice(-8).toLowerCase()}`;
+
+    const existing = await send({
+      method: "POST",
+      path: "/v1/admin/scaffold",
+      headers,
+      body: { project: projectName, service: "api", entries: [] },
+    });
+    const missing = await send({
+      method: "POST",
+      path: "/v1/admin/scaffold",
+      headers,
+      body: { project: missingName, service: "api", entries: [] },
+    });
+
+    expect(existing.status).toBe(404);
+    expect(missing.status).toBe(404);
+    expect(errorEnvelope.parse(existing.json).error).toMatchObject({
+      code: "project_not_found",
+      message: "Resource not found",
+      statusCode: 404,
+    });
+    expect(errorEnvelope.parse(missing.json).error).toMatchObject({
+      code: "project_not_found",
+      message: "Resource not found",
+      statusCode: 404,
+    });
+  });
+
   it("should ignore an expired broader grant when reusing an identity", async () => {
     const actor = await insertUser();
     await assign(actor, "org.admin", "org", "org");

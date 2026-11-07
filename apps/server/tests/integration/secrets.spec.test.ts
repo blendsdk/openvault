@@ -19,6 +19,7 @@ let environment: ReturnType<typeof createServerEnvironment>;
 let keyring: KeyringProvider;
 let secrets: SecretService;
 let policy: PolicyService;
+let core: ReturnType<typeof createAuditCore>;
 let currentTime = Date.parse("2026-11-04T12:00:00.000Z");
 
 const clock = (): number => currentTime;
@@ -70,7 +71,7 @@ beforeAll(async () => {
   actors = await seedAuditActors(testDb.db, base);
   environment = createServerEnvironment();
   keyring = await KeyringProvider.load(environment.keyringPath);
-  const core = createAuditCore({ database: testDb.db, keyring, now: clock });
+  core = createAuditCore({ database: testDb.db, keyring, now: clock });
   policy = new PolicyService({
     repository: new PolicyRepository(testDb.db),
     audit: core.policyAudit,
@@ -237,6 +238,99 @@ describe("secret write and read", () => {
     await expect(createSecret(name)).rejects.toMatchObject({
       statusCode: 409,
       code: "secret_name_conflict",
+    });
+  });
+
+  it("should write exactly one allow after a successful read", async () => {
+    const name = secretName("allow");
+    await createSecret(name, "value");
+    await expect(secrets.read(actors.orgAdmin, "foundation", name, {})).resolves.toMatchObject({
+      value: "value",
+    });
+    const events = await testDb.db.executeQuery<{ readonly result: string }>(
+      "SELECT result FROM audit_events WHERE action = 'secret.read' ORDER BY id",
+    );
+    expect(events.records).toEqual([{ result: "allow" }]);
+  });
+
+  it("should record a keyring failure and return 503 without an allow", async () => {
+    const otherEnvironment = createServerEnvironment();
+    const otherKeyring = await KeyringProvider.load(otherEnvironment.keyringPath);
+    try {
+      const service = new SecretService({
+        database: testDb.db,
+        keyring: otherKeyring,
+        policy,
+        audit: core.writer,
+        projectRepository: new ProjectRepository(testDb.db),
+        repository: new SecretRepository(),
+        secretMaxBytes: 65_536,
+        softDeleteDays: 30,
+        now: clock,
+      });
+      const name = secretName("keyring");
+      await service.create(actors.orgAdmin, "foundation", { name, value: "x" });
+
+      otherKeyring.destroy();
+
+      await expect(
+        service.read(actors.orgAdmin, "foundation", name, {}, { requestId: "keyring" }),
+      ).rejects.toMatchObject({ statusCode: 503, code: "service_unavailable" });
+      const events = await testDb.db.executeQuery<{
+        readonly result: string;
+        readonly details: Record<string, unknown>;
+      }>("SELECT result, details FROM audit_events WHERE action = 'secret.read' ORDER BY id");
+      expect(events.records.filter((event) => event.result === "allow")).toHaveLength(0);
+      expect(events.records).toEqual([
+        expect.objectContaining({
+          result: "error",
+          details: expect.objectContaining({ reason: "secret_integrity_failed" }),
+        }),
+      ]);
+    } finally {
+      otherEnvironment.cleanup();
+    }
+  });
+
+  it("should record an integrity error, not an allow, when the newest version is malformed", async () => {
+    const name = secretName("integrity");
+    const created = await createSecret(name, "good");
+    const badVersionId = newUlid();
+    await testDb.db.executeQuery(
+      `INSERT INTO secret_versions
+         (id, secret_id, ciphertext, nonce, tag, wrapped_dek, wrap_nonce, wrap_tag,
+          kek_id, created_by, created_at)
+       VALUES
+         (:id, :secretId, :ciphertext, :nonce, :tag, :wrappedDek, :wrapNonce,
+          :wrapTag, :kekId, :createdBy, now() + interval '1 hour')`,
+      {
+        id: badVersionId,
+        secretId: created.id,
+        ciphertext: Buffer.from("malformed"),
+        nonce: Buffer.alloc(12),
+        tag: Buffer.alloc(16),
+        wrappedDek: Buffer.alloc(32),
+        wrapNonce: Buffer.alloc(12),
+        wrapTag: Buffer.alloc(16),
+        kekId: keyring.currentId ?? "k1",
+        createdBy: actors.orgAdmin,
+      },
+    );
+
+    await expect(
+      secrets.read(actors.orgAdmin, "foundation", name, {}, { requestId: "integrity" }),
+    ).rejects.toMatchObject({ statusCode: 500, code: "secret_integrity_failed" });
+
+    const events = await testDb.db.executeQuery<{
+      readonly result: string;
+      readonly details: Record<string, unknown>;
+    }>("SELECT result, details FROM audit_events WHERE action = 'secret.read' ORDER BY id");
+    expect(events.records.filter((event) => event.result === "allow")).toHaveLength(0);
+    const errors = events.records.filter((event) => event.result === "error");
+    expect(errors).toHaveLength(1);
+    expect(errors[0]?.details).toMatchObject({
+      reason: "secret_integrity_failed",
+      version: badVersionId,
     });
   });
 

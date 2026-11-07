@@ -4,7 +4,7 @@
 > `docs/security/evidence-matrix.json`. The `pnpm verify` gate fails when this
 > page is stale or a linked test is missing.
 
-Updated: 2026-11-06
+Updated: 2026-11-07
 
 ## Threat-model coverage
 
@@ -33,6 +33,13 @@ Updated: 2026-11-06
 | T-21 | A leaked runtime database credential forges credentials, RBAC, OIDC links, or agent identity | Separate openvault_auth control-plane role; app role loses DML on eight identity tables; production startup assertion | test: `apps/server/tests/integration/security/auth-boundary.spec.test.ts` — should deny every write on the eight control-plane tables to the app role<br>test: `apps/server/tests/integration/security/auth-boundary.spec.test.ts` — should reject the startup assertion when the app connection is over-privileged |
 | T-22 | Discovery metadata redirects OIDC credentials or tokens to another origin | HTTPS endpoint-origin allowlist and redirect rejection | test: `apps/server/tests/auth/oidc.impl.test.ts` — should reject a cross-origin endpoint for every discovery field<br>test: `apps/server/tests/auth/oidc.impl.test.ts` — should disable redirects on endpoint requests |
 | T-23 | An unassigned caller enumerates project or secret names through 403/404 differences | Collection-visibility denials with identical 404 bodies for hidden and missing names | test: `apps/server/tests/integration/security/enumeration.spec.test.ts` — should give an unassigned caller identical 404 bodies for existing and missing secret names<br>test: `apps/server/tests/integration/security/enumeration.spec.test.ts` — should allow an object-scope reader but hide every other name |
+| T-24 | `ov doctor` sends the stored bearer to an override origin | Credential-origin binding; TLS and readiness remain unauthenticated on a mismatch | test: `apps/cli/tests/commands.spec.test.ts` — should not send a stored credential to an override origin<br>test: `apps/cli/tests/commands.spec.test.ts` — should not send a stored credential to an OPENVAULT_URL override |
+| T-25 | A stolen pruner credential deletes audit evidence with direct SQL | Single-use authorization, definer procedure, completion receipt, and no pruner table authority | test: `apps/server/tests/integration/audit-prune.spec.test.ts` — should deny direct pruner table authority<br>test: `apps/server/tests/integration/audit-prune.spec.test.ts` — should reject a replayed authorization |
+| T-26 | A secret integrity failure is recorded as a successful read | Allow recorded only after decryption and encoding; every failure writes an error event | test: `apps/server/tests/integration/secrets.spec.test.ts` — should record an integrity error, not an allow, when the newest version is malformed<br>test: `apps/server/tests/integration/secrets.spec.test.ts` — should write exactly one allow after a successful read |
+| T-27 | A copied agent join token remains on the clipboard | 30-second best-effort clear with page-level status and manual-clear guidance | test: `apps/web/tests/identities-consumers.test.tsx` — should clear a copied join token after the dialog closes<br>test: `apps/web/tests/copy.test.tsx` — should report a denied clear and keep the manual instruction visible |
+| T-28 | The data-plane role reads authentication verifiers or identity metadata | Explicit app allowlist, restricted consumer view, and read-only backup role | test: `apps/server/tests/integration/roles.spec.test.ts` — lets the runtime role read and write data but not run DDL or delete audit events<br>test: `apps/server/tests/integration/roles.spec.test.ts` — gives the backup role read-only access to every table |
+| T-29 | The scaffold endpoint reveals active project names before authorization | Collection-visibility denials with uniform hidden/missing 404 bodies | test: `apps/server/tests/integration/scaffold.spec.test.ts` — should hide an existing project from an unassigned caller<br>test: `apps/server/tests/integration/scaffold.spec.test.ts` — should hide a project from an administrator of another project |
+| T-30 | A stale browser cookie recovers its rotated successor | Pre-rotation CSRF proof on receipt recovery; receipt consumed once | test: `apps/server/tests/integration/auth.sessions.test.ts` — should require the pre-rotation CSRF proof for a late refresh<br>test: `apps/server/tests/auth/sessions.impl.test.ts` — should require the pre-rotation CSRF proof and serve the successor once |
 
 ## Required specification files
 

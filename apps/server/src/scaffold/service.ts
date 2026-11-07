@@ -121,7 +121,6 @@ export class ScaffoldService {
     context?: PolicyAuditContext,
   ): Promise<ScaffoldResponse> {
     const project = await this.#resolveProject(actorId, input, context);
-    await this.#authorizeAssignmentWrite(actorId, project.id, context);
 
     const secrets = new Map<string, string>();
     const missing: string[] = [];
@@ -221,7 +220,14 @@ export class ScaffoldService {
     }
   }
 
-  /** Resolves or creates the active project. */
+  /**
+   * Resolves or creates the active project with collection visibility.
+   *
+   * An existing project the caller cannot manage is either 403 (the caller can
+   * read it) or a uniform 404 (the caller cannot see it). A missing project is
+   * a 404 unless the caller can create projects, in which case the empty-entry
+   * path creates it and the non-empty path returns the actionable 422.
+   */
   async #resolveProject(
     actorId: string,
     input: ScaffoldRequest,
@@ -235,9 +241,22 @@ export class ScaffoldService {
   }> {
     const existing = await this.#projectRepository.findActiveByName(this.#database, input.project);
     if (existing !== undefined) {
-      return existing;
+      return await this.#authorizeExistingProject(actorId, existing, context);
+    }
+
+    const createDecision = await this.#policy.authorize(
+      actorId,
+      "project.create",
+      { type: "org", id: "org" },
+      context,
+      { audit: false },
+    );
+    if (!createDecision.allowed) {
+      await this.#policy.recordDecision(createDecision, context);
+      throw new ScaffoldServiceError(404, "project_not_found", "Resource not found");
     }
     if (input.entries.length > 0) {
+      await this.#policy.recordDecision(createDecision, context);
       throw new ScaffoldServiceError(
         422,
         "validation_error",
@@ -250,7 +269,7 @@ export class ScaffoldService {
       if (error instanceof ProjectServiceError && error.code === "project_name_conflict") {
         const raced = await this.#projectRepository.findActiveByName(this.#database, input.project);
         if (raced !== undefined) {
-          return raced;
+          return await this.#authorizeExistingProject(actorId, raced, context);
         }
         throw new ScaffoldServiceError(409, "project_name_conflict", "Project name conflict");
       }
@@ -258,23 +277,42 @@ export class ScaffoldService {
     }
   }
 
-  /** Authorizes the one assignment.write check that covers the grants. */
-  async #authorizeAssignmentWrite(
+  /**
+   * Authorizes one existing project without revealing it to an invisible caller.
+   */
+  async #authorizeExistingProject(
     actorId: string,
-    projectId: string,
+    project: {
+      readonly id: string;
+      readonly name: string;
+      readonly createdAt: Date;
+      readonly updatedAt: Date;
+      readonly deletedAt: Date | null;
+    },
     context?: PolicyAuditContext,
-  ): Promise<void> {
-    const decision = await this.#policy.authorize(
+  ): Promise<typeof project> {
+    const write = await this.#policy.authorize(
       actorId,
       "assignment.write",
-      { type: "project", id: projectId },
+      { type: "project", id: project.id },
       context,
       { audit: false },
     );
-    if (!decision.allowed) {
-      await this.#policy.recordDecision(decision, context);
+    if (write.allowed) {
+      return project;
+    }
+    const read = await this.#policy.authorize(
+      actorId,
+      "project.read",
+      { type: "project", id: project.id },
+      context,
+      { audit: false },
+    );
+    await this.#policy.recordDecision(write, context);
+    if (read.allowed) {
       throw new ScaffoldServiceError(403, "access_denied", "Access denied");
     }
+    throw new ScaffoldServiceError(404, "project_not_found", "Resource not found");
   }
 
   /** Resolves an active identity or creates one. */

@@ -2,6 +2,7 @@
 export type ScaffoldErrorCode =
   | "validation_error"
   | "access_denied"
+  | "project_not_found"
   | "project_name_conflict"
   | "identity_scope_conflict"
   | "identity_inactive";

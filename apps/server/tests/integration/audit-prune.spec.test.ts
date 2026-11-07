@@ -1,7 +1,9 @@
+import { createHash } from "node:crypto";
 import { existsSync, mkdtempSync, readFileSync, rmSync, statSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { newUlid } from "@openvault/core";
+import { Client } from "pg";
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
 import { AuditPruner } from "../../src/audit/audit-prune.js";
 import { AuditEventQuery } from "../../src/audit/audit-query.js";
@@ -9,6 +11,7 @@ import { AuditVerifier } from "../../src/audit/audit-verify.js";
 import { AuditWriter } from "../../src/audit/audit-writer.js";
 import { exportLatestCheckpoint } from "../../src/audit/checkpoint-cli.js";
 import { AuditPruneConfigError } from "../../src/audit/errors.js";
+import { createPruneAuthorization } from "../../src/audit/prune-authorization.js";
 import { createPruneConnection, type PruneConnection } from "../../src/audit/prune-connection.js";
 import { KeyringProvider } from "../../src/security/keyring.js";
 import { auditDraft, resetAuditTables } from "./helpers/audit-harness.js";
@@ -28,6 +31,7 @@ let writer: AuditWriter;
 let query: AuditEventQuery;
 let verifier: AuditVerifier;
 let prune: PruneConnection | undefined;
+let pruneUrl: string | undefined;
 let directory: string;
 
 function oldDate(days: number): Date {
@@ -48,11 +52,12 @@ function pruner(): AuditPruner {
     query,
     verifier,
     databaseName: testDb.name,
-    deletePrefix: (lastEventId, expected) => {
+    authorizePrune: (input) => createPruneAuthorization(testDb.db, input),
+    deletePrefix: (authorizationId) => {
       if (prune === undefined) {
         throw new Error("pruner is unavailable");
       }
-      return prune.deletePrefix(lastEventId, expected);
+      return prune.deletePrefix(authorizationId);
     },
     retentionDays: 180,
     now: () => now,
@@ -68,7 +73,7 @@ beforeAll(async () => {
   writer = new AuditWriter({ database: testDb.db, keyring, now: () => now });
   query = new AuditEventQuery({ database: testDb.db, keyring });
   verifier = new AuditVerifier({ database: testDb.db, keyring });
-  const pruneUrl = await ensurePrunerRole(process.env.TEST_DATABASE_URL ?? "", testDb.name);
+  pruneUrl = await ensurePrunerRole(process.env.TEST_DATABASE_URL ?? "", testDb.name);
   prune = pruneUrl === undefined ? undefined : await createPruneConnection(pruneUrl);
   directory = mkdtempSync(join(tmpdir(), "openvault-prune-"));
 }, 60_000);
@@ -97,18 +102,35 @@ describe("audit prune", () => {
     expect(result.exportedCount).toBe(2);
     expect(result.deletedCount).toBe(2);
     expect(result.checkpointId).not.toBeNull();
+    expect(result.authorizationId).not.toBeNull();
     expect(readFileSync(output, "utf8").trim().split("\n")).toHaveLength(2);
+    const exportDigest = createHash("sha256").update(readFileSync(output)).digest("hex");
+    expect(result.exportSha256).toBe(exportDigest);
     const retained = await testDb.db.executeQuery<{ count: number }>(
       "SELECT count(*)::int AS count FROM audit_events",
     );
     expect(retained.records[0]?.count).toBe(2);
     await expect(verifier.verify()).resolves.toMatchObject({ ok: true });
+    const receipt = await testDb.db.executeQuery<{
+      readonly authorization_id: string;
+      readonly deleted_count: number;
+      readonly export_sha256: Buffer;
+      readonly last_event_id: string;
+    }>(
+      "SELECT authorization_id, deleted_count, export_sha256, last_event_id FROM audit_prune_receipts",
+    );
+    expect(receipt.records).toHaveLength(1);
+    expect(receipt.records[0]?.authorization_id).toBe(result.authorizationId);
+    expect(receipt.records[0]?.deleted_count).toBe(2);
+    expect(receipt.records[0]?.export_sha256.toString("hex")).toBe(exportDigest);
     const pruneEvent = await testDb.db.executeQuery<{ details: Record<string, unknown> }>(
       "SELECT details FROM audit_events WHERE action = 'audit.prune'",
     );
     expect(pruneEvent.records[0]?.details).toMatchObject({
       exportedCount: 2,
       deletedCount: 2,
+      authorizationId: result.authorizationId,
+      exportSha256: exportDigest,
       dryRun: false,
     });
   });
@@ -120,6 +142,10 @@ describe("audit prune", () => {
     const result = await pruner().prune({ outputPath: output, dryRun: true });
     expect(result.deletedCount).toBe(0);
     expect(result.exportedCount).toBe(1);
+    expect(result.authorizationId).toBeNull();
+    expect(result.exportSha256).toBe(
+      createHash("sha256").update(readFileSync(output)).digest("hex"),
+    );
     const rows = await testDb.db.executeQuery<{ count: number }>(
       "SELECT count(*)::int AS count FROM audit_events",
     );
@@ -139,6 +165,8 @@ describe("audit prune", () => {
       exportedCount: 0,
       deletedCount: 0,
       checkpointId: null,
+      authorizationId: null,
+      exportSha256: null,
       dryRun: false,
     });
     const pruneEvent = await testDb.db.executeQuery<{ details: Record<string, unknown> }>(
@@ -157,6 +185,125 @@ describe("audit prune", () => {
       AuditPruneConfigError,
     );
     expect(readFileSync(existing, "utf8")).toBe("keep");
+  });
+
+  it("should deny direct pruner table authority", async () => {
+    if (pruneUrl === undefined) {
+      return;
+    }
+    const client = new Client({ connectionString: pruneUrl });
+    await client.connect();
+    try {
+      await expect(client.query("SELECT count(*) FROM audit_events")).rejects.toMatchObject({
+        code: "42501",
+      });
+      await expect(client.query("DELETE FROM audit_events WHERE false")).rejects.toMatchObject({
+        code: "42501",
+      });
+      await expect(
+        client.query(
+          `INSERT INTO audit_checkpoints (last_event_id, last_hash, hmac, audit_key_id)
+           VALUES (1, decode(repeat('00', 32), 'hex'), decode(repeat('00', 32), 'hex'), 'x')`,
+        ),
+      ).rejects.toMatchObject({ code: "42501" });
+    } finally {
+      await client.end();
+    }
+  });
+
+  it("should reject an absent or expired authorization without deleting", async () => {
+    if (prune === undefined) {
+      return;
+    }
+    await expect(prune.deletePrefix(newUlid())).rejects.toBeInstanceOf(AuditPruneConfigError);
+
+    await recordAt(oldDate(200));
+    const boundary = await testDb.db.executeQuery<{ readonly id: string; readonly hash: Buffer }>(
+      "SELECT id, hash FROM audit_events ORDER BY id LIMIT 1",
+    );
+    const row = boundary.records[0];
+    if (row === undefined) {
+      throw new Error("expected an audit event");
+    }
+    const authorizationId = await createPruneAuthorization(testDb.db, {
+      database: testDb.name,
+      lastEventId: row.id,
+      lastHash: row.hash,
+      count: 1,
+      exportSha256: createHash("sha256").update("export").digest(),
+      cutoff: new Date(now),
+    });
+    await testDb.db.executeQuery(
+      "UPDATE audit_prune_authorizations SET expires_at = now() - interval '1 minute' WHERE id = :id",
+      { id: authorizationId },
+    );
+    await expect(prune.deletePrefix(authorizationId)).rejects.toBeInstanceOf(AuditPruneConfigError);
+    const count = await testDb.db.executeQuery<{ readonly count: number }>(
+      "SELECT count(*)::int AS count FROM audit_events",
+    );
+    expect(count.records[0]?.count).toBe(1);
+  });
+
+  it("should reject a boundary hash or count mismatch", async () => {
+    if (prune === undefined) {
+      return;
+    }
+    await recordAt(oldDate(200));
+    const boundary = await testDb.db.executeQuery<{ readonly id: string; readonly hash: Buffer }>(
+      "SELECT id, hash FROM audit_events ORDER BY id LIMIT 1",
+    );
+    const row = boundary.records[0];
+    if (row === undefined) {
+      throw new Error("expected an audit event");
+    }
+    const wrongHashId = await createPruneAuthorization(testDb.db, {
+      database: testDb.name,
+      lastEventId: row.id,
+      lastHash: Buffer.alloc(32),
+      count: 1,
+      exportSha256: createHash("sha256").update("export").digest(),
+      cutoff: new Date(now),
+    });
+    await expect(prune.deletePrefix(wrongHashId)).rejects.toBeInstanceOf(AuditPruneConfigError);
+
+    const wrongCountId = await createPruneAuthorization(testDb.db, {
+      database: testDb.name,
+      lastEventId: row.id,
+      lastHash: row.hash,
+      count: 2,
+      exportSha256: createHash("sha256").update("export").digest(),
+      cutoff: new Date(now),
+    });
+    await expect(prune.deletePrefix(wrongCountId)).rejects.toBeInstanceOf(AuditPruneConfigError);
+    const count = await testDb.db.executeQuery<{ readonly count: number }>(
+      "SELECT count(*)::int AS count FROM audit_events WHERE action <> 'audit.prune'",
+    );
+    expect(count.records[0]?.count).toBe(1);
+  });
+
+  it("should not prune a prefix that hides a newer timestamp", async () => {
+    await recordAt(oldDate(1));
+    await recordAt(oldDate(200));
+    const result = await pruner().prune({ outputPath: join(directory, "cutoff.ndjson") });
+    expect(result.exportedCount).toBe(0);
+    expect(result.deletedCount).toBe(0);
+    const old = await testDb.db.executeQuery<{ readonly count: number }>(
+      "SELECT count(*)::int AS count FROM audit_events WHERE ts < :cutoff",
+      { cutoff: new Date(now - 180 * DAY_MS) },
+    );
+    expect(old.records[0]?.count).toBe(1);
+  });
+
+  it("should reject a replayed authorization", async () => {
+    if (prune === undefined) {
+      return;
+    }
+    await recordAt(oldDate(200));
+    const result = await pruner().prune({ outputPath: join(directory, "replay.ndjson") });
+    expect(result.authorizationId).not.toBeNull();
+    await expect(prune.deletePrefix(result.authorizationId ?? "")).rejects.toBeInstanceOf(
+      AuditPruneConfigError,
+    );
   });
 
   it("should require the pruner role and permit its delete", async () => {

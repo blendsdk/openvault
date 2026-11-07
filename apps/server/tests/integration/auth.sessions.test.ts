@@ -335,6 +335,54 @@ describe.skipIf(trustedHost === undefined)("session routes", () => {
     expect(requireCookieValue(late, SESSION_COOKIE)).toBe(rotatedSecret);
   });
 
+  it("should require the pre-rotation CSRF proof for a late refresh", async () => {
+    const user = await insertUser({ mustChange: false });
+    const created = await createSession(user.id);
+
+    const first = await send({
+      path: "/v1/auth/refresh",
+      method: "POST",
+      headers: browserHeaders(created.secretId, created.record.csrfToken),
+    });
+    expect(first.status).toBe(200);
+    const rotatedSecret = requireCookieValue(first, SESSION_COOKIE);
+
+    const missing = await send({
+      path: "/v1/auth/refresh",
+      method: "POST",
+      headers: { cookie: `${SESSION_COOKIE}=${created.secretId}` },
+    });
+    expect(missing.status).toBe(401);
+    expect(missing.headers["set-cookie"]).toBeUndefined();
+
+    const wrong = await send({
+      path: "/v1/auth/refresh",
+      method: "POST",
+      headers: {
+        cookie: `${SESSION_COOKIE}=${created.secretId}`,
+        [CSRF_HEADER]: "wrong-proof",
+      },
+    });
+    expect(wrong.status).toBe(401);
+    expect(wrong.headers["set-cookie"]).toBeUndefined();
+
+    const valid = await send({
+      path: "/v1/auth/refresh",
+      method: "POST",
+      headers: browserHeaders(created.secretId, created.record.csrfToken),
+    });
+    expect(valid.status).toBe(200);
+    expect(requireCookieValue(valid, SESSION_COOKIE)).toBe(rotatedSecret);
+
+    const replay = await send({
+      path: "/v1/auth/refresh",
+      method: "POST",
+      headers: browserHeaders(created.secretId, created.record.csrfToken),
+    });
+    expect(replay.status).toBe(401);
+    expect(replay.headers["set-cookie"]).toBeUndefined();
+  });
+
   it("should not rotate a browser session when an Authorization header is present", async () => {
     const user = await insertUser({ mustChange: false });
     const created = await createSession(user.id);

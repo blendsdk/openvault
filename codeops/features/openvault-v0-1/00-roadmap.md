@@ -31,3 +31,5 @@
 | RD-14 | Security assurance and release | [RD-14](requirements/RD-14-security-release.md) | [rd-14-release](plans/rd-14-release/00-index.md) | Done | ✅ | 2026-11-06 | depends on all prior RDs; production label remains gated on the external review approval file |
 
 **Remediation:** [Security findings #39–#44](plans/security-findings-remediation/00-index.md) — Done ✅ (2026-11-06 20:52).
+
+**Remediation:** [Security findings #46–#52](plans/security-findings-wave2/00-index.md) — Done ✅ (2026-11-07 03:42).

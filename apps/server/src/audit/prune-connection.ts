@@ -2,29 +2,20 @@ import { PostgreSQLDatabase } from "blendsdk/postgresql";
 import { parseDatabaseUrl } from "../db/url.js";
 import { AuditPruneConfigError } from "./errors.js";
 
-/** Expected boundary values that must match before a destructive delete. */
-export interface PruneDeleteExpectation {
-  /** Database name that was verified and exported. */
-  readonly database: string;
-  /** Hash of the boundary event. */
-  readonly lastHash: Buffer;
-  /** Number of exported rows. */
-  readonly count: number;
-}
-
 /** A short-lived pruner-session connection. */
 export interface PruneConnection {
-  /** Deletes every event through one sequence id and returns the row count. */
-  deletePrefix(lastEventId: string, expected: PruneDeleteExpectation): Promise<number>;
+  /** Deletes the prefix named by one authorization and returns the row count. */
+  deletePrefix(authorizationId: string): Promise<number>;
   /** Closes the underlying pool. */
   close(): Promise<void>;
 }
 
 /**
- * Opens a short-lived connection that satisfies the append-only trigger.
+ * Opens a short-lived connection that can execute the prune procedure.
  *
  * The session user must be `openvault_pruner`; the server process never reads
- * this URL.
+ * this URL. The role has no direct table authority, so the procedure is the
+ * only destructive path.
  *
  * @param rawUrl - `OPENVAULT_PRUNE_DB_URL`.
  * @returns The guarded delete handle.
@@ -42,10 +33,67 @@ export async function createPruneConnection(rawUrl: string | undefined): Promise
   }
 
   try {
-    const session = await database.executeQuery<{ session_user: string }>("SELECT session_user");
-    if (session.records[0]?.session_user !== "openvault_pruner") {
+    const session = await database.executeQuery<{
+      readonly session_user: string;
+      readonly is_migrator: boolean;
+      readonly is_auth: boolean;
+      readonly is_app: boolean;
+      readonly is_backup: boolean;
+      readonly is_purger: boolean;
+      readonly rolsuper: boolean;
+      readonly rolcreaterole: boolean;
+      readonly rolcreatedb: boolean;
+      readonly rolbypassrls: boolean;
+      readonly rolreplication: boolean;
+      readonly can_delete: boolean;
+      readonly can_checkpoint: boolean;
+      readonly can_execute: boolean;
+    }>(
+      `SELECT session_user,
+              r.rolsuper, r.rolcreaterole, r.rolcreatedb, r.rolbypassrls, r.rolreplication,
+              COALESCE(pg_has_role(current_user, to_regrole('openvault_migrator'), 'MEMBER'), false)
+                AS is_migrator,
+              COALESCE(pg_has_role(current_user, to_regrole('openvault_auth'), 'MEMBER'), false)
+                AS is_auth,
+              COALESCE(pg_has_role(current_user, to_regrole('openvault_app'), 'MEMBER'), false)
+                AS is_app,
+              COALESCE(pg_has_role(current_user, to_regrole('openvault_backup'), 'MEMBER'), false)
+                AS is_backup,
+              COALESCE(pg_has_role(current_user, to_regrole('openvault_purger'), 'MEMBER'), false)
+                AS is_purger,
+              has_table_privilege(current_user, 'audit_events', 'DELETE') AS can_delete,
+              has_table_privilege(current_user, 'audit_checkpoints', 'INSERT') AS can_checkpoint,
+              has_function_privilege(
+                current_user,
+                'public.openvault_prune_audit_prefix(text)',
+                'EXECUTE'
+              ) AS can_execute
+         FROM pg_roles r
+        WHERE r.rolname = current_user`,
+    );
+    const role = session.records[0];
+    if (role?.session_user !== "openvault_pruner") {
       throw new AuditPruneConfigError(
         "The prune connection must use the openvault_pruner session user",
+      );
+    }
+    if (
+      role.is_migrator ||
+      role.is_auth ||
+      role.is_app ||
+      role.is_backup ||
+      role.is_purger ||
+      role.rolsuper ||
+      role.rolcreaterole ||
+      role.rolcreatedb ||
+      role.rolbypassrls ||
+      role.rolreplication ||
+      role.can_delete ||
+      role.can_checkpoint ||
+      !role.can_execute
+    ) {
+      throw new AuditPruneConfigError(
+        "The prune role still has direct audit authority; apply deploy/postgres/grants.sql",
       );
     }
   } catch (error) {
@@ -57,40 +105,19 @@ export async function createPruneConnection(rawUrl: string | undefined): Promise
   }
 
   return {
-    async deletePrefix(lastEventId: string, expected: PruneDeleteExpectation): Promise<number> {
-      let deleted = 0;
-      await database.withTransaction(async (tx) => {
-        const identity = await tx.executeQuery<{ database: string }>(
-          "SELECT current_database() AS database",
+    async deletePrefix(authorizationId: string): Promise<number> {
+      try {
+        const result = await database.executeQuery<{ deleted: number }>(
+          "SELECT public.openvault_prune_audit_prefix(:authorizationId) AS deleted",
+          { authorizationId },
         );
-        if (identity.records[0]?.database !== expected.database) {
-          throw new AuditPruneConfigError("The prune connection targets a different database");
+        return result.records[0]?.deleted ?? 0;
+      } catch (error) {
+        if (error instanceof AuditPruneConfigError) {
+          throw error;
         }
-        const boundary = await tx.executeQuery<{ hash: Buffer }>(
-          "SELECT hash FROM audit_events WHERE id = CAST(:lastEventId AS bigint)",
-          { lastEventId },
-        );
-        if (!boundary.records[0]?.hash.equals(expected.lastHash)) {
-          throw new AuditPruneConfigError("The prune boundary no longer matches");
-        }
-        const prefix = await tx.executeQuery<{ count: number }>(
-          "SELECT count(*)::int AS count FROM audit_events WHERE id <= CAST(:lastEventId AS bigint)",
-          { lastEventId },
-        );
-        if ((prefix.records[0]?.count ?? 0) !== expected.count) {
-          throw new AuditPruneConfigError("The prune prefix changed after export");
-        }
-        await tx.executeQuery("SET LOCAL openvault.allow_audit_prune = 'on'");
-        const result = await tx.executeQuery(
-          "DELETE FROM audit_events WHERE id <= CAST(:lastEventId AS bigint)",
-          { lastEventId },
-        );
-        if ((result.rowCount ?? 0) !== expected.count) {
-          throw new AuditPruneConfigError("The prune delete count did not match the export");
-        }
-        deleted = result.rowCount ?? 0;
-      });
-      return deleted;
+        throw new AuditPruneConfigError("The prune authorization was rejected");
+      }
     },
     async close(): Promise<void> {
       await database.disconnect();

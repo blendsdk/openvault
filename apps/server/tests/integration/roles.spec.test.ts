@@ -18,10 +18,20 @@ const grantsSql = readFileSync(
   fileURLToPath(new URL("../../../../deploy/postgres/grants.sql", import.meta.url)),
   "utf8",
 );
+const ensureAuthSql = readFileSync(
+  fileURLToPath(new URL("../../../../deploy/postgres/ensure-auth-role.sql", import.meta.url)),
+  "utf8",
+);
+const ensureBackupSql = readFileSync(
+  fileURLToPath(new URL("../../../../deploy/postgres/ensure-backup-role.sql", import.meta.url)),
+  "utf8",
+);
 
 const PASSWORDS = {
   migrator: "migrator-password",
   app: "app-password",
+  auth: "auth-password",
+  backup: "backup-password",
   purger: "purger-password",
   pruner: "pruner-password",
 } as const;
@@ -39,6 +49,7 @@ let settings: Settings;
 let databaseName: string;
 let admin: Client;
 let app: Client;
+let backup: Client;
 let purger: Client;
 let pruner: Client;
 let purgerPassword: string = PASSWORDS.purger;
@@ -127,6 +138,8 @@ beforeAll(async () => {
       dbname: databaseName,
       migrator_password: PASSWORDS.migrator,
       app_password: PASSWORDS.app,
+      auth_password: PASSWORDS.auth,
+      backup_password: PASSWORDS.backup,
       purger_password: purgerPassword,
       pruner_password: PASSWORDS.pruner,
     });
@@ -147,13 +160,14 @@ beforeAll(async () => {
   }
 
   app = new Client({ connectionString: roleUrl("openvault_app", PASSWORDS.app) });
+  backup = new Client({ connectionString: roleUrl("openvault_backup", PASSWORDS.backup) });
   purger = new Client({ connectionString: roleUrl("openvault_purger", purgerPassword) });
   pruner = new Client({ connectionString: roleUrl("openvault_pruner", PASSWORDS.pruner) });
-  await Promise.all([app.connect(), purger.connect(), pruner.connect()]);
+  await Promise.all([app.connect(), backup.connect(), purger.connect(), pruner.connect()]);
 }, 60_000);
 
 afterAll(async () => {
-  await Promise.all([app?.end(), purger?.end(), pruner?.end()]);
+  await Promise.all([app?.end(), backup?.end(), purger?.end(), pruner?.end()]);
   if (admin !== undefined) {
     const cleanup = new Client({
       connectionString: `postgres://${settings.user}:${encodeURIComponent(settings.password)}@${settings.host}:${settings.port}/${databaseName}`,
@@ -161,7 +175,7 @@ afterAll(async () => {
     try {
       await cleanup.connect();
       await cleanup.query(
-        "DROP OWNED BY openvault_app, openvault_purger, openvault_pruner, openvault_migrator CASCADE",
+        "DROP OWNED BY openvault_app, openvault_auth, openvault_backup, openvault_purger, openvault_pruner, openvault_migrator CASCADE",
       );
     } catch {
       // The database may already be gone after a failed setup.
@@ -181,8 +195,27 @@ afterAll(async () => {
 
 describe("least-privilege PostgreSQL roles", () => {
   it("lets the runtime role read and write data but not run DDL or delete audit events", async () => {
-    const org = await app.query<{ count: string }>("SELECT count(*)::text AS count FROM org");
-    expect(Number(org.rows[0]?.count)).toBeGreaterThanOrEqual(1);
+    await expect(app.query("SELECT count(*) FROM projects")).resolves.toBeDefined();
+    await expect(app.query("SELECT count(*) FROM secrets")).resolves.toBeDefined();
+    await expect(
+      app.query("SELECT count(*) FROM secret_consumer_summaries"),
+    ).resolves.toBeDefined();
+    for (const table of [
+      "principals",
+      "local_credentials",
+      "role_assignments",
+      "oidc_identities",
+      "cli_sessions",
+      "join_tokens",
+      "workload_certs",
+      "consumers",
+      "policy_state",
+      "org",
+    ]) {
+      await expect(app.query(`SELECT count(*) FROM ${table}`), table).rejects.toMatchObject({
+        code: "42501",
+      });
+    }
 
     const projectId = newUlid();
     await app.query("BEGIN");
@@ -209,6 +242,36 @@ describe("least-privilege PostgreSQL roles", () => {
     });
   });
 
+  it("gives the backup role read-only access to every table", async () => {
+    for (const table of [
+      "projects",
+      "secrets",
+      "certificates",
+      "principals",
+      "local_credentials",
+      "cli_sessions",
+      "join_tokens",
+      "oidc_identities",
+      "role_assignments",
+      "workload_certs",
+      "consumers",
+      "audit_events",
+      "audit_checkpoints",
+      "audit_keys",
+      "signing_keys",
+      "ca_keys",
+      "secret_consumer_summaries",
+    ]) {
+      await expect(backup.query(`SELECT count(*) FROM ${table}`), table).resolves.toBeDefined();
+    }
+    await expect(
+      backup.query("INSERT INTO projects (id, name) VALUES ($1, 'backup-probe')", [newUlid()]),
+    ).rejects.toMatchObject({ code: "42501" });
+    await expect(backup.query("DELETE FROM audit_events WHERE false")).rejects.toMatchObject({
+      code: "42501",
+    });
+  });
+
   it("limits the purger to project names and purgeable objects", async () => {
     await expect(purger.query("DELETE FROM secrets WHERE false")).resolves.toBeDefined();
     await expect(purger.query("SELECT count(*) FROM projects")).resolves.toBeDefined();
@@ -220,29 +283,64 @@ describe("least-privilege PostgreSQL roles", () => {
     });
   });
 
-  it("limits the pruner to the audit chain and boundary checkpoints", async () => {
-    const keyId = newUlid();
-    await app.query(
-      `INSERT INTO audit_keys (id, wrapped_key, wrap_nonce, wrap_tag, kek_id)
-       VALUES ($1, decode(repeat('00', 32), 'hex'), decode(repeat('00', 12), 'hex'),
-               decode(repeat('00', 16), 'hex'), 'kek-1')`,
-      [keyId],
-    );
-
-    await expect(pruner.query("SELECT count(*) FROM audit_events")).resolves.toBeDefined();
-    await expect(pruner.query("DELETE FROM audit_events WHERE false")).resolves.toBeDefined();
+  it("limits the pruner to the constrained procedure", async () => {
+    await expect(pruner.query("SELECT count(*) FROM audit_events")).rejects.toMatchObject({
+      code: "42501",
+    });
+    await expect(pruner.query("DELETE FROM audit_events WHERE false")).rejects.toMatchObject({
+      code: "42501",
+    });
     await expect(pruner.query("SELECT count(*) FROM secrets")).rejects.toMatchObject({
       code: "42501",
     });
-    await pruner.query("BEGIN");
-    try {
-      await pruner.query(
+    await expect(
+      pruner.query(
         `INSERT INTO audit_checkpoints (last_event_id, last_hash, hmac, audit_key_id)
-         VALUES (999999, decode(repeat('00', 32), 'hex'), decode(repeat('00', 32), 'hex'), $1)`,
-        [keyId],
+         VALUES (999999, decode(repeat('00', 32), 'hex'), decode(repeat('00', 32), 'hex'), 'x')`,
+      ),
+    ).rejects.toMatchObject({ code: "42501" });
+    await expect(
+      pruner.query("SELECT public.openvault_prune_audit_prefix($1)", [newUlid()]),
+    ).rejects.toThrow(/prune authorization not found/);
+  });
+
+  it("reapplies the ensure scripts and removes cross-role memberships", async () => {
+    const owner = new Client({ connectionString: settings.maintenanceUrl });
+    await owner.connect();
+    try {
+      await owner.query("GRANT openvault_auth TO openvault_app");
+      await owner.query("GRANT openvault_backup TO openvault_app");
+      await applyPsqlScript(owner, ensureAuthSql, { auth_password: PASSWORDS.auth });
+      await applyPsqlScript(owner, ensureBackupSql, { backup_password: PASSWORDS.backup });
+
+      const membership = await owner.query<{
+        readonly app_auth: boolean;
+        readonly app_backup: boolean;
+        readonly pruner_migrator: boolean;
+      }>(
+        `SELECT pg_has_role('openvault_app', 'openvault_auth', 'MEMBER') AS app_auth,
+                pg_has_role('openvault_app', 'openvault_backup', 'MEMBER') AS app_backup,
+                pg_has_role('openvault_pruner', 'openvault_migrator', 'MEMBER') AS pruner_migrator`,
       );
+      expect(membership.rows[0]).toEqual({
+        app_auth: false,
+        app_backup: false,
+        pruner_migrator: false,
+      });
+      const attributes = await owner.query<{
+        readonly rolsuper: boolean;
+        readonly rolbypassrls: boolean;
+      }>(
+        `SELECT rolsuper, rolbypassrls FROM pg_roles
+          WHERE rolname IN ('openvault_auth', 'openvault_backup')
+          ORDER BY rolname`,
+      );
+      expect(attributes.rows).toEqual([
+        { rolsuper: false, rolbypassrls: false },
+        { rolsuper: false, rolbypassrls: false },
+      ]);
     } finally {
-      await pruner.query("ROLLBACK");
+      await owner.end();
     }
   });
 

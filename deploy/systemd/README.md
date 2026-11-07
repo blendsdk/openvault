@@ -20,6 +20,7 @@ both units:
 
 ```ini
 OPENVAULT_DB_URL_FILE=/etc/openvault/db_app_url
+OPENVAULT_BACKUP_DB_URL_FILE=/etc/openvault/db_backup_url
 OPENVAULT_KEYRING=/var/lib/openvault/keyring.json
 OPENVAULT_INTERNAL_CA=/etc/openvault/tls/ca.pem
 OPENVAULT_BACKUP_PASSPHRASE_FILE=/etc/openvault/backup-passphrase
@@ -27,8 +28,8 @@ OPENVAULT_BACKUP_PASSPHRASE_FILE=/etc/openvault/backup-passphrase
 # OPENVAULT_OFFBOX_TARGET=/mnt/offbox/openvault
 ```
 
-`OPENVAULT_DB_URL_FILE` and `OPENVAULT_BACKUP_PASSPHRASE_FILE` must be `0600` and
-owned by the `openvault` unit user. The passphrase must be stored separately from
+`OPENVAULT_DB_URL_FILE`, `OPENVAULT_BACKUP_DB_URL_FILE`, and
+`OPENVAULT_BACKUP_PASSPHRASE_FILE` must be `0600` and owned by the `openvault` unit user. The passphrase must be stored separately from
 the backup archive. The off-box
 target is the only copy that can prove the audit chain after a host loss.
 

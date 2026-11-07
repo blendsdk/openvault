@@ -125,10 +125,47 @@ describe("SessionService implementation", () => {
     const created = await sessions.create({ principalId: PRINCIPAL, authMethod: "local" });
 
     const first = await sessions.rotate(created.secretId);
-    const second = await sessions.rotate(created.secretId);
+    const second = await sessions.rotate(created.secretId, created.record.csrfToken);
 
     expect(first).toBeDefined();
     expect(second).toEqual(first);
+  });
+
+  it("should require the pre-rotation CSRF proof and serve the successor once", async () => {
+    const { sessions } = harness();
+    const created = await sessions.create({ principalId: PRINCIPAL, authMethod: "local" });
+    const rotated = await sessions.rotate(created.secretId);
+
+    await expect(sessions.rotate(created.secretId)).resolves.toBeUndefined();
+    await expect(sessions.rotate(created.secretId, "wrong-proof")).resolves.toBeUndefined();
+    await expect(sessions.rotate(created.secretId, created.record.csrfToken)).resolves.toEqual(
+      rotated,
+    );
+    await expect(
+      sessions.rotate(created.secretId, created.record.csrfToken),
+    ).resolves.toBeUndefined();
+  });
+
+  it("should require the proof on the in-flight shortcut", async () => {
+    const cache = new DelayedCache({ rootKey: "openvault-session-proof", cleanupIntervalMs: 0 });
+    const sessions = new SessionService({
+      config,
+      cache,
+      now: () => START,
+      sweepIntervalMs: 0,
+    });
+    opened.push(sessions);
+    const created = await sessions.create({ principalId: PRINCIPAL, authMethod: "local" });
+
+    cache.delayNextSet = true;
+    const rotation = sessions.rotate(created.secretId);
+    await new Promise((resolve) => setTimeout(resolve, 1));
+
+    await expect(sessions.rotate(created.secretId)).resolves.toBeUndefined();
+    await expect(
+      sessions.rotate(created.secretId, created.record.csrfToken),
+    ).resolves.toBeDefined();
+    await expect(rotation).resolves.toBeDefined();
   });
 
   it("should expire the rotation receipt", async () => {
@@ -209,7 +246,9 @@ describe("SessionService implementation", () => {
     expect(first).toBeDefined();
     expect(second).toBeDefined();
     await expect(sessions.rotate(created.secretId)).resolves.toBeUndefined();
-    await expect(sessions.rotate(first?.secretId ?? "")).resolves.toEqual(second);
+    await expect(sessions.rotate(first?.secretId ?? "", first?.record.csrfToken)).resolves.toEqual(
+      second,
+    );
   });
 
   it("should report the remaining lifetime from the injected clock", async () => {

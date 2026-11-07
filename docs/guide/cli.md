@@ -146,8 +146,10 @@ bootstrap administrator, and signing key. It is idempotent and never rotates the
 password is written once to a `0600` file and is never printed. If the keyring is missing but
 wrapped state exists in the database, init fails closed and asks for a restore from backup.
 
-The database URL comes only from the environment. `OPENVAULT_MIGRATION_DB_URL` may name a
-separate migrator role for DDL; data writes use `OPENVAULT_DB_URL`. Init and the server must run
+The database URL comes only from the environment. `OPENVAULT_MIGRATION_DB_URL` must name the
+migrator/owner role for `ov init` bootstrap writes and DDL; the app role cannot write
+organizations, principals, credentials, assignments, or key tables. The server uses
+`OPENVAULT_DB_URL` for runtime traffic. Init and the server must run
 as the same non-root UID so the `0600` keyring and TLS key are readable.
 
 ## Output and exit codes
@@ -180,6 +182,7 @@ WSL instead.
 
 ```bash
 export OPENVAULT_DB_URL=postgres://openvault:secret@postgres:5432/openvault
+export OPENVAULT_BACKUP_DB_URL=postgres://openvault_backup:secret@postgres:5432/openvault
 export OPENVAULT_KEYRING=/var/lib/openvault/keyring.json
 export OPENVAULT_INTERNAL_CA=/etc/openvault/tls/ca.pem
 export OPENVAULT_BACKUP_PASSPHRASE_FILE=/run/secrets/backup-passphrase

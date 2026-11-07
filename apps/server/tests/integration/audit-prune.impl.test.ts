@@ -8,6 +8,7 @@ import { AuditEventQuery } from "../../src/audit/audit-query.js";
 import { AuditVerifier } from "../../src/audit/audit-verify.js";
 import { AuditWriter } from "../../src/audit/audit-writer.js";
 import { AuditPruneConfigError } from "../../src/audit/errors.js";
+import { createPruneAuthorization } from "../../src/audit/prune-authorization.js";
 import { createPruneConnection, type PruneConnection } from "../../src/audit/prune-connection.js";
 import { KeyringProvider } from "../../src/security/keyring.js";
 import { auditDraft, resetAuditTables } from "./helpers/audit-harness.js";
@@ -64,11 +65,12 @@ function pruner(): AuditPruner {
     query,
     verifier,
     databaseName: testDb.name,
-    deletePrefix: (lastEventId, expected) => {
+    authorizePrune: (input) => createPruneAuthorization(testDb.db, input),
+    deletePrefix: (authorizationId) => {
       if (prune === undefined) {
         throw new Error("pruner is unavailable");
       }
-      return prune.deletePrefix(lastEventId, expected);
+      return prune.deletePrefix(authorizationId);
     },
     retentionDays: 180,
     now: () => now,

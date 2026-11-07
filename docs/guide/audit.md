@@ -89,7 +89,11 @@ pnpm --filter @openvault/server audit:prune -- --out /secure/audit-2026-11-04.nd
 The command verifies the retained chain first, writes the deletable prefix to an exclusive
 mode-`0600` file, writes a checkpoint at its last event, deletes the prefix through the
 `openvault_pruner` session, and records the prune. `--dry-run` exports and checkpoints without
-deleting. The pruner role needs `SELECT, DELETE` on `audit_events`.
+deleting. The pruner role needs only `EXECUTE` on
+`public.openvault_prune_audit_prefix(text)`. The application creates a short-lived single-use
+authorization after verification, export, and checkpoint; the procedure consumes it, deletes
+the prefix, and writes a completion receipt. Do not grant the pruner direct table, sequence, or
+column access.
 
 Export the newest checkpoint for off-box anchoring:
 

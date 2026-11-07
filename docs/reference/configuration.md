@@ -28,6 +28,8 @@ bind. The server requires Node.js 24.7 or newer (the built-in Argon2 API).
 | `OPENVAULT_SECRET_MAX_BYTES` | `65536` | no | 1024–65536; decoded value limit enforced by the secret routes |
 | `OPENVAULT_AUTH_DB_URL` | app URL in development/test | production | Dedicated `openvault_auth` PostgreSQL URL for control-plane writes |
 | `OPENVAULT_AUTH_DB_URL_FILE` | none | no | File form of the auth URL |
+| `OPENVAULT_BACKUP_DB_URL` | none | for `ov backup` | Dedicated read-only `openvault_backup` URL used for the logical dump |
+| `OPENVAULT_BACKUP_DB_URL_FILE` | none | no | File form of the backup URL |
 | `OPENVAULT_PURGE_DB_URL` | none | no | Dedicated `openvault_purger` PostgreSQL URL used only by secret and certificate purge |
 | `OPENVAULT_PURGE_DB_URL_FILE` | none | no | File form of the purge URL |
 | `OPENVAULT_CERT_MAX_BYTES` | `131072` | no | 1024–131072; combined public chain bound; the private key is separately limited to 16,384 bytes |
@@ -47,11 +49,13 @@ bind. The server requires Node.js 24.7 or newer (the built-in Argon2 API).
 `OPENVAULT_ADMIN_PORT` wins over `PORT`. If both are set and differ, startup fails with a
 keyed error. The agent port must differ from the resolved admin port.
 
-`OPENVAULT_DB_URL_FILE`, `OPENVAULT_MIGRATION_DB_URL_FILE`, and
-`OPENVAULT_AUTH_DB_URL_FILE` and `OPENVAULT_PURGE_DB_URL_FILE` read the URL from a file instead of the environment. The file
+`OPENVAULT_DB_URL_FILE`, `OPENVAULT_MIGRATION_DB_URL_FILE`,
+`OPENVAULT_AUTH_DB_URL_FILE`, `OPENVAULT_BACKUP_DB_URL_FILE`, and
+`OPENVAULT_PURGE_DB_URL_FILE` read the URL from a file instead of the environment. The file
 must be a regular file and must not be group- or world-writable; Docker secrets mount as
-`0444`. Setting both the direct and file forms is an error. The migrator and purge URLs must
-target the same host, port, and database as `OPENVAULT_DB_URL`; they may use a different role.
+`0444`. Setting both the direct and file forms is an error. The migrator, auth, backup, and
+purge URLs must target the same host, port, and database as `OPENVAULT_DB_URL`; they may use a
+different role.
 
 `OPENVAULT_SESSION_TTL_HOURS` is an absolute lifetime measured from session creation, not a
 sliding idle timeout. The auth URL must target the same database as `OPENVAULT_DB_URL`.
@@ -82,8 +86,8 @@ URL usually contains a password.
 
 | Variable | Default | Required | Notes |
 |---|---|---|---|
-| `OPENVAULT_DB_URL` | none | yes | Application database URL used for bootstrap data writes |
-| `OPENVAULT_MIGRATION_DB_URL` | `OPENVAULT_DB_URL` | no | Optional migrator URL used for DDL |
+| `OPENVAULT_DB_URL` | none | yes | Application runtime URL; the app role cannot perform bootstrap writes |
+| `OPENVAULT_MIGRATION_DB_URL` | `OPENVAULT_DB_URL` | for `ov init` | Migrator/owner URL used for DDL and bootstrap data writes; must target the same database |
 | `OPENVAULT_KEYRING` | none | yes | Absolute keyring path; created atomically with mode `0600` when absent |
 | `OPENVAULT_INTERNAL_CA` | derived from the TLS certificate directory | yes | Public internal CA path |
 | `OPENVAULT_CA_PUBLIC_DIR` | none | no | Directory that receives `ca.pem` for the proxy |
@@ -103,8 +107,11 @@ and asks for a restore from backup.
 
 ## Backup, restore, and KEK rotation
 
-`ov backup` requires `OPENVAULT_DB_URL`, `OPENVAULT_KEYRING`, and
-`OPENVAULT_INTERNAL_CA` (or a `ca.pem` beside `OPENVAULT_TLS_CERT`). The archive is encrypted
+`ov backup` requires `OPENVAULT_BACKUP_DB_URL` for the read-only logical dump,
+`OPENVAULT_DB_URL` for the `backup.create` audit event, `OPENVAULT_KEYRING`, and
+`OPENVAULT_INTERNAL_CA` (or a `ca.pem` beside `OPENVAULT_TLS_CERT`). The dump connection is
+refused if it is the `openvault_app` or `openvault_auth` role or cannot read the control-plane
+tables. The archive is encrypted
 with age using the passphrase from `--passphrase-file`, `OPENVAULT_BACKUP_PASSPHRASE_FILE`, or
 an interactive hidden prompt. The v0.1 archive contains a logical JSON row dump, the raw
 keyring, a redacted configuration manifest, the public CA, and audit checkpoints. It is not a
@@ -148,15 +155,16 @@ configuration as the process and additionally reads:
 |---|---|---|---|
 | `OPENVAULT_PRUNE_DB_URL` | — | for `audit:prune` | PostgreSQL URL for the dedicated `openvault_pruner` session |
 
-Deployment must create a login role named `openvault_pruner` and grant it `SELECT, DELETE`
-on `audit_events`. The delete predicate reads the `id` column, so `DELETE` alone is not
-enough. Do not grant `UPDATE`, `TRUNCATE`, or ownership. The prune credential can delete any
-audit prefix at any time without writing a prune event, and its export file contains every
-tenant's events; treat the URL and file as high-value secrets. The application role must
-also be a non-owner, non-superuser role for the append-only trigger to be effective; the
-migration owner or a superuser can disable it. Run maintenance on the vault host, or supply
-the same database, keyring, TLS/CA, and base URL settings as the server. The prune command
-checks that its connection targets the same database that was verified and exported.
+Deployment must create a login role named `openvault_pruner` and grant it `EXECUTE` on
+`public.openvault_prune_audit_prefix(text)`. Do not grant table, sequence, column, `UPDATE`,
+`TRUNCATE`, or ownership privileges. The application verifies the retained chain, exports the
+prefix, writes the boundary checkpoint, and inserts a short-lived single-use authorization;
+the procedure consumes that authorization, re-checks the boundary and count, deletes the prefix,
+and writes a completion receipt in one transaction. A holder of the pruner credential alone
+cannot delete an audit prefix or write a checkpoint. The export file contains every tenant's
+events; treat the URL and file as high-value secrets. Run maintenance on the vault host, or
+supply the same database, keyring, TLS/CA, and base URL settings as the server. The prune
+command checks that its connection targets the same database that was verified and exported.
 
 ## Body limits
 
@@ -173,26 +181,29 @@ Requests with a non-JSON body under `/v1` are rejected with `415`.
 | Role | Ownership | Purpose |
 |---|---|---|
 | `openvault_migrator` | Database, schema, tables | Migrations and restore |
-| `openvault_app` | None | Data-plane runtime DML and reads |
+| `openvault_app` | None | Data-plane runtime DML and explicit reads |
 | `openvault_auth` | None | Control-plane authentication, RBAC, and agent-identity DML |
+| `openvault_backup` | None | Read-only logical backup dump |
 | `openvault_purger` | None | Controlled purge |
-| `openvault_pruner` | None | Controlled audit prune |
+| `openvault_pruner` | None | Controlled audit prune; `EXECUTE` on the prune procedure only |
 
 The server runs startup migrations with `OPENVAULT_MIGRATION_DB_URL` and then serves
 traffic with `OPENVAULT_DB_URL`. The runtime role cannot create tables or delete audit
 events. `deploy/postgres/grants.sql` asserts that the migrator owns every application
 table, so a drifted deployment fails loudly instead of silently granting the runtime role
-DDL. The app role has no `INSERT`, `UPDATE`, or `DELETE` on `principals`,
-`local_credentials`, `role_assignments`, `oidc_identities`, `cli_sessions`, `join_tokens`,
-`workload_certs`, or `consumers`; those writes use `openvault_auth`. Re-run `grants.sql` after
-a migration that adds a table the purge or prune path must access. The `openvault-roles` job
-runs `ensure-auth-role.sql` on every deployment so an existing database also gets the role.
+DDL. The app role has no access to `principals`, `local_credentials`,
+`role_assignments`, `oidc_identities`, `cli_sessions`, `join_tokens`, `workload_certs`,
+`consumers`, `policy_state`, or `org`; those are control-plane or credential tables. The app
+role reads consumer summaries through the restricted `secret_consumer_summaries` view. Re-run
+`grants.sql` after a migration that adds a table the runtime, purge, prune, or backup path
+must access. The `openvault-roles` job runs `ensure-auth-role.sql` and
+`ensure-backup-role.sql` on every deployment so an existing database also gets those roles.
 
 ## Secret and certificate purge
 
 Secret and certificate purge need a dedicated login role named `openvault_purger`, because
 the database trigger rejects deletes from the application role. The reference stack creates
-all five roles with `deploy/postgres/roles.sql`, makes `openvault_migrator` the database and
+all six roles with `deploy/postgres/roles.sql`, makes `openvault_migrator` the database and
 table owner, and applies `deploy/postgres/grants.sql`. Set `OPENVAULT_PURGE_DB_URL` to that
 role's URL or point `OPENVAULT_PURGE_DB_URL_FILE` at a Docker secret. The equivalent grants
 are:

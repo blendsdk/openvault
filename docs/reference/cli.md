@@ -145,9 +145,11 @@ including `--password-file` and `--bootstrap-password-file`, must be absolute. S
 | `ov restore <archive>` | `--passphrase-file`, `--keyring`, `--internal-ca`, `--ca-public-dir`, `--agent-certificate`, `--force`, `--yes` | Restore into a migrated target |
 | `ov kek rotate` | `--dry-run`, `--keyring`, `--yes` | Rewrap every key with a new KEK |
 
-`backup` uses `OPENVAULT_DB_URL`, `OPENVAULT_KEYRING`, `OPENVAULT_INTERNAL_CA` (or a
-`ca.pem` beside `OPENVAULT_TLS_CERT`), and `OPENVAULT_BACKUP_PASSPHRASE_FILE` or
-`--passphrase-file`. The archive contains a logical JSON database dump, the keyring, a
+`backup` uses `OPENVAULT_BACKUP_DB_URL` for the read-only `openvault_backup` dump,
+`OPENVAULT_DB_URL` only for the `backup.create` audit event, `OPENVAULT_KEYRING`,
+`OPENVAULT_INTERNAL_CA` (or a `ca.pem` beside `OPENVAULT_TLS_CERT`), and
+`OPENVAULT_BACKUP_PASSPHRASE_FILE` or `--passphrase-file`. Both database URLs must target the
+same database; the app/auth role is refused for the dump. The archive contains a logical JSON database dump, the keyring, a
 redacted configuration manifest, the public CA, and audit checkpoints. It is encrypted with
 age using the passphrase.
 

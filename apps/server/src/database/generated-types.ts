@@ -239,6 +239,120 @@ export interface AuditKeys {
 }
 
 /**
+ * @default created_at to now()
+ * @checkContraint database_name CHECK (((length(database_name) >= 1) AND (length(database_name) <= 63)))
+ * @checkContraint expected_count CHECK ((expected_count >= 0))
+ * @checkContraint export_sha256 CHECK ((octet_length(export_sha256) = 32))
+ * @primaryKey id
+ * @unique id
+ * @checkContraint id CHECK ((id ~ '^[0-9A-HJKMNP-TV-Z]{26}$'::text))
+ * @checkContraint last_hash CHECK ((octet_length(last_hash) = 32))
+ * @interface
+ */
+export interface AuditPruneAuthorizations {
+  /**
+   * @optional
+   * @nullable
+   * @memberOf {AuditPruneAuthorizations}
+   */
+  consumed_at?: Date | null;
+  /**
+   * @default now()
+   * @optional
+   * @memberOf {AuditPruneAuthorizations}
+   */
+  created_at?: Date;
+  /**
+   * @memberOf {AuditPruneAuthorizations}
+   */
+  cutoff: Date;
+  /**
+   * @checkContraint CHECK (((length(database_name) >= 1) AND (length(database_name) <= 63)))
+   * @memberOf {AuditPruneAuthorizations}
+   */
+  database_name: string;
+  /**
+   * @checkContraint CHECK ((expected_count >= 0))
+   * @memberOf {AuditPruneAuthorizations}
+   */
+  expected_count: number;
+  /**
+   * @memberOf {AuditPruneAuthorizations}
+   */
+  expires_at: Date;
+  /**
+   * @checkContraint CHECK ((octet_length(export_sha256) = 32))
+   * @memberOf {AuditPruneAuthorizations}
+   */
+  export_sha256: Buffer;
+  /**
+   * @primaryKey
+   * @unique
+   * @checkContraint CHECK ((id ~ '^[0-9A-HJKMNP-TV-Z]{26}$'::text))
+   * @memberOf {AuditPruneAuthorizations}
+   */
+  id: string;
+  /**
+   * @memberOf {AuditPruneAuthorizations}
+   */
+  last_event_id: string;
+  /**
+   * @checkContraint CHECK ((octet_length(last_hash) = 32))
+   * @memberOf {AuditPruneAuthorizations}
+   */
+  last_hash: Buffer;
+}
+
+/**
+ * @primaryKey authorization_id
+ * @unique authorization_id
+ * @default completed_at to now()
+ * @checkContraint database_name CHECK (((length(database_name) >= 1) AND (length(database_name) <= 63)))
+ * @checkContraint deleted_count CHECK ((deleted_count >= 0))
+ * @checkContraint export_sha256 CHECK ((octet_length(export_sha256) = 32))
+ * @checkContraint last_hash CHECK ((octet_length(last_hash) = 32))
+ * @interface
+ */
+export interface AuditPruneReceipts {
+  /**
+   * @primaryKey
+   * @unique
+   * @memberOf {AuditPruneReceipts}
+   */
+  authorization_id: string;
+  /**
+   * @default now()
+   * @optional
+   * @memberOf {AuditPruneReceipts}
+   */
+  completed_at?: Date;
+  /**
+   * @checkContraint CHECK (((length(database_name) >= 1) AND (length(database_name) <= 63)))
+   * @memberOf {AuditPruneReceipts}
+   */
+  database_name: string;
+  /**
+   * @checkContraint CHECK ((deleted_count >= 0))
+   * @memberOf {AuditPruneReceipts}
+   */
+  deleted_count: number;
+  /**
+   * @checkContraint CHECK ((octet_length(export_sha256) = 32))
+   * @memberOf {AuditPruneReceipts}
+   */
+  export_sha256: Buffer;
+  /**
+   * @memberOf {AuditPruneReceipts}
+   */
+  last_event_id: string;
+  /**
+   * @checkContraint CHECK ((octet_length(last_hash) = 32))
+   * @memberOf {AuditPruneReceipts}
+   */
+  last_hash: Buffer;
+}
+
+/**
  * @checkContraint cert_pem CHECK (((length(cert_pem) >= 1) AND (length(cert_pem) <= 16384)))
  * @default created_at to now()
  * @primaryKey id
@@ -1203,6 +1317,42 @@ export interface RoleAssignments {
    * @memberOf {RoleAssignments}
    */
   scope_type: string;
+}
+
+/**
+ * @interface
+ */
+export interface SecretConsumerSummaries {
+  /**
+   * @optional
+   * @nullable
+   * @memberOf {SecretConsumerSummaries}
+   */
+  compose_project?: string | null;
+  /**
+   * @optional
+   * @nullable
+   * @memberOf {SecretConsumerSummaries}
+   */
+  compose_service?: string | null;
+  /**
+   * @optional
+   * @nullable
+   * @memberOf {SecretConsumerSummaries}
+   */
+  last_seen?: Date | null;
+  /**
+   * @optional
+   * @nullable
+   * @memberOf {SecretConsumerSummaries}
+   */
+  project_id?: string | null;
+  /**
+   * @optional
+   * @nullable
+   * @memberOf {SecretConsumerSummaries}
+   */
+  secret_id?: string | null;
 }
 
 /**

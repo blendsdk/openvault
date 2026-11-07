@@ -8,9 +8,10 @@ import {
   DialogSurface,
   DialogTitle,
 } from "@fluentui/react-components";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useForm } from "react-hook-form";
 import { CliHint, CopyButton } from "../components/copy.js";
+import { subscribeCredentialCopy } from "../components/credential-copy.js";
 import { DataTable } from "../components/data-table.js";
 import { AsyncPanel, EmptyState, ErrorAlert } from "../components/feedback.js";
 import { PageHeader } from "../components/page-header.js";
@@ -38,11 +39,14 @@ export function IdentitiesPage() {
     { readonly identity: Identity; readonly token: string; readonly expiresAt: string } | undefined
   >(undefined);
   const [failure, setFailure] = useState<unknown>(undefined);
+  const [clipboardStatus, setClipboardStatus] = useState<string | undefined>(undefined);
   const form = useForm<IdentityValues>({ defaultValues: { name: "" } });
   const identities = useAsync(
     async (signal) => await client.identities.listIdentities({ projectId: project.id }, { signal }),
     [client, project.id],
   );
+
+  useEffect(() => subscribeCredentialCopy((result) => setClipboardStatus(result.message)), []);
 
   const openCreate = (): void => {
     setFailure(undefined);
@@ -223,6 +227,7 @@ export function IdentitiesPage() {
                       value={joinToken.token}
                       label="Copy token"
                       copiedLabel="Token copied"
+                      credential
                     />
                   </div>
                   <p className="muted">Expires {formatTime(joinToken.expiresAt)}.</p>
@@ -237,6 +242,11 @@ export function IdentitiesPage() {
           </DialogBody>
         </DialogSurface>
       </Dialog>
+      {clipboardStatus === undefined ? null : (
+        <p className="muted" role="status">
+          {clipboardStatus}
+        </p>
+      )}
     </section>
   );
 }
