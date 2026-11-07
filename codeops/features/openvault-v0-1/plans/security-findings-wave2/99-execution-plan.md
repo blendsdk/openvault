@@ -1,7 +1,7 @@
 # Security Findings Wave 2 — Execution Plan
 
 > **Type**: Feature plan · **Feature**: openvault-v0-1 · **CodeOps Artifact Schema**: 1
-> **Progress**: 30/45 tasks (67%)
+> **Progress**: 34/45 tasks (76%)
 > **Last Updated**: 2026-11-07 02:05
 > **Mode**: `--auto-design` · `--auto-commit`
 > **Reasoning**: high — credential handling, database authority, audit integrity, and session security across seven findings
@@ -116,13 +116,13 @@ Close issues #46–#52 with regression tests, production-safe configuration, and
 
 ### Session 6.1 — Specification tests
 
-- [ ] 6.1.1 Add the scaffold visibility matrix, empty-entries create, audit count, and lookup-order tests (ST-32…ST-37).
-- [ ] 6.1.2 Run the scaffold tests and record the red-phase failure: 403 vs 422 reveals existence.
+- [x] 6.1.1 Add the scaffold visibility matrix, empty-entries create, audit count, and lookup-order tests (ST-32…ST-37).
+- [x] 6.1.2 Run the scaffold tests and record the red-phase failure: 403 vs 422 reveals existence.
 
 ### Session 6.2 — Implementation and verification
 
-- [ ] 6.2.1 Apply collection visibility in `scaffold/service.ts`; preserve the org-admin create path and the exact error type.
-- [ ] 6.2.2 Run the scaffold and RBAC suites plus `pnpm verify`; mark phase verified.
+- [x] 6.2.1 Apply collection visibility in `scaffold/service.ts`; preserve the org-admin create path and the exact error type.
+- [x] 6.2.2 Run the scaffold and RBAC suites plus `pnpm verify`; mark phase verified.
 
 ## Phase 7 — Session rotation proof (#52)
 
