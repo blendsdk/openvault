@@ -256,6 +256,7 @@ export class ScaffoldService {
       throw new ScaffoldServiceError(404, "project_not_found", "Resource not found");
     }
     if (input.entries.length > 0) {
+      await this.#policy.recordDecision(createDecision, context);
       throw new ScaffoldServiceError(
         422,
         "validation_error",

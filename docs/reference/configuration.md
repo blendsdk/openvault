@@ -53,8 +53,9 @@ keyed error. The agent port must differ from the resolved admin port.
 `OPENVAULT_AUTH_DB_URL_FILE`, `OPENVAULT_BACKUP_DB_URL_FILE`, and
 `OPENVAULT_PURGE_DB_URL_FILE` read the URL from a file instead of the environment. The file
 must be a regular file and must not be group- or world-writable; Docker secrets mount as
-`0444`. Setting both the direct and file forms is an error. The migrator and purge URLs must
-target the same host, port, and database as `OPENVAULT_DB_URL`; they may use a different role.
+`0444`. Setting both the direct and file forms is an error. The migrator, auth, backup, and
+purge URLs must target the same host, port, and database as `OPENVAULT_DB_URL`; they may use a
+different role.
 
 `OPENVAULT_SESSION_TTL_HOURS` is an absolute lifetime measured from session creation, not a
 sliding idle timeout. The auth URL must target the same database as `OPENVAULT_DB_URL`.
@@ -85,8 +86,8 @@ URL usually contains a password.
 
 | Variable | Default | Required | Notes |
 |---|---|---|---|
-| `OPENVAULT_DB_URL` | none | yes | Application database URL used for bootstrap data writes |
-| `OPENVAULT_MIGRATION_DB_URL` | `OPENVAULT_DB_URL` | no | Optional migrator URL used for DDL |
+| `OPENVAULT_DB_URL` | none | yes | Application runtime URL; the app role cannot perform bootstrap writes |
+| `OPENVAULT_MIGRATION_DB_URL` | `OPENVAULT_DB_URL` | for `ov init` | Migrator/owner URL used for DDL and bootstrap data writes; must target the same database |
 | `OPENVAULT_KEYRING` | none | yes | Absolute keyring path; created atomically with mode `0600` when absent |
 | `OPENVAULT_INTERNAL_CA` | derived from the TLS certificate directory | yes | Public internal CA path |
 | `OPENVAULT_CA_PUBLIC_DIR` | none | no | Directory that receives `ca.pem` for the proxy |

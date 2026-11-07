@@ -18,6 +18,14 @@ const grantsSql = readFileSync(
   fileURLToPath(new URL("../../../../deploy/postgres/grants.sql", import.meta.url)),
   "utf8",
 );
+const ensureAuthSql = readFileSync(
+  fileURLToPath(new URL("../../../../deploy/postgres/ensure-auth-role.sql", import.meta.url)),
+  "utf8",
+);
+const ensureBackupSql = readFileSync(
+  fileURLToPath(new URL("../../../../deploy/postgres/ensure-backup-role.sql", import.meta.url)),
+  "utf8",
+);
 
 const PASSWORDS = {
   migrator: "migrator-password",
@@ -294,6 +302,46 @@ describe("least-privilege PostgreSQL roles", () => {
     await expect(
       pruner.query("SELECT public.openvault_prune_audit_prefix($1)", [newUlid()]),
     ).rejects.toThrow(/prune authorization not found/);
+  });
+
+  it("reapplies the ensure scripts and removes cross-role memberships", async () => {
+    const owner = new Client({ connectionString: settings.maintenanceUrl });
+    await owner.connect();
+    try {
+      await owner.query("GRANT openvault_auth TO openvault_app");
+      await owner.query("GRANT openvault_backup TO openvault_app");
+      await applyPsqlScript(owner, ensureAuthSql, { auth_password: PASSWORDS.auth });
+      await applyPsqlScript(owner, ensureBackupSql, { backup_password: PASSWORDS.backup });
+
+      const membership = await owner.query<{
+        readonly app_auth: boolean;
+        readonly app_backup: boolean;
+        readonly pruner_migrator: boolean;
+      }>(
+        `SELECT pg_has_role('openvault_app', 'openvault_auth', 'MEMBER') AS app_auth,
+                pg_has_role('openvault_app', 'openvault_backup', 'MEMBER') AS app_backup,
+                pg_has_role('openvault_pruner', 'openvault_migrator', 'MEMBER') AS pruner_migrator`,
+      );
+      expect(membership.rows[0]).toEqual({
+        app_auth: false,
+        app_backup: false,
+        pruner_migrator: false,
+      });
+      const attributes = await owner.query<{
+        readonly rolsuper: boolean;
+        readonly rolbypassrls: boolean;
+      }>(
+        `SELECT rolsuper, rolbypassrls FROM pg_roles
+          WHERE rolname IN ('openvault_auth', 'openvault_backup')
+          ORDER BY rolname`,
+      );
+      expect(attributes.rows).toEqual([
+        { rolsuper: false, rolbypassrls: false },
+        { rolsuper: false, rolbypassrls: false },
+      ]);
+    } finally {
+      await owner.end();
+    }
   });
 
   it("keeps the migrator as the table owner and the runtime role separate", async () => {

@@ -10,15 +10,18 @@
 \set ON_ERROR_STOP on
 
 SELECT format(
-  'CREATE ROLE openvault_backup LOGIN NOSUPERUSER NOCREATEDB NOCREATEROLE NOINHERIT PASSWORD %L',
+  'CREATE ROLE openvault_backup LOGIN NOSUPERUSER NOCREATEDB NOCREATEROLE NOINHERIT NOREPLICATION NOBYPASSRLS PASSWORD %L',
   :'backup_password'
 )
 WHERE NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'openvault_backup')
 \gexec
 
-ALTER ROLE openvault_backup LOGIN NOSUPERUSER NOCREATEDB NOCREATEROLE NOINHERIT PASSWORD :'backup_password';
+ALTER ROLE openvault_backup LOGIN NOSUPERUSER NOCREATEDB NOCREATEROLE NOINHERIT NOREPLICATION NOBYPASSRLS PASSWORD :'backup_password';
 
-REVOKE openvault_app, openvault_auth, openvault_purger, openvault_pruner, openvault_migrator
-  FROM openvault_backup;
+-- Remove memberships in both directions and predefined broad roles.
+REVOKE openvault_app, openvault_auth, openvault_purger, openvault_pruner, openvault_migrator FROM openvault_backup;
+REVOKE openvault_backup FROM openvault_app, openvault_auth, openvault_purger, openvault_pruner, openvault_migrator;
+REVOKE pg_read_all_data, pg_write_all_data, pg_execute_server_program, pg_signal_backend, pg_monitor FROM openvault_backup;
 
+REVOKE CREATE ON SCHEMA public FROM openvault_backup;
 GRANT USAGE ON SCHEMA public TO openvault_backup;

@@ -116,8 +116,18 @@ export class AuditPruner {
       throw new AuditError(`Retained chain verification failed: ${verification.reason}`);
     }
 
+    // Choose the last sequence id whose entire prefix is older than the cutoff.
+    // A newer-timestamped event with a lower id must block the boundary so the
+    // prefix delete cannot remove it.
     const boundary = await this.#database.executeQuery<{ id: string | null }>(
-      "SELECT max(id) AS id FROM audit_events WHERE ts < :cutoff",
+      `SELECT max(e.id) AS id
+         FROM audit_events e
+        WHERE e.ts < :cutoff
+          AND NOT EXISTS (
+            SELECT 1
+              FROM audit_events n
+             WHERE n.id <= e.id AND n.ts >= :cutoff
+          )`,
       { cutoff },
     );
     const lastEventId = boundary.records[0]?.id ?? null;

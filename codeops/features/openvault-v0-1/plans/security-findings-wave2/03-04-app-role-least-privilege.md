@@ -104,7 +104,7 @@ Add `openvault_backup`:
 - `session_user` is not `openvault_app` or `openvault_auth`;
 - `has_table_privilege(current_user, 'local_credentials', 'SELECT')` and the same on `audit_events`.
 
-If any check fails, it throws `backup_role_required` with a message pointing at the dedicated role. The audit connection writes the chained event and is never used for the dump. This prevents a silent partial archive and prevents a read-only role from trying to write audit rows.
+If any check fails, it throws `backup_role_required` with a message pointing at the dedicated role. The dump and audit URLs must also resolve to the same host, port, and database; a mismatch is rejected before the dump. The audit connection writes the chained event and is never used for the dump. This prevents a silent partial or wrong-database archive and prevents a read-only role from trying to write audit rows.
 
 ## Grant SQL Shape
 

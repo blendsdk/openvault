@@ -18,6 +18,7 @@ DECLARE
   auth_record public.audit_prune_authorizations%ROWTYPE;
   boundary_hash bytea;
   prefix_count integer;
+  newest_ts timestamptz;
   deleted integer;
 BEGIN
   IF session_user <> 'openvault_pruner' THEN
@@ -61,6 +62,15 @@ BEGIN
     RAISE EXCEPTION 'prune prefix count mismatch';
   END IF;
 
+  -- The boundary must not hide an event whose timestamp is newer than the
+  -- retention cutoff. The application's boundary query enforces the same rule.
+  SELECT max(ts) INTO newest_ts
+    FROM public.audit_events
+   WHERE id <= auth_record.last_event_id;
+  IF newest_ts IS NOT NULL AND newest_ts >= auth_record.cutoff THEN
+    RAISE EXCEPTION 'prune cutoff mismatch';
+  END IF;
+
   PERFORM set_config('openvault.allow_audit_prune', 'on', true);
   DELETE FROM public.audit_events WHERE id <= auth_record.last_event_id;
   GET DIAGNOSTICS deleted = ROW_COUNT;
@@ -84,3 +94,23 @@ END;
 $$;
 
 REVOKE ALL ON FUNCTION public.openvault_prune_audit_prefix(text) FROM PUBLIC;
+
+-- Keep the privilege contract self-contained for an existing database that
+-- applies migrations without the separate grants job. The role guards make the
+-- migration safe in development and test databases that do not create roles.
+DO $$
+BEGIN
+  IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'openvault_pruner') THEN
+    EXECUTE 'REVOKE ALL ON ALL TABLES IN SCHEMA public FROM openvault_pruner';
+    EXECUTE 'REVOKE ALL ON ALL SEQUENCES IN SCHEMA public FROM openvault_pruner';
+    EXECUTE 'REVOKE SELECT (id) ON audit_keys FROM openvault_pruner';
+    EXECUTE 'GRANT USAGE ON SCHEMA public TO openvault_pruner';
+    EXECUTE 'GRANT EXECUTE ON FUNCTION public.openvault_prune_audit_prefix(text) TO openvault_pruner';
+  END IF;
+  IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'openvault_app') THEN
+    EXECUTE 'REVOKE ALL ON audit_prune_authorizations, audit_prune_receipts FROM openvault_app';
+    EXECUTE 'GRANT SELECT, INSERT ON audit_prune_authorizations TO openvault_app';
+    EXECUTE 'GRANT SELECT ON audit_prune_receipts TO openvault_app';
+  END IF;
+END
+$$;

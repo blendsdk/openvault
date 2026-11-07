@@ -65,6 +65,8 @@ export interface AuthenticatedClientOptions {
   readonly transport: HttpsAdapter;
   /** Process boundary. */
   readonly runtime: CliRuntime;
+  /** Origin read from the same credential document that built the transport. */
+  readonly baseUrl?: string;
 }
 
 /**
@@ -81,7 +83,7 @@ export function createAuthenticatedClient(
   if (document === undefined) {
     throw new RefreshRejectedError();
   }
-  const baseUrl = document.baseUrl;
+  const baseUrl = options.baseUrl ?? document.baseUrl;
   const requireSameServer = (current: { readonly baseUrl: string }): void => {
     if (!sameCredentialOrigin(current.baseUrl, baseUrl)) {
       throw new RefreshRejectedError(

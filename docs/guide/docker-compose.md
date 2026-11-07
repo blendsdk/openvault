@@ -29,7 +29,8 @@ as the site address. `prepare.sh` creates:
 - `data/postgres` owned by UID 70 with mode `0700`.
 - `data/openvault`, `data/tls`, and `data/ca` owned by UID 10001.
 - `data/caddy` owned by UID 65534.
-- Docker secrets for the PostgreSQL bootstrap password and four role URLs.
+- Docker secrets for the PostgreSQL bootstrap password and five role URLs
+  (`migrator`, `app`, `auth`, `backup`, and `purger`).
 
 File-backed Compose secrets are bind mounts rather than Swarm secrets. `prepare.sh` makes the
 secret files `0444` so the non-root service users can read them; the `0700` secrets directory
@@ -43,24 +44,30 @@ the non-root ownership. A rootless Docker host must map the same UIDs.
 
 | Role | Owner | Runtime use |
 |---|---|---|
-| `openvault_migrator` | Database, schema, tables | Migrations and restore |
+| `openvault_migrator` | Database, schema, tables | Migrations, restore, and bootstrap |
 | `openvault_app` | None | The server process |
+| `openvault_auth` | None | Authentication, RBAC, and agent identity |
+| `openvault_backup` | None | Read-only logical backup dump |
 | `openvault_purger` | None | Secret and certificate purge |
-| `openvault_pruner` | None | Audit prune |
+| `openvault_pruner` | None | Audit prune; `EXECUTE` only |
 
 PostgreSQL runs the role bootstrap from `deploy/postgres/init-roles.sh` on a fresh data
 directory. `openvault-init` runs migrations as the migrator and creates the keyring,
-CA, TLS pair, organization, and bootstrap administrator. `openvault-roles` then applies
-`deploy/postgres/grants.sql` and asserts that the migrator owns every application table.
+CA, TLS pair, organization, and bootstrap administrator. `openvault-roles` then runs
+`ensure-auth-role.sql`, `ensure-backup-role.sql`, and `grants.sql`, and asserts that the
+migrator owns every application table.
 
 The server reads full role URLs from Docker secrets through
-`OPENVAULT_DB_URL_FILE`, `OPENVAULT_MIGRATION_DB_URL_FILE`, and
-`OPENVAULT_PURGE_DB_URL_FILE`. No password is placed in the Compose model or the
-process environment inherited by child processes.
+`OPENVAULT_DB_URL_FILE`, `OPENVAULT_MIGRATION_DB_URL_FILE`, `OPENVAULT_AUTH_DB_URL_FILE`, and
+`OPENVAULT_PURGE_DB_URL_FILE`. The host backup job reads
+`OPENVAULT_BACKUP_DB_URL_FILE` for the dump and `OPENVAULT_DB_URL_FILE` for the audit event.
+No password is placed in the Compose model or the process environment inherited by child
+processes.
 
-If the PostgreSQL volume already exists, the init scripts do not re-run. Apply the roles
-and grants manually and re-run `grants.sql` after a migration that adds a table the
-purge or prune path must access.
+If the PostgreSQL volume already exists, the init scripts do not re-run, but the
+`openvault-roles` job still runs the ensure scripts and `grants.sql` on every deployment.
+Re-run `grants.sql` after a migration that adds a table the runtime, purge, prune, or backup
+path must access.
 
 ## Bootstrap password
 

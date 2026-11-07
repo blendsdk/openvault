@@ -96,6 +96,51 @@ export async function assertControlPlaneSeparation(options: {
     }
   }
 
+  const appRole = await options.appDatabase.executeQuery<{
+    readonly rolsuper: boolean;
+    readonly rolcreaterole: boolean;
+    readonly rolcreatedb: boolean;
+    readonly rolbypassrls: boolean;
+    readonly rolreplication: boolean;
+    readonly is_auth: boolean;
+    readonly is_backup: boolean;
+    readonly is_purger: boolean;
+    readonly is_pruner: boolean;
+    readonly is_migrator: boolean;
+  }>(
+    `SELECT r.rolsuper, r.rolcreaterole, r.rolcreatedb, r.rolbypassrls, r.rolreplication,
+            COALESCE(pg_has_role(current_user, to_regrole('openvault_auth'), 'MEMBER'), false)
+              AS is_auth,
+            COALESCE(pg_has_role(current_user, to_regrole('openvault_backup'), 'MEMBER'), false)
+              AS is_backup,
+            COALESCE(pg_has_role(current_user, to_regrole('openvault_purger'), 'MEMBER'), false)
+              AS is_purger,
+            COALESCE(pg_has_role(current_user, to_regrole('openvault_pruner'), 'MEMBER'), false)
+              AS is_pruner,
+            COALESCE(pg_has_role(current_user, to_regrole('openvault_migrator'), 'MEMBER'), false)
+              AS is_migrator
+       FROM pg_roles r
+      WHERE r.rolname = current_user`,
+  );
+  const appRoleRow = appRole.records[0];
+  if (
+    appRoleRow === undefined ||
+    appRoleRow.rolsuper ||
+    appRoleRow.rolcreaterole ||
+    appRoleRow.rolcreatedb ||
+    appRoleRow.rolbypassrls ||
+    appRoleRow.rolreplication ||
+    appRoleRow.is_auth ||
+    appRoleRow.is_backup ||
+    appRoleRow.is_purger ||
+    appRoleRow.is_pruner ||
+    appRoleRow.is_migrator
+  ) {
+    throw new AuthPrivilegeError(
+      "control-plane privilege mismatch: openvault_app has excessive role attributes or memberships",
+    );
+  }
+
   const role = await options.authDatabase.executeQuery<{
     readonly rolsuper: boolean;
     readonly rolcreaterole: boolean;

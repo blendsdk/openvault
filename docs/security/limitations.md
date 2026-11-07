@@ -211,9 +211,11 @@ These are accepted for v0.1. They are documented so reviewers do not mistake the
     so the API and UI have independent hardening. The server can also serve the SPA when
     `OPENVAULT_WEB_ROOT` points at a build; the Compose stack assigns the UI CSP to the web
     container.
-65. **Create-once roles.** `deploy/postgres/init-roles.sh` runs only on a fresh PostgreSQL data
-    directory. An existing volume needs the roles and grants applied manually. Re-run
-    `grants.sql` after a migration that adds a table the purge or prune path must access.
+65. **Create-once role bootstrap, repeated ensure.** `deploy/postgres/init-roles.sh` runs only
+    on a fresh PostgreSQL data directory. The `openvault-roles` job runs
+    `ensure-auth-role.sql`, `ensure-backup-role.sql`, and `grants.sql` on every deployment, so
+    an existing volume receives the new roles and the current privileges. Re-run `grants.sql`
+    after a migration that adds a table the runtime, purge, prune, or backup path must access.
 66. **Bind-mount ownership.** The reference stack uses host directories, not Docker-managed
     volumes, so the operator can set the exact non-root UID and mode. `prepare.sh` needs root
     (or equivalent) once; a rootless Docker host must map the same UIDs.

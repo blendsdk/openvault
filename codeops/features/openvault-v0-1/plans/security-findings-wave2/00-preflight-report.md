@@ -53,6 +53,22 @@ Recon read the CLI doctor and test harness, the PostgreSQL roles/grants and migr
 | PF-037 | 🔵 Observation | The plan index referenced a missing preflight report. | This report created. |
 | PF-038 | 🔵 Observation | Helper naming and “two-vault” wording were inconsistent. | Standardized on `sameCredentialOrigin` and one fake vault with two origins. `03-01`. |
 
+## Post-Implementation Review (Iteration 3)
+
+Two independent reviewers audited the implemented branch diff. The following findings were resolved before closeout:
+
+| PF | Severity | Finding | Resolution |
+|---|---|---|---|
+| PF-039 | 🔴 Critical | The prune migration did not remove legacy direct pruner grants; an existing database that applied migrations without `grants.sql` kept direct delete authority. | The procedure migration now self-contains the pruner revokes and app grants behind `pg_roles` guards; `createPruneConnection` also fails closed on direct table/role authority. |
+| PF-040 | 🟠 Major | The authenticated CLI could reload a changed credential after building the transport, crossing origins. | `openAuthenticatedClient` passes the original `baseUrl` into `createAuthenticatedClient`; the origin check uses it. |
+| PF-041 | 🟠 Major | Backup did not prove the dump and audit URLs target the same database. | `runBackup` compares host, port, and database identities and rejects a mismatch. |
+| PF-042 | 🟠 Major | The prune cutoff was stored but not enforced; an out-of-order timestamp could be pruned early. | The boundary query excludes prefixes containing a newer timestamp; the procedure rejects a prefix whose maximum timestamp is at or after the cutoff. |
+| PF-043 | 🟠 Major | Role ensure scripts did not remove reverse memberships, allowing `SET ROLE` escalation. | Ensure scripts revoke both membership directions and predefined broad roles; startup and prune checks reject memberships. |
+| PF-044 | 🟠 Major | `ensure-backup-role.sql` did not reset `REPLICATION`, `BYPASSRLS`, or schema `CREATE`. | Both ensure scripts reset the full attribute set and revoke schema `CREATE`. |
+| PF-045 | 🟠 Major | The scaffold 422 create path did not record the authorized attempt. | The create decision is recorded before the 422. |
+| PF-046 | 🟠 Major | Audit, CLI, Compose, systemd, and init docs still described the old pruner grants, four roles, and app-role bootstrap. | Docs now describe `EXECUTE` only, six roles, five role URLs, the migrator bootstrap URL, and `0600` backup URL custody. |
+| PF-047 | 🟠 Major | Regression coverage lacked view owner/columns, default ACL, backup auth refusal, real backup-role dump, database mismatch, and procedure mismatch tests. | Added those tests; see the updated testing strategy. |
+
 ## Iteration 2
 
 The plan documents were revised after the three audits. The structural corrections are:

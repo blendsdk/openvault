@@ -26,7 +26,8 @@ These cases are the immutable oracle for this plan. They are written before impl
 | ST-6 | `openvault_pruner` direct `INSERT INTO audit_checkpoints` | Permission denied | AR-4, R2 |
 | ST-7 | Procedure with an absent authorization | Raises; no rows deleted | AR-4, AR-5, R2 |
 | ST-8 | Procedure with an expired authorization | Raises; no rows deleted | AR-4, AR-5, R2 |
-| ST-9 | Procedure with mismatched database, boundary hash, or count | Raises; no rows deleted | AR-4, AR-5, R2 |
+| ST-9 | Procedure with mismatched database, boundary hash, count, or a prefix hiding a newer timestamp | Raises; no rows deleted | AR-4, AR-5, R2 |
+| ST-9c | Out-of-order timestamp at a lower id | Boundary excludes the whole prefix; the newer event is retained | AR-4, R2 |
 | ST-9b | Export hash in authorization, receipt, and event | All three carry the app-computed value; a mismatch with the file is an operator check, not a procedure rejection | AR-14, R2 |
 | ST-10 | Procedure with a consumed authorization | Raises; no rows deleted | AR-4, AR-5, R2 |
 | ST-11 | Successful prune | Prefix deleted; authorization consumed; one receipt bound to the export hash | AR-4, AR-5, R2 |
@@ -54,7 +55,9 @@ These cases are the immutable oracle for this plan. They are written before impl
 | ST-23 | Backup with `OPENVAULT_BACKUP_DB_URL` + app audit URL | Archive includes control-plane tables; one `backup.create` event | AR-8, AR-13, R4 |
 | ST-24 | Fresh install | `openvault_backup` exists with the right attributes | AR-8, R4 |
 | ST-25 | Existing install | `ensure-backup-role.sql` creates the role idempotently | AR-8, R4 |
-| ST-25b | Production startup assertion | App `SELECT` on a control-plane table fails closed | AR-7, R4 |
+| ST-25b | Production startup assertion | App `SELECT`, excessive role attributes, or cross-role membership fails closed | AR-7, R4 |
+| ST-25c | View owner and columns | `openvault_migrator` owner; exactly the five exposed columns | AR-7, R4 |
+| ST-25d | App default privileges | No app entry for future tables | AR-7, R4 |
 | ST-26 | Full runtime after grants | Secret, certificate, project, audit, scaffold, agent auth paths pass | AR-7, R4 |
 | ST-27 | `ov backup` with a missing backup URL | Clear usage error | AR-8, R4 |
 | ST-27b | Schema inventory and generated types | Migration/relation counts updated; `db:types:check` clean | AR-15, R4 |

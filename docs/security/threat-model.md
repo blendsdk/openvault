@@ -72,6 +72,13 @@
 | T-21 | A leaked runtime database credential forges credentials, RBAC, OIDC links, or agent identity | Separate `openvault_auth` control-plane role; app role loses DML on eight identity tables; production startup assertion |
 | T-22 | Discovery metadata redirects OIDC credentials or tokens to another origin | HTTPS endpoint-origin allowlist and redirect rejection |
 | T-23 | An unassigned caller enumerates project or secret names through 403/404 differences | Collection-visibility denials with identical 404 bodies for hidden and missing names |
+| T-24 | `ov doctor` sends the stored bearer to an override origin | Credential-origin binding; TLS and readiness remain unauthenticated on a mismatch |
+| T-25 | A stolen pruner credential deletes audit evidence with direct SQL | Single-use authorization, definer procedure, completion receipt, and no pruner table authority |
+| T-26 | A secret integrity failure is recorded as a successful read | Allow recorded only after decryption and encoding; every failure writes an error event |
+| T-27 | A copied agent join token remains on the clipboard | 30-second best-effort clear with page-level status and manual-clear guidance |
+| T-28 | The data-plane role reads authentication verifiers or identity metadata | Explicit app allowlist, restricted consumer view, and read-only backup role |
+| T-29 | The scaffold endpoint reveals active project names before authorization | Collection-visibility denials with uniform hidden/missing 404 bodies |
+| T-30 | A stale browser cookie recovers its rotated successor | Pre-rotation CSRF proof on receipt recovery; receipt consumed once |
 
 ## Accepted risks
 

@@ -244,6 +244,56 @@ describe("audit prune", () => {
     expect(count.records[0]?.count).toBe(1);
   });
 
+  it("should reject a boundary hash or count mismatch", async () => {
+    if (prune === undefined) {
+      return;
+    }
+    await recordAt(oldDate(200));
+    const boundary = await testDb.db.executeQuery<{ readonly id: string; readonly hash: Buffer }>(
+      "SELECT id, hash FROM audit_events ORDER BY id LIMIT 1",
+    );
+    const row = boundary.records[0];
+    if (row === undefined) {
+      throw new Error("expected an audit event");
+    }
+    const wrongHashId = await createPruneAuthorization(testDb.db, {
+      database: testDb.name,
+      lastEventId: row.id,
+      lastHash: Buffer.alloc(32),
+      count: 1,
+      exportSha256: createHash("sha256").update("export").digest(),
+      cutoff: new Date(now),
+    });
+    await expect(prune.deletePrefix(wrongHashId)).rejects.toBeInstanceOf(AuditPruneConfigError);
+
+    const wrongCountId = await createPruneAuthorization(testDb.db, {
+      database: testDb.name,
+      lastEventId: row.id,
+      lastHash: row.hash,
+      count: 2,
+      exportSha256: createHash("sha256").update("export").digest(),
+      cutoff: new Date(now),
+    });
+    await expect(prune.deletePrefix(wrongCountId)).rejects.toBeInstanceOf(AuditPruneConfigError);
+    const count = await testDb.db.executeQuery<{ readonly count: number }>(
+      "SELECT count(*)::int AS count FROM audit_events WHERE action <> 'audit.prune'",
+    );
+    expect(count.records[0]?.count).toBe(1);
+  });
+
+  it("should not prune a prefix that hides a newer timestamp", async () => {
+    await recordAt(oldDate(1));
+    await recordAt(oldDate(200));
+    const result = await pruner().prune({ outputPath: join(directory, "cutoff.ndjson") });
+    expect(result.exportedCount).toBe(0);
+    expect(result.deletedCount).toBe(0);
+    const old = await testDb.db.executeQuery<{ readonly count: number }>(
+      "SELECT count(*)::int AS count FROM audit_events WHERE ts < :cutoff",
+      { cutoff: new Date(now - 180 * DAY_MS) },
+    );
+    expect(old.records[0]?.count).toBe(1);
+  });
+
   it("should reject a replayed authorization", async () => {
     if (prune === undefined) {
       return;

@@ -120,7 +120,7 @@ $$;
 REVOKE ALL ON FUNCTION public.openvault_prune_audit_prefix(text) FROM PUBLIC;
 ```
 
-`grants.sql` grants `EXECUTE` to `openvault_pruner` and nothing else. The function deletes expired authorizations older than one day at the start of the call (before the target lookup), bounding table growth.
+`grants.sql` grants `EXECUTE` to `openvault_pruner` and nothing else. The procedure migration also self-contains the pruner revokes and app grants behind `pg_roles` guards so an existing database migrated without the grants job cannot keep direct table authority. The function deletes expired authorizations older than one day at the start of the call (before the target lookup), bounding table growth.
 
 The export hash is recorded, not re-verified by the database: the database cannot read the export file, and the application is the trusted exporter. The authorization, receipt, and `audit.prune` event all carry the same hash, so an operator can compare them with the file. A “mismatched export hash” is therefore an application-side comparison, not a procedure rejection.
 

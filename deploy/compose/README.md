@@ -79,5 +79,6 @@ Compose model.
 - Replace the Caddy `tls internal` certificate with a trusted certificate for production.
 - Pin the first-party images by digest from the signed release.
 - Keep the keyring, backup archive, passphrase, and off-box checkpoint in separate custody.
-- Re-run `deploy/postgres/grants.sql` after a migration that adds a table the purge or
-  prune path must access.
+- The `openvault-roles` job runs `ensure-auth-role.sql`, `ensure-backup-role.sql`, and
+  `grants.sql` on every deployment. Re-run it after a migration that adds a table the
+  runtime, purge, prune, or backup path must access.

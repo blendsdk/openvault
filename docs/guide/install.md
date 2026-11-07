@@ -57,9 +57,12 @@ trusted certificate for anything beyond local use.
 
 ## First initialization
 
-The Compose stack runs `ov init --prepare` automatically. For a manual install:
+The Compose stack runs `ov init --prepare` automatically. For a manual install, set
+`OPENVAULT_MIGRATION_DB_URL` to the migrator/owner role; `ov init` performs bootstrap data
+writes and cannot use the app role:
 
 ```bash
+export OPENVAULT_MIGRATION_DB_URL=postgres://openvault_migrator:...@postgres:5432/openvault
 ov init
 ```
 

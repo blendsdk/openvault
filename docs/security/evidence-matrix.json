@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "updated": "2026-11-06",
+  "updated": "2026-11-07",
   "threats": [
     {
       "id": "T-01",
@@ -380,6 +380,125 @@
           "type": "test",
           "file": "apps/server/tests/integration/security/enumeration.spec.test.ts",
           "name": "should allow an object-scope reader but hide every other name"
+        }
+      ]
+    },
+    {
+      "id": "T-24",
+      "threat": "`ov doctor` sends the stored bearer to an override origin",
+      "protection": "Credential-origin binding; TLS and readiness remain unauthenticated on a mismatch",
+      "evidence": [
+        {
+          "type": "test",
+          "file": "apps/cli/tests/commands.spec.test.ts",
+          "name": "should not send a stored credential to an override origin"
+        },
+        {
+          "type": "test",
+          "file": "apps/cli/tests/commands.spec.test.ts",
+          "name": "should not send a stored credential to an OPENVAULT_URL override"
+        }
+      ]
+    },
+    {
+      "id": "T-25",
+      "threat": "A stolen pruner credential deletes audit evidence with direct SQL",
+      "protection": "Single-use authorization, definer procedure, completion receipt, and no pruner table authority",
+      "evidence": [
+        {
+          "type": "test",
+          "file": "apps/server/tests/integration/audit-prune.spec.test.ts",
+          "name": "should deny direct pruner table authority"
+        },
+        {
+          "type": "test",
+          "file": "apps/server/tests/integration/audit-prune.spec.test.ts",
+          "name": "should reject a replayed authorization"
+        }
+      ]
+    },
+    {
+      "id": "T-26",
+      "threat": "A secret integrity failure is recorded as a successful read",
+      "protection": "Allow recorded only after decryption and encoding; every failure writes an error event",
+      "evidence": [
+        {
+          "type": "test",
+          "file": "apps/server/tests/integration/secrets.spec.test.ts",
+          "name": "should record an integrity error, not an allow, when the newest version is malformed"
+        },
+        {
+          "type": "test",
+          "file": "apps/server/tests/integration/secrets.spec.test.ts",
+          "name": "should write exactly one allow after a successful read"
+        }
+      ]
+    },
+    {
+      "id": "T-27",
+      "threat": "A copied agent join token remains on the clipboard",
+      "protection": "30-second best-effort clear with page-level status and manual-clear guidance",
+      "evidence": [
+        {
+          "type": "test",
+          "file": "apps/web/tests/identities-consumers.test.tsx",
+          "name": "should clear a copied join token after the dialog closes"
+        },
+        {
+          "type": "test",
+          "file": "apps/web/tests/copy.test.tsx",
+          "name": "should report a denied clear and keep the manual instruction visible"
+        }
+      ]
+    },
+    {
+      "id": "T-28",
+      "threat": "The data-plane role reads authentication verifiers or identity metadata",
+      "protection": "Explicit app allowlist, restricted consumer view, and read-only backup role",
+      "evidence": [
+        {
+          "type": "test",
+          "file": "apps/server/tests/integration/roles.spec.test.ts",
+          "name": "lets the runtime role read and write data but not run DDL or delete audit events"
+        },
+        {
+          "type": "test",
+          "file": "apps/server/tests/integration/roles.spec.test.ts",
+          "name": "gives the backup role read-only access to every table"
+        }
+      ]
+    },
+    {
+      "id": "T-29",
+      "threat": "The scaffold endpoint reveals active project names before authorization",
+      "protection": "Collection-visibility denials with uniform hidden/missing 404 bodies",
+      "evidence": [
+        {
+          "type": "test",
+          "file": "apps/server/tests/integration/scaffold.spec.test.ts",
+          "name": "should hide an existing project from an unassigned caller"
+        },
+        {
+          "type": "test",
+          "file": "apps/server/tests/integration/scaffold.spec.test.ts",
+          "name": "should hide a project from an administrator of another project"
+        }
+      ]
+    },
+    {
+      "id": "T-30",
+      "threat": "A stale browser cookie recovers its rotated successor",
+      "protection": "Pre-rotation CSRF proof on receipt recovery; receipt consumed once",
+      "evidence": [
+        {
+          "type": "test",
+          "file": "apps/server/tests/integration/auth.sessions.test.ts",
+          "name": "should require the pre-rotation CSRF proof for a late refresh"
+        },
+        {
+          "type": "test",
+          "file": "apps/server/tests/auth/sessions.impl.test.ts",
+          "name": "should require the pre-rotation CSRF proof and serve the successor once"
         }
       ]
     }

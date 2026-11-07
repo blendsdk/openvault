@@ -205,6 +205,43 @@ describe("control-plane database boundary", () => {
     expect(write.records[0]?.allowed).toBe(false);
   });
 
+  it("should keep the consumer view restricted and remove app default privileges", async () => {
+    const owner = await testDb.db.executeQuery<{ readonly viewowner: string }>(
+      `SELECT viewowner FROM pg_views
+        WHERE schemaname = 'public' AND viewname = 'secret_consumer_summaries'`,
+    );
+    expect(owner.records[0]?.viewowner).toBe("openvault_migrator");
+    const columns = await testDb.db.executeQuery<{ readonly column_name: string }>(
+      `SELECT column_name FROM information_schema.columns
+        WHERE table_schema = 'public' AND table_name = 'secret_consumer_summaries'
+        ORDER BY ordinal_position`,
+    );
+    expect(columns.records.map((row) => row.column_name)).toEqual([
+      "secret_id",
+      "project_id",
+      "compose_project",
+      "compose_service",
+      "last_seen",
+    ]);
+    const defaults = await testDb.db.executeQuery<{ readonly count: number }>(
+      `SELECT count(*)::int AS count
+         FROM pg_default_acl d
+         JOIN pg_roles r ON r.oid = d.defaclrole
+        WHERE r.rolname = 'openvault_migrator'
+          AND d.defaclobjtype = 'r'
+          AND d.defaclacl::text LIKE '%openvault_app=%'`,
+    );
+    expect(defaults.records[0]?.count).toBe(0);
+    const authorizationInsert = await appDb.executeQuery<{ readonly allowed: boolean }>(
+      "SELECT has_table_privilege(current_user, 'audit_prune_authorizations', 'INSERT') AS allowed",
+    );
+    expect(authorizationInsert.records[0]?.allowed).toBe(true);
+    const receiptSelect = await appDb.executeQuery<{ readonly allowed: boolean }>(
+      "SELECT has_table_privilege(current_user, 'audit_prune_receipts', 'SELECT') AS allowed",
+    );
+    expect(receiptSelect.records[0]?.allowed).toBe(true);
+  });
+
   it("should reject the startup assertion when the app connection is over-privileged", async () => {
     await expect(
       assertControlPlaneSeparation({ appDatabase: testDb.db, authDatabase: authDb }),

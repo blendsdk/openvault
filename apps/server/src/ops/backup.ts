@@ -10,6 +10,12 @@ import { dumpDatabase, openDatabaseClient } from "./database-dump.js";
 import { OpsError } from "./errors.js";
 import { lstatIfExists, readBoundedRegularFile, writePrivateFileAtomic } from "./files.js";
 
+/** Returns a stable host:port/database identity for one URL. */
+function databaseIdentity(url: string): string {
+  const parsed = parseDatabaseUrl(url);
+  return `${parsed.host ?? ""}:${String(parsed.port ?? 5432)}/${parsed.database ?? ""}`;
+}
+
 /** Options for one logical backup. */
 export interface BackupOptions {
   /** Application database URL used only for the `backup.create` audit event. */
@@ -77,6 +83,19 @@ export async function runBackup(options: BackupOptions): Promise<BackupResult> {
       "backup_target_exists",
       "The backup output already exists; use --force to replace it",
     );
+  }
+  try {
+    if (databaseIdentity(options.backupDatabaseUrl) !== databaseIdentity(options.databaseUrl)) {
+      throw new OpsError(
+        "ops_configuration",
+        "OPENVAULT_BACKUP_DB_URL and OPENVAULT_DB_URL must target the same database",
+      );
+    }
+  } catch (error) {
+    if (error instanceof OpsError) {
+      throw error;
+    }
+    throw new OpsError("ops_configuration", "The backup database URLs are invalid");
   }
   const keyringBytes = readBoundedRegularFile(keyringPath, 1_048_576, 0o600);
   const keyring = await KeyringProvider.load(keyringPath);
