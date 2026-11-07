@@ -1,7 +1,7 @@
 # OpenVault — Requirements Documents
 
 > **Project**: OpenVault — self-hosted secret and certificate store for Docker Compose
-> **Status**: Draft for review
+> **Status**: Implemented — v0.1 complete; production label gated on independent external review
 > **Created**: 2026-10-29
 > **Architecture**: TypeScript 7 / BlendSDK v5 WebAFX / PostgreSQL 16/17 / React 19 + Fluent UI v9 / Docker Compose
 > **CodeOps Artifact Schema**: 1

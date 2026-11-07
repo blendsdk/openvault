@@ -1,6 +1,7 @@
 # Preflight Report: RD-02 Transport, Configuration, and Readiness
 
-> **Status**: ✅ PREFLIGHT PASSED — all 18 findings resolved
+> **Status**: ✅ PREFLIGHT PASSED — all 18 findings resolved; CI verified in PR #54
+> **Merged**: PR #54, commit `7d6fe4f` (2026-11-07)
 > **Iteration**: 2 (fix verification and targeted re-scan)
 > **Audit target**: `codeops/features/openvault-v0-1/requirements/RD-02-transport-config-readiness.md`
 > **Artifact ref**: `sha256:54a72aef9f93b54a001fd5eba833d8ebb9daf52cb34f38f0c27770390613ed88`
@@ -485,9 +486,10 @@ All 18 findings were applied. The RD, the preflight report, the configuration/CL
 | API contract check | `CLEAN` |
 | Artifact, React, Compose checks | Pass |
 | Security evidence, claims, release gate | Pass (30 threats, 14 RDs; 17 claims; alpha gate) |
-| Docs build | Not run locally: the root `node_modules` is partially installed and root-owned, so `vitepress` is not linked and `docs/.vitepress/dist` is not writable. CI owns this check. |
+| Docs build | Passed in CI on PR #54. |
+| CI (PR #54) | Verify, Integration (16), Integration (17), Audit, CodeQL, Gitleaks, Review dependency changes, and Build documentation all passed. |
 
-Local environment note: `pnpm verify` could not run as one command because its pre-run install tries to modify the root-owned `node_modules`. The equivalent checks were run individually with a temporary WASI rolldown binding. The repository changes themselves are clean.
+Local environment note: `pnpm verify` could not run as one command because its pre-run install tried to modify the root-owned `node_modules`. The equivalent checks were run individually with a temporary WASI rolldown binding. CI then ran the full `pnpm verify` and docs build successfully on PR #54.
 
 ## Rejected or Corrected Leads
 

@@ -3,7 +3,7 @@
 > **Feature-Set**: OpenVault v0.1
 > **Status**: Done
 > **Created**: 2026-10-29
-> **Last Updated**: 2026-11-06 20:52
+> **Last Updated**: 2026-11-07 16:40
 > **Progress**: 14 / 14 RDs (100%) · remediation complete
 > **CodeOps Artifact Schema**: 1
 
@@ -16,7 +16,7 @@
 | ID | Title | RD | Plan | Stage | Status | Last Updated | Depends-on / Blocker |
 |----|-------|----|------|-------|--------|--------------|----------------------|
 | RD-01 | Foundation, data model, build security | [RD-01](requirements/RD-01-foundation-data-build.md) | [rd-01-foundation](plans/rd-01-foundation/00-index.md) | Done | ✅ | 2026-10-30 | — |
-| RD-02 | Transport, configuration, readiness | [RD-02](requirements/RD-02-transport-config-readiness.md) | [rd-02-transport-config-readiness](plans/rd-02-transport-config-readiness/00-index.md) | Done | ✅ | 2026-10-30 | depends on RD-01 |
+| RD-02 | Transport, configuration, readiness | [RD-02](requirements/RD-02-transport-config-readiness.md) | [rd-02-transport-config-readiness](plans/rd-02-transport-config-readiness/00-index.md) | Done | ✅ | 2026-11-07 | depends on RD-01 |
 | RD-03 | Human authentication and sessions | [RD-03](requirements/RD-03-human-auth-sessions.md) | [rd-03-human-auth-sessions](plans/rd-03-human-auth-sessions/00-index.md) | Done | ✅ | 2026-10-31 | depends on RD-02 |
 | RD-04 | CLI authentication | [RD-04](requirements/RD-04-cli-auth.md) | [rd-04-cli-auth](plans/rd-04-cli-auth/00-index.md) | Done | ✅ | 2026-11-01 | depends on RD-03 |
 | RD-05 | Service identities and mTLS | [RD-05](requirements/RD-05-service-identities-mtls.md) | [rd-05-service-identities-mtls](plans/rd-05-service-identities-mtls/00-index.md) | Done | ✅ | 2026-11-03 | server-side scope; residual AC in RD-06, RD-07, RD-08, RD-10, RD-13, RD-14 |
@@ -33,3 +33,5 @@
 **Remediation:** [Security findings #39–#44](plans/security-findings-remediation/00-index.md) — Done ✅ (2026-11-06 20:52).
 
 **Remediation:** [Security findings #46–#52](plans/security-findings-wave2/00-index.md) — Done ✅ (2026-11-07 03:42).
+
+**Requirements preflight:** [RD-02 reconciled](requirements/00-preflight-report-RD-02.md) — Done ✅ (2026-11-07, PR #54).
