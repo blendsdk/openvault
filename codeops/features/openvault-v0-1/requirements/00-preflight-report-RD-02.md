@@ -8,7 +8,7 @@
 > **Artifact git blob**: `cad93a4a2b2157248065337cfa102b03420557a6`
 > **Codebase grounded**: 30 source/config/test files examined; 60+ references verified
 > **Scope**: Strict target. The audit target is RD-02 only. RD-01, RD-05, RD-07, RD-08, RD-09, RD-13, the RD-02 plan, the API/configuration docs, and the shipped code are context.
-> **Authorized modification set**: RD-02 only. PF-003 proposes a small test retarget outside the target; that expansion needs explicit confirmation.
+> **Authorized modification set**: RD-02 plus the body-limit parser, the affected transport/readiness/agent/keyring/CLI tests, the CLI config command, the configuration/CLI docs, and the security evidence matrix. The user approved the expanded set on 2026-11-07 ("Apply all findings").
 > **Same-agent review**: The requirements document was drafted in an earlier session. The five dimension clusters and the challenger were independent subagents, but the same model family is still a residual bias risk. This is a security-sensitive transport contract; a human domain review is recommended before a production release.
 > **Auto-design**: Not active. Findings are presented for user decision.
 > **Challenger**: One independent challenger reviewed the Critical/Major batch; its verdicts are recorded in each finding and in the convergence note at the end.
