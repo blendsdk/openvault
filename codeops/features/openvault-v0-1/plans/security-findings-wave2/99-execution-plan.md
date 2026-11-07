@@ -1,7 +1,7 @@
 # Security Findings Wave 2 — Execution Plan
 
 > **Type**: Feature plan · **Feature**: openvault-v0-1 · **CodeOps Artifact Schema**: 1
-> **Progress**: 4/45 tasks (9%)
+> **Progress**: 8/45 tasks (18%)
 > **Last Updated**: 2026-11-07 02:05
 > **Mode**: `--auto-design` · `--auto-commit`
 > **Reasoning**: high — credential handling, database authority, audit integrity, and session security across seven findings
@@ -49,13 +49,13 @@ Close issues #46–#52 with regression tests, production-safe configuration, and
 
 ### Session 2.1 — Specification tests
 
-- [ ] 2.1.1 Add malformed-newest-version, valid-read, keyring-failure, policy-outage, and parity tests (ST-13…ST-16).
-- [ ] 2.1.2 Run the secret tests and record the red-phase failure: a failed decrypt still writes `allow`.
+- [x] 2.1.1 Add malformed-newest-version, valid-read, keyring-failure, policy-outage, and parity tests (ST-13…ST-16).
+- [x] 2.1.2 Run the secret tests and record the red-phase failure: a failed decrypt still writes `allow`.
 
 ### Session 2.2 — Implementation and verification
 
-- [ ] 2.2.1 Move the allow write after decrypt, encode, capability lookup, and response construction; write the correct error event on every failure.
-- [ ] 2.2.2 Run the secret and certificate suites plus `pnpm verify`; mark phase verified.
+- [x] 2.2.1 Move the allow write after decrypt, encode, capability lookup, and response construction; write the correct error event on every failure.
+- [x] 2.2.2 Run the secret and certificate suites plus `pnpm verify`; mark phase verified.
 
 ## Phase 3 — Audit prune procedure (#47)
 
