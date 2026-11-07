@@ -2,6 +2,7 @@ import { existsSync, readdirSync, statSync } from "node:fs";
 import { join, resolve } from "node:path";
 import { probeDatabase, probeKeyring } from "@openvault/server/ops";
 import { CommandLineParser } from "blendsdk/cmdline";
+import { sameCredentialOrigin } from "../client/authenticated.js";
 import { createTransportWithRuntime } from "../client/index.js";
 import { CredentialStore } from "../credentials/store.js";
 import { CliError, CliExit } from "../errors.js";
@@ -98,8 +99,10 @@ export function createDoctorParser(globals: GlobalOptions, runtime: CliRuntime):
     handler: async (options) => {
       const checks: DoctorCheck[] = [];
       let store: CredentialStore | undefined;
+      let credential: ReturnType<CredentialStore["load"]> | undefined;
       try {
         store = new CredentialStore({ env: runtime.env });
+        credential = store.load();
       } catch (error) {
         checks.push({
           name: "credentials",
@@ -142,17 +145,20 @@ export function createDoctorParser(globals: GlobalOptions, runtime: CliRuntime):
       }
 
       let baseUrl = globals.url ?? runtime.env.OPENVAULT_URL;
-      if (baseUrl === undefined && store !== undefined) {
-        try {
-          baseUrl = store.load()?.baseUrl;
-        } catch {
-          baseUrl = undefined;
-        }
+      if (baseUrl === undefined && credential !== undefined) {
+        baseUrl = credential.baseUrl;
       }
       if (baseUrl === undefined) {
         checks.push({ name: "tls", ok: false, detail: "no server URL" });
         checks.push({ name: "readiness", ok: false, detail: "no server URL" });
         checks.push({ name: "clock", ok: false, detail: "no server URL" });
+        if (store !== undefined && credential === undefined) {
+          checks.push({
+            name: "credentials",
+            ok: false,
+            detail: "credential store is unavailable or malformed; run ov login",
+          });
+        }
       } else {
         let transport: HttpsAdapter | undefined;
         try {
@@ -201,16 +207,25 @@ export function createDoctorParser(globals: GlobalOptions, runtime: CliRuntime):
           }
           if (store !== undefined) {
             try {
-              const document = store.load();
-              if (document === undefined) {
+              if (credential === undefined) {
                 checks.push({
                   name: "credentials",
                   ok: false,
                   detail: "run ov login",
                 });
+              } else if (!sameCredentialOrigin(baseUrl, credential.baseUrl)) {
+                // The selected probe origin belongs to a different server. TLS
+                // and readiness remain useful unauthenticated checks, but the
+                // stored bearer must never leave its original origin.
+                checks.push({
+                  name: "credentials",
+                  ok: false,
+                  detail:
+                    "stored credential belongs to a different server; run ov login for this origin",
+                });
               } else {
                 const me = await transport.probe("/v1/auth/cli/me", {
-                  Authorization: `Bearer ${document.accessToken}`,
+                  Authorization: `Bearer ${credential.accessToken}`,
                 });
                 checks.push({
                   name: "credentials",

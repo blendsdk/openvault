@@ -26,6 +26,37 @@ export interface AuthenticatedClient {
   refreshAccessToken(): Promise<string>;
 }
 
+/**
+ * Reports whether two HTTPS URLs identify the same origin.
+ *
+ * The comparison uses the parsed `origin`, so scheme, host, and port must all
+ * match. Default ports normalize (`https://vault.example` equals
+ * `https://vault.example:443`). Invalid, non-HTTPS, or opaque URLs return false.
+ *
+ * @param left - First URL.
+ * @param right - Second URL.
+ * @returns True when both URLs have the same HTTPS origin.
+ *
+ * @example
+ * ```ts
+ * sameCredentialOrigin("https://vault.example/a", "https://vault.example:443/b"); // true
+ * sameCredentialOrigin("https://vault.example", "https://other.example"); // false
+ * ```
+ */
+export function sameCredentialOrigin(left: string, right: string): boolean {
+  try {
+    const leftUrl = new URL(left);
+    const rightUrl = new URL(right);
+    return (
+      leftUrl.protocol === "https:" &&
+      rightUrl.protocol === "https:" &&
+      leftUrl.origin === rightUrl.origin
+    );
+  } catch {
+    return false;
+  }
+}
+
 /** Options for {@link createAuthenticatedClient}. */
 export interface AuthenticatedClientOptions {
   /** Credential store. */
@@ -51,15 +82,8 @@ export function createAuthenticatedClient(
     throw new RefreshRejectedError();
   }
   const baseUrl = document.baseUrl;
-  const expectedOrigin = new URL(baseUrl).origin;
   const requireSameServer = (current: { readonly baseUrl: string }): void => {
-    let currentOrigin: string | undefined;
-    try {
-      currentOrigin = new URL(current.baseUrl).origin;
-    } catch {
-      currentOrigin = undefined;
-    }
-    if (currentOrigin !== expectedOrigin) {
+    if (!sameCredentialOrigin(current.baseUrl, baseUrl)) {
       throw new RefreshRejectedError(
         "The credential file belongs to a different server; run ov login again",
       );

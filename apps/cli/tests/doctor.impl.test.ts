@@ -2,6 +2,7 @@ import { mkdtempSync, rmSync, utimesSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
+import { sameCredentialOrigin } from "../src/client/authenticated.js";
 import { checkBackupAge } from "../src/commands/doctor.js";
 
 const directories: string[] = [];
@@ -16,6 +17,24 @@ afterEach(() => {
   for (const path of directories.splice(0)) {
     rmSync(path, { recursive: true, force: true });
   }
+});
+
+describe("credential origin binding", () => {
+  it("accepts the same scheme, host, and port, including default ports and paths", () => {
+    expect(sameCredentialOrigin("https://vault.example", "https://vault.example:443")).toBe(true);
+    expect(sameCredentialOrigin("https://vault.example/a", "https://vault.example/b")).toBe(true);
+    expect(sameCredentialOrigin("https://vault.example:8443", "https://vault.example:8443")).toBe(
+      true,
+    );
+  });
+
+  it("rejects scheme, host, port, and invalid URL differences", () => {
+    expect(sameCredentialOrigin("https://vault.example", "http://vault.example")).toBe(false);
+    expect(sameCredentialOrigin("https://vault.example", "https://other.example")).toBe(false);
+    expect(sameCredentialOrigin("https://vault.example", "https://vault.example:8443")).toBe(false);
+    expect(sameCredentialOrigin("not a url", "https://vault.example")).toBe(false);
+    expect(sameCredentialOrigin("file:///tmp/vault", "file:///tmp/vault")).toBe(false);
+  });
 });
 
 describe("doctor backup age", () => {

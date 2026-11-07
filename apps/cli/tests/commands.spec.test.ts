@@ -252,9 +252,83 @@ describe("CLI commands against a real HTTPS vault", () => {
   it("should run doctor after login", async () => {
     runtime = createTestRuntime(vault);
     await login();
+    const start = vault.requests.length;
     const result = await runtime.run(["doctor", "--json"]);
     expect(result.code).toBe(0);
     expect(JSON.parse(result.stdout)).toMatchObject({ success: true, data: { ok: true } });
+    expect(
+      vault.requests
+        .slice(start)
+        .some(
+          (request) =>
+            request.path === "/v1/auth/cli/me" && request.authorization !== undefined,
+        ),
+    ).toBe(true);
+  });
+
+  it("should not send a stored credential to an override origin", async () => {
+    runtime = createTestRuntime(vault);
+    await login();
+    const override = new URL(vault.url.href);
+    override.hostname = "127.0.0.1";
+    const start = vault.requests.length;
+
+    const result = await runtime.run(["doctor", "--url", override.href, "--json"]);
+    expect(result.code).toBe(1);
+    const body = JSON.parse(result.stdout) as {
+      data: { ok: boolean; checks: Array<{ name: string; ok: boolean; detail: string }> };
+    };
+    expect(body.data.ok).toBe(false);
+    expect(body.data.checks.find((check) => check.name === "credentials")).toMatchObject({
+      ok: false,
+      detail: expect.stringContaining("different server"),
+    });
+    const requests = vault.requests.slice(start);
+    expect(
+      requests.some(
+        (request) => request.path === "/v1/auth/cli/me" && request.authorization !== undefined,
+      ),
+    ).toBe(false);
+    expect(requests.some((request) => request.path === "/ready")).toBe(true);
+  });
+
+  it("should not send a stored credential to an OPENVAULT_URL override", async () => {
+    runtime = createTestRuntime(vault);
+    await login();
+    const override = new URL(vault.url.href);
+    override.hostname = "127.0.0.1";
+    runtime.env.OPENVAULT_URL = override.href;
+    const start = vault.requests.length;
+
+    const result = await runtime.run(["doctor", "--json"]);
+    expect(result.code).toBe(1);
+    expect(
+      vault.requests
+        .slice(start)
+        .some(
+          (request) =>
+            request.path === "/v1/auth/cli/me" && request.authorization !== undefined,
+        ),
+    ).toBe(false);
+  });
+
+  it("should report a malformed credential without sending a bearer", async () => {
+    runtime = createTestRuntime(vault);
+    await login();
+    writeFileSync(runtime.credentialPath(), "{", { mode: 0o600 });
+    chmodSync(runtime.credentialPath(), 0o600);
+    const start = vault.requests.length;
+
+    const result = await runtime.run(["doctor", "--json"]);
+    expect(result.code).toBe(1);
+    expect(
+      vault.requests
+        .slice(start)
+        .some(
+          (request) =>
+            request.path === "/v1/auth/cli/me" && request.authorization !== undefined,
+        ),
+    ).toBe(false);
   });
 
   it("should remove a credential file even when the config directory is loose", async () => {
