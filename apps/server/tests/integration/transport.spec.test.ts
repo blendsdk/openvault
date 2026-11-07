@@ -347,6 +347,14 @@ describe("ST-20 proxy matcher", () => {
     );
     expect(trust("10.1.2.3")).toBe(true);
     expect(trust("11.1.2.3")).toBe(false);
+
+    // A pinned proxy address must not trust the broader Docker range.
+    const pinnedProxy = createTrustProxy(
+      new CidrMatcher([{ address: "172.30.0.2", prefix: 32, family: "ipv4" }]),
+    );
+    expect(pinnedProxy("172.30.0.2")).toBe(true);
+    expect(pinnedProxy("172.16.1.1")).toBe(false);
+    expect(pinnedProxy("172.31.255.255")).toBe(false);
   });
 
   it("normalises path variants and rejects malformed encodings", () => {
@@ -396,38 +404,73 @@ describe("ST-21 security headers", () => {
 });
 
 describe("ST-22 body limits", () => {
-  it.skipIf(trustedHost === undefined)(
-    "enforces the fixed 64 KiB and 128 KiB guardrails",
-    async () => {
-      const tls = running.environment.tls;
-      const oversizedSecret = await postJson(
-        running.handle.adminPort,
-        "/v1/secrets/x",
-        jsonObjectOfBytes(65_537),
-        tls.caPem,
-        trustedHost,
-      );
-      const maxSecret = await postJson(
-        running.handle.adminPort,
-        "/v1/secrets/x",
-        jsonObjectOfBytes(65_536),
-        tls.caPem,
-        trustedHost,
-      );
-      const oversizedCertificate = await postJson(
-        running.handle.adminPort,
-        "/v1/certificates/x",
-        jsonObjectOfBytes(131_073),
-        tls.caPem,
-        trustedHost,
-      );
+  it("enforces the layered parser limits on the shared pre-stack", async () => {
+    const tls = running.environment.tls;
+    // The agent listener shares the same pre-stack and has no proxy source
+    // guard, so these cases stay deterministic on loopback-only CI hosts.
+    const port = running.handle.agentPort;
+    const oversizedData = await postJson(
+      port,
+      "/v1/data/payments/secrets/x",
+      jsonObjectOfBytes(524_289),
+      tls.caPem,
+      undefined,
+    );
+    const acceptedData = await postJson(
+      port,
+      "/v1/data/payments/secrets/x",
+      jsonObjectOfBytes(524_288),
+      tls.caPem,
+      undefined,
+    );
+    const oversizedOther = await postJson(
+      port,
+      "/v1/agent/join",
+      jsonObjectOfBytes(131_073),
+      tls.caPem,
+      undefined,
+    );
+    const acceptedOther = await postJson(
+      port,
+      "/v1/agent/join",
+      jsonObjectOfBytes(131_072),
+      tls.caPem,
+      undefined,
+    );
 
-      expect(oversizedSecret.status).toBe(413);
-      expect(envelope(oversizedSecret).error.code).toBe("payload_too_large");
-      expect(maxSecret.status).toBe(404);
-      expect(oversizedCertificate.status).toBe(413);
-    },
-  );
+    expect(oversizedData.status).toBe(413);
+    expect(envelope(oversizedData).error.code).toBe("payload_too_large");
+    expect(acceptedData.status).not.toBe(413);
+    expect(oversizedOther.status).toBe(413);
+    expect(envelope(oversizedOther).error.code).toBe("payload_too_large");
+    expect(acceptedOther.status).not.toBe(413);
+  });
+
+  it("applies the same ceilings to chunked bodies", async () => {
+    const tls = running.environment.tls;
+    const port = running.handle.agentPort;
+    const oversizedData = await postJson(
+      port,
+      "/v1/data/payments/secrets/x",
+      jsonObjectOfBytes(524_289),
+      tls.caPem,
+      undefined,
+      true,
+    );
+    const oversizedOther = await postJson(
+      port,
+      "/v1/agent/join",
+      jsonObjectOfBytes(131_073),
+      tls.caPem,
+      undefined,
+      true,
+    );
+
+    expect(oversizedData.status).toBe(413);
+    expect(envelope(oversizedData).error.code).toBe("payload_too_large");
+    expect(oversizedOther.status).toBe(413);
+    expect(envelope(oversizedOther).error.code).toBe("payload_too_large");
+  });
 });
 
 describe("ST-23 form rejection", () => {
@@ -578,6 +621,7 @@ async function postJson(
   body: string,
   ca: string,
   host: string | undefined,
+  chunked = false,
 ): Promise<TestResponse> {
   return testRequest({
     ...(host === undefined ? {} : { host }),
@@ -586,6 +630,7 @@ async function postJson(
     method: "POST",
     headers: { "content-type": "application/json" },
     body,
+    ...(chunked ? { chunked: true } : {}),
     ca,
     servername: "localhost",
   });

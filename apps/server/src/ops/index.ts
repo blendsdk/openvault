@@ -1,3 +1,4 @@
+export { ConfigError, loadConfig, toRedactedConfig } from "../config/index.js";
 export { BACKUP_FORMAT, BACKUP_VERSION, SERVER_VERSION } from "./archive.js";
 export { type BackupOptions, type BackupResult, runBackup } from "./backup.js";
 export {

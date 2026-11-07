@@ -28,7 +28,7 @@ export function createWebApplicationConfig(config: OpenVaultConfig): WebAfxSetti
     PORT: config.adminPort,
     ENV_MODE: config.envMode,
     LOG_LEVEL: LOG_LEVELS[config.logLevel],
-    BODY_LIMIT: "1mb",
+    BODY_LIMIT: "512kb",
     CORS: false,
     TRUST_PROXY: false,
   };

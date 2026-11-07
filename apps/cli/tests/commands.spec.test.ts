@@ -1,3 +1,4 @@
+import { randomBytes } from "node:crypto";
 import { chmodSync, existsSync, readFileSync, statSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import type { InitOptions, InitResult } from "@openvault/server/init";
@@ -889,5 +890,58 @@ describe("CLI commands against a real HTTPS vault", () => {
     expect(JSON.parse(list.stdout).data.certificates).toHaveLength(1);
     const deleted = await runtime.run(["cert", "delete", "api", "--project", "payments", "--yes"]);
     expect(deleted.code).toBe(0);
+  });
+
+  it("should print a redacted server configuration", async () => {
+    runtime = createTestRuntime(vault);
+    const keyringPath = join(runtime.directory, "keyring.json");
+    const certPath = join(runtime.directory, "server.crt");
+    const keyPath = join(runtime.directory, "server.key");
+    const caPath = join(runtime.directory, "ca.pem");
+    writeFileSync(
+      keyringPath,
+      JSON.stringify({
+        version: 1,
+        current: "k1",
+        keys: { k1: randomBytes(32).toString("base64") },
+      }),
+      { mode: 0o600 },
+    );
+    writeFileSync(certPath, "-----BEGIN CERTIFICATE-----\nAAAA\n-----END CERTIFICATE-----\n", {
+      mode: 0o600,
+    });
+    writeFileSync(keyPath, "-----BEGIN PRIVATE KEY-----\nAAAA\n-----END PRIVATE KEY-----\n", {
+      mode: 0o600,
+    });
+    writeFileSync(caPath, "-----BEGIN CERTIFICATE-----\nAAAA\n-----END CERTIFICATE-----\n", {
+      mode: 0o600,
+    });
+    Object.assign(runtime.env, {
+      OPENVAULT_BASE_URL: "https://localhost",
+      OPENVAULT_DB_URL: "postgres://openvault:db-password@localhost:5432/openvault",
+      OPENVAULT_KEYRING: keyringPath,
+      OPENVAULT_TLS_CERT: certPath,
+      OPENVAULT_TLS_KEY: keyPath,
+      OPENVAULT_INTERNAL_CA: caPath,
+      OPENVAULT_OIDC_ISSUER: "https://id.example.com",
+      OPENVAULT_OIDC_CLIENT_ID: "client",
+      OPENVAULT_OIDC_CLIENT_SECRET: "oidc-secret",
+    });
+
+    const denied = await runtime.run(["config", "show"]);
+    expect(denied.code).toBe(2);
+    expect(denied.stderr).toContain("--redacted");
+
+    const result = await runtime.run(["config", "show", "--redacted", "--json"]);
+    expect(result.code, result.stderr).toBe(0);
+    const parsed = JSON.parse(result.stdout) as {
+      success: boolean;
+      data: { database: { pass: string }; oidc?: { clientSecret: string } };
+    };
+    expect(parsed.success).toBe(true);
+    expect(parsed.data.database.pass).toBe("***");
+    expect(parsed.data.oidc?.clientSecret).toBe("***");
+    expect(result.stdout).not.toContain("db-password");
+    expect(result.stdout).not.toContain("oidc-secret");
   });
 });

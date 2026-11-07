@@ -186,12 +186,13 @@ describe("readiness endpoints", () => {
     }
   }, 30_000);
 
-  it("keeps an unexpected probe error as 500", async () => {
+  it("keeps an unexpected probe error as 500 without leaking internals", async () => {
+    const sentinel = "SQL SELECT /etc/openvault/keyring.json";
     const running = await createApp([
       {
         name: "postgresql",
         check: async () => {
-          throw new Error("programming failure");
+          throw new Error(sentinel);
         },
       },
     ]);
@@ -201,6 +202,9 @@ describe("readiness endpoints", () => {
 
       expect(response.status).toBe(500);
       expect(parsed.error.code).toBe("INTERNAL_SERVER_ERROR");
+      expect(response.body).not.toContain(sentinel);
+      expect(response.body).not.toContain("SQL");
+      expect(response.body).not.toContain("/etc/openvault");
     } finally {
       await running.stop();
     }

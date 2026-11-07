@@ -359,6 +359,10 @@ describe("configuration defaults", () => {
     expect(config.certTtlDays).toBe(30);
     expect(config.certExpiryHour).toBe(3);
     expect(config.sessionTtlHours).toBe(8);
+    expect(config.proxyCidrs).toEqual([
+      { address: "127.0.0.1", prefix: 32, family: "ipv4" },
+      { address: "::1", prefix: 128, family: "ipv6" },
+    ]);
   });
 
   it("validates and redacts the certificate expiry webhook", () => {

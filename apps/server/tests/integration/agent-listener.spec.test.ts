@@ -221,6 +221,29 @@ describe("data-route guard", () => {
     expect(certificateList.status).toBe(401);
     expect(errorCode(certificateList)).toBe("authentication_required");
 
+    // The agent listener scope admits /v1/data, but the controller layer
+    // allows only the value read. Every other data route must still reject
+    // an agent certificate.
+    const secretCreate = await send({
+      method: "POST",
+      path: `/v1/data/${project.name}/secrets`,
+      cert: client,
+      headers: { "content-type": "application/json" },
+      body: { name: "new-secret", value: "value" },
+    });
+    expect(secretCreate.status).toBe(401);
+    expect(errorCode(secretCreate)).toBe("authentication_required");
+
+    const certificateImport = await send({
+      method: "POST",
+      path: `/v1/data/${project.name}/certificates/import`,
+      cert: client,
+      headers: { "content-type": "application/json" },
+      body: {},
+    });
+    expect(certificateImport.status).toBe(401);
+    expect(errorCode(certificateImport)).toBe("authentication_required");
+
     const foreignCertificate = await send({
       path: `/v1/data/${other.name}/certificates`,
       cert: client,
