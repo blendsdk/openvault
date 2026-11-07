@@ -20,6 +20,7 @@ both units:
 
 ```ini
 OPENVAULT_DB_URL_FILE=/etc/openvault/db_app_url
+OPENVAULT_BACKUP_DB_URL_FILE=/etc/openvault/db_backup_url
 OPENVAULT_KEYRING=/var/lib/openvault/keyring.json
 OPENVAULT_INTERNAL_CA=/etc/openvault/tls/ca.pem
 OPENVAULT_BACKUP_PASSPHRASE_FILE=/etc/openvault/backup-passphrase

@@ -88,6 +88,13 @@ export async function assertControlPlaneSeparation(options: {
       "control-plane privilege mismatch: openvault_app still has DELETE on projects",
     );
   }
+  for (const table of [...CONTROL_PLANE_TABLES, "policy_state", "org", "blendsdk_migrations"]) {
+    if (await hasTablePrivilege(options.appDatabase, table, "SELECT")) {
+      throw new AuthPrivilegeError(
+        `control-plane privilege mismatch: openvault_app still has SELECT on ${table}`,
+      );
+    }
+  }
 
   const role = await options.authDatabase.executeQuery<{
     readonly rolsuper: boolean;
@@ -96,6 +103,7 @@ export async function assertControlPlaneSeparation(options: {
     readonly rolbypassrls: boolean;
     readonly is_migrator: boolean;
     readonly is_app: boolean;
+    readonly is_backup: boolean;
     readonly is_purger: boolean;
     readonly is_pruner: boolean;
   }>(
@@ -104,6 +112,8 @@ export async function assertControlPlaneSeparation(options: {
               AS is_migrator,
             COALESCE(pg_has_role(current_user, to_regrole('openvault_app'), 'MEMBER'), false)
               AS is_app,
+            COALESCE(pg_has_role(current_user, to_regrole('openvault_backup'), 'MEMBER'), false)
+              AS is_backup,
             COALESCE(pg_has_role(current_user, to_regrole('openvault_purger'), 'MEMBER'), false)
               AS is_purger,
             COALESCE(pg_has_role(current_user, to_regrole('openvault_pruner'), 'MEMBER'), false)
@@ -120,6 +130,7 @@ export async function assertControlPlaneSeparation(options: {
     roleRow.rolbypassrls ||
     roleRow.is_migrator ||
     roleRow.is_app ||
+    roleRow.is_backup ||
     roleRow.is_purger ||
     roleRow.is_pruner
   ) {

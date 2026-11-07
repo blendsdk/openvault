@@ -94,6 +94,7 @@ describe("schema inventory", () => {
       "principals",
       "projects",
       "role_assignments",
+      "secret_consumer_summaries",
       "secret_versions",
       "secrets",
       "signing_keys",

@@ -38,6 +38,7 @@ export function createBackupParser(globals: GlobalOptions, runtime: CliRuntime):
     ],
     handler: async (options) => {
       const databaseUrl = databaseUrlFromEnv(runtime);
+      const backupDatabaseUrl = databaseUrlFromEnv(runtime, "OPENVAULT_BACKUP_DB_URL");
       const keyringPath = resolve(
         runtime.cwd,
         textOption(options, "keyring") ?? envPath(runtime, "OPENVAULT_KEYRING"),
@@ -64,6 +65,7 @@ export function createBackupParser(globals: GlobalOptions, runtime: CliRuntime):
       const runner = runtime.runBackup ?? (await import("@openvault/server/ops")).runBackup;
       const result = await runner({
         databaseUrl,
+        backupDatabaseUrl,
         keyringPath,
         internalCaPath,
         ...(tlsCertPath === undefined ? {} : { tlsCertPath }),

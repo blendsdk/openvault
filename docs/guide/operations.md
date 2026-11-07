@@ -50,6 +50,8 @@ there is no recovery path for a never-used bootstrap password.
 |---|---|---|
 | `openvault_migrator` | Database, schema, tables | Migrations and restore only |
 | `openvault_app` | Nothing | The server's runtime connection |
+| `openvault_auth` | Nothing | Control-plane authentication, RBAC, and agent identity |
+| `openvault_backup` | Nothing | Read-only logical backup dump |
 | `openvault_purger` | Nothing | Controlled secret and certificate purge |
 | `openvault_pruner` | Nothing | Controlled audit prefix prune |
 
@@ -60,7 +62,10 @@ migrator owns every application table.
 
 The role passwords are separate Docker secrets. The full URLs are also secrets;
 the server reads them through `OPENVAULT_DB_URL_FILE`,
-`OPENVAULT_MIGRATION_DB_URL_FILE`, and `OPENVAULT_PURGE_DB_URL_FILE`.
+`OPENVAULT_MIGRATION_DB_URL_FILE`, `OPENVAULT_AUTH_DB_URL_FILE`, and
+`OPENVAULT_PURGE_DB_URL_FILE`. The host backup job reads
+`OPENVAULT_BACKUP_DB_URL_FILE` for the dump and `OPENVAULT_DB_URL_FILE` for the
+audit event.
 
 ## Health and diagnosis
 

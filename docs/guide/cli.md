@@ -180,6 +180,7 @@ WSL instead.
 
 ```bash
 export OPENVAULT_DB_URL=postgres://openvault:secret@postgres:5432/openvault
+export OPENVAULT_BACKUP_DB_URL=postgres://openvault_backup:secret@postgres:5432/openvault
 export OPENVAULT_KEYRING=/var/lib/openvault/keyring.json
 export OPENVAULT_INTERNAL_CA=/etc/openvault/tls/ca.pem
 export OPENVAULT_BACKUP_PASSPHRASE_FILE=/run/secrets/backup-passphrase

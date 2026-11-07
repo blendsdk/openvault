@@ -355,6 +355,20 @@ export const eRoleAssignments = {
 };
 
 /**
+ * Constant type for relation secret_consumer_summaries
+ * @export
+ * @constant
+ */
+export const eSecretConsumerSummaries = {
+  $TABLE: "secret_consumer_summaries",
+  COMPOSE_PROJECT: "compose_project",
+  COMPOSE_SERVICE: "compose_service",
+  LAST_SEEN: "last_seen",
+  PROJECT_ID: "project_id",
+  SECRET_ID: "secret_id",
+};
+
+/**
  * Constant type for relation secret_versions
  * @export
  * @constant

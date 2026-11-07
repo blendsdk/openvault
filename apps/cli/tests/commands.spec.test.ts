@@ -725,6 +725,7 @@ describe("CLI commands against a real HTTPS vault", () => {
       },
     });
     runtime.env.OPENVAULT_DB_URL = "postgres://user:pass@localhost:5432/db";
+    runtime.env.OPENVAULT_BACKUP_DB_URL = "postgres://backup:pass@localhost:5432/db";
     runtime.env.OPENVAULT_KEYRING = join(runtime.directory, "keyring.json");
     runtime.env.OPENVAULT_INTERNAL_CA = join(runtime.directory, "ca.pem");
     const passphrase = join(runtime.directory, "passphrase.txt");
@@ -743,11 +744,20 @@ describe("CLI commands against a real HTTPS vault", () => {
     expect(captured?.passphrase).toBe("correct horse battery staple");
     expect(captured?.outPath).toBe(out);
     expect(captured?.force).toBe(true);
+    expect(captured?.backupDatabaseUrl).toBe("postgres://backup:pass@localhost:5432/db");
     expect(result.stdout).toContain("Wrote");
 
     const missing = await runtime.run(["backup", "--out", out]);
     expect(missing.code).toBe(2);
     expect(missing.stderr).toContain("passphrase");
+
+    const withoutBackup = createTestRuntime(vault);
+    withoutBackup.env.OPENVAULT_DB_URL = "postgres://user:pass@localhost:5432/db";
+    withoutBackup.env.OPENVAULT_KEYRING = join(withoutBackup.directory, "keyring.json");
+    const missingBackup = await withoutBackup.run(["backup", "--out", out]);
+    expect(missingBackup.code).toBe(2);
+    expect(missingBackup.stderr).toContain("OPENVAULT_BACKUP_DB_URL");
+    withoutBackup.cleanup();
   });
 
   it("should gate restore and KEK rotation and call the injected operations", async () => {

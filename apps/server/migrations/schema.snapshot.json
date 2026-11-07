@@ -3053,5 +3053,12 @@
       ]
     }
   ],
-  "views": []
+  "views": [
+    {
+      "schema": "public",
+      "name": "secret_consumer_summaries",
+      "source": "\n  SELECT s.id AS secret_id,\n         s.project_id,\n         c.compose_project,\n         c.compose_service,\n         c.last_seen\n    FROM secrets s\n    JOIN consumers c ON c.project_id = s.project_id\n    JOIN principals p ON p.id = c.principal_id AND p.status = 'active'\n   WHERE EXISTS (\n     SELECT 1\n       FROM role_assignments r\n      WHERE r.principal_id = c.principal_id\n        AND r.role IN ('org.admin', 'project.admin', 'secrets.manager',\n                       'secrets.officer', 'secrets.reader')\n        AND (r.expires_at IS NULL OR r.expires_at > now())\n        AND (\n          r.scope_type = 'org'\n          OR (r.scope_type = 'project' AND r.scope_id = s.project_id)\n          OR (r.scope_type = 'object' AND r.scope_id = s.id AND r.role = 'secrets.reader')\n        )\n   )\n",
+      "materialized": false
+    }
+  ]
 }

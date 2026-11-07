@@ -1,5 +1,6 @@
 import { newUlid } from "@openvault/core";
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
+import { ConsumerRepository } from "../../src/agent/consumer-repository.js";
 import { AuditWriter } from "../../src/audit/audit-writer.js";
 import { PersistentPolicyAudit } from "../../src/audit/policy-audit.js";
 import { createAuditCore } from "../../src/audit/runtime.js";
@@ -395,7 +396,7 @@ describe("secret lifecycle", () => {
       "SELECT last_seen FROM consumers WHERE principal_id = :id",
       { id: base.serviceId },
     );
-    await new SecretRepository().touchConsumer(testDb.db, base.serviceId, "degraded");
+    await new ConsumerRepository(testDb.db).touchConsumer(testDb.db, base.serviceId, "degraded");
     const after = await testDb.db.executeQuery<{ last_seen: Date; state: string }>(
       "SELECT last_seen, state FROM consumers WHERE principal_id = :id",
       { id: base.serviceId },

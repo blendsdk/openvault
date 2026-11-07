@@ -1,7 +1,7 @@
 # Security Findings Wave 2 — Execution Plan
 
 > **Type**: Feature plan · **Feature**: openvault-v0-1 · **CodeOps Artifact Schema**: 1
-> **Progress**: 17/45 tasks (38%)
+> **Progress**: 26/45 tasks (58%)
 > **Last Updated**: 2026-11-07 02:05
 > **Mode**: `--auto-design` · `--auto-commit`
 > **Reasoning**: high — credential handling, database authority, audit integrity, and session security across seven findings
@@ -81,24 +81,24 @@ Close issues #46–#52 with regression tests, production-safe configuration, and
 
 ### Session 4.1 — Specification tests
 
-- [ ] 4.1.1 Extend the role test to assert the full app allowlist, every control-plane revocation, the view owner, and the startup read assertion (ST-17…ST-20, ST-25b).
-- [ ] 4.1.2 Add backup-role, audit-connection, app/auth-role refusal, and schema-inventory tests (ST-21…ST-27b).
+- [x] 4.1.1 Extend the role test to assert the full app allowlist, every control-plane revocation, the view owner, and the startup read assertion (ST-17…ST-20, ST-25b).
+- [x] 4.1.2 Add backup-role, audit-connection, app/auth-role refusal, and schema-inventory tests (ST-21…ST-27b).
 
 ### Session 4.2 — Grants and view
 
-- [ ] 4.2.1 Add the consumer view to `schema.ts`; generate the view migration; replace blanket grants with the explicit app allowlist; remove app default privileges; add backup default privileges.
-- [ ] 4.2.2 Add `openvault_backup` to `roles.sql`, `init-roles.sh`, `ensure-backup-role.sql`, `prepare.sh`, and Compose.
-- [ ] 4.2.3 Update the schema inventory tests and regenerate types for the view.
+- [x] 4.2.1 Add the consumer view to `schema.ts`; generate the view migration; replace blanket grants with the explicit app allowlist; remove app default privileges; add backup default privileges.
+- [x] 4.2.2 Add `openvault_backup` to `roles.sql`, `init-roles.sh`, `ensure-backup-role.sql`, `prepare.sh`, and Compose.
+- [x] 4.2.3 Update the schema inventory tests and regenerate types for the view.
 
 ### Session 4.3 — Backup command
 
-- [ ] 4.3.1 Split `runBackup` into dump and audit connections; add `OPENVAULT_BACKUP_DB_URL` and the role/privilege preflight; remove dead `SecretRepository.touchConsumer`.
-- [ ] 4.3.2 Update backup, configuration, roles, and limitation docs.
+- [x] 4.3.1 Split `runBackup` into dump and audit connections; add `OPENVAULT_BACKUP_DB_URL` and the role/privilege preflight; remove dead `SecretRepository.touchConsumer`.
+- [x] 4.3.2 Update backup, configuration, roles, and limitation docs.
 
 ### Session 4.4 — Verification
 
-- [ ] 4.4.1 Run the role, backup, secret, certificate, scaffold, agent, and audit-prune suites; fix any missed grant.
-- [ ] 4.4.2 Run `pnpm check:compose` and `pnpm verify`; mark phase verified.
+- [x] 4.4.1 Run the role, backup, secret, certificate, scaffold, agent, and audit-prune suites; fix any missed grant.
+- [x] 4.4.2 Run `pnpm check:compose` and `pnpm verify`; mark phase verified.
 
 ## Phase 5 — Join token clipboard (#49)
 

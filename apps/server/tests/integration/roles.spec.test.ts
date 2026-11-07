@@ -22,6 +22,8 @@ const grantsSql = readFileSync(
 const PASSWORDS = {
   migrator: "migrator-password",
   app: "app-password",
+  auth: "auth-password",
+  backup: "backup-password",
   purger: "purger-password",
   pruner: "pruner-password",
 } as const;
@@ -39,6 +41,7 @@ let settings: Settings;
 let databaseName: string;
 let admin: Client;
 let app: Client;
+let backup: Client;
 let purger: Client;
 let pruner: Client;
 let purgerPassword: string = PASSWORDS.purger;
@@ -127,6 +130,8 @@ beforeAll(async () => {
       dbname: databaseName,
       migrator_password: PASSWORDS.migrator,
       app_password: PASSWORDS.app,
+      auth_password: PASSWORDS.auth,
+      backup_password: PASSWORDS.backup,
       purger_password: purgerPassword,
       pruner_password: PASSWORDS.pruner,
     });
@@ -147,13 +152,14 @@ beforeAll(async () => {
   }
 
   app = new Client({ connectionString: roleUrl("openvault_app", PASSWORDS.app) });
+  backup = new Client({ connectionString: roleUrl("openvault_backup", PASSWORDS.backup) });
   purger = new Client({ connectionString: roleUrl("openvault_purger", purgerPassword) });
   pruner = new Client({ connectionString: roleUrl("openvault_pruner", PASSWORDS.pruner) });
-  await Promise.all([app.connect(), purger.connect(), pruner.connect()]);
+  await Promise.all([app.connect(), backup.connect(), purger.connect(), pruner.connect()]);
 }, 60_000);
 
 afterAll(async () => {
-  await Promise.all([app?.end(), purger?.end(), pruner?.end()]);
+  await Promise.all([app?.end(), backup?.end(), purger?.end(), pruner?.end()]);
   if (admin !== undefined) {
     const cleanup = new Client({
       connectionString: `postgres://${settings.user}:${encodeURIComponent(settings.password)}@${settings.host}:${settings.port}/${databaseName}`,
@@ -161,7 +167,7 @@ afterAll(async () => {
     try {
       await cleanup.connect();
       await cleanup.query(
-        "DROP OWNED BY openvault_app, openvault_purger, openvault_pruner, openvault_migrator CASCADE",
+        "DROP OWNED BY openvault_app, openvault_auth, openvault_backup, openvault_purger, openvault_pruner, openvault_migrator CASCADE",
       );
     } catch {
       // The database may already be gone after a failed setup.
@@ -181,8 +187,27 @@ afterAll(async () => {
 
 describe("least-privilege PostgreSQL roles", () => {
   it("lets the runtime role read and write data but not run DDL or delete audit events", async () => {
-    const org = await app.query<{ count: string }>("SELECT count(*)::text AS count FROM org");
-    expect(Number(org.rows[0]?.count)).toBeGreaterThanOrEqual(1);
+    await expect(app.query("SELECT count(*) FROM projects")).resolves.toBeDefined();
+    await expect(app.query("SELECT count(*) FROM secrets")).resolves.toBeDefined();
+    await expect(
+      app.query("SELECT count(*) FROM secret_consumer_summaries"),
+    ).resolves.toBeDefined();
+    for (const table of [
+      "principals",
+      "local_credentials",
+      "role_assignments",
+      "oidc_identities",
+      "cli_sessions",
+      "join_tokens",
+      "workload_certs",
+      "consumers",
+      "policy_state",
+      "org",
+    ]) {
+      await expect(app.query(`SELECT count(*) FROM ${table}`), table).rejects.toMatchObject({
+        code: "42501",
+      });
+    }
 
     const projectId = newUlid();
     await app.query("BEGIN");
@@ -205,6 +230,36 @@ describe("least-privilege PostgreSQL roles", () => {
       code: "42501",
     });
     await expect(app.query("DELETE FROM signing_keys")).rejects.toMatchObject({
+      code: "42501",
+    });
+  });
+
+  it("gives the backup role read-only access to every table", async () => {
+    for (const table of [
+      "projects",
+      "secrets",
+      "certificates",
+      "principals",
+      "local_credentials",
+      "cli_sessions",
+      "join_tokens",
+      "oidc_identities",
+      "role_assignments",
+      "workload_certs",
+      "consumers",
+      "audit_events",
+      "audit_checkpoints",
+      "audit_keys",
+      "signing_keys",
+      "ca_keys",
+      "secret_consumer_summaries",
+    ]) {
+      await expect(backup.query(`SELECT count(*) FROM ${table}`), table).resolves.toBeDefined();
+    }
+    await expect(
+      backup.query("INSERT INTO projects (id, name) VALUES ($1, 'backup-probe')", [newUlid()]),
+    ).rejects.toMatchObject({ code: "42501" });
+    await expect(backup.query("DELETE FROM audit_events WHERE false")).rejects.toMatchObject({
       code: "42501",
     });
   });

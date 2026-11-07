@@ -37,9 +37,11 @@ manifest, the public internal CA certificate, and the audit checkpoints. It is e
 age using a passphrase from a `0600` file or a hidden prompt. Recipient-key encryption is not
 implemented in v0.1.
 
-`OPENVAULT_DB_URL_FILE` can point at a Docker secret instead of putting the URL in the
-process environment. `ov doctor --backup-dir` fails when the newest `.age` archive is
-older than 24 hours.
+`OPENVAULT_BACKUP_DB_URL_FILE` selects the read-only `openvault_backup` dump connection;
+`OPENVAULT_DB_URL_FILE` is used only for the `backup.create` audit event. Point both at
+Docker secrets instead of putting the URLs in the process environment. The backup command
+refuses the app/auth role or a connection that cannot read the control-plane tables.
+`ov doctor --backup-dir` fails when the newest `.age` archive is older than 24 hours.
 
 ### Schedule
 

@@ -2,6 +2,7 @@
 export type OpsErrorCode =
   | "ops_configuration"
   | "backup_failed"
+  | "backup_role_required"
   | "backup_target_exists"
   | "backup_archive_invalid"
   | "backup_checksum_mismatch"

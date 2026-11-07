@@ -198,6 +198,7 @@ beforeAll(async () => {
 
   backup = await runBackup({
     databaseUrl: primaryDb.url,
+    backupDatabaseUrl: primaryDb.url,
     keyringPath,
     internalCaPath,
     outPath: join(directory, "backup.age"),
@@ -374,6 +375,38 @@ describe("operations", () => {
       }
     }
   }, 120_000);
+
+  it("should refuse a backup dump through the application role", async () => {
+    const settings = resolveTestDatabaseSettings();
+    const admin = new Client({ connectionString: settings.maintenanceUrl });
+    await admin.connect();
+    try {
+      await admin.query(
+        `DO $$
+         BEGIN
+           IF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'openvault_app') THEN
+             CREATE ROLE openvault_app LOGIN PASSWORD 'app-password';
+           END IF;
+         END
+         $$`,
+      );
+    } finally {
+      await admin.end();
+    }
+    const appUrl = `postgres://openvault_app:app-password@${settings.host}:${settings.port}/${primaryDb.name}`;
+    const out = join(tempDirectory(), "app-role-backup.age");
+    await expect(
+      runBackup({
+        databaseUrl: appUrl,
+        backupDatabaseUrl: appUrl,
+        keyringPath,
+        internalCaPath,
+        outPath: out,
+        passphrase: PASSPHRASE,
+        env: {},
+      }),
+    ).rejects.toMatchObject({ code: "backup_role_required" });
+  });
 
   it("should refuse KEK rotation while the runtime role is connected", async () => {
     const settings = resolveTestDatabaseSettings();

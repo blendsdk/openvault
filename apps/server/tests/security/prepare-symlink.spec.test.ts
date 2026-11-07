@@ -105,6 +105,7 @@ describe("prepare.sh symlink safety", () => {
         "db_migrator_password",
         "db_app_password",
         "db_auth_password",
+        "db_backup_password",
         "db_purger_password",
         "db_pruner_password",
       ]) {
@@ -114,6 +115,7 @@ describe("prepare.sh symlink safety", () => {
         ["db_migrator_url", "postgres://openvault_migrator:"],
         ["db_app_url", "postgres://openvault_app:"],
         ["db_auth_url", "postgres://openvault_auth:"],
+        ["db_backup_url", "postgres://openvault_backup:"],
         ["db_purger_url", "postgres://openvault_purger:"],
       ] as const) {
         expect(readFileSync(join(env.secrets, name), "utf8"), name).toContain(prefix);

@@ -12,8 +12,10 @@ import { lstatIfExists, readBoundedRegularFile, writePrivateFileAtomic } from ".
 
 /** Options for one logical backup. */
 export interface BackupOptions {
-  /** Application database URL. */
+  /** Application database URL used only for the `backup.create` audit event. */
   readonly databaseUrl: string;
+  /** Dedicated read-only database URL used for the logical dump. */
+  readonly backupDatabaseUrl: string;
   /** Absolute 0600 keyring path. */
   readonly keyringPath: string;
   /** Absolute public internal CA path. */
@@ -78,10 +80,35 @@ export async function runBackup(options: BackupOptions): Promise<BackupResult> {
   }
   const keyringBytes = readBoundedRegularFile(keyringPath, 1_048_576, 0o600);
   const keyring = await KeyringProvider.load(keyringPath);
-  const client = await openDatabaseClient(options.databaseUrl);
+  const client = await openDatabaseClient(options.backupDatabaseUrl);
   let auditDatabase: PostgreSQLDatabase | undefined;
   let objectCount = 0;
   try {
+    const identity = await client.query<{
+      readonly session_user: string;
+      readonly can_read_credentials: boolean;
+      readonly can_read_audit: boolean;
+    }>(
+      `SELECT session_user,
+              has_table_privilege(current_user, 'local_credentials', 'SELECT')
+                AS can_read_credentials,
+              has_table_privilege(current_user, 'audit_events', 'SELECT')
+                AS can_read_audit`,
+    );
+    const role = identity.rows[0];
+    if (
+      role === undefined ||
+      role.session_user === "openvault_app" ||
+      role.session_user === "openvault_auth" ||
+      role.can_read_credentials !== true ||
+      role.can_read_audit !== true
+    ) {
+      throw new OpsError(
+        "backup_role_required",
+        "The backup dump must use the dedicated openvault_backup role; set OPENVAULT_BACKUP_DB_URL",
+      );
+    }
+
     auditDatabase = new PostgreSQLDatabase({
       ...parseDatabaseUrl(options.databaseUrl),
       poolConfig: { connectionTimeoutMillis: 2_000 },

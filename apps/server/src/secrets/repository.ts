@@ -707,24 +707,10 @@ export class SecretRepository {
       readonly compose_service: string;
       readonly last_seen: Date;
     }>(
-      `SELECT s.id AS secret_id, c.compose_project, c.compose_service, c.last_seen
-         FROM secrets s
-         JOIN consumers c ON c.project_id = s.project_id
-         JOIN principals p ON p.id = c.principal_id AND p.status = 'active'
-        WHERE s.project_id = :projectId AND s.id = ANY(:secretIds)
-          AND EXISTS (
-            SELECT 1 FROM role_assignments r
-             WHERE r.principal_id = c.principal_id
-               AND r.role IN ('org.admin', 'project.admin', 'secrets.manager',
-                              'secrets.officer', 'secrets.reader')
-               AND (r.expires_at IS NULL OR r.expires_at > now())
-               AND (
-                 r.scope_type = 'org'
-                 OR (r.scope_type = 'project' AND r.scope_id = s.project_id)
-                 OR (r.scope_type = 'object' AND r.scope_id = s.id AND r.role = 'secrets.reader')
-               )
-          )
-        ORDER BY c.compose_project ASC, c.compose_service ASC`,
+      `SELECT secret_id, compose_project, compose_service, last_seen
+         FROM secret_consumer_summaries
+        WHERE project_id = :projectId AND secret_id = ANY(:secretIds)
+        ORDER BY compose_project ASC, compose_service ASC`,
       { projectId, secretIds: [...secretIds] },
     );
     for (const row of rows.records) {
@@ -737,23 +723,5 @@ export class SecretRepository {
       result.set(row.secret_id, list);
     }
     return result;
-  }
-
-  /**
-   * Updates the consumer heartbeat after an agent read.
-   *
-   * @param executor - Database.
-   * @param principalId - Service principal.
-   * @param state - Allowlisted consumer state.
-   */
-  public async touchConsumer(
-    executor: QueryExecutor,
-    principalId: string,
-    state: "ok" | "degraded" | "failed",
-  ): Promise<void> {
-    await executor.executeQuery(
-      "UPDATE consumers SET last_seen = now(), state = :state WHERE principal_id = :principalId",
-      { principalId, state },
-    );
   }
 }

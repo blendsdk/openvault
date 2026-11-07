@@ -250,11 +250,16 @@ These are accepted for v0.1. They are documented so reviewers do not mistake the
 75. **Agent renewal second factor.** Renewal accepts the current certificate and a fresh key.
     A stolen certificate can renew until an administrator revokes the identity. Per-certificate
     revocation or a second factor for key-changing renewal is follow-up work.
-76. **Control-plane read exposure.** `openvault_app` keeps `SELECT` on the control-plane tables
-    for backup and read-only joins. A leaked app role can read password hashes, refresh hashes,
-    and OIDC links, but cannot write them. Moving `ov backup` to the migrator/owner URL would
-    remove the read exposure.
-77. **Signing-key insert availability.** The runtime role can still insert a `current` signing
+76. **Backup read exposure.** `openvault_backup` can read every table, including password,
+    refresh-token, join-token, and OIDC-link verifiers, because a logical backup must capture
+    the full database. The role is read-only, `NOINHERIT`, separate from the server process, and
+    receives no write or DDL privilege. Treat `OPENVAULT_BACKUP_DB_URL` as a high-value
+    credential and rotate it with the other database secrets.
+77. **Consumer summary view scope.** `openvault_app` can read `secret_consumer_summaries` for
+    every project, not only the project in the current request. The view exposes only compose
+    project/service names and last-seen timestamps; row scoping remains an application
+    responsibility, as it is for the other data-plane tables.
+78. **Signing-key insert availability.** The runtime role can still insert a `current` signing
     key because rotation uses the application connection. A database writer can therefore create
     a malformed current row and cause a fail-closed 503 for CLI token issuance and verification.
     It cannot forge a valid key without the KEK, so this is an availability risk, not token

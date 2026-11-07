@@ -710,4 +710,31 @@ idempotencyKeys
   .onUpdate("NO ACTION")
   .onDelete("CASCADE");
 
+// The data-plane role needs consumer summaries for the secret metadata views.
+// A definer view exposes only the five display columns; the raw consumer,
+// principal, and assignment tables stay on the control-plane role.
+db.view("secret_consumer_summaries").as(`
+  SELECT s.id AS secret_id,
+         s.project_id,
+         c.compose_project,
+         c.compose_service,
+         c.last_seen
+    FROM secrets s
+    JOIN consumers c ON c.project_id = s.project_id
+    JOIN principals p ON p.id = c.principal_id AND p.status = 'active'
+   WHERE EXISTS (
+     SELECT 1
+       FROM role_assignments r
+      WHERE r.principal_id = c.principal_id
+        AND r.role IN ('org.admin', 'project.admin', 'secrets.manager',
+                       'secrets.officer', 'secrets.reader')
+        AND (r.expires_at IS NULL OR r.expires_at > now())
+        AND (
+          r.scope_type = 'org'
+          OR (r.scope_type = 'project' AND r.scope_id = s.project_id)
+          OR (r.scope_type = 'object' AND r.scope_id = s.id AND r.role = 'secrets.reader')
+        )
+   )
+`);
+
 export default db;

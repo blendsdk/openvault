@@ -1320,6 +1320,42 @@ export interface RoleAssignments {
 }
 
 /**
+ * @interface
+ */
+export interface SecretConsumerSummaries {
+  /**
+   * @optional
+   * @nullable
+   * @memberOf {SecretConsumerSummaries}
+   */
+  compose_project?: string | null;
+  /**
+   * @optional
+   * @nullable
+   * @memberOf {SecretConsumerSummaries}
+   */
+  compose_service?: string | null;
+  /**
+   * @optional
+   * @nullable
+   * @memberOf {SecretConsumerSummaries}
+   */
+  last_seen?: Date | null;
+  /**
+   * @optional
+   * @nullable
+   * @memberOf {SecretConsumerSummaries}
+   */
+  project_id?: string | null;
+  /**
+   * @optional
+   * @nullable
+   * @memberOf {SecretConsumerSummaries}
+   */
+  secret_id?: string | null;
+}
+
+/**
  * @checkContraint ciphertext CHECK ((octet_length(ciphertext) <= 65536))
  * @default created_at to now()
  * @primaryKey id
