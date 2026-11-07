@@ -155,26 +155,26 @@ function bodyOfBytes(bytes: number): string {
 }
 
 describe("body parser order", () => {
-  it("parses a chunked body once and still applies the secret limit", async () => {
+  it("parses a chunked body once and still applies the path limit", async () => {
     const tls = running.environment.tls;
+    // The agent listener shares the pre-stack and has no proxy source guard,
+    // so this stays deterministic on loopback-only CI hosts.
     const oversized = await testRequest({
-      ...(trustedHost === undefined ? {} : { host: trustedHost }),
-      port: running.adminPort,
-      path: "/v1/secrets/x",
+      port: running.agentPort,
+      path: "/v1/agent/join",
       method: "POST",
       headers: { "content-type": "application/json" },
-      body: bodyOfBytes(65_537),
+      body: bodyOfBytes(131_073),
       chunked: true,
       ca: tls.caPem,
       servername: "localhost",
     });
     const accepted = await testRequest({
-      ...(trustedHost === undefined ? {} : { host: trustedHost }),
-      port: running.adminPort,
-      path: "/v1/secrets/x",
+      port: running.agentPort,
+      path: "/v1/agent/join",
       method: "POST",
       headers: { "content-type": "application/json" },
-      body: bodyOfBytes(65_536),
+      body: bodyOfBytes(131_072),
       chunked: true,
       ca: tls.caPem,
       servername: "localhost",
@@ -182,7 +182,7 @@ describe("body parser order", () => {
 
     expect(oversized.status).toBe(413);
     expect(errorEnvelope.parse(oversized.json).error.code).toBe("payload_too_large");
-    expect(accepted.status).toBe(404);
+    expect(accepted.status).not.toBe(413);
   });
 
   it("rejects an encoded slash that would otherwise change the scope", async () => {

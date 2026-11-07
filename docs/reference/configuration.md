@@ -66,7 +66,9 @@ domain match.
 ## CLI and bootstrap
 
 The `ov` client reads its own connection settings. These variables are separate from the
-server process.
+server process. `ov config show --redacted` validates the server environment with the same
+loader and prints the support-safe view; attach that output to a support request instead of
+the raw environment.
 
 | Variable | Default | Required | Notes |
 |---|---|---|---|
@@ -91,7 +93,7 @@ URL usually contains a password.
 | `OPENVAULT_KEYRING` | none | yes | Absolute keyring path; created atomically with mode `0600` when absent |
 | `OPENVAULT_INTERNAL_CA` | derived from the TLS certificate directory | yes | Public internal CA path |
 | `OPENVAULT_CA_PUBLIC_DIR` | none | no | Directory that receives `ca.pem` for the proxy |
-| `OPENVAULT_TLS_CERT` / `OPENVAULT_TLS_KEY` | none | for TLS provisioning | Server certificate and PKCS#8 key paths; both or neither |
+| `OPENVAULT_TLS_CERT` / `OPENVAULT_TLS_KEY` | none | for TLS provisioning | Server certificate and private-key PEM paths; both or neither |
 | `OPENVAULT_BASE_URL` | `https://localhost` | no | HTTPS origin used for server-certificate SANs |
 | `OPENVAULT_ORG_NAME` | `OpenVault` | no | Organization display name |
 | `OPENVAULT_BOOTSTRAP_ADMIN_NAME` | `OpenVault Administrator` | no | Administrator display name |
@@ -168,11 +170,12 @@ command checks that its connection targets the same database that was verified a
 
 ## Body limits
 
-The HTTP JSON parser accepts up to 1 MiB, with per-path guards: 64 KiB for the legacy
-`/v1/secrets*` paths, 512 KiB for `/v1/data*` (sized for worst-case JSON escaping of a 64 KiB
-value), and 128 KiB for other JSON under `/v1`. `OPENVAULT_SECRET_MAX_BYTES` and
+The HTTP JSON parser has a 512 KiB hard ceiling. Per-path guards apply: 512 KiB for
+`/v1/data*` (sized for worst-case JSON escaping of a 64 KiB value), 128 KiB for other JSON
+under `/v1`, and a 64 KiB legacy guard for `/v1/secrets*`. `OPENVAULT_SECRET_MAX_BYTES` and
 `OPENVAULT_CERT_MAX_BYTES` are decoded product-value limits; the decoded bytes remain the
-authoritative check.
+authoritative check. Requests above the active ceiling return `413 payload_too_large`,
+including chunked requests that do not carry `Content-Length`.
 
 Requests with a non-JSON body under `/v1` are rejected with `415`.
 

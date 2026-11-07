@@ -255,7 +255,7 @@
         {
           "type": "test",
           "file": "apps/server/tests/integration/transport.impl.test.ts",
-          "name": "parses a chunked body once and still applies the secret limit"
+          "name": "parses a chunked body once and still applies the path limit"
         },
         {
           "type": "test",
@@ -533,7 +533,7 @@
         {
           "type": "test",
           "file": "apps/server/tests/integration/transport.impl.test.ts",
-          "name": "parses a chunked body once and still applies the secret limit"
+          "name": "parses a chunked body once and still applies the path limit"
         }
       ]
     },

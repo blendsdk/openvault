@@ -122,7 +122,7 @@ export interface WebAfxSettings {
   readonly PORT: number;
   readonly ENV_MODE: EnvMode;
   readonly LOG_LEVEL: "ERROR" | "WARN" | "INFO" | "DEBUG";
-  readonly BODY_LIMIT: "1mb";
+  readonly BODY_LIMIT: "512kb";
   readonly CORS: false;
   readonly TRUST_PROXY: false;
 }

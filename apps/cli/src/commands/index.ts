@@ -5,6 +5,7 @@ import { authGroup } from "./auth.js";
 import { backupGroup } from "./backup.js";
 import { certGroup } from "./cert.js";
 import { completionGroup } from "./completion.js";
+import { configGroup } from "./config.js";
 import { dockerGroup } from "./docker.js";
 import { doctorGroup } from "./doctor.js";
 import { identityGroup } from "./identity.js";
@@ -19,6 +20,7 @@ import { secretGroup } from "./secret.js";
 /** Every command group in root-help order. */
 export const GROUPS: readonly CommandGroup[] = [
   authGroup,
+  configGroup,
   projectGroup,
   secretGroup,
   certGroup,

@@ -104,6 +104,20 @@ describe("callback access and destruction", () => {
     expect(keyring.has("k1")).toBe(false);
   });
 
+  it("zeroes the internal key buffer on destroy", () => {
+    const keyring = Keyring.fromJSON(validKeyringJson());
+    let captured: Buffer | undefined;
+
+    keyring.withCurrentKey((key) => {
+      captured = key as Buffer;
+    });
+
+    expect(captured).toBeDefined();
+    expect(captured?.some((byte) => byte !== 0)).toBe(true);
+    keyring.destroy();
+    expect(captured?.every((byte) => byte === 0)).toBe(true);
+  });
+
   it("does not return a buffer that the caller can retain", () => {
     const keyring = Keyring.fromJSON(validKeyringJson());
     let observedLength = 0;

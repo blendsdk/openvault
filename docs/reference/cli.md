@@ -41,6 +41,17 @@ Environment fallbacks: `OPENVAULT_CA_FILE` for `--ca`, `OPENVAULT_URL` for `--ur
 
 `ov login`, `ov logout`, and `ov whoami` are aliases for the matching auth commands.
 
+### Configuration
+
+The configuration command runs locally and does not contact the vault.
+
+| Command | Options | Purpose |
+|---|---|---|
+| `ov config show` | `--redacted` (required) | Validate the server environment and print the support-safe view |
+
+`ov config show --redacted` uses the server's own loader and prints the redacted view. It
+fails closed on missing or malformed server settings.
+
 ### Projects
 
 | Command | Options | Purpose |

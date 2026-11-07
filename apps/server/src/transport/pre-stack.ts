@@ -165,7 +165,7 @@ function contentLengthGuardMiddleware(
 
 function jsonParserMiddleware(): express.RequestHandler {
   return express.json({
-    limit: "1mb",
+    limit: "512kb",
     verify: (req, _res, buffer) => {
       const path = normalizeRequestPath(req.url);
       const limit =
