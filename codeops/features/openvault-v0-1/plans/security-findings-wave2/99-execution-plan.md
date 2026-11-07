@@ -1,8 +1,8 @@
 # Security Findings Wave 2 — Execution Plan
 
 > **Type**: Feature plan · **Feature**: openvault-v0-1 · **CodeOps Artifact Schema**: 1
-> **Progress**: 38/45 tasks (84%)
-> **Last Updated**: 2026-11-07 02:05
+> **Progress**: 45/45 tasks (100%)
+> **Last Updated**: 2026-11-07 03:42
 > **Mode**: `--auto-design` · `--auto-commit`
 > **Reasoning**: high — credential handling, database authority, audit integrity, and session security across seven findings
 
@@ -138,13 +138,13 @@ Close issues #46–#52 with regression tests, production-safe configuration, and
 
 ## Phase 8 — Full verification and closeout
 
-- [ ] 8.1.1 Run `pnpm verify` from a clean build; capture the PASS one-liner.
-- [ ] 8.1.2 Run the full integration suite against PostgreSQL 16 and 17.
-- [ ] 8.1.3 Run `pnpm db:types:check` against a migrated database.
-- [ ] 8.1.4 Update `docs/security/limitations.md`, `docs/security/threat-model.md`, `docs/security/evidence-matrix.json`, and security claims; run the evidence/claims checks.
-- [ ] 8.1.5 Re-run preflight on this plan; resolve any Critical/Major finding; update the preflight report.
-- [ ] 8.1.6 Update the feature and portfolio roadmaps; record findings in `05-findings.md`.
-- [ ] 8.1.7 Commit and push; close #46–#52 with the merge commit and verification evidence.
+- [x] 8.1.1 Run `pnpm verify` from a clean build; capture the PASS one-liner.
+- [x] 8.1.2 Run the full integration suite against PostgreSQL 16 and 17.
+- [x] 8.1.3 Run `pnpm db:types:check` against a migrated database.
+- [x] 8.1.4 Update `docs/security/limitations.md`, `docs/security/threat-model.md`, `docs/security/evidence-matrix.json`, and security claims; run the evidence/claims checks.
+- [x] 8.1.5 Re-run preflight on this plan; resolve any Critical/Major finding; update the preflight report.
+- [x] 8.1.6 Update the feature and portfolio roadmaps; record findings in `05-findings.md`.
+- [x] 8.1.7 Commit and push; close #46–#52 with the merge commit and verification evidence.
 
 ## Verify
 

@@ -1,6 +1,6 @@
 # Release evidence
 
-> **Snapshot**: 2026-11-07, `fix/security-findings-46-52` after the seven-finding remediation
+> **Snapshot**: 2026-11-07, `fix/security-findings-46-52` (PR #53) after the seven-finding remediation
 > **Production image**: not published
 
 ## Branch protection
@@ -25,7 +25,7 @@ change was needed.
 | Gate | Where |
 |---|---|
 | Build, typecheck, API contract, lint, unit tests, artifacts, docs | `pnpm verify` / `Verify` |
-| PostgreSQL 16 and 17 integration | `Integration (16)` and `Integration (17)`; 92 files and 733 tests each locally |
+| PostgreSQL 16 and 17 integration | `Integration (16)` and `Integration (17)`; 92 files and 740 tests each locally |
 | Dependency audit | `Audit` and the weekly `Security scans` workflow |
 | CodeQL | `CodeQL` |
 | Secret scan | `Gitleaks` |

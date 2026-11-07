@@ -1,7 +1,7 @@
 # Portfolio Roadmap: OpenVault
 
 > **Status**: Done
-> **Last Updated**: 2026-11-06 20:52
+> **Last Updated**: 2026-11-07 03:42
 > **Features**: 1 / 1 done
 > **CodeOps Artifact Schema**: 1
 
@@ -13,7 +13,7 @@
 
 | Feature | Roadmap | Stage Summary | Progress | Status | Last Updated |
 |---------|---------|---------------|----------|--------|--------------|
-| openvault-v0-1 | [→](features/openvault-v0-1/00-roadmap.md) | 14 RDs · 14 done · security remediation done | 14/14 RDs | ✅ | 2026-11-06 |
+| openvault-v0-1 | [→](features/openvault-v0-1/00-roadmap.md) | 14 RDs · 14 done · two security remediations done | 14/14 RDs | ✅ | 2026-11-07 |
 
 ## Archived
 
