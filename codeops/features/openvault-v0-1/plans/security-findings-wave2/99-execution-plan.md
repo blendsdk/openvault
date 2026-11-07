@@ -1,7 +1,7 @@
 # Security Findings Wave 2 — Execution Plan
 
 > **Type**: Feature plan · **Feature**: openvault-v0-1 · **CodeOps Artifact Schema**: 1
-> **Progress**: 26/45 tasks (58%)
+> **Progress**: 30/45 tasks (67%)
 > **Last Updated**: 2026-11-07 02:05
 > **Mode**: `--auto-design` · `--auto-commit`
 > **Reasoning**: high — credential handling, database authority, audit integrity, and session security across seven findings
@@ -104,13 +104,13 @@ Close issues #46–#52 with regression tests, production-safe configuration, and
 
 ### Session 5.1 — Specification tests
 
-- [ ] 5.1.1 Add focused/unfocused clear, dialog-close, denied-clear, previous-timer, and generic-copy tests (ST-28…ST-31).
-- [ ] 5.1.2 Run the web tests and record the red-phase failure: no clear is scheduled.
+- [x] 5.1.1 Add focused/unfocused clear, dialog-close, denied-clear, previous-timer, and generic-copy tests (ST-28…ST-31).
+- [x] 5.1.2 Run the web tests and record the red-phase failure: no clear is scheduled.
 
 ### Session 5.2 — Implementation and verification
 
-- [ ] 5.2.1 Add the shared credential-copy module, page-level status, credential mode on `CopyButton`, and reuse in the identities and secret-detail pages.
-- [ ] 5.2.2 Run the web suite and `pnpm verify`; mark phase verified.
+- [x] 5.2.1 Add the shared credential-copy module, page-level status, credential mode on `CopyButton`, and reuse in the identities and secret-detail pages.
+- [x] 5.2.2 Run the web suite and `pnpm verify`; mark phase verified.
 
 ## Phase 6 — Scaffold visibility (#51)
 

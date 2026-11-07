@@ -3,7 +3,7 @@
 -- transaction: true
 -- from-snapshot: 6806576fdf7e758415a6314cd8ba0dbd1a6e53be30375a4ef8a25cd80c2e10a5
 -- to-snapshot: 8a4f61d333a55fe5a420ffb6cd63b216926f1dafef0306e6440bd81e8fd4242f
-CREATE VIEW "public"."secret_consumer_summaries" AS 
+CREATE VIEW "public"."secret_consumer_summaries" AS
   SELECT s.id AS secret_id,
          s.project_id,
          c.compose_project,

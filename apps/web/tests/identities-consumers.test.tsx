@@ -1,5 +1,5 @@
-import { fireEvent, screen, waitFor, within } from "@testing-library/react";
-import { describe, expect, it } from "vitest";
+import { act, fireEvent, screen, waitFor, within } from "@testing-library/react";
+import { describe, expect, it, vi } from "vitest";
 import { ConsumersPage } from "../src/pages/consumers-page.js";
 import { IdentitiesPage } from "../src/pages/identities-page.js";
 import { FakeVault } from "./helpers/fake-vault.js";
@@ -16,6 +16,32 @@ describe("identities and consumers", () => {
     expect(within(dialog).getByText(/shown once/)).toBeInTheDocument();
     expect(within(dialog).getByText("T".repeat(43))).toBeInTheDocument();
     expect(vault.requests.some((request) => request.path.endsWith("/join-tokens"))).toBe(true);
+  });
+
+  it("should clear a copied join token after the dialog closes", async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+    try {
+      const vault = new FakeVault();
+      const writeText = vi.spyOn(navigator.clipboard, "writeText").mockResolvedValue(undefined);
+      renderProjectPage(<IdentitiesPage />, { vault });
+
+      fireEvent.click(await screen.findByRole("button", { name: "Join token" }));
+      const dialog = await screen.findByRole("dialog");
+      fireEvent.click(within(dialog).getByRole("button", { name: "Copy token" }));
+      await waitFor(() => {
+        expect(screen.getByText(/clipboard will be cleared/)).toBeInTheDocument();
+      });
+
+      fireEvent.click(within(dialog).getByRole("button", { name: "Done" }));
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(30_000);
+      });
+
+      expect(writeText).toHaveBeenLastCalledWith("");
+      expect(screen.getByText("Clipboard cleared.")).toBeInTheDocument();
+    } finally {
+      vi.useRealTimers();
+    }
   });
 
   it("should revoke an identity after confirmation", async () => {

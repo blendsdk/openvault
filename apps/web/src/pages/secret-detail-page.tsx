@@ -3,6 +3,7 @@ import { Button, Card, Text } from "@fluentui/react-components";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useForm } from "react-hook-form";
 import { Link, useNavigate, useParams } from "react-router";
+import { copyCredential, subscribeCredentialCopy } from "../components/credential-copy.js";
 import { DataTable } from "../components/data-table.js";
 import { AsyncPanel, EmptyState, ErrorAlert } from "../components/feedback.js";
 import { NavButton } from "../components/nav-button.js";
@@ -41,7 +42,6 @@ export function SecretDetailPage() {
   const [copyStatus, setCopyStatus] = useState<string | undefined>(undefined);
   const revealRegion = useRef<HTMLDivElement>(null);
   const revealedInput = useRef<HTMLTextAreaElement>(null);
-  const copyTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
   const alive = useRef(true);
   const versionForm = useForm<VersionValues>({ defaultValues: { value: "" } });
 
@@ -82,6 +82,8 @@ export function SecretDetailPage() {
       alive.current = false;
     };
   }, []);
+
+  useEffect(() => subscribeCredentialCopy((result) => setCopyStatus(result.message)), []);
 
   useEffect(() => {
     if (revealed !== undefined) {
@@ -136,45 +138,10 @@ export function SecretDetailPage() {
   };
 
   const copyRevealed = (): void => {
-    if (revealed === undefined || navigator.clipboard === undefined) {
+    if (revealed === undefined) {
       return;
     }
-    void navigator.clipboard.writeText(revealed.value).then(
-      () => {
-        setCopyStatus("Copied. The clipboard will be cleared in 30 seconds if the browser allows.");
-        if (copyTimer.current !== undefined) {
-          clearTimeout(copyTimer.current);
-        }
-        copyTimer.current = setTimeout(() => {
-          if (navigator.clipboard === undefined) {
-            return;
-          }
-          if (!document.hasFocus()) {
-            if (alive.current) {
-              setCopyStatus(
-                "Clipboard clear was skipped because the page was not focused; copy again or clear it manually.",
-              );
-            }
-            return;
-          }
-          void navigator.clipboard.writeText("").then(
-            () => {
-              if (alive.current) {
-                setCopyStatus("Clipboard cleared.");
-              }
-            },
-            () => {
-              if (alive.current) {
-                setCopyStatus(
-                  "Copied value remains on the clipboard; the browser blocked clearing.",
-                );
-              }
-            },
-          );
-        }, 30_000);
-      },
-      () => setCopyStatus("The browser blocked clipboard access."),
-    );
+    void copyCredential(revealed.value);
   };
 
   const submitVersion = versionForm.handleSubmit(async (values) => {
