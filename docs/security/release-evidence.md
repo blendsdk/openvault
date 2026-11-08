@@ -1,7 +1,7 @@
 # Release evidence
 
-> **Snapshot**: 2026-11-08, `v1.0.0` release
-> **Production image**: `v1.0.0` published to Docker Hub
+> **Snapshot**: 2026-11-08, `v1.0.1` release
+> **Production image**: `v1.0.1` published to Docker Hub
 
 ## Branch protection
 
@@ -32,7 +32,7 @@ change was needed.
 | Dependency review | `Review dependency changes` |
 | Docs build | `Build documentation` |
 | Compose hardening | `pnpm check:compose` inside `Verify` |
-| Container images | Server, agent, and web images published to Docker Hub; the v1.0.0 digests are below |
+| Container images | Server, agent, and web images published to Docker Hub; the v1.0.1 digests are below |
 | Security evidence and claims | `pnpm security:evidence:check` and `pnpm security:claims:check` inside `Verify` |
 
 ## Security scanner remediation
@@ -49,6 +49,18 @@ scans, signs, and attests them. The first stable image is produced by the
 `v1.0.0` tag. Later releases use a deliberate `v*.*.*` tag or tagged dispatch.
 The workflow writes the digest list to the GitHub release and the job summary.
 SBOM and provenance attestations are attached to the images.
+
+### v1.0.1
+
+Published on 2026-11-08. Cosign signatures were verified against
+`refs/tags/v1.0.1`. This patch fixes the agent response envelope, the scaffolded
+agent command, and the healthcheck startup window.
+
+| Image | Digest |
+|---|---|
+| `blendsdk/openvault` | `sha256:9a7aa456047e00eb64fd4d2ff7cebbed95539935b44d85197791e42e31be847d` |
+| `blendsdk/openvault-agent` | `sha256:8e92dbb89874cf3535cc06db25ca29adfc3b2504692f06aa635c5f70e2470cc0` |
+| `blendsdk/openvault-web` | `sha256:8a993297db3347253ac449e36430d56c1882fc449d1f9183e31d90b89400edad` |
 
 ### v1.0.0
 

@@ -206,7 +206,7 @@
         {
           "type": "manual",
           "file": "docs/security/release-evidence.md",
-          "check": "The v1.0.0 release published signed amd64 and arm64 images to Docker Hub with SBOM and provenance attestations."
+          "check": "The v1.0.0 and v1.0.1 releases published signed amd64 and arm64 images to Docker Hub with SBOM and provenance attestations."
         }
       ],
       "docs": ["docs/security/release-process.md"]
