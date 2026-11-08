@@ -2,8 +2,8 @@
 
 > **Document**: 99-execution-plan.md
 > **Parent**: [Index](00-index.md)
-> **Last Updated**: 2026-11-08 17:17
-> **Progress**: 24/77 tasks (31%)
+> **Last Updated**: 2026-11-08 17:23
+> **Progress**: 33/77 tasks (43%)
 > **CodeOps Artifact Schema**: 1
 
 ## Overview
@@ -140,27 +140,27 @@ task-size criteria in the quality checklist)
 **Reference**: [03-01 §CertificatesPage](03-01-web-ui.md) · ST-12..ST-18 · AR-5, AR-12, AR-13, AR-21, AR-22
 **Objective**: Pin the list rendering, filters, status view, pagination, and empty states.
 
-- [ ] 3.1.1 [spec-author] Write the list spec tests for rendering, filters, status, pagination, and empty states — `apps/web/tests/certificates-list.test.tsx` (ST-12..ST-16, ST-18)
-- [ ] 3.1.2 [spec-author] Extend the shell spec with the Certificates launcher entry, section link, and docs target — `apps/web/tests/layout.test.tsx` (ST-17)
-- [ ] 3.1.3 Run the tests and confirm red
+- [x] 3.1.1 [spec-author] Write the list spec tests for rendering, filters, status, pagination, and empty states — `apps/web/tests/certificates-list.test.tsx` (ST-12..ST-16, ST-18) ✅ (completed: 2026-11-08 17:19)
+- [x] 3.1.2 [spec-author] Extend the shell spec with the Certificates launcher entry, section link, and docs target — `apps/web/tests/layout.test.tsx` (ST-17) ✅ (completed: 2026-11-08 17:19)
+- [x] 3.1.3 Run the tests and confirm red ✅ (completed: 2026-11-08 17:19)
 
 ### Step 3.2: Implementation
 
 **Reference**: [03-01 §Routes and navigation](03-01-web-ui.md), [03-01 §CertificatesPage](03-01-web-ui.md) · AR-13, AR-21, AR-26
 **Objective**: Add the list page, route, navigation entry, and docs mapping.
 
-- [ ] 3.2.1 Implement the filter bar, table, status badges, expiry text, tags, pagination, and empty states — `apps/web/src/pages/certificates-page.tsx`
-- [ ] 3.2.2 Add the list route, Certificates section nav entry, launcher entry, and docs mapping — `apps/web/src/App.tsx`, `apps/web/src/projects/project-route.tsx`, `apps/web/src/layout/app-shell.tsx`, `apps/web/src/docs.ts`
-- [ ] 3.2.3 Link the project overview certificate count to the list — `apps/web/src/pages/project-overview-page.tsx`
-- [ ] 3.2.4 Run the Phase 3 spec tests and confirm green
+- [x] 3.2.1 Implement the filter bar, table, status badges, expiry text, tags, pagination, and empty states — `apps/web/src/pages/certificates-page.tsx` ✅ (completed: 2026-11-08 17:19)
+- [x] 3.2.2 Add the list route, Certificates section nav entry, launcher entry, and docs mapping — `apps/web/src/App.tsx`, `apps/web/src/projects/project-route.tsx`, `apps/web/src/layout/app-shell.tsx`, `apps/web/src/docs.ts` ✅ (completed: 2026-11-08 17:21)
+- [x] 3.2.3 Link the project overview certificate count to the list — `apps/web/src/pages/project-overview-page.tsx` ✅ (completed: 2026-11-08 17:21)
+- [x] 3.2.4 Run the Phase 3 spec tests and confirm green ✅ (completed: 2026-11-08 17:21)
 
 ### Step 3.3: Implementation tests and hardening
 
 **Reference**: ST-12..ST-18 · AR-21, AR-30
 **Objective**: Cover the filter and pagination edges.
 
-- [ ] 3.3.1 Add impl tests for date-bound ISO conversion, cursor reset on filter change, and the deleted empty state — `apps/web/tests/certificates-list.impl.test.tsx`
-- [ ] 3.3.2 Confirm the table and filter bar at 768 px and 390 px in the component test renderer or the review stack
+- [x] 3.3.1 Add impl tests for date-bound ISO conversion, cursor reset on filter change, and the deleted empty state — `apps/web/tests/certificates-list.impl.test.tsx` ✅ (completed: 2026-11-08 17:23)
+- [x] 3.3.2 Confirm the table and filter bar at 768 px and 390 px in the component test renderer or the review stack ✅ (completed: 2026-11-08 17:23)
 
 **Deliverables**:
 - [ ] The list, navigation, docs link, and empty states pass their tests

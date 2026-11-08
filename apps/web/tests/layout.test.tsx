@@ -1,6 +1,10 @@
 import { fireEvent, screen, waitFor } from "@testing-library/react";
+import { Route, Routes } from "react-router";
 import { beforeEach, describe, expect, it } from "vitest";
 import { DOCS_BASE_URL } from "../src/docs.js";
+import { ProjectRoute } from "../src/projects/project-route.js";
+import { FakeVault } from "./helpers/fake-vault.js";
+import { renderPage } from "./helpers/render.js";
 import { renderShell } from "./helpers/shell.js";
 
 describe("application shell", () => {
@@ -75,6 +79,51 @@ describe("application shell", () => {
     expect(screen.getByRole("link", { name: "Docs" })).toHaveAttribute(
       "href",
       `${DOCS_BASE_URL}/guide/audit`,
+    );
+  });
+
+  it("should expose Certificates in the launcher and resolve its docs links", async () => {
+    renderShell({ initialPath: "/projects/payments/secrets" });
+
+    fireEvent.click(screen.getByRole("button", { name: "Open navigation" }));
+    const search = await screen.findByRole("searchbox", { name: "Search navigation" });
+    expect(screen.getByRole("button", { name: "Certificates" })).toBeInTheDocument();
+
+    fireEvent.change(search, { target: { value: "x509" } });
+    expect(screen.getByRole("button", { name: "Certificates" })).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Certificates" }));
+    await waitFor(() => {
+      expect(screen.getByTestId("location")).toHaveTextContent("/projects/payments/certificates");
+    });
+
+    expect(screen.getByRole("link", { name: "Docs" })).toHaveAttribute(
+      "href",
+      `${DOCS_BASE_URL}/guide/certificates`,
+    );
+  });
+
+  it("should mark Certificates as the current project section", async () => {
+    const vault = new FakeVault();
+    renderPage(
+      <Routes>
+        <Route path="/projects/:project" element={<ProjectRoute />}>
+          <Route path="certificates" element={<p>Certificate content</p>} />
+        </Route>
+      </Routes>,
+      { vault, path: "/projects/payments/certificates" },
+    );
+
+    expect(await screen.findByText("Certificate content")).toBeInTheDocument();
+    const link = screen.getByRole("link", { name: "Certificates" });
+    expect(link).toHaveAttribute("aria-current", "page");
+    expect(link).toHaveAttribute("href", "/projects/payments/certificates");
+  });
+
+  it("should link a certificate detail route to the read-and-renew section", () => {
+    renderShell({ initialPath: "/projects/payments/certificates/api-tls" });
+    expect(screen.getByRole("link", { name: "Docs" })).toHaveAttribute(
+      "href",
+      `${DOCS_BASE_URL}/guide/certificates#read-and-renew`,
     );
   });
 

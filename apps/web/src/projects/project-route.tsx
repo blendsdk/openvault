@@ -37,6 +37,7 @@ export function useProject(): ProjectContextValue {
 const SECTIONS = [
   { suffix: "", label: "Overview", end: true },
   { suffix: "/secrets", label: "Secrets", end: false },
+  { suffix: "/certificates", label: "Certificates", end: false },
   { suffix: "/identities", label: "Identities", end: false },
   { suffix: "/permissions", label: "Permissions", end: false },
   { suffix: "/audit", label: "Audit", end: false },
