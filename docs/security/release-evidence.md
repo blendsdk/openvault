@@ -1,7 +1,7 @@
 # Release evidence
 
-> **Snapshot**: 2026-11-08, `v1.0.1` release
-> **Production image**: `v1.0.1` published to Docker Hub
+> **Snapshot**: 2026-11-09, `v1.1.0` release
+> **Production image**: `v1.1.0` published to Docker Hub
 
 ## Branch protection
 
@@ -32,7 +32,7 @@ change was needed.
 | Dependency review | `Review dependency changes` |
 | Docs build | `Build documentation` |
 | Compose hardening | `pnpm check:compose` inside `Verify` |
-| Container images | Server, agent, and web images published to Docker Hub; the v1.0.1 digests are below |
+| Container images | Server, agent, and web images published to Docker Hub; the v1.1.0 digests are below |
 | Security evidence and claims | `pnpm security:evidence:check` and `pnpm security:claims:check` inside `Verify` |
 
 ## Security scanner remediation
@@ -49,6 +49,25 @@ scans, signs, and attests them. The first stable image is produced by the
 `v1.0.0` tag. Later releases use a deliberate `v*.*.*` tag or tagged dispatch.
 The workflow writes the digest list to the GitHub release and the job summary.
 SBOM and provenance attestations are attached to the images.
+
+### v1.1.0
+
+Published on 2026-11-08. Cosign signatures were verified against
+`refs/tags/v1.1.0`. This minor release adds certificate management to the web UI:
+list and detail screens, import, generate, renew, version-by-id reads, tags,
+purge protection, delete, recover, purge, public material, and audited private-key
+reveal and download.
+
+The release PR passed `Verify`, `Integration (16)`, `Integration (17)`, `CodeQL`,
+`Gitleaks`, `Audit`, `Build documentation`, and `Review dependency changes`.
+The plan completed 77/77 tasks; preflight passed with notes; the independent
+review fixed two major findings and accepted one observation.
+
+| Image | Digest |
+|---|---|
+| `blendsdk/openvault` | `sha256:a55bf4e0f7b7cad899cd1ed7208ee48a48dc94549541c5ae3be4cd746a7c50a2` |
+| `blendsdk/openvault-agent` | `sha256:3ec62383ec3511c62535af5210a5d152b8c4b73ac01ac0de75549588956253ea` |
+| `blendsdk/openvault-web` | `sha256:4a45cc616d6e795622deac4b1a7d00a610f1bbe757884bf879f4c18be117d1c9` |
 
 ### v1.0.1
 
