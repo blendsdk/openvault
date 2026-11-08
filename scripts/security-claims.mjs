@@ -127,7 +127,9 @@ function render() {
   for (const claim of ledger.claims ?? []) {
     const detail =
       claim.status === "implemented"
-        ? claim.evidence.map((item) => `${item.type}: \`${item.file}\` — ${item.name}`).join("<br>")
+        ? claim.evidence
+            .map((item) => `${item.type}: \`${item.file}\` — ${item.name ?? item.check}`)
+            .join("<br>")
         : `planned: ${claim.reason}`;
     lines.push(
       `| ${cell(claim.id)} | ${cell(claim.claim)} | ${cell(claim.status)} | ${cell(detail)} |`,

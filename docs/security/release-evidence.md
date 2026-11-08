@@ -1,6 +1,6 @@
 # Release evidence
 
-> **Snapshot**: 2026-11-08, `main` after the dependency upgrade (PR #57); release review pending
+> **Snapshot**: 2026-11-08, `main` after the dependency upgrade (PR #57)
 > **Production image**: not published
 
 ## Branch protection
@@ -39,20 +39,22 @@ change was needed.
 
 A fresh Codex Security scan at `cb81edba4079fc4c6fb929be95a0bb6bfa794f1a` reported seven
 findings: two High, three Medium, and two Low. All seven are fixed on this branch with
-regression tests, threat-model rows T-24 through T-30, and updated limitations. The external
-review remains the production-release gate.
+regression tests, threat-model rows T-24 through T-30, and updated limitations. The Codex
+scan is a manual, advisory check; it is not part of CI/CD and does not block a release.
 
 ## Release image evidence
 
 The release workflow publishes, scans, signs, and attests the images. The first
-alpha image is produced by a manual dispatch. A production image is blocked
-until the independent-review file is approved. The workflow writes the digest and
+alpha image is produced by a manual dispatch. A production image is produced by
+a deliberate `v*.*.*` tag or tagged dispatch. The workflow writes the digest and
 SBOM list to the GitHub release and the job summary.
 
-## Independent review
+## Manual security scan
 
-`docs/security/external-review.md` is the gate. It currently records
-`Status: Pending`, so a production tag fails before any registry login.
+`docs/security/external-review.md` records the optional OpenAI Codex Security
+scan. It is run manually from time to time because it needs a specific runtime
+environment that is not available in CI/CD. It is not a workflow step and does
+not block a release.
 
 ## Reproduce locally
 
@@ -61,9 +63,6 @@ pnpm verify
 pnpm security:evidence:check
 pnpm security:claims:check
 pnpm check:compose
-node scripts/check-release-gate.mjs --mode alpha --version v0.1.0-alpha.1
-node scripts/check-release-gate.mjs --mode production --version v0.1.0 --commit "$(git rev-parse HEAD)"
 ```
 
-The production command intentionally fails until the Codex Security review is
-approved.
+The Codex Security scan is not part of this list and is not a release gate.

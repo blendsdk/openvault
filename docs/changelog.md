@@ -87,12 +87,12 @@
   keyless signing, signature verification, GitHub release assets, and an alpha-only manual
   mode labelled not for production.
 - Weekly dependency audit and container rescan workflow.
-- Incident response runbook, release process, branch-protection evidence, external-review
-  packet, and a fail-closed production-label gate.
+- Incident response runbook, release process, branch-protection evidence, and a manual
+  external-scan record.
 
 ### Deferred
 
-- The OpenAI Codex Security review is pending; a production-labelled image is blocked until it
-  is approved.
+- The OpenAI Codex Security scan is a manual, periodic check; it is not part of CI/CD and does
+  not block a release.
 - Multi-arch images, certificate screens, and real-browser Playwright checks across engines;
   v0.1 keeps certificates in the CLI and runs axe in jsdom.

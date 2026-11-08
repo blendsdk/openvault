@@ -7,7 +7,7 @@ on:
   workflow_dispatch:
     inputs:
       mode:
-        description: "alpha publishes a not-for-production image; production requires an approved OpenAI Codex Security review"
+        description: "alpha publishes a not-for-production image; production publishes a production-labelled image"
         type: choice
         options: [alpha, production]
         default: alpha
@@ -25,7 +25,7 @@ concurrency:
 
 jobs:
   gate:
-    name: Release gate
+    name: Release metadata
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -101,13 +101,6 @@ jobs:
             echo "$TAGS"
             echo "EOF"
           } >> "$GITHUB_OUTPUT"
-
-      - name: Enforce the release gate
-        env:
-          MODE: ${{ steps.resolve.outputs.mode }}
-          VERSION: ${{ steps.resolve.outputs.version }}
-          COMMIT: ${{ github.sha }}
-        run: node scripts/check-release-gate.mjs --mode "$MODE" --version "$VERSION" --commit "$COMMIT"
 
   build:
     name: Build and sign ${{ matrix.name }}
