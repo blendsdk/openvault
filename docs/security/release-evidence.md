@@ -47,8 +47,8 @@ scan is a manual, advisory check; it is not part of CI/CD and does not block a r
 The release workflow publishes the images to Docker Hub under `blendsdk`,
 scans, signs, and attests them. The first stable image is produced by the
 `v1.0.0` tag. Later releases use a deliberate `v*.*.*` tag or tagged dispatch.
-The workflow writes the digest and SBOM list to the GitHub release and the job
-summary.
+The workflow writes the digest list to the GitHub release and the job summary.
+SBOM and provenance attestations are attached to the images.
 
 ## Manual security scan
 
