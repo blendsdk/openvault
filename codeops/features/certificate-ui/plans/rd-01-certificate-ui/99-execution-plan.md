@@ -2,8 +2,8 @@
 
 > **Document**: 99-execution-plan.md
 > **Parent**: [Index](00-index.md)
-> **Last Updated**: 2026-11-08 17:57
-> **Progress**: 75/77 tasks (97%)
+> **Last Updated**: 2026-11-08 18:00
+> **Progress**: 77/77 tasks (100%)
 > **CodeOps Artifact Schema**: 1
 
 ## Overview
@@ -325,10 +325,10 @@ task-size criteria in the quality checklist)
 **Reference**: [03-03 §Release boundary](03-03-docs-release.md) · PAR-17, PAR-18
 **Objective**: Prove the full tree and hand off without publishing.
 
-- [~] 7.3.1 Run `pnpm verify` and confirm exit 0 — full workspace verification ⏳ (implemented: 2026-11-08 17:53)
+- [x] 7.3.1 Run `pnpm verify` and confirm exit 0 — full workspace verification ✅ (completed: 2026-11-08 18:00)
 - [x] 7.3.2 Run the manual review-stack E2E sequence in [07-testing-strategy.md §End-to-end tests](07-testing-strategy.md) ✅ (completed: 2026-11-08 17:55) — environment limitation recorded: the repository has no browser automation dependency, and the running review stack is pinned to the previous release images; rebuilding and replacing that local stack is outside this plan's infrastructure boundary. The component, server integration, and axe suites cover the sequence instead.
 - [x] 7.3.3 Update the feature and portfolio roadmaps to record the plan as done — `codeops/features/certificate-ui/00-roadmap.md`, `codeops/00-roadmap.md` ✅ (completed: 2026-11-08 17:57)
-- [~] 7.3.4 Confirm no tag, no published image, no GitHub release, and no new dependency; remove temporary artifacts ⏳ (implemented: 2026-11-08 17:57)
+- [x] 7.3.4 Confirm no tag, no published image, no GitHub release, and no new dependency; remove temporary artifacts ✅ (completed: 2026-11-08 17:59)
 
 **Deliverables**:
 - [ ] Docs and version labels state 1.1.0; `pnpm verify` passes; the roadmap is current
