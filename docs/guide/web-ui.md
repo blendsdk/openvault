@@ -77,35 +77,16 @@ secret-object grants for the project. The editor filters roles to those valid fo
 scope, rejects a missing object target, a missing principal, a missing role, and a past expiry
 before sending the request, and shows any server escalation error as-is.
 
-## Development
+## Serving
 
-```bash
-pnpm --filter @openvault/server dev
-pnpm --filter @openvault/web dev
-```
+The web UI is served from the same origin as the API. Hashed assets are cached for one year,
+`index.html` is not cached, and unknown HTML routes fall back to the application shell. Unknown
+API routes remain JSON 404s. If the UI is not installed, the API starts normally and serves no
+UI.
 
-The UI runs at `http://localhost:5173`. Vite proxies `/v1` to `https://localhost:8443` with
-certificate verification disabled for the local development certificate, and rewrites
-`Origin`/`Referer` to `OPENVAULT_BASE_URL` so the server's origin guard and CSRF checks behave
-as they do in production. Override the target with `OPENVAULT_DEV_URL` and the public origin
-with `OPENVAULT_BASE_URL`.
-
-## Production serving
-
-`pnpm --filter @openvault/web build` writes `apps/web/dist`. When that directory contains
-`index.html` and `assets`, the server installs the WebAFX static plugins:
-
-- `/assets/*` is hashed and cached immutably for one year,
-- `index.html` is not cached,
-- unknown `GET` HTML routes fall back to `index.html`,
-- unknown API routes remain JSON 404s.
-
-Set `OPENVAULT_WEB_ROOT` to serve a build from another directory or from a container path. If
-the directory is absent the API starts normally and serves no UI.
-
-The UI-enabled Content-Security-Policy allows same-origin scripts, connections, images,
-fonts, and inline style elements (Fluent UI's Griffel runtime). Scripts remain `'self'` only
-and there is no `unsafe-eval`. API-only deployments keep the deny-by-default policy.
+The UI Content-Security-Policy allows same-origin scripts, connections, images, fonts, and
+inline style elements. Scripts remain `'self'` only and there is no `unsafe-eval`. API-only
+deployments keep the deny-by-default policy.
 
 ## Accessibility
 
@@ -113,11 +94,9 @@ Every input has a label and an associated error. Page errors use `role="alert"`;
 regions use `aria-busy`; tables have captions and header scope; status uses text and icons,
 not color alone. Keyboard operation covers login, reveal, navigation, dialogs, and logout.
 The layout has a persistent sidebar at desktop widths, a launcher-driven top bar at every
-width, and tables that scroll horizontally at 768 px. Page titles, eyebrows, and descriptions
-use a consistent vertical rhythm rather than zero-margin stacking.
+width, and tables that scroll horizontally at 768 px.
 
-Axe runs in the Vitest/jsdom suite on login, secret detail, audit, and the application shell.
-Browser automation across real engines belongs to the release assurance work.
+Automated accessibility checks cover login, secret detail, audit, and the application shell.
 
 ## Out of scope in v1.0
 

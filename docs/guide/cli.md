@@ -1,15 +1,12 @@
 # CLI
 
-The `ov` command is the bootstrap, automation, and incident surface. The web UI covers the
-common interactive flows. `ov` is built from `apps/cli` and talks to the same HTTPS API as the
-browser.
+The `ov` command is the bootstrap, automation, and incident surface. It talks to the same
+HTTPS API as the browser. The `blendsdk/openvault` image includes the binary; use
+`docker compose exec openvaultd ov ...` if it is not installed on the host.
 
-## Build and sign in
+## Sign in
 
 ```bash
-pnpm --filter @openvault/cli build
-export PATH="$PWD/apps/cli/node_modules/.bin:$PATH"
-
 export OPENVAULT_CA_FILE=/path/to/proxy-root-ca.pem
 ov login --url https://vault.example.com --identifier admin@example.com
 ov whoami
@@ -187,17 +184,16 @@ export OPENVAULT_KEYRING=/var/lib/openvault/keyring.json
 export OPENVAULT_INTERNAL_CA=/etc/openvault/tls/ca.pem
 export OPENVAULT_BACKUP_PASSPHRASE_FILE=/run/secrets/backup-passphrase
 
-ov backup --out /backups/openvault.age
-ov restore /backups/openvault.age --yes
+ov backup --out /backups/openvault.backup
+ov restore /backups/openvault.backup --yes
 ov kek rotate --yes
 ```
 
-`ov backup` writes one passphrase-encrypted age archive containing a logical JSON database
-dump, the raw keyring, a redacted configuration manifest, the public internal CA, and the
-audit checkpoints. The passphrase comes from a `0600` file or an interactive hidden prompt;
+`ov backup` writes one passphrase-encrypted archive containing a logical database dump, the
+keyring, a redacted configuration manifest, the public internal CA, and the audit
+checkpoints. The passphrase comes from a `0600` file or an interactive hidden prompt;
 it is never accepted in argv. The database password and every stored secret value remain
-outside the manifest. Compaction and `pg_dump` compatibility are deferred; the archive is a
-portable v1.0 logical dump.
+outside the manifest. The archive is a portable v1.0 logical dump.
 
 `ov restore` decrypts and verifies every manifest checksum before touching the target. The
 target must be empty unless `--force` is set, and `--yes` is required for the destructive
@@ -205,15 +201,15 @@ confirmation. Set `OPENVAULT_RESTORE_DB_URL` to an owner or migrator role that c
 triggers and truncate the tables; the default `OPENVAULT_DB_URL` is the application role and
 may fail with `restore_requires_owner`. Restore runs migrations, restores rows, writes the
 keyring and public CA, verifies the audit chain, decrypts every current secret and certificate
-private key, verifies the JWT signing key, and signs a probe certificate with the restored CA
+private key, verifies the session signing key, and signs a probe certificate with the restored CA
 key. Add `--agent-certificate <pem>` to verify a certificate captured before the backup.
 
 `ov kek rotate` generates a new KEK, rewraps every secret and certificate data key, audit
-key, CA scalar, and JWT seed, updates `kek_id`, verifies that no row still references the old
+key, CA key, and session signing seed, updates the key id, verifies that no row still references the old
 key, and only then removes it from the keyring. Value ciphertext is never re-encrypted.
 Rotation needs a role that owns the key tables because it temporarily disables the
 immutability triggers. Run it during a maintenance window with the server stopped: a running
-server holds the old keyring in memory and can write new rows with the old `kek_id` after the
+server holds the old keyring in memory and can write new rows with the old key id after the
 verification step. Use `--dry-run` to see the counts without changing anything.
 
 All three operations write `backup.create`, `backup.restore`, or `kek.rotate` audit events.

@@ -75,30 +75,31 @@ streaming starts destroys the response, and the client must discard the partial 
 The retention window defaults to 180 days (`OPENVAULT_AUDIT_RETENTION_DAYS`). Pruning is an
 explicit maintenance command, not a background job:
 
-Build the server package first, then load the pruner URL from a mode-`0600` environment file
-so the password never enters shell history or the process argument list:
+Run the maintenance command from the server image. The output directory must be writable by
+the container user (`10001`):
 
 ```bash
-pnpm build
-set -a
-. /etc/openvault/prune.env
-set +a
-pnpm --filter @openvault/server audit:prune -- --out /secure/audit-2026-11-04.ndjson
+install -d -m 0700 -o 10001 -g 10001 ./audit-output
+docker compose -f deploy/compose/compose.yaml run --rm \
+  --entrypoint node \
+  -e OPENVAULT_PRUNE_DB_URL_FILE=/run/secrets/db_pruner_url \
+  -v "$PWD/deploy/compose/secrets/db_pruner_url:/run/secrets/db_pruner_url:ro" \
+  -v "$PWD/audit-output:/output" \
+  openvaultd /app/server/dist/audit/cli.js --out /output/audit-2026-11-04.ndjson
 ```
 
 The command verifies the retained chain first, writes the deletable prefix to an exclusive
-mode-`0600` file, writes a checkpoint at its last event, deletes the prefix through the
-`openvault_pruner` session, and records the prune. `--dry-run` exports and checkpoints without
-deleting. The pruner role needs only `EXECUTE` on
-`public.openvault_prune_audit_prefix(text)`. The application creates a short-lived single-use
-authorization after verification, export, and checkpoint; the procedure consumes it, deletes
-the prefix, and writes a completion receipt. Do not grant the pruner direct table, sequence, or
-column access.
+mode-`0600` file, writes a checkpoint at its last event, deletes the prefix, and records the
+prune. `--dry-run` exports and checkpoints without deleting.
 
 Export the newest checkpoint for off-box anchoring:
 
 ```bash
-pnpm --filter @openvault/server audit:checkpoint -- --out /secure/audit-checkpoint.json
+docker compose -f deploy/compose/compose.yaml run --rm \
+  --entrypoint node \
+  -v "$PWD/audit-output:/output" \
+  openvaultd /app/server/dist/audit/checkpoint-cli.js \
+  --out /output/audit-checkpoint.json
 ```
 
 Store that file outside the vault host. It is a trusted hash anchor for the event it names;
@@ -116,5 +117,5 @@ the append-only trigger.
 
 ## Next
 
-- [Threat model](/security/threat-model)
-- [Known limitations](/security/limitations)
+- [Known limitations](/security/known-limitations)
+- [Operations](/guide/operations)

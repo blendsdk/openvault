@@ -1,13 +1,7 @@
 # CLI reference
 
-The `ov` binary is built from `apps/cli` (`@openvault/cli`). It uses the generated client from
-`apps/cli/src/generated`, which is produced from the real server controllers by
-`apps/server/scripts/api-contract.ts`.
-
-```bash
-pnpm build
-node apps/cli/dist/main.js --help
-```
+The `ov` binary is included in the `blendsdk/openvault` image and the release archive. Run
+`ov --help` to list the command groups.
 
 ## Global options
 
@@ -152,7 +146,7 @@ including `--password-file` and `--bootstrap-password-file`, must be absolute. S
 
 | Command | Options | Purpose |
 |---|---|---|
-| `ov backup` | `--out`, `--passphrase-file`, `--keyring`, `--internal-ca`, `--force` | Write one encrypted age archive |
+| `ov backup` | `--out`, `--passphrase-file`, `--keyring`, `--internal-ca`, `--force` | Write one encrypted archive |
 | `ov restore <archive>` | `--passphrase-file`, `--keyring`, `--internal-ca`, `--ca-public-dir`, `--agent-certificate`, `--force`, `--yes` | Restore into a migrated target |
 | `ov kek rotate` | `--dry-run`, `--keyring`, `--yes` | Rewrap every key with a new KEK |
 
@@ -160,9 +154,9 @@ including `--password-file` and `--bootstrap-password-file`, must be absolute. S
 `OPENVAULT_DB_URL` only for the `backup.create` audit event, `OPENVAULT_KEYRING`,
 `OPENVAULT_INTERNAL_CA` (or a `ca.pem` beside `OPENVAULT_TLS_CERT`), and
 `OPENVAULT_BACKUP_PASSPHRASE_FILE` or `--passphrase-file`. Both database URLs must target the
-same database; the app/auth role is refused for the dump. The archive contains a logical JSON database dump, the keyring, a
-redacted configuration manifest, the public CA, and audit checkpoints. It is encrypted with
-age using the passphrase.
+same database; the app/auth role is refused for the dump. The archive contains a logical
+database dump, the keyring, a redacted configuration manifest, the public CA, and audit
+checkpoints. It is encrypted with the passphrase.
 
 `restore` uses `OPENVAULT_DB_URL` for the restored application connection and
 `OPENVAULT_RESTORE_DB_URL` (falling back to `OPENVAULT_MIGRATION_DB_URL`) for migrations and
@@ -170,12 +164,12 @@ data loading. Both URLs must target the same database; the restore role must own
 user triggers can be disabled. A non-empty target is refused unless `--force` is set; `--yes`
 is required for the destructive confirmation. Stop the server during restore. The command
 verifies checksums and the archived keyring before touching the target, then verifies the
-restored audit chain, every current secret and certificate private key, the JWT signing key,
+restored audit chain, every current secret and certificate private key, the session signing key,
 and a CA signing probe. `--agent-certificate` adds the pre-backup agent certificate check. `--ca-public-dir`
 writes the public CA to the proxy's `ca.pem` as well.
 
-`kek rotate` rewraps secret and certificate data keys, audit keys, CA keys, and JWT seeds
-without re-encrypting values. It removes the old key only after every `kek_id` is verified.
+`kek rotate` rewraps secret and certificate data keys, audit keys, CA keys, and session signing seeds
+without re-encrypting values. It removes the old key only after every key id is verified.
 Run it during a maintenance window with the server stopped. The command refuses if an
 `openvault_app` or `openvault_auth` session is connected, and the role must own the key tables.
 
@@ -204,12 +198,6 @@ diagnostics, or logs.
 | 4 | Permission denied |
 | 5 | Not found |
 | 6 | Conflict |
-
-## Generated API contract
-
-`pnpm api:generate` writes `packages/api-contract/openapi.json` and the typed client under
-`apps/cli/src/generated`. `pnpm api:check` rebuilds both in memory and fails on drift; it runs
-inside `pnpm verify`.
 
 ## Examples
 

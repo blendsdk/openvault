@@ -19,7 +19,7 @@ Use this before putting OpenVault in front of real workloads.
   authoritative, and `admin_net` placement is defense in depth.
 - [ ] The static web container is on `web_net` only; it is not published.
 - [ ] Agent `8444` is on `vault_net` only and is not published.
-- [ ] PostgreSQL is on `db_net` only.
+- [ ] The database is on `db_net` only.
 - [ ] Agents are the only containers on both `vault_net` and an app network.
 - [ ] No Docker socket is mounted into any container.
 - [ ] `OPENVAULT_TRUST_PROXY` is true only behind the proxy.
@@ -33,7 +33,7 @@ Use this before putting OpenVault in front of real workloads.
 - [ ] Workload certificates are short-lived and renewed.
 - [ ] Revoked identities are removed from service.
 - [ ] Certificate expiry alerts reach a real channel.
-- [ ] The keyring file is mode `0600`; the keyring itself is not age-encrypted in v1.0, so the host directory and backups are the protection boundary.
+- [ ] The keyring file is mode `0600`; it is not encrypted at rest, so the host directory and backups are the protection boundary.
 - [ ] The backup archive passphrase is stored separately from the archive.
 
 ## Identity
@@ -67,9 +67,9 @@ Use this before putting OpenVault in front of real workloads.
 - [ ] KEK rotation was tested; the pre-rotation keyring is kept with old backups.
 - [ ] The keyring is backed up separately.
 - [ ] `ov init` provisioned the keyring and TLS material.
-- [ ] `openvault_migrator`, `openvault_app`, `openvault_purger`, and `openvault_pruner` are separate login roles.
+- [ ] Runtime, migration, backup, purge, and prune use separate database logins.
 - [ ] Every container runs non-root with a read-only root, dropped capabilities, and resource limits.
 - [ ] Daily backup and checkpoint timers run and copy off-box.
 - [ ] `ov doctor --backup-dir` passes.
 - [ ] Monitoring alerts on `/ready`, agent health, and certificate expiry.
-- [ ] The threat model, evidence matrix, and limitations were reviewed.
+- [ ] The [known limitations](/security/known-limitations) were reviewed.

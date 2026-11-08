@@ -7,16 +7,16 @@
 
 Self-hosted secrets and certificates for Docker Compose projects.
 
+OpenVault versions every value, grants narrow access, delivers secrets through a per-service
+agent, and records every read in a tamper-evident audit log. It is designed for a small team
+running Docker Compose on one host.
+
+## Status
+
+OpenVault 1.0 is the first stable release.
 **Current release: [1.0.1](https://github.com/blendsdk/openvault/releases/tag/v1.0.1).**
 
-OpenVault versions every value, grants narrow access, delivers secrets through a per-service
-agent, and records every read in a tamper-evident audit log. It is Azure Key Vault-inspired,
-but designed for a small team running Docker Compose on one host.
-
 ## Quickstart
-
-The 1.0.1 images are published to Docker Hub under `blendsdk`. The reference stack runs on one
-host:
 
 ```bash
 git clone https://github.com/blendsdk/openvault.git
@@ -29,18 +29,7 @@ docker compose -f deploy/compose/compose.yaml up -d
 
 Read the one-time bootstrap password, sign in at `https://localhost`, and create a project and
 secret. To load a secret into an application as an environment variable, use the
-[ready-to-run example](examples/compose-env/README.md) and the
-[environment-variable guide](docs/guide/environment-variables.md).
-
-## Status
-
-OpenVault 1.0 is the first stable release. It includes secrets, certificates, RBAC, audit,
-the agent, the CLI, the web UI, encrypted backup/restore, KEK rotation, the hardened reference
-Compose stack, and the release-assurance pipeline. The OpenAI Codex Security scan is a
-manual, periodic check. It is not part of CI/CD and does not block a release. See the
-[security evidence matrix](docs/security/evidence-matrix.md), the
-[release process](docs/security/release-process.md), and the
-[versioning policy](docs/guide/versioning.md).
+[ready-to-run example](examples/compose-env/README.md).
 
 ## Why OpenVault?
 
@@ -48,118 +37,34 @@ Docker secrets are built for Swarm, not Compose. Teams end up with `.env` files,
 volumes, or copy-pasted values. OpenVault gives a Compose project a real secret store:
 
 - versioned secrets and certificates
-- project and object scopes with deny-by-default RBAC
-- one agent per service, writing to an isolated tmpfs directory
+- project and object scopes with deny-by-default access control
+- one agent per service, writing to an isolated temporary filesystem
 - no vault route from the application network
 - audit of every read, denial, and permission change
 - a web UI and a CLI for operators
 
-## Architecture
+## How it works
 
 ```text
-browser / CLI ── HTTPS ──▶ reverse proxy ──▶ WebAFX server ──▶ PostgreSQL
-                                                   │
-                                                   └── keyring (KEK, outside the database)
+browser / CLI ── HTTPS ──▶ reverse proxy ── HTTPS ──▶ vault server ──▶ database
+                                                          │
+                                                          └── keyring (outside the database)
 
-app container ◀── tmpfs files ── agent ── mTLS ──▶ WebAFX server
+app container ◀── files ── agent ── mutual TLS ──▶ vault server
 ```
 
 The application never talks to the vault. The agent is the only bridge, and each Compose
-service gets its own agent and its own tmpfs directory.
-
-## Run from source
-
-Requirements: Node.js 24.7+, pnpm 12.18.0.
-
-```bash
-git clone https://github.com/blendsdk/openvault.git
-cd openvault
-pnpm install
-pnpm verify
-```
-
-Run the API and UI locally:
-
-```bash
-pnpm --filter @openvault/server dev
-pnpm --filter @openvault/web dev
-```
-
-The UI dev server runs on `http://localhost:5173` and proxies `/v1` to the API on port
-8443. The API exposes `GET /health` for liveness and `GET /ready` for dependency readiness.
-
-Build the documentation:
-
-```bash
-pnpm docs:dev
-pnpm docs:build
-```
-
-## Review the app locally
-
-The review script builds the current checkout, starts the full stack on loopback, and seeds
-synthetic projects, secrets, certificates, identities, grants, and audit events:
-
-```bash
-./deploy/compose/review.sh up
-./deploy/compose/review.sh password
-```
-
-Open `https://localhost:8443` and sign in as `admin@openvault.local`. See
-[Review the app](docs/guide/review.md) for the walkthrough, browser security checks, and
-cleanup.
-
-## Compose quick start
-
-```bash
-./deploy/compose/prepare.sh
-export OPENVAULT_BASE_URL=https://localhost
-export OPENVAULT_SITE_ADDRESS=localhost
-docker compose -f deploy/compose/compose.yaml up -d
-```
-
-Read the one-time password through the init container, remove the copy, then open
-`https://localhost`, create a project, and deliver a secret to a service:
-
-```bash
-install -m 0600 /dev/null /tmp/openvault-bootstrap
-docker compose -f deploy/compose/compose.yaml cp \
-  openvault-init:/bootstrap/bootstrap-password /tmp/openvault-bootstrap
-cat /tmp/openvault-bootstrap
-rm -f /tmp/openvault-bootstrap
-```
-
-```bash
-ov docker scaffold payments api
-```
-
-The scaffold prints a single-use join token and a Compose snippet. The agent exchanges the
-token for a certificate and writes `/run/secrets/db_password`; the application reads the
-file and has no route to the vault.
-
-## Repository layout
-
-```text
-apps/
-  server/      WebAFX API and UI hosting
-  web/         React 19 + Fluent UI v9
-packages/
-  core/        domain and envelope encryption
-docs/          VitePress documentation
-deploy/        Compose stack and examples (growing)
-.github/       CI, docs, security, and release workflows
-```
+service gets its own agent and its own private directory.
 
 ## Security
 
-- AES-256-GCM envelope encryption with a KEK outside the database
-- Argon2id passwords, HttpOnly BFF sessions, CSRF protection
-- Short-lived mTLS certificates and immediate revocation
-- Hash-chained, HMAC-protected audit log
-- No SSH for workloads
+- secrets and certificates are encrypted at rest with keys kept outside the database
+- access is deny-by-default at organization, project, and object scope
+- agents use short-lived certificates, and every read is audited
+- the agent is the only route from an application to the vault
 
-The threat model, evidence matrix, security claims, and known limitations are in the
-documentation. Report vulnerabilities privately as described in [SECURITY.md](SECURITY.md).
+See the [security overview](https://blendsdk.github.io/openvault/security/) and
+[known limitations](https://blendsdk.github.io/openvault/security/known-limitations).
 
 ## Documentation
 
@@ -170,8 +75,8 @@ Start with [Your first secret](docs/tutorials/first-secret.md) or
 
 ## Roadmap
 
-- **v1.x**: certificate UI, rotation workflow, Redis sessions, remote Docker hosts
-- **Next**: Kubernetes identity, external KMS/HSM, ACME, high availability
+- **v1.x**: certificate UI, rotation workflow, remote Docker hosts
+- **Next**: Kubernetes identity, external key services, ACME, high availability
 
 ## Contributing
 

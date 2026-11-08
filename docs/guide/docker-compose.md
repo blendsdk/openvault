@@ -1,12 +1,12 @@
 # Docker Compose
 
-The reference stack runs one host with four OpenVault services plus PostgreSQL:
+The reference stack runs one host with four OpenVault services plus a database:
 
 | Service | Networks | Purpose |
 |---|---|---|
 | `proxy` | `edge_net`, `admin_net`, `web_net` | Public TLS, HSTS, API/UI routing |
 | `openvaultd` | `admin_net`, `vault_net`, `db_net` | API, auth, policy, audit, agent listener |
-| `web` | `web_net` | Static SPA with its own CSP and cache policy |
+| `web` | `web_net` | Web UI with its own CSP and cache policy |
 | `postgres` | `db_net` | Metadata, ciphertext, audit chain |
 | `openvault-init` | `db_net` | One-shot keyring, CA, TLS, org, bootstrap admin |
 | `openvault-roles` | `db_net` | One-shot least-privilege grants |
@@ -29,7 +29,7 @@ as the site address. `prepare.sh` creates:
 - `data/postgres` owned by UID 70 with mode `0700`.
 - `data/openvault`, `data/tls`, and `data/ca` owned by UID 10001.
 - `data/caddy` owned by UID 65534.
-- Docker secrets for the PostgreSQL bootstrap password and five role URLs
+- Docker secrets for the database bootstrap password and five role URLs
   (`migrator`, `app`, `auth`, `backup`, and `purger`).
 
 File-backed Compose secrets are bind mounts rather than Swarm secrets. `prepare.sh` makes the
@@ -51,7 +51,7 @@ the non-root ownership. A rootless Docker host must map the same UIDs.
 | `openvault_purger` | None | Secret and certificate purge |
 | `openvault_pruner` | None | Audit prune; `EXECUTE` only |
 
-PostgreSQL runs the role bootstrap from `deploy/postgres/init-roles.sh` on a fresh data
+The database runs the role bootstrap from `deploy/postgres/init-roles.sh` on a fresh data
 directory. `openvault-init` runs migrations as the migrator and creates the keyring,
 CA, TLS pair, organization, and bootstrap administrator. `openvault-roles` then runs
 `ensure-auth-role.sql`, `ensure-backup-role.sql`, and `grants.sql`, and asserts that the
@@ -64,7 +64,7 @@ The server reads full role URLs from Docker secrets through
 No password is placed in the Compose model or the process environment inherited by child
 processes.
 
-If the PostgreSQL volume already exists, the init scripts do not re-run, but the
+If the database volume already exists, the init scripts do not re-run, but the
 `openvault-roles` job still runs the ensure scripts and `grants.sql` on every deployment.
 Re-run `grants.sql` after a migration that adds a table the runtime, purge, prune, or backup
 path must access.
@@ -97,11 +97,11 @@ no recovery path for a never-used bootstrap password.
 
 `edge_net` is the proxy's only non-internal network, so it can reach ACME endpoints.
 `admin_net`, `web_net`, `vault_net`, and `db_net` are internal. The proxy routes `/v1`,
-`/health`, and `/ready` to the API and everything else to the static SPA.
+`/health`, and `/ready` to the API and everything else to the web UI.
 
 The admin listener binds all container interfaces, but the source guard accepts only
 `OPENVAULT_PROXY_CIDRS` peers (and loopback for health and readiness). `admin_net`
-placement is defense in depth. Agents cannot reach the admin listener. PostgreSQL is
+placement is defense in depth. Agents cannot reach the admin listener. The database is
 never an admin peer.
 
 ## Hardening
@@ -115,8 +115,8 @@ Every service has:
 - JSON log rotation at 10 MiB with three files.
 - CPU and memory limits.
 
-No service mounts the Docker socket. The API and agent listeners are never published.
-`pnpm check:compose` enforces these properties in `pnpm verify`.
+No service mounts the Docker socket. The API and agent listeners are never published. The
+reference stack is checked before each release.
 
 ## Agent scaffold
 
@@ -124,7 +124,7 @@ No service mounts the Docker socket. The API and agent listeners are never publi
 ov docker scaffold payments api
 ```
 
-The command calls `POST /v1/admin/scaffold`. The backend creates or reuses the project and
+The command calls `POST /v1/admin/scaffold`. The server creates or reuses the project and
 service identity, grants object-scope `secrets.reader` only for the manifest entries, revokes
 older unused join tokens, issues a new one-time token, and returns a per-service Compose
 snippet plus a manifest skeleton. It is idempotent and never writes the token into the
