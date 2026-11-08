@@ -74,7 +74,7 @@ export interface RestoreResult {
   readonly secretsVerified: number;
   /** Number of current certificate private keys decrypt-verified. */
   readonly certificatesVerified: number;
-  /** Whether the restored session signing key signed and verified a probe token. */
+  /** Whether the restored JWT signing key signed and verified a probe token. */
   readonly signingKeyVerified: boolean;
   /** Whether the CA key signed a probe certificate. */
   readonly caVerified: boolean;
@@ -460,7 +460,7 @@ async function verifyRestoredState(options: {
   } catch (error) {
     throw new OpsError(
       "restore_verification_failed",
-      "The restored session signing key could not sign and verify a probe token",
+      "The restored JWT signing key could not sign and verify a probe token",
       { cause: error },
     );
   } finally {

@@ -94,7 +94,6 @@ Expected result lines:
 audit chain: ok
 secrets verified: <count>
 certificate private keys verified: <count>
-Session signing key: verified
 CA key: verified
 pre-backup agent certificate: verified
 ```

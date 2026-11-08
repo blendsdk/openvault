@@ -95,7 +95,7 @@ Run this on a disposable host or database. It exercises every restore criterion:
    comparison.
 5. Restore into an empty database with `--agent-certificate`.
 6. Confirm the output reports `audit chain: ok`, the expected `secrets verified` and
-   `certificate private keys verified` counts, `Session signing key: verified`, `CA key: verified`,
+   `certificate private keys verified` counts, a verified signing key, `CA key: verified`,
    and `pre-backup agent certificate: verified`.
 7. Sign in, read one secret per project, and run `ov audit verify`.
 8. Record the elapsed time; it must stay under the one-hour RTO.
