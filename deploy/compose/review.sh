@@ -26,6 +26,7 @@ WEB_IMAGE_WAS_SET=${OPENVAULT_WEB_IMAGE:+1}
 IMAGE=${OPENVAULT_IMAGE:-openvault:review}
 WEB_IMAGE=${OPENVAULT_WEB_IMAGE:-openvault-web:review}
 ADMIN_EMAIL=${OPENVAULT_REVIEW_ADMIN:-admin@openvault.local}
+EXTRA_COMPOSE_FILE=${OPENVAULT_COMPOSE_EXTRA_FILE:-}
 
 DATA_DIR=${DATA_DIR%/}
 SECRETS_DIR=${SECRETS_DIR%/}
@@ -68,7 +69,12 @@ if [ "$PORT" -lt 1 ] || [ "$PORT" -gt 65535 ]; then
 fi
 
 compose() {
-  docker compose -f "$ROOT/compose.yaml" -f "$ROOT/compose.review.yaml" "$@"
+  if [ -n "$EXTRA_COMPOSE_FILE" ]; then
+    docker compose -f "$ROOT/compose.yaml" -f "$ROOT/compose.review.yaml" \
+      -f "$EXTRA_COMPOSE_FILE" "$@"
+  else
+    docker compose -f "$ROOT/compose.yaml" -f "$ROOT/compose.review.yaml" "$@"
+  fi
 }
 
 require_docker() {
@@ -207,6 +213,9 @@ seed_stack() {
 }
 
 print_summary() {
+  if [ "${OPENVAULT_REVIEW_QUIET:-0}" = "1" ]; then
+    return 0
+  fi
   printf 'OpenVault review environment is ready.\n\n'
   printf '  URL:       %s\n' "$BASE_URL"
   printf '  Admin:     %s\n' "$ADMIN_EMAIL"
@@ -428,6 +437,9 @@ Environment:
   OPENVAULT_REVIEW_ADMIN    Bootstrap administrator email
   OPENVAULT_IMAGE           Override the server image (must already exist)
   OPENVAULT_WEB_IMAGE       Override the web image (must already exist)
+  OPENVAULT_COMPOSE_EXTRA_FILE
+                            Additional Compose overlay for a wrapper environment
+  OPENVAULT_REVIEW_QUIET    1 suppresses the ready summary for wrappers
 EOF
 }
 
