@@ -22,11 +22,11 @@ import {
   parseValidityDays,
   validateCertificateName,
 } from "../validation.js";
+import { CertificateErrorAlert } from "./certificate-errors.js";
 import {
   CertificateResultPanel,
   type CertificateWriteWarning,
 } from "./certificate-result-panel.js";
-import { ErrorAlert } from "./feedback.js";
 
 type KeyType = "ec-p256" | "rsa-2048" | "rsa-3072";
 
@@ -176,7 +176,7 @@ export function CertificateGenerateDialog({
                 {renew === undefined ? "Generate certificate" : "Generate new version"}
               </DialogTitle>
               <DialogContent className="stack">
-                {failure === undefined ? null : <ErrorAlert error={failure} />}
+                {failure === undefined ? null : <CertificateErrorAlert error={failure} />}
                 <FormTextField
                   control={form.control}
                   name="name"

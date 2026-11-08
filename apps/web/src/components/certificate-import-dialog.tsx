@@ -14,11 +14,11 @@ import { useForm } from "react-hook-form";
 import { useNavigate } from "react-router";
 import { useSessionApi } from "../session/session-api-provider.js";
 import { parseTagLines, validateCertificateName } from "../validation.js";
+import { CertificateErrorAlert } from "./certificate-errors.js";
 import {
   CertificateResultPanel,
   type CertificateWriteWarning,
 } from "./certificate-result-panel.js";
-import { ErrorAlert } from "./feedback.js";
 import { readPemFile } from "./pem.js";
 
 const LEAF_MAX_BYTES = 262_144;
@@ -253,7 +253,7 @@ export function CertificateImportDialog({
                 {renew === undefined ? "Import certificate" : "Import new version"}
               </DialogTitle>
               <DialogContent className="stack">
-                {failure === undefined ? null : <ErrorAlert error={failure} />}
+                {failure === undefined ? null : <CertificateErrorAlert error={failure} />}
                 <FormTextField
                   control={form.control}
                   name="name"

@@ -1,9 +1,11 @@
-import { Loading } from "@blendsdk/fluentui-react-components";
+import { Loading, useConfirm } from "@blendsdk/fluentui-react-components";
 import { Button, Card, Field, Input, Text } from "@fluentui/react-components";
-import { useEffect, useState } from "react";
-import { Link, useParams, useSearchParams } from "react-router";
+import { useCallback, useEffect, useRef, useState } from "react";
+import { Link, useLocation, useNavigate, useParams, useSearchParams } from "react-router";
+import { CertificateErrorAlert } from "../components/certificate-errors.js";
 import { CertificateGenerateDialog } from "../components/certificate-generate-dialog.js";
 import { CertificateImportDialog } from "../components/certificate-import-dialog.js";
+import { CertificateMetadataDialog } from "../components/certificate-metadata-dialog.js";
 import { copyCredential, subscribeCredentialCopy } from "../components/credential-copy.js";
 import { EmptyState, ErrorAlert } from "../components/feedback.js";
 import { NavButton } from "../components/nav-button.js";
@@ -24,19 +26,30 @@ interface PublicMaterial {
   readonly chainPem: string;
 }
 
+interface RevealedPrivateKey {
+  readonly pem: string;
+  readonly versionId: string;
+}
+
+const REVEAL_SECONDS = 60;
+const RETENTION_WINDOW_MS = 30 * 86_400_000;
+
 /**
- * Certificate detail with metadata, version selection, and public material.
+ * Certificate detail with metadata, version selection, public material, the
+ * lifecycle actions, and the audited private-key reveal.
  *
  * Metadata comes from the list route so active, expired, and deleted items all
- * load through one audited path. Public material is fetched only when the
- * operator asks for it, with a concrete version id so an expired current
- * certificate remains inspectable.
+ * load through one audited path. Every read and write is still authorized by
+ * the server; the capability flags only hide actions the caller cannot use.
  */
 export function CertificateDetailPage() {
   const { project } = useProject();
   const { name = "" } = useParams();
   const { client } = useSessionApi();
-  const [searchParams] = useSearchParams();
+  const confirm = useConfirm();
+  const navigate = useNavigate();
+  const location = useLocation();
+  const [searchParams, setSearchParams] = useSearchParams();
   const status = searchParams.get("status") === "deleted" ? "deleted" : "active";
   const [version, setVersion] = useState("");
   const [appliedVersion, setAppliedVersion] = useState("");
@@ -45,6 +58,16 @@ export function CertificateDetailPage() {
   const [publicError, setPublicError] = useState<unknown>(undefined);
   const [copyStatus, setCopyStatus] = useState<string | undefined>(undefined);
   const [renewMode, setRenewMode] = useState<"import" | "generate" | undefined>(undefined);
+  const [metadataOpen, setMetadataOpen] = useState(false);
+  const [deletedMetadata, setDeletedMetadata] = useState<CertificateMetadata | undefined>(
+    undefined,
+  );
+  const [actionFailure, setActionFailure] = useState<unknown>(undefined);
+  const [privateKey, setPrivateKey] = useState<RevealedPrivateKey | undefined>(undefined);
+  const [secondsLeft, setSecondsLeft] = useState(REVEAL_SECONDS);
+  const [privateFailure, setPrivateFailure] = useState<unknown>(undefined);
+  const privateRegion = useRef<HTMLDivElement>(null);
+  const privateInput = useRef<HTMLTextAreaElement>(null);
 
   const metadata = useAsync(
     async (signal) => {
@@ -57,7 +80,13 @@ export function CertificateDetailPage() {
     [client, project.name, name, status],
   );
 
-  const certificate: CertificateMetadata | undefined = metadata.data;
+  const certificate: CertificateMetadata | undefined = deletedMetadata ?? metadata.data;
+
+  const clearPrivate = useCallback((): void => {
+    setPrivateKey(undefined);
+    setSecondsLeft(REVEAL_SECONDS);
+    setPrivateFailure(undefined);
+  }, []);
 
   useEffect(() => {
     // The selected version belongs to the certificate that is displayed. A
@@ -69,7 +98,59 @@ export function CertificateDetailPage() {
     setPublicError(undefined);
   }, [certificate?.version.id]);
 
+  useEffect(() => {
+    if (metadata.data?.status === "deleted") {
+      setDeletedMetadata(undefined);
+    }
+  }, [metadata.data?.status]);
+
   useEffect(() => subscribeCredentialCopy((result) => setCopyStatus(result.message)), []);
+
+  useEffect(() => {
+    // A route change must never leave a revealed key in the page. Reading the
+    // location values makes the dependency intent explicit to the linter.
+    void location.pathname;
+    void location.search;
+    clearPrivate();
+  }, [location.pathname, location.search, clearPrivate]);
+
+  useEffect(() => {
+    if (privateKey === undefined) {
+      return;
+    }
+    if (privateInput.current !== null) {
+      privateInput.current.focus();
+    }
+    const onWindowBlur = (): void => clearPrivate();
+    window.addEventListener("blur", onWindowBlur);
+    const timer = setInterval(() => {
+      setSecondsLeft((current) => Math.max(0, current - 1));
+    }, 1_000);
+    return () => {
+      window.removeEventListener("blur", onWindowBlur);
+      clearInterval(timer);
+    };
+  }, [privateKey, clearPrivate]);
+
+  useEffect(() => {
+    if (privateKey !== undefined && secondsLeft === 0) {
+      clearPrivate();
+    }
+  }, [privateKey, secondsLeft, clearPrivate]);
+
+  useEffect(() => {
+    const region = privateRegion.current;
+    if (region === null || privateKey === undefined) {
+      return;
+    }
+    const onBlur = (event: FocusEvent): void => {
+      if (!region.contains(event.relatedTarget as Node | null)) {
+        clearPrivate();
+      }
+    };
+    region.addEventListener("blur", onBlur, true);
+    return () => region.removeEventListener("blur", onBlur, true);
+  }, [privateKey, clearPrivate]);
 
   const selectedVersion = appliedVersion.length > 0 ? appliedVersion : version.trim();
   const effectiveVersion =
@@ -141,6 +222,109 @@ export function CertificateDetailPage() {
     );
   }
 
+  const canWrite = certificate.capabilities.canWrite;
+  const canDelete = certificate.capabilities.canDelete;
+  const canRecover = certificate.capabilities.canRecover;
+  const canPurge = certificate.capabilities.canPurge;
+  const canReadPrivate = certificate.capabilities.canReadPrivate;
+  const notDeleted = certificate.status !== "deleted";
+  const purgeReady =
+    certificate.status === "deleted" &&
+    !certificate.purgeProtected &&
+    certificate.purgeAfter !== null &&
+    Date.parse(certificate.purgeAfter) <= Date.now();
+  const purgeReason =
+    certificate.status !== "deleted"
+      ? "Delete the certificate before purging it."
+      : certificate.purgeProtected
+        ? "Purge protection is on and cannot be turned off."
+        : certificate.purgeAfter === null
+          ? "The retention deadline is not available."
+          : Date.parse(certificate.purgeAfter) > Date.now()
+            ? `Purge is available after ${formatTime(certificate.purgeAfter)}.`
+            : undefined;
+
+  const remove = async (): Promise<void> => {
+    const confirmed = await confirm({
+      title: `Delete certificate ${certificate.name}?`,
+      message: "The certificate is soft-deleted and can be recovered until its purge deadline.",
+      intent: "danger",
+    });
+    if (!confirmed) {
+      return;
+    }
+    setActionFailure(undefined);
+    try {
+      await client.certificates.deleteCertificate({ project: project.name, name });
+      const now = new Date();
+      setDeletedMetadata({
+        ...certificate,
+        status: "deleted",
+        deletedAt: now.toISOString(),
+        purgeAfter: new Date(now.getTime() + RETENTION_WINDOW_MS).toISOString(),
+      });
+      setSearchParams({ status: "deleted" }, { replace: true });
+      setMaterial(undefined);
+      clearPrivate();
+    } catch (error) {
+      setActionFailure(error);
+    }
+  };
+
+  const recover = async (): Promise<void> => {
+    setActionFailure(undefined);
+    try {
+      await client.certificates.recoverCertificate({ project: project.name, name });
+      setDeletedMetadata(undefined);
+      setSearchParams({ status: "active" }, { replace: true });
+      metadata.reload();
+    } catch (error) {
+      setActionFailure(error);
+    }
+  };
+
+  const purge = async (): Promise<void> => {
+    const confirmed = await confirm({
+      title: `Permanently purge ${certificate.name}?`,
+      message: "This cannot be undone. Every version and its wrapped key are removed.",
+      intent: "danger",
+    });
+    if (!confirmed) {
+      return;
+    }
+    setActionFailure(undefined);
+    try {
+      await client.certificates.purgeCertificate({ project: project.name, name });
+      navigate(base, { replace: true });
+    } catch (error) {
+      setActionFailure(error);
+    }
+  };
+
+  const revealPrivate = async (): Promise<void> => {
+    const confirmed = await confirm({
+      title: `Reveal the private key for ${certificate.name}?`,
+      message:
+        "This read is audited. The key is hidden after 60 seconds and is never copied automatically.",
+      intent: "danger",
+    });
+    if (!confirmed) {
+      return;
+    }
+    setPrivateFailure(undefined);
+    try {
+      const response = await client.certificates.getCertificatePrivateKey({
+        project: project.name,
+        name,
+        version: effectiveVersion,
+      });
+      setPrivateKey({ pem: response.privateKeyPem, versionId: response.version.id });
+      setSecondsLeft(REVEAL_SECONDS);
+    } catch (error) {
+      setPrivateFailure(error);
+    }
+  };
+
   return (
     <section className="page stack-lg">
       <PageHeader
@@ -157,18 +341,57 @@ export function CertificateDetailPage() {
           </span>
         }
         actions={
-          certificate.capabilities.canWrite && certificate.status !== "deleted" ? (
-            <>
-              <Button appearance="secondary" onClick={() => setRenewMode("import")}>
-                Import new version
+          <>
+            {canReadPrivate && notDeleted ? (
+              <Button appearance="secondary" onClick={() => void revealPrivate()}>
+                View private key
               </Button>
-              <Button appearance="secondary" onClick={() => setRenewMode("generate")}>
-                Generate new version
+            ) : null}
+            {canWrite && notDeleted ? (
+              <Button appearance="secondary" onClick={() => setMetadataOpen(true)}>
+                Edit metadata
               </Button>
-            </>
-          ) : undefined
+            ) : null}
+            {canWrite && notDeleted ? (
+              <>
+                <Button appearance="secondary" onClick={() => setRenewMode("import")}>
+                  Import new version
+                </Button>
+                <Button appearance="secondary" onClick={() => setRenewMode("generate")}>
+                  Generate new version
+                </Button>
+              </>
+            ) : null}
+            {canDelete && notDeleted ? (
+              <Button appearance="subtle" onClick={() => void remove()}>
+                Delete
+              </Button>
+            ) : null}
+            {canRecover && !notDeleted ? (
+              <Button appearance="secondary" onClick={() => void recover()}>
+                Recover
+              </Button>
+            ) : null}
+            {canPurge ? (
+              <Button
+                appearance="subtle"
+                onClick={() => void purge()}
+                disabled={!purgeReady}
+                aria-describedby={purgeReason === undefined ? undefined : "purge-reason"}
+              >
+                Purge
+              </Button>
+            ) : null}
+          </>
         }
       />
+
+      {actionFailure === undefined ? null : <CertificateErrorAlert error={actionFailure} />}
+      {purgeReason === undefined ? null : (
+        <p id="purge-reason" className="muted">
+          {purgeReason}
+        </p>
+      )}
 
       <div className="detail-grid">
         <Card>
@@ -257,7 +480,7 @@ export function CertificateDetailPage() {
                 {publicLoading ? "Loading…" : "View public certificate"}
               </Button>
             </div>
-            {publicError === undefined ? null : <ErrorAlert error={publicError} />}
+            {publicError === undefined ? null : <CertificateErrorAlert error={publicError} />}
             {material === undefined ? null : (
               <div className="stack">
                 <label htmlFor="certificate-leaf-pem">Leaf certificate</label>
@@ -326,6 +549,61 @@ export function CertificateDetailPage() {
         )}
       </Card>
 
+      {canReadPrivate && notDeleted ? (
+        <Card>
+          <Text weight="semibold">Private key</Text>
+          {privateKey === undefined ? (
+            <p className="muted">
+              The key is masked until an explicit, audited reveal. It is hidden after 60 seconds and
+              is never copied automatically.
+            </p>
+          ) : (
+            <div className="revealed-region" ref={privateRegion}>
+              <textarea
+                aria-label="Private key"
+                className="revealed-value"
+                ref={privateInput}
+                readOnly
+                rows={8}
+                value={privateKey.pem}
+                onBlur={(event) => {
+                  if (!privateRegion.current?.contains(event.relatedTarget as Node | null)) {
+                    clearPrivate();
+                  }
+                }}
+              />
+              <div className="row-actions">
+                <Button
+                  appearance="secondary"
+                  onClick={() =>
+                    downloadPem(
+                      `${certificate.name}-${privateKey.versionId}.key.pem`,
+                      privateKey.pem,
+                    )
+                  }
+                >
+                  Download private key
+                </Button>
+                <Button appearance="subtle" onClick={clearPrivate}>
+                  Hide now
+                </Button>
+                <span className="muted" aria-live="polite">
+                  Clears in {secondsLeft}s
+                </span>
+              </div>
+            </div>
+          )}
+          {privateFailure === undefined ? null : <CertificateErrorAlert error={privateFailure} />}
+        </Card>
+      ) : null}
+
+      <CertificateMetadataDialog
+        open={metadataOpen}
+        project={project.name}
+        certificate={certificate}
+        onClose={() => setMetadataOpen(false)}
+        onSaved={metadata.reload}
+      />
       <CertificateImportDialog
         open={renewMode === "import"}
         project={project.name}

@@ -2,8 +2,8 @@
 
 > **Document**: 99-execution-plan.md
 > **Parent**: [Index](00-index.md)
-> **Last Updated**: 2026-11-08 17:38
-> **Progress**: 51/77 tasks (66%)
+> **Last Updated**: 2026-11-08 17:47
+> **Progress**: 63/77 tasks (82%)
 > **CodeOps Artifact Schema**: 1
 
 ## Overview
@@ -260,30 +260,30 @@ task-size criteria in the quality checklist)
 **Reference**: [03-01 §Private key](03-01-web-ui.md), [03-01 §Action handlers](03-01-web-ui.md), [03-01 §Error handling](03-01-web-ui.md) · ST-31..ST-43 · AR-3, AR-16, AR-19, AR-20, AR-22, PAR-09, PAR-10
 **Objective**: Pin metadata, lifecycle, private-key, and error behavior.
 
-- [ ] 6.1.1 [spec-author] Write the metadata and lifecycle spec tests — `apps/web/tests/certificate-lifecycle.test.tsx`
-- [ ] 6.1.2 [spec-author] Write the private-key spec tests, including the 60-second and blur clears, storage, URL, console, and clipboard checks — `apps/web/tests/certificate-private-key.test.tsx`
-- [ ] 6.1.3 [spec-author] Write the error-mapping spec tests — `apps/web/tests/certificate-errors.test.tsx`
-- [ ] 6.1.4 Run the tests and confirm red
+- [x] 6.1.1 [spec-author] Write the metadata and lifecycle spec tests — `apps/web/tests/certificate-lifecycle.test.tsx` ✅ (completed: 2026-11-08 17:44)
+- [x] 6.1.2 [spec-author] Write the private-key spec tests, including the 60-second and blur clears, storage, URL, console, and clipboard checks — `apps/web/tests/certificate-private-key.test.tsx` ✅ (completed: 2026-11-08 17:44)
+- [x] 6.1.3 [spec-author] Write the error-mapping spec tests — `apps/web/tests/certificate-errors.test.tsx` ✅ (completed: 2026-11-08 17:44)
+- [x] 6.1.4 Run the tests and confirm red ✅ (completed: 2026-11-08 17:44)
 
 ### Step 6.2: Implementation
 
 **Reference**: [03-01 §CertificateMetadataDialog](03-01-web-ui.md), [03-01 §Action handlers](03-01-web-ui.md), [03-01 §Private key](03-01-web-ui.md) · AR-19, AR-20, AR-3, AR-16
 **Objective**: Implement the remaining actions and the private-key reveal.
 
-- [ ] 6.2.1 Implement the metadata dialog for tags and one-way purge protection — `apps/web/src/components/certificate-metadata-dialog.tsx`
-- [ ] 6.2.2 Implement delete, recover, and gated purge with confirmations and the deleted state — `apps/web/src/pages/certificate-detail-page.tsx`
-- [ ] 6.2.3 Implement the private-key confirmation, read, 60-second reveal, focus/window/route/unmount clear, and download — `apps/web/src/pages/certificate-detail-page.tsx`
-- [ ] 6.2.4 Implement the documented error mapping and fallback — `apps/web/src/pages/certificate-detail-page.tsx`, dialogs
-- [ ] 6.2.5 Run the Phase 6 spec tests and confirm green
+- [x] 6.2.1 Implement the metadata dialog for tags and one-way purge protection — `apps/web/src/components/certificate-metadata-dialog.tsx` ✅ (completed: 2026-11-08 17:44)
+- [x] 6.2.2 Implement delete, recover, and gated purge with confirmations and the deleted state — `apps/web/src/pages/certificate-detail-page.tsx` ✅ (completed: 2026-11-08 17:44)
+- [x] 6.2.3 Implement the private-key confirmation, read, 60-second reveal, focus/window/route/unmount clear, and download — `apps/web/src/pages/certificate-detail-page.tsx` ✅ (completed: 2026-11-08 17:44)
+- [x] 6.2.4 Implement the documented error mapping and fallback — `apps/web/src/pages/certificate-detail-page.tsx`, dialogs ✅ (completed: 2026-11-08 17:44)
+- [x] 6.2.5 Run the Phase 6 spec tests and confirm green ✅ (completed: 2026-11-08 17:44)
 
 ### Step 6.3: Implementation tests and hardening
 
 **Reference**: ST-31..ST-43 · AR-30, PAR-09, PAR-15
 **Objective**: Prove the security and accessibility edges.
 
-- [ ] 6.3.1 Add the list and detail to the axe suite — `apps/web/tests/accessibility.test.tsx`
-- [ ] 6.3.2 Add impl tests for the purge reason matrix, the private-key clear matrix, and the absent-storage assertions — `apps/web/tests/certificate-private-key.impl.test.tsx`
-- [ ] 6.3.3 Run the web suite and confirm no key appears in storage, the URL, the console, or the clipboard
+- [x] 6.3.1 Add the list and detail to the axe suite — `apps/web/tests/accessibility.test.tsx` ✅ (completed: 2026-11-08 17:47)
+- [x] 6.3.2 Add impl tests for the purge reason matrix, the private-key clear matrix, and the absent-storage assertions — `apps/web/tests/certificate-private-key.impl.test.tsx` ✅ (completed: 2026-11-08 17:47)
+- [x] 6.3.3 Run the web suite and confirm no key appears in storage, the URL, the console, or the clipboard ✅ (completed: 2026-11-08 17:47)
 
 **Deliverables**:
 - [ ] Lifecycle, private-key, error, and accessibility tests pass
