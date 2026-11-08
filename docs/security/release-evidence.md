@@ -1,7 +1,7 @@
 # Release evidence
 
-> **Snapshot**: 2026-11-08, `main` after the dependency upgrade (PR #57)
-> **Production image**: not published
+> **Snapshot**: 2026-11-08, `v1.0.0` release
+> **Production image**: `v1.0.0` published to Docker Hub
 
 ## Branch protection
 
@@ -32,7 +32,7 @@ change was needed.
 | Dependency review | `Review dependency changes` |
 | Docs build | `Build documentation` |
 | Compose hardening | `pnpm check:compose` inside `Verify` |
-| Container images | Server, agent, and web images built locally from the merged tree; server `ov --version` and web CSP/health smoke passed |
+| Container images | Server, agent, and web images published to Docker Hub; the v1.0.0 digests are below |
 | Security evidence and claims | `pnpm security:evidence:check` and `pnpm security:claims:check` inside `Verify` |
 
 ## Security scanner remediation
@@ -49,6 +49,17 @@ scans, signs, and attests them. The first stable image is produced by the
 `v1.0.0` tag. Later releases use a deliberate `v*.*.*` tag or tagged dispatch.
 The workflow writes the digest list to the GitHub release and the job summary.
 SBOM and provenance attestations are attached to the images.
+
+### v1.0.0
+
+Published on 2026-11-08. Cosign signatures were verified against
+`refs/tags/v1.0.0`.
+
+| Image | Digest |
+|---|---|
+| `blendsdk/openvault` | `sha256:db9aa9aaa664a97885874a78f15cf240fea8d652a7066a114db03afba3ffdf60` |
+| `blendsdk/openvault-agent` | `sha256:3ab890f7e4989551f51b1e2407b62fd250c726aabc1544394952a484a4b84f61` |
+| `blendsdk/openvault-web` | `sha256:7507d6e62908fe0274f53a9bea51f2fca07504dce610af58f12109cf618d9e1b` |
 
 ## Manual security scan
 
