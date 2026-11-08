@@ -8,7 +8,7 @@ export interface ComposeScaffoldInput {
   readonly entries: readonly string[];
 }
 
-const AGENT_IMAGE = "blendsdk/openvault-agent:1.0.0";
+const AGENT_IMAGE = "blendsdk/openvault-agent:1.0.1";
 const COMPOSE_PROJECT_VAR = "$" + "{COMPOSE_PROJECT_NAME}";
 const JOIN_TOKEN_VAR = "$" + "{OPENVAULT_JOIN_TOKEN}";
 
@@ -49,6 +49,7 @@ export function renderCompose(input: ComposeScaffoldInput): string {
 ${quote("services")}:
   ${quote(agent)}:
     ${quote("image")}: ${quote(AGENT_IMAGE)}
+    ${quote("command")}: [${quote("run")}]
     ${quote("user")}: ${quote("10001:10001")}
     ${quote("read_only")}: true
     ${quote("cap_drop")}: [ALL]
@@ -88,8 +89,9 @@ ${quote("services")}:
     ${quote("healthcheck")}:
       ${quote("test")}: ["CMD", "ov-agent", "health", "--ready"]
       ${quote("interval")}: 10s
-      ${quote("timeout")}: 3s
+      ${quote("timeout")}: 10s
       ${quote("retries")}: 3
+      ${quote("start_period")}: 10s
   ${quote(input.service)}:
     # Merge these keys into the application service.
     ${quote("user")}: ${quote("10001:10001")}
