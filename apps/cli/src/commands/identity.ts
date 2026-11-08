@@ -19,7 +19,7 @@ export function createIdentityParser(
   const context = createCommandContext(globals, runtime);
   const parser = new CommandLineParser({
     name: "ov identity",
-    version: "1.0.0",
+    version: "1.0.1",
     strict: true,
   });
 

@@ -183,7 +183,7 @@ These are accepted for v1.0. They are documented so reviewers do not mistake the
     restored rows for inspection; the command reports the failure rather than silently rolling
     back. If publishing the staged keyring/CA fails after commit, the staged files remain for
     manual recovery. Run restore only during a maintenance window with the server stopped.
-56. **Local login reloads the document.** The BlendSDK auth provider learns a session from
+56. **Local login reloads the document.** The auth provider learns a session from
     `GET /v1/auth/me`, so a successful local login or password change performs one same-origin
     reload instead of keeping the previous document's in-memory state. The reload is
     intentional and does not add a network round trip beyond the session check.

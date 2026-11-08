@@ -23,7 +23,7 @@ export function createAccessParser(globals: GlobalOptions, runtime: CliRuntime):
   const context = createCommandContext(globals, runtime);
   const parser = new CommandLineParser({
     name: "ov access",
-    version: "1.0.0",
+    version: "1.0.1",
     strict: true,
   });
 

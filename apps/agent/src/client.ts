@@ -118,6 +118,26 @@ function parseJson(body: string): unknown {
   }
 }
 
+/**
+ * Returns the payload of a successful API envelope.
+ *
+ * The public API and the agent listener use the same response shape:
+ * `{ success: true, data: ... }` for success and
+ * `{ success: false, error: ... }` for failure. The plain value form is kept
+ * for the existing test doubles and for a direct handler response.
+ */
+function successPayload(value: unknown): unknown {
+  if (
+    typeof value === "object" &&
+    value !== null &&
+    Reflect.get(value, "success") === true &&
+    "data" in value
+  ) {
+    return Reflect.get(value, "data");
+  }
+  return value;
+}
+
 /** Reads the stable server error code from an envelope. */
 function serverErrorCode(body: string): string | undefined {
   try {
@@ -233,7 +253,7 @@ export class VaultClient {
     schema: { safeParse(value: unknown): { success: true; data: T } | { success: false } },
     body: string,
   ): T {
-    const parsed = schema.safeParse(parseJson(body));
+    const parsed = schema.safeParse(successPayload(parseJson(body)));
     if (!parsed.success) {
       throw new VaultClientError("terminal", "Vault response did not match the contract");
     }

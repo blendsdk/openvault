@@ -877,7 +877,7 @@ function applyQueryParameters(
 export async function buildApiDocument(): Promise<OpenAPIDocument> {
   const generator = new OpenAPIGenerator({
     title: "OpenVault CLI API",
-    version: "1.0.0",
+    version: "1.0.1",
     description: "The CLI-facing OpenVault API. Internal agent and browser routes are excluded.",
     securitySchemes: {
       bearerAuth: { type: "http", scheme: "bearer", bearerFormat: "JWT" },
@@ -919,7 +919,7 @@ export async function buildApiDocument(): Promise<OpenAPIDocument> {
 export async function buildWebApiDocument(): Promise<OpenAPIDocument> {
   const generator = new OpenAPIGenerator({
     title: "OpenVault Browser API",
-    version: "1.0.0",
+    version: "1.0.1",
     description: "The cookie-session OpenVault API used by the web UI.",
     securitySchemes: {
       cookieAuth: { type: "apiKey", in: "cookie", name: "__Host-ov_session" },

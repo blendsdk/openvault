@@ -148,7 +148,8 @@ install -m 0444 -o 10001 -g 10001 ./openvault-ca.pem \
 ```yaml
 services:
   openvault-agent-api:
-    image: "blendsdk/openvault-agent:1.0.0"
+    image: "blendsdk/openvault-agent:1.0.1"
+    command: ["run"]
     user: "10001:10001"
     read_only: true
     cap_drop: [ALL]
@@ -188,8 +189,9 @@ services:
     healthcheck:
       test: ["CMD", "ov-agent", "health", "--ready"]
       interval: 10s
-      timeout: 3s
+      timeout: 10s
       retries: 3
+      start_period: 10s
 
   api:
     user: "10001:10001"

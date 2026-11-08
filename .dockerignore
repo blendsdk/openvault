@@ -16,3 +16,7 @@ codeops
 tests
 .changeset
 .opencode
+
+examples/compose-env/.scaffold
+examples/compose-env/openvault-ca.pem
+examples/compose-env/openvault-state

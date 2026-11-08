@@ -1,6 +1,6 @@
 # Architecture overview
 
-OpenVault is a single-node, self-hosted service built on BlendSDK v5.
+OpenVault is a single-node, self-hosted service for Docker Compose projects.
 
 ## Context
 

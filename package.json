@@ -1,8 +1,8 @@
 {
   "name": "openvault",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "private": true,
-  "description": "Self-hosted secret and certificate store for Docker Compose projects, built on BlendSDK v5.",
+  "description": "Self-hosted secret and certificate store for Docker Compose projects.",
   "license": "Apache-2.0",
   "type": "module",
   "packageManager": "pnpm@12.18.0",
