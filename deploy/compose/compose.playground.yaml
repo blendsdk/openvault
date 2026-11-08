@@ -1,0 +1,27 @@
+# Local-only playground overlay for the reference stack.
+#
+# Use it through `deploy/compose/playground.sh`. It gives the playground its
+# own project name, loopback port, network names, and subnet so it can run
+# beside a normal review or production stack on the same host.
+#
+# This file is a development tool. It is not part of the published image or
+# the release documentation.
+services:
+  proxy:
+    networks:
+      admin_net:
+        ipv4_address: ${OPENVAULT_PLAYGROUND_PROXY_IP:-10.42.0.2}
+  openvaultd:
+    environment:
+      OPENVAULT_PROXY_CIDRS: ${OPENVAULT_PLAYGROUND_PROXY_IP:-10.42.0.2}/32
+    networks:
+      admin_net:
+        ipv4_address: ${OPENVAULT_PLAYGROUND_SERVER_IP:-10.42.0.3}
+
+networks:
+  admin_net:
+    ipam:
+      config: !override
+        - subnet: ${OPENVAULT_PLAYGROUND_SUBNET:-10.42.0.0/24}
+  vault_net:
+    name: ${COMPOSE_PROJECT_NAME:-openvault-playground}-vault
