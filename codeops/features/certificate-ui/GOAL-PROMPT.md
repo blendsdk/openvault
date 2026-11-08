@@ -21,6 +21,9 @@ Work in:
 /home/gevik/workdir/blendsdk/openvault
 ```
 
+The plan artifacts are committed on `docs/certificate-ui-plan`. Start the session on that branch
+(`git switch docs/certificate-ui-plan`), or merge the plan into `main` before executing.
+
 Target release: **v1.1.0**. Do not create or push a tag, publish an image, or create a GitHub
 release. The plan stops at release metadata.
 
