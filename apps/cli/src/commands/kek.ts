@@ -9,7 +9,7 @@ import { flagOption, textOption } from "./options.js";
 /** Builds the KEK group parser. */
 export function createKekParser(globals: GlobalOptions, runtime: CliRuntime): CommandLineParser {
   const context = createCommandContext(globals, runtime);
-  const parser = new CommandLineParser({ name: "ov kek", version: "1.0.0", strict: true });
+  const parser = new CommandLineParser({ name: "ov kek", version: "1.0.1", strict: true });
   parser.addCommand({
     name: "rotate",
     description: "Rotate the KEK and rewrap every stored key",

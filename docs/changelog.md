@@ -1,5 +1,19 @@
 # Changelog
 
+## 1.0.1 — 2026-11-08
+
+### Fixed
+
+- The agent now unwraps the API success envelope before validating join, renewal,
+  secret-read, and heartbeat responses. The 1.0.0 agent could not join a 1.0.0
+  server.
+- The scaffolded agent service starts the agent with `command: ["run"]`.
+- The agent healthcheck allows a 10-second startup window, so a small CPU limit
+  does not mark a healthy agent as failed.
+- The ready-to-run environment-variable example, its loader, and its Compose
+  wiring.
+- Current-release documentation and the CodeOps roadmap now state 1.0.1.
+
 ## 1.0.0 — 2026-11-08
 
 The first stable release. The `/v1` API and the v1 data format are stable; breaking changes
@@ -10,10 +24,10 @@ require a new major version. See [Versioning and compatibility](/guide/versionin
 - pnpm 12 workspace with TypeScript 7.0.2 and Biome 2.6.4.
 - Envelope-encryption core with per-version data keys, AAD binding, and tests.
 - WebAFX server skeleton with `GET /v1/ready` and `GET /health`.
-- React 19 + Fluent UI v9 web UI using `@blendsdk/fluentui-react-components` and
-  `blendsdk/react`: local/OIDC login, projects, secrets with audited masked reveal, identities,
-  permissions, audit search/verification, consumers, dark mode, and responsive navigation.
-- Application-shell polish: the BlendSDK `AppLauncher` for global and project navigation with
+- React 19 + Fluent UI v9 web UI: local/OIDC login, projects, secrets with audited masked
+  reveal, identities, permissions, audit search/verification, consumers, dark mode, and
+  responsive navigation.
+- Application-shell polish: the application launcher for global and project navigation with
   search, a vault-dial brand mark and favicon, a context-aware **Docs** link that opens the
   matching guide in a new tab, and consistent vertical spacing for page headers and
   descriptions.

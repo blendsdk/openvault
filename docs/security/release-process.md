@@ -5,7 +5,7 @@
 | Label | Trigger | Image tags | OCI label |
 |---|---|---|---|
 | Alpha | Explicit `workflow_dispatch` | `alpha`, `sha-<12>` | `not-for-production=true` |
-| Production | Deliberate `v*.*.*` tag push or tagged dispatch | `v1.0.0`, `1.0.0`, `latest`, `sha-<12>` | `production=true` |
+| Production | Deliberate `v*.*.*` tag push or tagged dispatch | `v1.0.1`, `1.0.1`, `latest`, `sha-<12>` | `production=true` |
 
 A production tag is any push matching `v*.*.*`. Creating that tag is the
 deliberate operator approval. The release workflow validates the mode and tag,
@@ -15,7 +15,7 @@ approval gate.
 ## Pipeline
 
 ```text
-tag v1.0.0 (or pre-release dispatch)
+tag v1.0.1 (or pre-release dispatch)
   → release metadata validation
   → build amd64 and arm64 images to staging tags
   → BuildKit SBOM and max provenance attestations
@@ -60,8 +60,8 @@ testing and do not carry the v1 compatibility promise.
 3. Create and push the tag on the release commit:
 
 ```bash
-git tag -a v1.0.0 -m "OpenVault v1.0.0"
-git push origin v1.0.0
+git tag -a v1.0.1 -m "OpenVault v1.0.1"
+git push origin v1.0.1
 ```
 
 4. Watch the release workflow and verify the digest in the release notes.

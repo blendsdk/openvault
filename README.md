@@ -5,11 +5,32 @@
 [![License](https://img.shields.io/badge/license-Apache--2.0-blue.svg)](LICENSE)
 [![Status](https://img.shields.io/badge/status-v1.0%20release-brightgreen.svg)](#status)
 
-Self-hosted secrets and certificates for Docker Compose projects, built on BlendSDK v5.
+Self-hosted secrets and certificates for Docker Compose projects.
+
+**Current release: [1.0.1](https://github.com/blendsdk/openvault/releases/tag/v1.0.1).**
 
 OpenVault versions every value, grants narrow access, delivers secrets through a per-service
 agent, and records every read in a tamper-evident audit log. It is Azure Key Vault-inspired,
 but designed for a small team running Docker Compose on one host.
+
+## Quickstart
+
+The 1.0.1 images are published to Docker Hub under `blendsdk`. The reference stack runs on one
+host:
+
+```bash
+git clone https://github.com/blendsdk/openvault.git
+cd openvault
+./deploy/compose/prepare.sh
+export OPENVAULT_BASE_URL=https://localhost
+export OPENVAULT_SITE_ADDRESS=localhost
+docker compose -f deploy/compose/compose.yaml up -d
+```
+
+Read the one-time bootstrap password, sign in at `https://localhost`, and create a project and
+secret. To load a secret into an application as an environment variable, use the
+[ready-to-run example](examples/compose-env/README.md) and the
+[environment-variable guide](docs/guide/environment-variables.md).
 
 ## Status
 
@@ -46,7 +67,7 @@ app container ◀── tmpfs files ── agent ── mTLS ──▶ WebAFX se
 The application never talks to the vault. The agent is the only bridge, and each Compose
 service gets its own agent and its own tmpfs directory.
 
-## Developer preview
+## Run from source
 
 Requirements: Node.js 24.7+, pnpm 12.18.0.
 

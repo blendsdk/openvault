@@ -1,7 +1,7 @@
 # Versioning and compatibility
 
 OpenVault follows [Semantic Versioning](https://semver.org/). Version 1.0.0 is the first
-stable release.
+stable release; 1.0.1 is the current patch release.
 
 ## What the v1 promise covers
 

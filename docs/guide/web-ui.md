@@ -10,14 +10,14 @@ button. The SSO button appears only when `GET /v1/meta/auth` reports `oidc: true
 
 Local login posts the password once, receives the HttpOnly `__Host-ov_session` cookie and the
 per-session CSRF token, and reloads into the project list. The reload is deliberate: the
-BlendSDK auth provider learns a session from `GET /v1/auth/me`, so the new document performs
+auth provider learns a session from `GET /v1/auth/me`, so the new document performs
 one session check with the cookie already set. The password is never stored. When the account
 is flagged for a password change, the reload lands on the password-change screen; the server
 allows only the UI assets and the password/me/logout routes until the change succeeds.
 
 ## Navigation
 
-The top bar uses the BlendSDK `AppLauncher` at every viewport width. It lists **Projects**
+The top bar uses the application launcher at every viewport width. It lists **Projects**
 everywhere and adds the current project's sections when the route is inside a project. The
 launcher search filters destinations by name and by a few related words, for example `roles`
 for Permissions or `events` for Audit. Choosing an item closes the panel and clears the query.

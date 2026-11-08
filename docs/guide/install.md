@@ -1,5 +1,9 @@
 # Install
 
+The shortest path uses the published 1.0.1 images. See
+[Getting started](/guide/getting-started#quickstart) for the reference stack, or continue
+below for a source install.
+
 ## Requirements
 
 | Component | Version |

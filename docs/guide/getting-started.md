@@ -1,9 +1,10 @@
 # Getting started
 
 ::: warning Release status
-OpenVault 1.0 is the first stable release. The `ov` CLI, the web UI, and the API are included.
-The OpenAI Codex Security scan is a manual, periodic check. It is not part of CI/CD and does
-not block a release. Pre-release images are explicitly not for production.
+OpenVault 1.0 is the first stable release. **Current release: 1.0.1.** The `ov` CLI, the web
+UI, and the API are included. The OpenAI Codex Security scan is a manual, periodic check. It
+is not part of CI/CD and does not block a release. Pre-release images are explicitly not for
+production.
 :::
 
 ## What OpenVault is
@@ -14,6 +15,38 @@ Compose project. Each service gets its own **agent**, which fetches only that se
 secrets and writes them to an isolated tmpfs directory.
 
 The application never talks to the vault. The agent is the only bridge.
+
+## Quickstart
+
+The 1.0.1 images are published to Docker Hub under `blendsdk`:
+
+| Image | Purpose |
+|---|---|
+| `blendsdk/openvault` | Server and `ov` CLI |
+| `blendsdk/openvault-web` | Web UI |
+| `blendsdk/openvault-agent` | Per-service agent |
+
+Requirements: Docker with Compose v2.24 or newer.
+
+From the repository root:
+
+```bash
+git clone https://github.com/blendsdk/openvault.git
+cd openvault
+./deploy/compose/prepare.sh
+export OPENVAULT_BASE_URL=https://localhost
+export OPENVAULT_SITE_ADDRESS=localhost
+docker compose -f deploy/compose/compose.yaml up -d
+```
+
+Read the one-time bootstrap password, sign in at `https://localhost` as
+`admin@openvault.local`, and create a project and secret. The
+[Docker Compose guide](/guide/docker-compose#bootstrap-password) has the exact
+password-copy command.
+
+To deliver a secret to an application as an environment variable, use the
+[ready-to-run example](https://github.com/blendsdk/openvault/tree/main/examples/compose-env)
+and [Environment variables](/guide/environment-variables).
 
 ## Run from source
 

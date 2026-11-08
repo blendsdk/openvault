@@ -18,7 +18,7 @@ import { flagOption } from "./options.js";
  */
 export function createConfigParser(globals: GlobalOptions, runtime: CliRuntime): CommandLineParser {
   const context = createCommandContext(globals, runtime);
-  const parser = new CommandLineParser({ name: "ov config", version: "1.0.0", strict: true });
+  const parser = new CommandLineParser({ name: "ov config", version: "1.0.1", strict: true });
   parser.addCommand({
     name: "show",
     description: "Print the validated server configuration with secrets redacted",

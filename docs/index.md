@@ -23,15 +23,16 @@ features:
     details: Deny-by-default roles at organization, project, and object scope, with per-object capabilities for the UI.
   - title: Tamper-evident audit
     details: Every read and denial is hash-chained and HMAC-protected. Verify the chain from the CLI or API.
-  - title: Built on BlendSDK v5
-    details: WebAFX, PostgreSQL, typed API generation, and a React 19 + Fluent UI v9 front end.
+  - title: Runs on Docker Compose
+    details: Published images, a hardened reference stack, and a ready-to-run environment-variable example.
 ---
 
 ## Status
 
-OpenVault 1.0 is the first stable release. The OpenAI Codex Security scan is a manual,
-periodic check; it is not part of CI/CD and does not block a release. Pre-release images are
-explicitly not for production.
+OpenVault 1.0 is the first stable release. **Current release: 1.0.1.** The OpenAI Codex
+Security scan is a manual, periodic check; it is not part of CI/CD and does not block a
+release. Pre-release images are explicitly not for production.
 
-See [Getting started](/guide/getting-started) for the installation flow, or the
+See [Getting started](/guide/getting-started) for the installation flow,
+[Environment variables](/guide/environment-variables) for the loader pattern, or the
 [security evidence matrix](/security/evidence-matrix) for the test-to-control mapping.

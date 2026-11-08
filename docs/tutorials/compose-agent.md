@@ -110,7 +110,7 @@ For the agent image, use the published release image or build it locally:
 docker build -f deploy/docker/agent.Dockerfile -t openvault-agent:tutorial .
 ```
 
-Then replace `blendsdk/openvault-agent:1.0.0` in the generated file with
+Then replace `blendsdk/openvault-agent:1.0.1` in the generated file with
 `openvault-agent:tutorial` if you built it locally.
 
 The generated file ends with an external `vault_net`. The reference stack's network is named
