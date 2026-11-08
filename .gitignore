@@ -10,6 +10,7 @@ coverage/
 !.env.example
 deploy/compose/data/
 deploy/compose/secrets/
+.playground/
 *.log
 pnpm-debug.log*
 .DS_Store

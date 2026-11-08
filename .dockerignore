@@ -10,6 +10,7 @@ docs/.vitepress/cache
 docs/.vitepress/dist
 deploy/compose/data
 deploy/compose/secrets
+.playground
 .env
 .env.*
 codeops
