@@ -2,7 +2,7 @@
   "openapi": "3.1.0",
   "info": {
     "title": "OpenVault CLI API",
-    "version": "1.0.1",
+    "version": "1.1.0",
     "description": "The CLI-facing OpenVault API. Internal agent and browser routes are excluded."
   },
   "paths": {
@@ -2427,7 +2427,7 @@
     },
     "/v1/data/{project}/certificates": {
       "get": {
-        "summary": "List certificates in a project",
+        "summary": "List certificates by name or subject",
         "tags": ["certificates"],
         "operationId": "listCertificates",
         "x-blend-envelope": "data",
@@ -2474,6 +2474,15 @@
               "type": "string",
               "format": "date-time",
               "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z))$"
+            }
+          },
+          {
+            "name": "status",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "enum": ["active", "deleted"],
+              "default": "active"
             }
           },
           {
@@ -2658,10 +2667,16 @@
                               "canDelete": {
                                 "type": "boolean"
                               },
+                              "canRecover": {
+                                "type": "boolean"
+                              },
                               "canPurge": {
                                 "type": "boolean"
                               },
                               "canManage": {
+                                "type": "boolean"
+                              },
+                              "canReadPrivate": {
                                 "type": "boolean"
                               }
                             },
@@ -2669,8 +2684,10 @@
                               "canRead",
                               "canWrite",
                               "canDelete",
+                              "canRecover",
                               "canPurge",
-                              "canManage"
+                              "canManage",
+                              "canReadPrivate"
                             ],
                             "additionalProperties": false
                           }
@@ -2946,14 +2963,28 @@
                         "canDelete": {
                           "type": "boolean"
                         },
+                        "canRecover": {
+                          "type": "boolean"
+                        },
                         "canPurge": {
                           "type": "boolean"
                         },
                         "canManage": {
                           "type": "boolean"
+                        },
+                        "canReadPrivate": {
+                          "type": "boolean"
                         }
                       },
-                      "required": ["canRead", "canWrite", "canDelete", "canPurge", "canManage"],
+                      "required": [
+                        "canRead",
+                        "canWrite",
+                        "canDelete",
+                        "canRecover",
+                        "canPurge",
+                        "canManage",
+                        "canReadPrivate"
+                      ],
                       "additionalProperties": false
                     },
                     "certificatePem": {
@@ -3175,14 +3206,28 @@
                         "canDelete": {
                           "type": "boolean"
                         },
+                        "canRecover": {
+                          "type": "boolean"
+                        },
                         "canPurge": {
                           "type": "boolean"
                         },
                         "canManage": {
                           "type": "boolean"
+                        },
+                        "canReadPrivate": {
+                          "type": "boolean"
                         }
                       },
-                      "required": ["canRead", "canWrite", "canDelete", "canPurge", "canManage"],
+                      "required": [
+                        "canRead",
+                        "canWrite",
+                        "canDelete",
+                        "canRecover",
+                        "canPurge",
+                        "canManage",
+                        "canReadPrivate"
+                      ],
                       "additionalProperties": false
                     },
                     "certificatePem": {
@@ -3478,14 +3523,28 @@
                         "canDelete": {
                           "type": "boolean"
                         },
+                        "canRecover": {
+                          "type": "boolean"
+                        },
                         "canPurge": {
                           "type": "boolean"
                         },
                         "canManage": {
                           "type": "boolean"
+                        },
+                        "canReadPrivate": {
+                          "type": "boolean"
                         }
                       },
-                      "required": ["canRead", "canWrite", "canDelete", "canPurge", "canManage"],
+                      "required": [
+                        "canRead",
+                        "canWrite",
+                        "canDelete",
+                        "canRecover",
+                        "canPurge",
+                        "canManage",
+                        "canReadPrivate"
+                      ],
                       "additionalProperties": false
                     },
                     "certificatePem": {
@@ -3707,14 +3766,28 @@
                         "canDelete": {
                           "type": "boolean"
                         },
+                        "canRecover": {
+                          "type": "boolean"
+                        },
                         "canPurge": {
                           "type": "boolean"
                         },
                         "canManage": {
                           "type": "boolean"
+                        },
+                        "canReadPrivate": {
+                          "type": "boolean"
                         }
                       },
-                      "required": ["canRead", "canWrite", "canDelete", "canPurge", "canManage"],
+                      "required": [
+                        "canRead",
+                        "canWrite",
+                        "canDelete",
+                        "canRecover",
+                        "canPurge",
+                        "canManage",
+                        "canReadPrivate"
+                      ],
                       "additionalProperties": false
                     },
                     "certificatePem": {
@@ -4016,14 +4089,28 @@
                         "canDelete": {
                           "type": "boolean"
                         },
+                        "canRecover": {
+                          "type": "boolean"
+                        },
                         "canPurge": {
                           "type": "boolean"
                         },
                         "canManage": {
                           "type": "boolean"
+                        },
+                        "canReadPrivate": {
+                          "type": "boolean"
                         }
                       },
-                      "required": ["canRead", "canWrite", "canDelete", "canPurge", "canManage"],
+                      "required": [
+                        "canRead",
+                        "canWrite",
+                        "canDelete",
+                        "canRecover",
+                        "canPurge",
+                        "canManage",
+                        "canReadPrivate"
+                      ],
                       "additionalProperties": false
                     },
                     "certificatePem": {
@@ -4269,14 +4356,28 @@
                         "canDelete": {
                           "type": "boolean"
                         },
+                        "canRecover": {
+                          "type": "boolean"
+                        },
                         "canPurge": {
                           "type": "boolean"
                         },
                         "canManage": {
                           "type": "boolean"
+                        },
+                        "canReadPrivate": {
+                          "type": "boolean"
                         }
                       },
-                      "required": ["canRead", "canWrite", "canDelete", "canPurge", "canManage"],
+                      "required": [
+                        "canRead",
+                        "canWrite",
+                        "canDelete",
+                        "canRecover",
+                        "canPurge",
+                        "canManage",
+                        "canReadPrivate"
+                      ],
                       "additionalProperties": false
                     }
                   },
@@ -4431,14 +4532,28 @@
                         "canDelete": {
                           "type": "boolean"
                         },
+                        "canRecover": {
+                          "type": "boolean"
+                        },
                         "canPurge": {
                           "type": "boolean"
                         },
                         "canManage": {
                           "type": "boolean"
+                        },
+                        "canReadPrivate": {
+                          "type": "boolean"
                         }
                       },
-                      "required": ["canRead", "canWrite", "canDelete", "canPurge", "canManage"],
+                      "required": [
+                        "canRead",
+                        "canWrite",
+                        "canDelete",
+                        "canRecover",
+                        "canPurge",
+                        "canManage",
+                        "canReadPrivate"
+                      ],
                       "additionalProperties": false
                     }
                   },
@@ -4685,14 +4800,28 @@
                         "canDelete": {
                           "type": "boolean"
                         },
+                        "canRecover": {
+                          "type": "boolean"
+                        },
                         "canPurge": {
                           "type": "boolean"
                         },
                         "canManage": {
                           "type": "boolean"
+                        },
+                        "canReadPrivate": {
+                          "type": "boolean"
                         }
                       },
-                      "required": ["canRead", "canWrite", "canDelete", "canPurge", "canManage"],
+                      "required": [
+                        "canRead",
+                        "canWrite",
+                        "canDelete",
+                        "canRecover",
+                        "canPurge",
+                        "canManage",
+                        "canReadPrivate"
+                      ],
                       "additionalProperties": false
                     }
                   },
@@ -4919,10 +5048,16 @@
                               "canDelete": {
                                 "type": "boolean"
                               },
+                              "canRecover": {
+                                "type": "boolean"
+                              },
                               "canPurge": {
                                 "type": "boolean"
                               },
                               "canManage": {
+                                "type": "boolean"
+                              },
+                              "canReadPrivate": {
                                 "type": "boolean"
                               }
                             },
@@ -4930,8 +5065,10 @@
                               "canRead",
                               "canWrite",
                               "canDelete",
+                              "canRecover",
                               "canPurge",
-                              "canManage"
+                              "canManage",
+                              "canReadPrivate"
                             ],
                             "additionalProperties": false
                           }
@@ -5140,14 +5277,28 @@
                         "canDelete": {
                           "type": "boolean"
                         },
+                        "canRecover": {
+                          "type": "boolean"
+                        },
                         "canPurge": {
                           "type": "boolean"
                         },
                         "canManage": {
                           "type": "boolean"
+                        },
+                        "canReadPrivate": {
+                          "type": "boolean"
                         }
                       },
-                      "required": ["canRead", "canWrite", "canDelete", "canPurge", "canManage"],
+                      "required": [
+                        "canRead",
+                        "canWrite",
+                        "canDelete",
+                        "canRecover",
+                        "canPurge",
+                        "canManage",
+                        "canReadPrivate"
+                      ],
                       "additionalProperties": false
                     },
                     "version": {
@@ -5329,14 +5480,28 @@
                         "canDelete": {
                           "type": "boolean"
                         },
+                        "canRecover": {
+                          "type": "boolean"
+                        },
                         "canPurge": {
                           "type": "boolean"
                         },
                         "canManage": {
                           "type": "boolean"
+                        },
+                        "canReadPrivate": {
+                          "type": "boolean"
                         }
                       },
-                      "required": ["canRead", "canWrite", "canDelete", "canPurge", "canManage"],
+                      "required": [
+                        "canRead",
+                        "canWrite",
+                        "canDelete",
+                        "canRecover",
+                        "canPurge",
+                        "canManage",
+                        "canReadPrivate"
+                      ],
                       "additionalProperties": false
                     }
                   },
@@ -5527,14 +5692,28 @@
                         "canDelete": {
                           "type": "boolean"
                         },
+                        "canRecover": {
+                          "type": "boolean"
+                        },
                         "canPurge": {
                           "type": "boolean"
                         },
                         "canManage": {
                           "type": "boolean"
+                        },
+                        "canReadPrivate": {
+                          "type": "boolean"
                         }
                       },
-                      "required": ["canRead", "canWrite", "canDelete", "canPurge", "canManage"],
+                      "required": [
+                        "canRead",
+                        "canWrite",
+                        "canDelete",
+                        "canRecover",
+                        "canPurge",
+                        "canManage",
+                        "canReadPrivate"
+                      ],
                       "additionalProperties": false
                     }
                   },
@@ -5722,14 +5901,28 @@
                         "canDelete": {
                           "type": "boolean"
                         },
+                        "canRecover": {
+                          "type": "boolean"
+                        },
                         "canPurge": {
                           "type": "boolean"
                         },
                         "canManage": {
                           "type": "boolean"
+                        },
+                        "canReadPrivate": {
+                          "type": "boolean"
                         }
                       },
-                      "required": ["canRead", "canWrite", "canDelete", "canPurge", "canManage"],
+                      "required": [
+                        "canRead",
+                        "canWrite",
+                        "canDelete",
+                        "canRecover",
+                        "canPurge",
+                        "canManage",
+                        "canReadPrivate"
+                      ],
                       "additionalProperties": false
                     },
                     "version": {
@@ -6022,14 +6215,28 @@
                         "canDelete": {
                           "type": "boolean"
                         },
+                        "canRecover": {
+                          "type": "boolean"
+                        },
                         "canPurge": {
                           "type": "boolean"
                         },
                         "canManage": {
                           "type": "boolean"
+                        },
+                        "canReadPrivate": {
+                          "type": "boolean"
                         }
                       },
-                      "required": ["canRead", "canWrite", "canDelete", "canPurge", "canManage"],
+                      "required": [
+                        "canRead",
+                        "canWrite",
+                        "canDelete",
+                        "canRecover",
+                        "canPurge",
+                        "canManage",
+                        "canReadPrivate"
+                      ],
                       "additionalProperties": false
                     }
                   },

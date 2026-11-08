@@ -61,8 +61,10 @@ describe("certificate contract internals", () => {
         canRead: true,
         canWrite: true,
         canDelete: true,
+        canRecover: true,
         canPurge: true,
         canManage: false,
+        canReadPrivate: true,
       },
     };
     expect(certificateMetadataSchema.safeParse({ ...base, value: "x" }).success).toBe(false);

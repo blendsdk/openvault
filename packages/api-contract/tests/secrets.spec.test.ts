@@ -34,8 +34,10 @@ const metadata = {
     canRead: true,
     canWrite: true,
     canDelete: true,
+    canRecover: true,
     canPurge: true,
     canManage: true,
+    canReadPrivate: true,
   },
 };
 

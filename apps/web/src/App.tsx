@@ -2,6 +2,8 @@ import { AuthGuard } from "blendsdk/react";
 import { Navigate, Route, Routes } from "react-router";
 import { AppShell } from "./layout/app-shell.js";
 import { AuditPage } from "./pages/audit-page.js";
+import { CertificateDetailPage } from "./pages/certificate-detail-page.js";
+import { CertificatesPage } from "./pages/certificates-page.js";
 import { ChangePasswordPage } from "./pages/change-password-page.js";
 import { ConsumersPage } from "./pages/consumers-page.js";
 import { IdentitiesPage } from "./pages/identities-page.js";
@@ -29,6 +31,8 @@ export function App() {
               <Route index element={<ProjectOverviewPage />} />
               <Route path="secrets" element={<SecretsPage />} />
               <Route path="secrets/:name" element={<SecretDetailPage />} />
+              <Route path="certificates" element={<CertificatesPage />} />
+              <Route path="certificates/:name" element={<CertificateDetailPage />} />
               <Route path="identities" element={<IdentitiesPage />} />
               <Route path="permissions" element={<PermissionsPage />} />
               <Route path="audit" element={<AuditPage />} />

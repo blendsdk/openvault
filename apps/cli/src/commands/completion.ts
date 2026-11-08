@@ -45,7 +45,7 @@ export function createCompletionParser(
 ): CommandLineParser {
   const parser = new CommandLineParser({
     name: "ov completion",
-    version: "1.0.1",
+    version: "1.1.0",
     strict: true,
   });
   parser.addCommand({

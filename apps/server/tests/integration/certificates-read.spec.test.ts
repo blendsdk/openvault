@@ -136,7 +136,9 @@ describe("certificate reads and lists", () => {
     await assign(reader, "certificates.reader", "object", created.response.id);
     const read = await service.read(reader, "foundation", name, {});
     expect(read.name).toBe(name);
-    await expect(service.list(reader, "foundation", { limit: 50 })).rejects.toMatchObject({
+    await expect(
+      service.list(reader, "foundation", { status: "active", limit: 50 }),
+    ).rejects.toMatchObject({
       statusCode: 404,
       code: "project_not_found",
     });
@@ -163,7 +165,11 @@ describe("certificate reads and lists", () => {
   it("should list metadata without PEM and with capabilities", async () => {
     const name = certificateName("list");
     await importSelfSigned(name);
-    const list = await service.list(actors.orgAdmin, "foundation", { q: "fixture", limit: 50 });
+    const list = await service.list(actors.orgAdmin, "foundation", {
+      q: "fixture",
+      status: "active",
+      limit: 50,
+    });
     const item = list.certificates.find((certificate) => certificate.name === name);
     expect(item).toBeDefined();
     expect(item).not.toHaveProperty("certificatePem");
@@ -188,27 +194,32 @@ describe("certificate reads and lists", () => {
     }
     const bySubject = await service.list(actors.orgAdmin, "foundation", {
       q: "alpha",
+      status: "active",
       limit: 50,
     });
     expect(bySubject.certificates).toHaveLength(2);
     const bySan = await service.list(actors.orgAdmin, "foundation", {
       san: "DNS:beta.example.test",
+      status: "active",
       limit: 50,
     });
     expect(bySan.certificates.map((certificate) => certificate.name)).toEqual([`${prefix}-b`]);
     const future = new Date(Date.now() + 365 * 86_400_000).toISOString();
     const byExpiry = await service.list(actors.orgAdmin, "foundation", {
       expiresBefore: future,
+      status: "active",
       limit: 50,
     });
     expect(byExpiry.certificates.length).toBeGreaterThanOrEqual(3);
     const first = await service.list(actors.orgAdmin, "foundation", {
       q: "alpha",
+      status: "active",
       limit: 1,
     });
     expect(first.nextCursor).not.toBeNull();
     const second = await service.list(actors.orgAdmin, "foundation", {
       q: "alpha",
+      status: "active",
       limit: 1,
       cursor: first.nextCursor ?? undefined,
     });

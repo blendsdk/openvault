@@ -6,7 +6,7 @@
 # directory. The join token belongs in .env and is never committed.
 services:
   openvault-agent-api:
-    image: "blendsdk/openvault-agent:1.0.1"
+    image: "blendsdk/openvault-agent:1.1.0"
     # Pin the release digest instead of the tag in a production deployment.
     command: ["run"]
     user: "10001:10001"

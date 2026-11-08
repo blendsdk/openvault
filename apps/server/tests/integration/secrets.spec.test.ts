@@ -508,22 +508,28 @@ describe("secret write and read", () => {
       canRead: true,
       canWrite: true,
       canDelete: true,
+      canRecover: true,
       canPurge: true,
       canManage: false,
+      canReadPrivate: true,
     });
     const officerFlags = await secrets.list(officer, "foundation", { limit: 50 });
     expect(officerFlags.secrets[0]?.capabilities).toMatchObject({
       canRead: true,
       canWrite: true,
       canDelete: true,
+      canRecover: true,
       canPurge: false,
+      canReadPrivate: true,
     });
     const readerFlags = await secrets.list(reader, "foundation", { limit: 50 });
     expect(readerFlags.secrets[0]?.capabilities).toMatchObject({
       canRead: true,
       canWrite: false,
       canDelete: false,
+      canRecover: false,
       canPurge: false,
+      canReadPrivate: true,
     });
     const auditorFlags = await secrets.list(auditor, "foundation", { limit: 50 });
     expect(auditorFlags.secrets[0]?.capabilities.canRead).toBe(false);

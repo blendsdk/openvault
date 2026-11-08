@@ -143,7 +143,7 @@ export function SessionApiProvider({ children }: { readonly children: ReactNode 
       baseUrl: "",
       adapter,
       auth: csrfAuth,
-      headers: { "User-Agent": "openvault-web/1.0.1" },
+      headers: { "User-Agent": "openvault-web/1.1.0" },
     });
   });
 

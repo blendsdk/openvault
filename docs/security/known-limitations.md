@@ -11,7 +11,7 @@ These are the limitations that matter when you operate OpenVault.
 | Application compromise | Any secret delivered to a container can be read by code in that container. OpenVault limits the blast radius but cannot make a compromised workload safe. |
 | Environment variables | Environment injection is set at application startup. A running process does not see a rotated value until it restarts. Values also leak through process inspection and crash dumps; prefer file delivery. |
 | Browser sessions | Sessions live in memory. A server restart signs browser users out. |
-| Certificates | OpenVault is not a public certificate authority. Certificate management is available through the API and CLI, not the web UI. |
+| Certificates | OpenVault is not a public certificate authority. Certificate management is available through the API, CLI, and web UI. Certificate version history is not listed in the UI; read the current version or a known version id. |
 | Remote hosts | Agents must run on the same Docker host as the vault. |
 | Project deletion | A deleted project and its secrets are hidden, not recoverable from the UI. Restore from backup is the recovery path. |
 | CA rotation | There is no online CA rotation command. A suspected CA compromise requires a fresh deployment and new identities. |

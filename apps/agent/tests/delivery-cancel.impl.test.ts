@@ -52,8 +52,10 @@ describe("delivery cancellation and cleanup", () => {
             canRead: true,
             canWrite: false,
             canDelete: false,
+            canRecover: false,
             canPurge: false,
             canManage: false,
+            canReadPrivate: false,
           },
         };
       },

@@ -29,7 +29,8 @@ features:
 
 ## Status
 
-OpenVault 1.0 is the first stable release. **Current release: 1.0.1.**
+OpenVault 1.0 is the first stable release. OpenVault 1.1 is the current release.
+**Current release: 1.1.0.**
 
 Start with [Getting started](/guide/getting-started), read
 [Environment variables](/guide/environment-variables), or review the

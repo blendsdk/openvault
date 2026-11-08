@@ -719,14 +719,14 @@ export class CertificateRepository {
   }
 
   /**
-   * Lists active certificates with search, SAN, expiry, and cursor filters.
+   * Lists certificates with search, SAN, expiry, status, and cursor filters.
    *
    * @param executor - Database.
    * @param projectId - Project identifier.
    * @param filters - Query filters.
    * @returns Matching rows and their current version metadata.
    */
-  public async listActiveCertificates(
+  public async listCertificates(
     executor: QueryExecutor,
     projectId: string,
     filters: {
@@ -734,14 +734,22 @@ export class CertificateRepository {
       readonly san?: string | undefined;
       readonly expiresBefore?: string | undefined;
       readonly expiresAfter?: string | undefined;
+      readonly status: "active" | "deleted";
       readonly cursor?: CertificateCursor | undefined;
       readonly limit: number;
     },
   ): Promise<readonly CertificateListRow[]> {
-    const conditions = ["c.project_id = :projectId", "c.deleted_at IS NULL"];
+    const conditions = ["c.project_id = :projectId"];
+    if (filters.status === "deleted") {
+      conditions.push("c.deleted_at IS NOT NULL");
+    } else {
+      conditions.push("c.deleted_at IS NULL");
+    }
     const params: Record<string, unknown> = { projectId, limit: filters.limit + 1 };
     if (filters.q !== undefined) {
-      conditions.push("v.subject ILIKE :pattern ESCAPE '\\'");
+      conditions.push(
+        "(c.name ILIKE :pattern ESCAPE '\\' OR v.subject ILIKE :pattern ESCAPE '\\')",
+      );
       params.pattern = `%${filters.q.replaceAll("\\", "\\\\").replaceAll("%", "\\%").replaceAll("_", "\\_")}%`;
     }
     if (filters.san !== undefined) {

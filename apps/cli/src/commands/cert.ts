@@ -56,7 +56,7 @@ export function createCertParser(globals: GlobalOptions, runtime: CliRuntime): C
   const context = createCommandContext(globals, runtime);
   const parser = new CommandLineParser({
     name: "ov cert",
-    version: "1.0.1",
+    version: "1.1.0",
     strict: true,
   });
 
@@ -227,7 +227,7 @@ export function createCertParser(globals: GlobalOptions, runtime: CliRuntime): C
     name: "list",
     description: "List certificates in a project",
     options: [
-      { name: "q", type: "string", description: "Subject or SAN substring" },
+      { name: "q", type: "string", description: "Name or subject substring" },
       { name: "san", type: "string", description: "Typed SAN filter" },
       { name: "expires-before", type: "string", description: "ISO expiry upper bound" },
       { name: "expires-after", type: "string", description: "ISO expiry lower bound" },

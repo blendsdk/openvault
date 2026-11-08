@@ -1,5 +1,15 @@
 # Changelog
 
+## 1.1.0 — 2026-11-08
+
+### Added
+
+- Certificate management in the web UI: list, search, status filter, import, generate, renew,
+  version-by-id read, public leaf and chain download, tags, purge protection, delete, recover,
+  purge, and audited private-key reveal and download.
+- Certificate list filters for name or subject, SAN, expiry, and active or deleted status.
+- Capability flags for certificate recovery and private-key reads.
+
 ## 1.0.1 — 2026-11-08
 
 ### Fixed

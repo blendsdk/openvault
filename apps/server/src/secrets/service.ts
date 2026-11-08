@@ -55,8 +55,10 @@ const ZERO_CAPABILITIES: CapabilityFlags = {
   canRead: false,
   canWrite: false,
   canDelete: false,
+  canRecover: false,
   canPurge: false,
   canManage: false,
+  canReadPrivate: false,
 };
 
 /** Options for {@link SecretService}. */
@@ -1322,7 +1324,7 @@ export class SecretService {
     };
   }
 
-  /** Computes the five flags for one secret. */
+  /** Computes the capability flags for one secret. */
   async #capabilities(actorId: string, secret: SecretRecord): Promise<CapabilityFlags> {
     const result = await this.#policy.capabilitiesForMany(actorId, [
       { type: "secret", id: secret.id, projectId: secret.projectId },

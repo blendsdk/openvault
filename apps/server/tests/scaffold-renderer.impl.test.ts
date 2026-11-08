@@ -19,7 +19,7 @@ describe("scaffold renderer", () => {
     const otherProject = renderCompose({ project: "reports", service: "api", entries: [] });
     expect(api).toContain("openvault-agent-api");
     expect(worker).toContain("openvault-agent-worker");
-    expect(api).toContain("blendsdk/openvault-agent:1.0.1");
+    expect(api).toContain("blendsdk/openvault-agent:1.1.0");
     expect(api).not.toContain("ghcr.io");
     const agent = (
       parse(api) as {

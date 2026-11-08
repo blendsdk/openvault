@@ -10,7 +10,7 @@ export function createAnonymousClient(transport: HttpsAdapter, baseUrl: string):
   return createOpenVaultClient({
     baseUrl,
     adapter: transport,
-    headers: { "User-Agent": "openvault-cli/1.0.1" },
+    headers: { "User-Agent": "openvault-cli/1.1.0" },
   });
 }
 
@@ -131,7 +131,7 @@ export function createAuthenticatedClient(
   const client = createOpenVaultClient({
     baseUrl,
     adapter: options.transport,
-    headers: { "User-Agent": "openvault-cli/1.0.1" },
+    headers: { "User-Agent": "openvault-cli/1.1.0" },
     auth: new BearerAuth({
       getToken: currentToken,
       refresh,

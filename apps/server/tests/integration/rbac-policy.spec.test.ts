@@ -390,8 +390,10 @@ describe("decision evidence and capabilities", () => {
       canRead: true,
       canWrite: true,
       canDelete: true,
+      canRecover: true,
       canPurge: true,
       canManage: true,
+      canReadPrivate: true,
     });
     expect(
       await policy.capabilitiesFor(fixture.objectReader, secret(fixture.secretA, fixture.projectA)),
@@ -399,8 +401,10 @@ describe("decision evidence and capabilities", () => {
       canRead: true,
       canWrite: false,
       canDelete: false,
+      canRecover: false,
       canPurge: false,
       canManage: false,
+      canReadPrivate: true,
     });
     expect(
       await policy.capabilitiesFor(
@@ -411,8 +415,10 @@ describe("decision evidence and capabilities", () => {
       canRead: true,
       canWrite: false,
       canDelete: false,
+      canRecover: false,
       canPurge: false,
       canManage: false,
+      canReadPrivate: false,
     });
   });
 
