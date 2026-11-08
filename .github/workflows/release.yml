@@ -7,7 +7,7 @@ on:
   workflow_dispatch:
     inputs:
       mode:
-        description: "alpha publishes a not-for-production image; production requires an approved external review"
+        description: "alpha publishes a not-for-production image; production requires an approved OpenAI Codex Security review"
         type: choice
         options: [alpha, production]
         default: alpha

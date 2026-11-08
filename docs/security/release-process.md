@@ -2,7 +2,7 @@
 
 ## Labels
 
-| Label | Allowed before external review | Image tags | OCI label |
+| Label | Allowed before independent review | Image tags | OCI label |
 |---|---|---|---|
 | Alpha | Yes, explicit `workflow_dispatch` | `alpha`, `sha-<12>` | `not-for-production=true` |
 | Production | No | `v0.1.0`, `0.1.0`, `latest`, `sha-<12>` | `production=true` |
@@ -51,14 +51,17 @@ real secrets.
 
 ## Publish a production release
 
-1. Complete the external review in [`external-review.md`](external-review.md).
-2. Update `Status: Approved`, `Release: v0.1.0`, `Commit: <reviewed SHA>`,
-   `Reviewer: <name>`, `Open Critical: 0`, and `Open High: 0`.
+1. Run the OpenAI Codex Security review on the release-candidate code commit and
+   resolve every Critical/High finding. See [`external-review.md`](external-review.md).
+2. Add the approval record: `Status: Approved`, `Release: v0.1.0`,
+   `Reviewed Commit: <scanned SHA>`, `Commit: <approval SHA>`,
+   `Scanner: OpenAI Codex Security`, the `Scan ID`, `Scanned At`, the report
+   path, `Open Critical: 0`, and `Open High: 0`.
 3. Run the local gates and merge the approval commit to `main`.
-4. Create and push the tag:
+4. Create and push the tag on the approval commit:
 
 ```bash
-git tag -s v0.1.0 -m "OpenVault v0.1.0"
+git tag -a v0.1.0 -m "OpenVault v0.1.0"
 git push origin v0.1.0
 ```
 
@@ -97,7 +100,9 @@ recorded in [`release-evidence.md`](release-evidence.md).
 
 ## What is not automated
 
-- The independent external review is a human engagement.
 - The production tag is a deliberate operator action.
 - A real-browser accessibility pass is a release-candidate manual check; the
   automated axe suite runs in jsdom.
+
+Use `git tag -s` instead of `git tag -a` when a release signing key is configured. The
+mandatory release signature is the Cosign keyless signature on the image, not the Git tag.

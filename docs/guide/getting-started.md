@@ -2,7 +2,7 @@
 
 ::: warning Release status
 The v0.1 feature set, the `ov` CLI, the web UI, and the API in this repository are
-implemented and tested. A production-labelled image is blocked until the independent external
+implemented and tested. A production-labelled image is blocked until the OpenAI Codex Security
 review is approved; alpha images are explicitly not for production.
 :::
 
@@ -101,6 +101,7 @@ Then read the bootstrap password through the init container, sign in, and delete
 
 ## Next
 
+- [Tutorials](/tutorials/)
 - [Install](/guide/install)
 - [Docker Compose](/guide/docker-compose)
 - [Agent](/guide/agent)

@@ -16,7 +16,7 @@ but designed for a small team running Docker Compose on one host.
 The v0.1 feature set is implemented and tested: secrets, certificates, RBAC, audit, the
 agent, the CLI, the web UI, encrypted backup/restore, KEK rotation, the hardened reference
 Compose stack, and the release-assurance pipeline. The remaining production gate is an
-independent external security review; alpha images are explicitly labelled not for
+independent OpenAI Codex Security review; alpha images are explicitly labelled not for
 production. See the [security evidence matrix](docs/security/evidence-matrix.md) and the
 [release process](docs/security/release-process.md).
 
@@ -141,7 +141,10 @@ documentation. Report vulnerabilities privately as described in [SECURITY.md](SE
 
 ## Documentation
 
-Full guides and reference: <https://blendsdk.github.io/openvault/>
+Full guides, tutorials, and reference: <https://blendsdk.github.io/openvault/>
+
+Start with [Your first secret](docs/tutorials/first-secret.md) or
+[Deliver a secret to a Compose service](docs/tutorials/compose-agent.md).
 
 ## Roadmap
 

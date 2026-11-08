@@ -10,6 +10,9 @@ hero:
       text: Get started
       link: /guide/getting-started
     - theme: alt
+      text: Tutorials
+      link: /tutorials/
+    - theme: alt
       text: Architecture
       link: /architecture/overview
 
@@ -27,7 +30,7 @@ features:
 ## Status
 
 The v0.1 feature set is implemented and tested. A production-labelled image remains gated
-on the independent external review; alpha images are explicitly not for production.
+on the independent OpenAI Codex Security review; alpha images are explicitly not for production.
 
 See [Getting started](/guide/getting-started) for the installation flow, or the
 [security evidence matrix](/security/evidence-matrix) for the test-to-control mapping.

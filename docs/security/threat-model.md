@@ -92,7 +92,7 @@
 - No explicit deny rules in v0.1.
 - The readiness timeout bounds the response, not an in-flight database query; the pool
   connection timeout and connection cap bound the residual work.
-- The independent external review is pending; a production-labelled image is blocked
+- The OpenAI Codex Security review is pending; a production-labelled image is blocked
   until it is approved. Alpha images are explicitly not for production.
 
 See [Known limitations](/security/limitations) and the

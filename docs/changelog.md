@@ -92,7 +92,7 @@
 
 ### Deferred
 
-- The independent external review is pending; a production-labelled image is blocked until it
+- The OpenAI Codex Security review is pending; a production-labelled image is blocked until it
   is approved.
 - Multi-arch images, certificate screens, and real-browser Playwright checks across engines;
   v0.1 keeps certificates in the CLI and runs axe in jsdom.

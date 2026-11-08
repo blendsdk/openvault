@@ -1,6 +1,6 @@
 # Release evidence
 
-> **Snapshot**: 2026-11-07, `fix/security-findings-46-52` (PR #53) after the seven-finding remediation
+> **Snapshot**: 2026-11-08, `main` after the dependency upgrade (PR #57); release review pending
 > **Production image**: not published
 
 ## Branch protection
@@ -25,7 +25,7 @@ change was needed.
 | Gate | Where |
 |---|---|
 | Build, typecheck, API contract, lint, unit tests, artifacts, docs | `pnpm verify` / `Verify` |
-| PostgreSQL 16 and 17 integration | `Integration (16)` and `Integration (17)`; 92 files and 740 tests each locally |
+| PostgreSQL 16 and 17 integration | `Integration (16)` and `Integration (17)`; 92 files and 741 tests each locally |
 | Dependency audit | `Audit` and the weekly `Security scans` workflow |
 | CodeQL | `CodeQL` |
 | Secret scan | `Gitleaks` |
@@ -46,10 +46,10 @@ review remains the production-release gate.
 
 The release workflow publishes, scans, signs, and attests the images. The first
 alpha image is produced by a manual dispatch. A production image is blocked
-until the external review file is approved. The workflow writes the digest and
+until the independent-review file is approved. The workflow writes the digest and
 SBOM list to the GitHub release and the job summary.
 
-## External review
+## Independent review
 
 `docs/security/external-review.md` is the gate. It currently records
 `Status: Pending`, so a production tag fails before any registry login.
@@ -65,5 +65,5 @@ node scripts/check-release-gate.mjs --mode alpha --version v0.1.0-alpha.1
 node scripts/check-release-gate.mjs --mode production --version v0.1.0 --commit "$(git rev-parse HEAD)"
 ```
 
-The production command intentionally fails until the external review is
+The production command intentionally fails until the Codex Security review is
 approved.

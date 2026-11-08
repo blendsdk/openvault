@@ -197,14 +197,14 @@
       "id": "C-13",
       "claim": "Release images are amd64, signed with Cosign keyless, have an SBOM and provenance, and are scanned for HIGH/CRITICAL findings.",
       "status": "planned",
-      "reason": "The release workflow is implemented; the first signed image awaits the release tag and the external review gate.",
+      "reason": "The release workflow is implemented; the first signed image awaits the release tag and the Codex Security review gate.",
       "docs": ["docs/security/release-process.md"]
     },
     {
       "id": "C-14",
-      "claim": "An independent external review of crypto, auth/session, agent isolation, and deploy is complete for v0.1.",
+      "claim": "An independent OpenAI Codex Security review of crypto, auth/session, agent isolation, deploy, and transport is complete for v0.1.",
       "status": "planned",
-      "reason": "The review is an operator-provided gate. The packet and fail-closed approval file are in the repository; the production label remains blocked until it is approved.",
+      "reason": "The Codex Security scan is the release gate. The scan record and fail-closed approval file are in the repository; the production label remains blocked until it is approved.",
       "docs": ["docs/security/external-review.md"]
     },
     {
