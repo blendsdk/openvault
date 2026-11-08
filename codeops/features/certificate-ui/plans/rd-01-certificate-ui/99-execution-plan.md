@@ -45,6 +45,7 @@ task-size criteria in the quality checklist)
 ## Phase 1: Server contract and data access
 
 > **Phase baseline tree**: Pending — recorded by the exec-plan skill at phase start.
+> **Lenses**: api-contract, security, database
 > **Reasoning**: high — additive API contract and RBAC projection changes that every later phase
 > consumes.
 
@@ -91,6 +92,7 @@ task-size criteria in the quality checklist)
 ## Phase 2: Web helpers and fixtures
 
 > **Phase baseline tree**: Pending — recorded by the exec-plan skill at phase start.
+> **Lenses**: web-ui, accessibility
 > **Reasoning**: medium — pure helpers and a test adapter; no page behavior yet.
 
 ### Step 2.1: Specification tests
@@ -130,6 +132,7 @@ task-size criteria in the quality checklist)
 ## Phase 3: Certificate list and navigation
 
 > **Phase baseline tree**: Pending — recorded by the exec-plan skill at phase start.
+> **Lenses**: web-ui, accessibility
 > **Reasoning**: medium — new page and navigation surface that reuses established list patterns.
 
 ### Step 3.1: Specification tests
@@ -169,6 +172,7 @@ task-size criteria in the quality checklist)
 ## Phase 4: Certificate detail and public material
 
 > **Phase baseline tree**: Pending — recorded by the exec-plan skill at phase start.
+> **Lenses**: web-ui, security
 > **Reasoning**: medium — read-only page with version selection, copy/download, and expiry handling.
 
 ### Step 4.1: Specification tests
@@ -207,6 +211,7 @@ task-size criteria in the quality checklist)
 ## Phase 5: Import, generate, and renew
 
 > **Phase baseline tree**: Pending — recorded by the exec-plan skill at phase start.
+> **Lenses**: web-ui, security
 > **Reasoning**: medium — forms, local file input, and optimistic-concurrency behavior.
 
 ### Step 5.1: Specification tests
@@ -247,6 +252,7 @@ task-size criteria in the quality checklist)
 ## Phase 6: Lifecycle, private key, and errors
 
 > **Phase baseline tree**: Pending — recorded by the exec-plan skill at phase start.
+> **Lenses**: web-ui, security, accessibility
 > **Reasoning**: high — destructive actions and private-key handling are security-sensitive.
 
 ### Step 6.1: Specification tests
@@ -289,6 +295,7 @@ task-size criteria in the quality checklist)
 ## Phase 7: Documentation and release metadata
 
 > **Phase baseline tree**: Pending — recorded by the exec-plan skill at phase start.
+> **Lenses**: docs, release
 > **Reasoning**: medium — broad but mechanical documentation and version alignment; no product code.
 
 ### Step 7.1: Documentation tests first
