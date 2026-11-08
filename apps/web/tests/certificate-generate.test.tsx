@@ -42,6 +42,7 @@ describe("certificate generate and renew", () => {
   it("should send the subject, typed SANs, key type, validity, and tags", async () => {
     const vault = new FakeVault();
     renderGenerate(vault);
+    expect(await screen.findByText(/adds a new version/)).toBeInTheDocument();
     await fillGenerateForm();
     fireEvent.click(screen.getByRole("button", { name: "Generate certificate" }));
 
@@ -79,6 +80,11 @@ describe("certificate generate and renew", () => {
     fireEvent.change(screen.getByLabelText("Validity days"), { target: { value: "826" } });
     fireEvent.click(screen.getByRole("button", { name: "Generate certificate" }));
     expect(await screen.findByText(/between 1 and 825/)).toBeInTheDocument();
+
+    fireEvent.change(screen.getByLabelText("Validity days"), { target: { value: "365" } });
+    fireEvent.change(screen.getByLabelText(/SANs/), { target: { value: "" } });
+    fireEvent.click(screen.getByRole("button", { name: "Generate certificate" }));
+    expect(await screen.findByText("Add at least one SAN")).toBeInTheDocument();
     expect(generateRequest(vault)).toBeUndefined();
   });
 

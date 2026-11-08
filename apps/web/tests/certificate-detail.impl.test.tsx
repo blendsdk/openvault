@@ -3,7 +3,7 @@ import { fireEvent, screen, waitFor } from "@testing-library/react";
 import { Link, Route, Routes } from "react-router";
 import { describe, expect, it } from "vitest";
 import { CertificateDetailPage } from "../src/pages/certificate-detail-page.js";
-import { CERTIFICATE_VERSION_ID, FakeVault } from "./helpers/fake-vault.js";
+import { CERTIFICATE_VERSION_ID, certificate, FakeVault } from "./helpers/fake-vault.js";
 import { renderProjectPage } from "./helpers/render.js";
 
 function renderDetail(vault: FakeVault, name = "api-tls") {
@@ -55,6 +55,35 @@ describe("certificate detail internals", () => {
     expect(screen.getAllByText("01ARZ3NDEKTSV4RRFFQ69G5FC9").length).toBeGreaterThan(0);
   });
 
+  it("should find an exact name beyond the first metadata page", async () => {
+    const vault = new FakeVault();
+    vault.certificates = Array.from({ length: 101 }, (_, index) =>
+      certificate({
+        id: `01ARZ3NDEKTSV4RRFFQ69G5H${String(index).padStart(2, "0")}`,
+        name: `a-zz-target-${String(index).padStart(3, "0")}`,
+        status: "active",
+        subject: "CN=shared.example.test",
+      }),
+    );
+    vault.certificates.push(
+      certificate({
+        id: "01ARZ3NDEKTSV4RRFFQ69G5HZZ",
+        name: "zz-target",
+        status: "active",
+        subject: "CN=zz-target.example.test",
+      }),
+    );
+    renderDetail(vault, "zz-target");
+
+    expect(await screen.findByRole("heading", { name: "zz-target" })).toBeInTheDocument();
+    const metadataRequests = vault.requests.filter(
+      (entry) => entry.method === "GET" && entry.path === "/v1/data/payments/certificates",
+    );
+    expect(metadataRequests.length).toBeGreaterThanOrEqual(2);
+    const lastQuery = new URLSearchParams(metadataRequests.at(-1)?.query ?? "");
+    expect(lastQuery.get("cursor")).not.toBeNull();
+  });
+
   it("should keep long metadata values in wrapping definition cells", async () => {
     const vault = new FakeVault();
     const certificate = vault.certificates[0];
@@ -80,6 +109,6 @@ describe("certificate detail internals", () => {
     renderDetail(vault, "old-tls");
     await screen.findByRole("heading", { name: "old-tls" });
     expect(screen.getAllByText(CERTIFICATE_VERSION_ID).length).toBeGreaterThan(0);
-    expect(screen.getByText(/Reading version/)).toHaveTextContent(CERTIFICATE_VERSION_ID);
+    expect(screen.getByText(/Selected version/)).toHaveTextContent(CERTIFICATE_VERSION_ID);
   });
 });

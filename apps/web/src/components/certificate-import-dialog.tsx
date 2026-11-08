@@ -170,6 +170,14 @@ export function CertificateImportDialog({
   const close = (): void => {
     setResult(undefined);
     setFailure(undefined);
+    form.reset({
+      name: renew?.name ?? "",
+      certificatePem: "",
+      chainPem: "",
+      privateKeyPem: "",
+      tags: "",
+      allowNotYetValid: false,
+    });
     onClose();
   };
 
@@ -239,7 +247,7 @@ export function CertificateImportDialog({
     <Dialog
       open={open}
       onOpenChange={(_event, data) => {
-        if (!data.open) {
+        if (!data.open && !form.formState.isSubmitting) {
           close();
         }
       }}
@@ -263,6 +271,11 @@ export function CertificateImportDialog({
                   disabled={renew !== undefined}
                   autoFocus={renew === undefined}
                 />
+                {renew === undefined ? (
+                  <p className="muted">
+                    If this name already exists, the import adds a new version.
+                  </p>
+                ) : null}
                 <FormTextareaField
                   control={form.control}
                   name="certificatePem"
@@ -318,7 +331,11 @@ export function CertificateImportDialog({
                 />
               </DialogContent>
               <DialogActions>
-                <Button appearance="secondary" onClick={close}>
+                <Button
+                  appearance="secondary"
+                  onClick={close}
+                  disabled={form.formState.isSubmitting}
+                >
                   Cancel
                 </Button>
                 <Button type="submit" appearance="primary" disabled={form.formState.isSubmitting}>

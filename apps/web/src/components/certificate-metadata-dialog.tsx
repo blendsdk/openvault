@@ -64,6 +64,13 @@ export function CertificateMetadataDialog({
   const protectionChanged = purgeProtected !== certificate.purgeProtected;
   const changed = tagsChanged || protectionChanged;
 
+  const close = (): void => {
+    form.reset({ tags: formatTagLines(certificate.tags) });
+    setPurgeProtected(certificate.purgeProtected);
+    setFailure(undefined);
+    onClose();
+  };
+
   const submit = form.handleSubmit(async (values) => {
     let tags: Record<string, string>;
     try {
@@ -86,7 +93,7 @@ export function CertificateMetadataDialog({
         ...(protectionChanged ? { purgeProtected } : {}),
       });
       onSaved();
-      onClose();
+      close();
     } catch (error) {
       setFailure(error);
     }
@@ -96,8 +103,8 @@ export function CertificateMetadataDialog({
     <Dialog
       open={open}
       onOpenChange={(_event, data) => {
-        if (!data.open) {
-          onClose();
+        if (!data.open && !form.formState.isSubmitting) {
+          close();
         }
       }}
       modalType="modal"
@@ -125,7 +132,7 @@ export function CertificateMetadataDialog({
               ) : null}
             </DialogContent>
             <DialogActions>
-              <Button appearance="secondary" onClick={onClose}>
+              <Button appearance="secondary" onClick={close} disabled={form.formState.isSubmitting}>
                 Cancel
               </Button>
               <Button

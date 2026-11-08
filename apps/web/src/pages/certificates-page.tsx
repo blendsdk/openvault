@@ -1,5 +1,5 @@
 import { Button, Field, Input, Select } from "@fluentui/react-components";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Link } from "react-router";
 import { CertificateGenerateDialog } from "../components/certificate-generate-dialog.js";
 import { CertificateImportDialog } from "../components/certificate-import-dialog.js";
@@ -62,6 +62,9 @@ export function CertificatesPage() {
   const [moreLoading, setMoreLoading] = useState(false);
   const [moreError, setMoreError] = useState<unknown>(undefined);
   const [createMode, setCreateMode] = useState<"import" | "generate" | undefined>(undefined);
+  const filtersRef = useRef(filters);
+  const moreToken = useRef(0);
+  filtersRef.current = filters;
 
   const page = useAsync(
     async (signal) =>
@@ -93,8 +96,11 @@ export function CertificatesPage() {
   );
 
   useEffect(() => {
+    moreToken.current += 1;
     setExtra([]);
     setNextCursor(page.data?.nextCursor ?? null);
+    setMoreLoading(false);
+    setMoreError(undefined);
   }, [page.data]);
 
   const items = [...(page.data?.certificates ?? []), ...extra];
@@ -108,6 +114,8 @@ export function CertificatesPage() {
     if (nextCursor === null) {
       return;
     }
+    const token = ++moreToken.current;
+    const requestedFilters = filters;
     setMoreLoading(true);
     setMoreError(undefined);
     try {
@@ -125,12 +133,19 @@ export function CertificatesPage() {
           ? {}
           : { expiresBefore: endOfDayIso(filters.expiresBefore) }),
       });
+      if (token !== moreToken.current || filtersRef.current !== requestedFilters) {
+        return;
+      }
       setExtra((current) => [...current, ...next.certificates]);
       setNextCursor(next.nextCursor);
     } catch (error) {
-      setMoreError(error);
+      if (token === moreToken.current) {
+        setMoreError(error);
+      }
     } finally {
-      setMoreLoading(false);
+      if (token === moreToken.current) {
+        setMoreLoading(false);
+      }
     }
   };
 
@@ -158,6 +173,8 @@ export function CertificatesPage() {
         className="filter-bar"
         onSubmit={(event) => {
           event.preventDefault();
+          moreToken.current += 1;
+          setMoreError(undefined);
           setFilters(draft);
         }}
       >
@@ -206,6 +223,8 @@ export function CertificatesPage() {
             type="button"
             appearance="subtle"
             onClick={() => {
+              moreToken.current += 1;
+              setMoreError(undefined);
               setDraft(EMPTY_FILTERS);
               setFilters(EMPTY_FILTERS);
             }}
@@ -314,7 +333,9 @@ export function CertificatesPage() {
                 },
               ]}
             />
-            {moreError === undefined ? null : <ErrorAlert error={moreError} />}
+            {moreError === undefined ? null : (
+              <ErrorAlert error={moreError} onRetry={() => void loadMore()} />
+            )}
             {nextCursor === null ? null : (
               <Button appearance="secondary" onClick={() => void loadMore()} disabled={moreLoading}>
                 {moreLoading ? "Loading…" : "Load more"}

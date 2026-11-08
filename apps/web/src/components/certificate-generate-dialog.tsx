@@ -93,6 +93,14 @@ export function CertificateGenerateDialog({
   const close = (): void => {
     setResult(undefined);
     setFailure(undefined);
+    form.reset({
+      name: renew?.name ?? "",
+      subject: "",
+      sans: "",
+      keyType: "ec-p256",
+      validityDays: "365",
+      tags: "",
+    });
     onClose();
   };
 
@@ -162,7 +170,7 @@ export function CertificateGenerateDialog({
     <Dialog
       open={open}
       onOpenChange={(_event, data) => {
-        if (!data.open) {
+        if (!data.open && !form.formState.isSubmitting) {
           close();
         }
       }}
@@ -186,6 +194,11 @@ export function CertificateGenerateDialog({
                   disabled={renew !== undefined}
                   autoFocus={renew === undefined}
                 />
+                {renew === undefined ? (
+                  <p className="muted">
+                    If this name already exists, generation adds a new version.
+                  </p>
+                ) : null}
                 <FormTextField
                   control={form.control}
                   name="subject"
@@ -246,7 +259,11 @@ export function CertificateGenerateDialog({
                 />
               </DialogContent>
               <DialogActions>
-                <Button appearance="secondary" onClick={close}>
+                <Button
+                  appearance="secondary"
+                  onClick={close}
+                  disabled={form.formState.isSubmitting}
+                >
                   Cancel
                 </Button>
                 <Button type="submit" appearance="primary" disabled={form.formState.isSubmitting}>

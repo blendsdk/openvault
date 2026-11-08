@@ -1,4 +1,4 @@
-import { fireEvent, screen, waitFor } from "@testing-library/react";
+import { fireEvent, screen, waitFor, within } from "@testing-library/react";
 import { Route, Routes, useLocation } from "react-router";
 import { describe, expect, it } from "vitest";
 import { CertificateDetailPage } from "../src/pages/certificate-detail-page.js";
@@ -29,7 +29,8 @@ function renderDetail(vault: FakeVault, name = "api-tls", status?: "active" | "d
 
 async function deleteCertificate(): Promise<void> {
   fireEvent.click(await screen.findByRole("button", { name: "Delete" }));
-  fireEvent.click(await screen.findByRole("button", { name: "Confirm" }));
+  const dialog = await screen.findByRole("alertdialog");
+  fireEvent.click(within(dialog).getByRole("button", { name: "Confirm" }));
 }
 
 describe("certificate metadata and lifecycle", () => {
@@ -89,6 +90,14 @@ describe("certificate metadata and lifecycle", () => {
     renderDetail(vault);
     await screen.findByRole("heading", { name: "api-tls" });
     await deleteCertificate();
+    await waitFor(() => {
+      expect(
+        vault.requests.some(
+          (entry) =>
+            entry.method === "DELETE" && entry.path === "/v1/data/payments/certificates/api-tls",
+        ),
+      ).toBe(true);
+    });
 
     expect(await screen.findByRole("button", { name: "Recover" })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Purge" })).toBeInTheDocument();

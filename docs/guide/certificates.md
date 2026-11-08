@@ -82,7 +82,7 @@ otherwise move the current pointer backwards. A stale value returns 409
 Certificate versions are capped at 1,000 retained versions; a further write returns 409
 `certificate_version_limit`.
 
-## Read
+## Read and renew {#read-and-renew}
 
 `GET /v1/data/:project/certificates/:name` returns metadata plus `certificatePem` (leaf) and
 `chainPem` (non-leaf blocks). `GET /:name?version=<ulid>` selects a specific version. The

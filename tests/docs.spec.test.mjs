@@ -110,6 +110,7 @@ describe("documentation version labels", () => {
     expect(limitations).toContain("web UI");
 
     expect(read("docs/guide/certificates.md")).toContain("## Web UI");
+    expect(read("docs/guide/certificates.md")).toContain("read-and-renew");
   });
 
   it("should record the release in the CodeOps roadmaps", () => {

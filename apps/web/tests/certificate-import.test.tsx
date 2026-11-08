@@ -51,6 +51,7 @@ describe("certificate import", () => {
     const vault = new FakeVault();
     const onSaved = vi.fn();
     renderImport(vault, { onSaved });
+    expect(screen.getByText(/adds a new version/)).toBeInTheDocument();
     await fillImportForm();
     fireEvent.click(screen.getByRole("button", { name: "Import certificate" }));
 

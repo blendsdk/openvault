@@ -32,7 +32,7 @@ interface RevealedPrivateKey {
 }
 
 const REVEAL_SECONDS = 60;
-const RETENTION_WINDOW_MS = 30 * 86_400_000;
+const MAX_METADATA_PAGES = 20;
 
 /**
  * Certificate detail with metadata, version selection, public material, the
@@ -54,6 +54,7 @@ export function CertificateDetailPage() {
   const [version, setVersion] = useState("");
   const [appliedVersion, setAppliedVersion] = useState("");
   const [material, setMaterial] = useState<PublicMaterial | undefined>(undefined);
+  const [loadedVersion, setLoadedVersion] = useState<string | undefined>(undefined);
   const [publicLoading, setPublicLoading] = useState(false);
   const [publicError, setPublicError] = useState<unknown>(undefined);
   const [copyStatus, setCopyStatus] = useState<string | undefined>(undefined);
@@ -64,18 +65,40 @@ export function CertificateDetailPage() {
   );
   const [actionFailure, setActionFailure] = useState<unknown>(undefined);
   const [privateKey, setPrivateKey] = useState<RevealedPrivateKey | undefined>(undefined);
+  const [privateDeadline, setPrivateDeadline] = useState<number | undefined>(undefined);
   const [secondsLeft, setSecondsLeft] = useState(REVEAL_SECONDS);
   const [privateFailure, setPrivateFailure] = useState<unknown>(undefined);
+  const [now, setNow] = useState<number>(() => Date.now());
   const privateRegion = useRef<HTMLDivElement>(null);
   const privateInput = useRef<HTMLTextAreaElement>(null);
+  const requestToken = useRef(0);
 
   const metadata = useAsync(
     async (signal) => {
-      const page = await client.certificates.listCertificates(
-        { project: project.name, status, q: name, limit: 100 },
-        { signal },
-      );
-      return page.certificates.find((entry) => entry.name === name);
+      // The query matches the name or subject, so a busy project can place the
+      // exact name on a later page. Follow the cursor until it is found.
+      let cursor: string | undefined;
+      for (let page = 0; page < MAX_METADATA_PAGES; page += 1) {
+        const result = await client.certificates.listCertificates(
+          {
+            project: project.name,
+            status,
+            q: name,
+            limit: 100,
+            ...(cursor === undefined ? {} : { cursor }),
+          },
+          { signal },
+        );
+        const match = result.certificates.find((entry) => entry.name === name);
+        if (match !== undefined) {
+          return match;
+        }
+        if (result.nextCursor === null) {
+          return undefined;
+        }
+        cursor = result.nextCursor;
+      }
+      return undefined;
     },
     [client, project.name, name, status],
   );
@@ -84,6 +107,7 @@ export function CertificateDetailPage() {
 
   const clearPrivate = useCallback((): void => {
     setPrivateKey(undefined);
+    setPrivateDeadline(undefined);
     setSecondsLeft(REVEAL_SECONDS);
     setPrivateFailure(undefined);
   }, []);
@@ -92,17 +116,32 @@ export function CertificateDetailPage() {
     // The selected version belongs to the certificate that is displayed. A
     // reload with a different current version starts from the current version.
     void certificate?.version.id;
+    requestToken.current += 1;
     setVersion("");
     setAppliedVersion("");
     setMaterial(undefined);
+    setLoadedVersion(undefined);
     setPublicError(undefined);
-  }, [certificate?.version.id]);
+    clearPrivate();
+  }, [certificate?.version.id, clearPrivate]);
 
   useEffect(() => {
     if (metadata.data?.status === "deleted") {
       setDeletedMetadata(undefined);
     }
   }, [metadata.data?.status]);
+
+  useEffect(() => {
+    void name;
+    void status;
+    requestToken.current += 1;
+    setVersion("");
+    setAppliedVersion("");
+    setMaterial(undefined);
+    setLoadedVersion(undefined);
+    setPublicError(undefined);
+    clearPrivate();
+  }, [name, status, clearPrivate]);
 
   useEffect(() => subscribeCredentialCopy((result) => setCopyStatus(result.message)), []);
 
@@ -111,6 +150,7 @@ export function CertificateDetailPage() {
     // location values makes the dependency intent explicit to the linter.
     void location.pathname;
     void location.search;
+    requestToken.current += 1;
     clearPrivate();
   }, [location.pathname, location.search, clearPrivate]);
 
@@ -122,21 +162,56 @@ export function CertificateDetailPage() {
       privateInput.current.focus();
     }
     const onWindowBlur = (): void => clearPrivate();
+    const onVisibilityChange = (): void => {
+      if (document.visibilityState === "hidden") {
+        clearPrivate();
+      }
+    };
     window.addEventListener("blur", onWindowBlur);
+    document.addEventListener("visibilitychange", onVisibilityChange);
+    // Use an absolute deadline, not a countdown, so a throttled background
+    // timer cannot extend the exposure window.
     const timer = setInterval(() => {
-      setSecondsLeft((current) => Math.max(0, current - 1));
-    }, 1_000);
+      if (privateDeadline === undefined) {
+        return;
+      }
+      const remaining = privateDeadline - Date.now();
+      if (remaining <= 0) {
+        clearPrivate();
+        return;
+      }
+      setSecondsLeft(Math.max(0, Math.ceil(remaining / 1_000)));
+    }, 250);
     return () => {
       window.removeEventListener("blur", onWindowBlur);
+      document.removeEventListener("visibilitychange", onVisibilityChange);
       clearInterval(timer);
     };
-  }, [privateKey, clearPrivate]);
+  }, [privateKey, privateDeadline, clearPrivate]);
 
   useEffect(() => {
     if (privateKey !== undefined && secondsLeft === 0) {
       clearPrivate();
     }
   }, [privateKey, secondsLeft, clearPrivate]);
+
+  useEffect(() => {
+    if (certificate?.status !== "deleted" || certificate.purgeAfter === null) {
+      return;
+    }
+    const remaining = Date.parse(certificate.purgeAfter) - now;
+    if (remaining <= 0) {
+      return;
+    }
+    const timer = setTimeout(() => setNow(Date.now()), Math.min(remaining + 50, 2_147_483_647));
+    return () => clearTimeout(timer);
+  }, [certificate?.status, certificate?.purgeAfter, now]);
+
+  useEffect(() => {
+    const onFocus = (): void => setNow(Date.now());
+    window.addEventListener("focus", onFocus);
+    return () => window.removeEventListener("focus", onFocus);
+  }, []);
 
   useEffect(() => {
     const region = privateRegion.current;
@@ -157,15 +232,19 @@ export function CertificateDetailPage() {
     selectedVersion.length > 0 ? selectedVersion : (certificate?.version.id ?? "");
 
   const loadVersion = (): void => {
+    requestToken.current += 1;
     setAppliedVersion(version.trim());
     setMaterial(undefined);
+    setLoadedVersion(undefined);
     setPublicError(undefined);
+    clearPrivate();
   };
 
   const viewPublic = async (): Promise<void> => {
     if (certificate === undefined) {
       return;
     }
+    const token = ++requestToken.current;
     setPublicLoading(true);
     setPublicError(undefined);
     setCopyStatus(undefined);
@@ -175,11 +254,19 @@ export function CertificateDetailPage() {
         name,
         version: effectiveVersion,
       });
+      if (token !== requestToken.current) {
+        return;
+      }
       setMaterial({ certificatePem: response.certificatePem, chainPem: response.chainPem });
+      setLoadedVersion(response.version.id);
     } catch (error) {
-      setPublicError(error);
+      if (token === requestToken.current) {
+        setPublicError(error);
+      }
     } finally {
-      setPublicLoading(false);
+      if (token === requestToken.current) {
+        setPublicLoading(false);
+      }
     }
   };
 
@@ -232,7 +319,7 @@ export function CertificateDetailPage() {
     certificate.status === "deleted" &&
     !certificate.purgeProtected &&
     certificate.purgeAfter !== null &&
-    Date.parse(certificate.purgeAfter) <= Date.now();
+    Date.parse(certificate.purgeAfter) <= now;
   const purgeReason =
     certificate.status !== "deleted"
       ? "Delete the certificate before purging it."
@@ -240,7 +327,7 @@ export function CertificateDetailPage() {
         ? "Purge protection is on and cannot be turned off."
         : certificate.purgeAfter === null
           ? "The retention deadline is not available."
-          : Date.parse(certificate.purgeAfter) > Date.now()
+          : Date.parse(certificate.purgeAfter) > now
             ? `Purge is available after ${formatTime(certificate.purgeAfter)}.`
             : undefined;
 
@@ -256,15 +343,17 @@ export function CertificateDetailPage() {
     setActionFailure(undefined);
     try {
       await client.certificates.deleteCertificate({ project: project.name, name });
-      const now = new Date();
+      // Do not invent server lifecycle timestamps. The reload fills the real
+      // deletedAt and purgeAfter values from the server.
       setDeletedMetadata({
         ...certificate,
         status: "deleted",
-        deletedAt: now.toISOString(),
-        purgeAfter: new Date(now.getTime() + RETENTION_WINDOW_MS).toISOString(),
+        deletedAt: null,
+        purgeAfter: null,
       });
       setSearchParams({ status: "deleted" }, { replace: true });
       setMaterial(undefined);
+      setLoadedVersion(undefined);
       clearPrivate();
     } catch (error) {
       setActionFailure(error);
@@ -311,6 +400,7 @@ export function CertificateDetailPage() {
     if (!confirmed) {
       return;
     }
+    const token = ++requestToken.current;
     setPrivateFailure(undefined);
     try {
       const response = await client.certificates.getCertificatePrivateKey({
@@ -318,10 +408,16 @@ export function CertificateDetailPage() {
         name,
         version: effectiveVersion,
       });
+      if (token !== requestToken.current) {
+        return;
+      }
       setPrivateKey({ pem: response.privateKeyPem, versionId: response.version.id });
+      setPrivateDeadline(Date.now() + REVEAL_SECONDS * 1_000);
       setSecondsLeft(REVEAL_SECONDS);
     } catch (error) {
-      setPrivateFailure(error);
+      if (token === requestToken.current) {
+        setPrivateFailure(error);
+      }
     }
   };
 
@@ -377,7 +473,9 @@ export function CertificateDetailPage() {
                 appearance="subtle"
                 onClick={() => void purge()}
                 disabled={!purgeReady}
-                aria-describedby={purgeReason === undefined ? undefined : "purge-reason"}
+                aria-describedby={
+                  canPurge && purgeReason !== undefined ? "purge-reason" : undefined
+                }
               >
                 Purge
               </Button>
@@ -387,11 +485,11 @@ export function CertificateDetailPage() {
       />
 
       {actionFailure === undefined ? null : <CertificateErrorAlert error={actionFailure} />}
-      {purgeReason === undefined ? null : (
+      {canPurge && purgeReason !== undefined ? (
         <p id="purge-reason" className="muted">
           {purgeReason}
         </p>
-      )}
+      ) : null}
 
       <div className="detail-grid">
         <Card>
@@ -448,8 +546,13 @@ export function CertificateDetailPage() {
             <Input
               value={version}
               onChange={(_event, data) => {
+                requestToken.current += 1;
                 setVersion(data.value);
                 setAppliedVersion("");
+                setMaterial(undefined);
+                setLoadedVersion(undefined);
+                setPublicError(undefined);
+                clearPrivate();
               }}
               placeholder={certificate.version.id}
             />
@@ -460,7 +563,7 @@ export function CertificateDetailPage() {
             </Button>
           </div>
           <p className="muted">
-            Reading version <code>{effectiveVersion}</code>
+            Selected version <code>{effectiveVersion}</code>
           </p>
         </Card>
       </div>
@@ -483,6 +586,9 @@ export function CertificateDetailPage() {
             {publicError === undefined ? null : <CertificateErrorAlert error={publicError} />}
             {material === undefined ? null : (
               <div className="stack">
+                <p className="muted">
+                  Loaded version <code>{loadedVersion ?? effectiveVersion}</code>
+                </p>
                 <label htmlFor="certificate-leaf-pem">Leaf certificate</label>
                 <textarea
                   id="certificate-leaf-pem"
@@ -559,6 +665,9 @@ export function CertificateDetailPage() {
             </p>
           ) : (
             <div className="revealed-region" ref={privateRegion}>
+              <p className="muted">
+                Version <code>{privateKey.versionId}</code>
+              </p>
               <textarea
                 aria-label="Private key"
                 className="revealed-value"

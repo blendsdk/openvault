@@ -1,3 +1,4 @@
+import { newUlid } from "@openvault/core";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { createAuditCore } from "../../../src/audit/runtime.js";
 import { CertificateRepository } from "../../../src/certificates/repository.js";
@@ -8,7 +9,7 @@ import { PolicyService } from "../../../src/rbac/policy-service.js";
 import { KeyringProvider } from "../../../src/security/keyring.js";
 import { type AuditActors, seedAuditActors } from "../helpers/audit-harness.js";
 import { createSelfSignedFixture } from "../helpers/certificate-fixtures.js";
-import { type BaseFixture, seedBase } from "../helpers/fixtures.js";
+import { type BaseFixture, bytes32, nonce, seedBase, tag } from "../helpers/fixtures.js";
 import { createServerEnvironment } from "../helpers/server-environment.js";
 import {
   applyMigrations,
@@ -97,6 +98,57 @@ describe("certificate repository list filters", () => {
       limit: 50,
     });
     expect(wildcardUnderscore).toHaveLength(0);
+  });
+
+  it("should treat a backslash in the search term literally", async () => {
+    const certificateId = newUlid();
+    const versionId = newUlid();
+    await testDb.db.executeQuery(
+      `INSERT INTO certificates (id, project_id, name) VALUES (:id, :projectId, :name)`,
+      { id: certificateId, projectId: base.projectId, name: "backslash-cert" },
+    );
+    await testDb.db.executeQuery(
+      `INSERT INTO certificate_versions
+         (id, certificate_id, chain_pem, ciphertext, nonce, tag, wrapped_dek, wrap_nonce,
+          wrap_tag, kek_id, fingerprint, subject, issuer, serial, not_before, not_after,
+          created_by)
+       VALUES
+         (:id, :certificateId, :chainPem, :ciphertext, :nonceValue, :tagValue, :wrappedDek,
+          :wrapNonce, :wrapTag, 'kek-1', :fingerprint, :subject, 'CN=issuer', '01',
+          '2026-01-01T00:00:00.000Z', '2027-01-01T00:00:00.000Z', :createdBy)`,
+      {
+        id: versionId,
+        certificateId,
+        chainPem: "-----BEGIN CERTIFICATE-----\nMIIB\n-----END CERTIFICATE-----",
+        ciphertext: Buffer.from("certificate-ciphertext"),
+        nonceValue: nonce(7),
+        tagValue: tag(8),
+        wrappedDek: bytes32(9),
+        wrapNonce: nonce(10),
+        wrapTag: tag(11),
+        fingerprint: "d".repeat(64),
+        subject: "CN=back\\slash.example.test",
+        createdBy: base.userId,
+      },
+    );
+    await testDb.db.executeQuery(
+      "UPDATE certificates SET current_version_id = :versionId WHERE id = :id",
+      { versionId, id: certificateId },
+    );
+
+    const literal = await repository.listCertificates(testDb.db, base.projectId, {
+      q: "back\\slash",
+      status: "active",
+      limit: 50,
+    });
+    expect(literal.map((row) => row.name)).toContain("backslash-cert");
+
+    const wildcard = await repository.listCertificates(testDb.db, base.projectId, {
+      q: "backXslash",
+      status: "active",
+      limit: 50,
+    });
+    expect(wildcard).toHaveLength(0);
   });
 
   it("should continue a deleted-status page from the returned name", async () => {

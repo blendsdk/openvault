@@ -17,6 +17,7 @@ function renderDetail(vault: FakeVault, name = "api-tls", status?: "active" | "d
     <>
       <CertificateDetailPage />
       <Link to="/projects/payments/certificates">Go to list</Link>
+      <Link to="/projects/payments/certificates/old-tls">Switch certificate</Link>
     </>,
     {
       vault,
@@ -132,10 +133,12 @@ describe("certificate private key", () => {
     const view = renderDetail(vault);
     await screen.findByRole("heading", { name: "api-tls" });
     await revealPrivate();
-    fireEvent.click(screen.getByRole("link", { name: "Go to list" }));
+    fireEvent.click(screen.getByRole("link", { name: "Switch certificate" }));
+    expect(await screen.findByRole("heading", { name: "old-tls" })).toBeInTheDocument();
     await waitFor(() => {
       expect(screen.queryByLabelText("Private key")).not.toBeInTheDocument();
     });
+    view.unmount();
 
     const second = new FakeVault();
     const secondView = renderDetail(second);
@@ -143,13 +146,38 @@ describe("certificate private key", () => {
     await revealPrivate();
     secondView.unmount();
     expect(screen.queryByLabelText("Private key")).not.toBeInTheDocument();
-    view.unmount();
+  });
+
+  it("should ignore a private read that resolves after a route change", async () => {
+    const vault = new FakeVault();
+    let release: () => void = () => undefined;
+    const gate = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    vault.certificateReadGate = gate;
+    renderDetail(vault);
+    await screen.findByRole("heading", { name: "api-tls" });
+    fireEvent.click(screen.getByRole("button", { name: "View private key" }));
+    fireEvent.click(await screen.findByRole("button", { name: "Confirm" }));
+    await waitFor(() => expect(vault.privateKeyRevealCount).toBe(1));
+    fireEvent.click(screen.getByRole("link", { name: "Switch certificate" }));
+    await screen.findByRole("heading", { name: "old-tls" });
+    release();
+    await waitFor(() => {
+      expect(screen.queryByLabelText("Private key")).not.toBeInTheDocument();
+    });
   });
 
   it("should download the key without storage, URL, console, cookie, or clipboard writes", async () => {
     const vault = new FakeVault();
     const consoleLog = vi.spyOn(console, "log").mockImplementation(() => {});
+    const consoleError = vi.spyOn(console, "error").mockImplementation(() => {});
+    const consoleWarn = vi.spyOn(console, "warn").mockImplementation(() => {});
+    const consoleInfo = vi.spyOn(console, "info").mockImplementation(() => {});
+    const consoleDebug = vi.spyOn(console, "debug").mockImplementation(() => {});
     const clipboard = vi.spyOn(navigator.clipboard, "writeText");
+    const indexedDb = (globalThis as { indexedDB?: IDBFactory }).indexedDB;
+    const indexedOpen = indexedDb === undefined ? undefined : vi.spyOn(indexedDb, "open");
     renderDetail(vault);
     await screen.findByRole("heading", { name: "api-tls" });
     await revealPrivate();
@@ -164,6 +192,11 @@ describe("certificate private key", () => {
     expect(window.location.href).not.toContain(TEST_PRIVATE_KEY_PEM);
     expect(document.cookie).not.toContain(TEST_PRIVATE_KEY_PEM);
     expect(clipboard).not.toHaveBeenCalledWith(TEST_PRIVATE_KEY_PEM);
-    expect(consoleLog.mock.calls.flat().join(" ")).not.toContain(TEST_PRIVATE_KEY_PEM);
+    for (const spy of [consoleLog, consoleError, consoleWarn, consoleInfo, consoleDebug]) {
+      expect(spy.mock.calls.flat().join(" ")).not.toContain(TEST_PRIVATE_KEY_PEM);
+    }
+    if (indexedOpen !== undefined) {
+      expect(indexedOpen).not.toHaveBeenCalled();
+    }
   });
 });

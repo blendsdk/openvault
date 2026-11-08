@@ -669,7 +669,7 @@ export class CertificateService {
   }
 
   /**
-   * Lists active certificates in one project.
+   * Lists certificates in one project.
    *
    * @param actorId - Authenticated principal.
    * @param projectName - Active project name.

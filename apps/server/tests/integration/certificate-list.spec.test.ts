@@ -1,4 +1,5 @@
 import { certificateListQuerySchema } from "@openvault/api-contract";
+import { newUlid } from "@openvault/core";
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
 import { createAuditCore } from "../../src/audit/runtime.js";
 import { CertificateRepository } from "../../src/certificates/repository.js";
@@ -33,6 +34,29 @@ async function importCertificate(name: string, options: ImportOptions = {}): Pro
     certificatePem: fixture.certificatePem,
     privateKeyPem: fixture.privateKeyPem,
   });
+}
+
+async function insertUser(label: string): Promise<string> {
+  const id = newUlid();
+  await testDb.db.executeQuery(
+    `INSERT INTO principals (id, kind, name, email, status)
+     VALUES (:id, 'user', :name, :email, 'active')`,
+    { id, name: label, email: `${id.toLowerCase()}@example.test` },
+  );
+  return id;
+}
+
+async function assign(
+  principalId: string,
+  role: string,
+  scopeType: "org" | "project" | "object",
+  scopeId: string,
+): Promise<void> {
+  await testDb.db.executeQuery(
+    `INSERT INTO role_assignments (id, principal_id, role, scope_type, scope_id, granted_by)
+     VALUES (:id, :principalId, :role, :scopeType, :scopeId, :principalId)`,
+    { id: newUlid(), principalId, role, scopeType, scopeId },
+  );
 }
 
 async function softDelete(name: string): Promise<void> {
@@ -128,6 +152,21 @@ describe("certificate list filtering", () => {
     }
   });
 
+  it("should match a name even when the subject does not contain the term", async () => {
+    await importCertificate("name-only-target", {
+      subject: "CN=unrelated.example.test",
+    });
+    const page = await service.list(
+      actors.orgAdmin,
+      "foundation",
+      query({ q: "name-only-target" }),
+    );
+    expect(page.certificates.map((entry) => entry.name)).toContain("name-only-target");
+
+    const bySubject = await service.list(actors.orgAdmin, "foundation", query({ q: "unrelated" }));
+    expect(bySubject.certificates.map((entry) => entry.name)).toContain("name-only-target");
+  });
+
   it("should treat percent as a literal search character", async () => {
     await importCertificate("100-abc");
     const page = await service.list(actors.orgAdmin, "foundation", query({ q: "100%" }));
@@ -176,6 +215,40 @@ describe("certificate list filtering", () => {
       }),
     );
     expect(page.certificates.map((entry) => entry.name)).toEqual(["intersect-api"]);
+  });
+
+  it("should project the reader and officer flags through the list route", async () => {
+    await importCertificate("capability-target");
+    const reader = await insertUser("List Certificate Reader");
+    await assign(reader, "certificates.reader", "project", base.projectId);
+    const officer = await insertUser("List Certificate Officer");
+    await assign(officer, "certificates.officer", "project", base.projectId);
+
+    const readerPage = await service.list(reader, "foundation", query({ q: "capability-target" }));
+    expect(readerPage.certificates[0]?.capabilities).toEqual({
+      canRead: true,
+      canWrite: false,
+      canDelete: false,
+      canRecover: false,
+      canPurge: false,
+      canManage: false,
+      canReadPrivate: false,
+    });
+
+    const officerPage = await service.list(
+      officer,
+      "foundation",
+      query({ q: "capability-target" }),
+    );
+    expect(officerPage.certificates[0]?.capabilities).toEqual({
+      canRead: true,
+      canWrite: true,
+      canDelete: true,
+      canRecover: true,
+      canPurge: false,
+      canManage: false,
+      canReadPrivate: true,
+    });
   });
 
   it("should paginate deleted certificates with the returned cursor", async () => {

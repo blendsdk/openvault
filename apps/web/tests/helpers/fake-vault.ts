@@ -203,6 +203,7 @@ export class FakeVault implements RequestAdapter {
   failCertificate: { status: number; code: string; message: string } | undefined;
   denyPrivateKey = false;
   privateKeyRevealCount = 0;
+  certificateReadGate: Promise<void> | undefined;
   certificateVersionId = CERTIFICATE_VERSION_ID;
   identities = [
     {
@@ -556,6 +557,9 @@ export class FakeVault implements RequestAdapter {
             return failure(404, "certificate_not_found", "Certificate not found");
           }
           this.privateKeyRevealCount += 1;
+          if (this.certificateReadGate !== undefined) {
+            await this.certificateReadGate;
+          }
           if (this.denyPrivateKey) {
             return failure(403, "access_denied", "Access denied");
           }
@@ -576,6 +580,9 @@ export class FakeVault implements RequestAdapter {
           }
           if (url.searchParams.get("version") === null && found.status === "expired") {
             return failure(410, "certificate_expired", "Certificate expired");
+          }
+          if (this.certificateReadGate !== undefined) {
+            await this.certificateReadGate;
           }
           return ok({
             ...found,

@@ -2,7 +2,7 @@
 
 > **Document**: 99-execution-plan.md
 > **Parent**: [Index](00-index.md)
-> **Last Updated**: 2026-11-08 18:00
+> **Last Updated**: 2026-11-08 18:32
 > **Progress**: 77/77 tasks (100%)
 > **CodeOps Artifact Schema**: 1
 
@@ -83,7 +83,7 @@ task-size criteria in the quality checklist)
 - [x] 1.3.4 Run `pnpm api:check` and confirm no drift ✅ (completed: 2026-11-08 17:11)
 
 **Deliverables**:
-- [ ] Server tests, capability tests, and generated-contract checks pass
+- [x] Server tests, capability tests, and generated-contract checks pass
 
 **Verify**: `pnpm --filter @openvault/server test && pnpm --filter @openvault/server typecheck && pnpm api:check`; the integration suite runs in CI on PostgreSQL 16 and 17, or locally with `OPENVAULT_TEST_DB=1` and a `TEST_DATABASE_URL` that points at a local `*_test` database.
 
@@ -123,7 +123,7 @@ task-size criteria in the quality checklist)
 - [x] 2.3.2 Add a `FakeVault` self-check that each certificate route returns the envelope the generated client expects ✅ (completed: 2026-11-08 17:17)
 
 **Deliverables**:
-- [ ] Validation and PEM helpers pass their tests; the fake vault serves certificate routes
+- [x] Validation and PEM helpers pass their tests; the fake vault serves certificate routes
 
 **Verify**: `pnpm --filter @openvault/web test`
 
@@ -131,7 +131,7 @@ task-size criteria in the quality checklist)
 
 ## Phase 3: Certificate list and navigation
 
-> **Phase baseline tree**: Pending — recorded by the exec-plan skill at phase start.
+> **Phase baseline tree**: 7d89edb
 > **Lenses**: web-ui, accessibility
 > **Reasoning**: medium — new page and navigation surface that reuses established list patterns.
 
@@ -160,10 +160,10 @@ task-size criteria in the quality checklist)
 **Objective**: Cover the filter and pagination edges.
 
 - [x] 3.3.1 Add impl tests for date-bound ISO conversion, cursor reset on filter change, and the deleted empty state — `apps/web/tests/certificates-list.impl.test.tsx` ✅ (completed: 2026-11-08 17:23)
-- [x] 3.3.2 Confirm the table and filter bar at 768 px and 390 px in the component test renderer or the review stack ✅ (completed: 2026-11-08 17:23)
+- [x] 3.3.2 Confirm the table and filter bar at 768 px and 390 px in the component test renderer or the review stack ✅ (completed: 2026-11-08 17:23) — the component renderer has no layout engine, so the check confirms the semantic Name/Status columns and the focusable scroll region; pixel layout requires the manual review stack, whose environment limitation is recorded in 7.3.2.
 
 **Deliverables**:
-- [ ] The list, navigation, docs link, and empty states pass their tests
+- [x] The list, navigation, docs link, and empty states pass their tests
 
 **Verify**: `pnpm --filter @openvault/web test`
 
@@ -171,7 +171,7 @@ task-size criteria in the quality checklist)
 
 ## Phase 4: Certificate detail and public material
 
-> **Phase baseline tree**: Pending — recorded by the exec-plan skill at phase start.
+> **Phase baseline tree**: 560bd00
 > **Lenses**: web-ui, security
 > **Reasoning**: medium — read-only page with version selection, copy/download, and expiry handling.
 
@@ -202,7 +202,7 @@ task-size criteria in the quality checklist)
 - [x] 4.3.2 Confirm the long fingerprint and subject wrap without horizontal overflow ✅ (completed: 2026-11-08 17:30)
 
 **Deliverables**:
-- [ ] The detail page, version read, and public material pass their tests
+- [x] The detail page, version read, and public material pass their tests
 
 **Verify**: `pnpm --filter @openvault/web test`
 
@@ -210,7 +210,7 @@ task-size criteria in the quality checklist)
 
 ## Phase 5: Import, generate, and renew
 
-> **Phase baseline tree**: Pending — recorded by the exec-plan skill at phase start.
+> **Phase baseline tree**: fdc6fc4
 > **Lenses**: web-ui, security
 > **Reasoning**: medium — forms, local file input, and optimistic-concurrency behavior.
 
@@ -243,7 +243,7 @@ task-size criteria in the quality checklist)
 - [x] 5.3.2 Confirm the dialog keeps its values after a failed submit ✅ (completed: 2026-11-08 17:38)
 
 **Deliverables**:
-- [ ] Import, generate, and renew pass their tests, including warnings and version conflict
+- [x] Import, generate, and renew pass their tests, including warnings and version conflict
 
 **Verify**: `pnpm --filter @openvault/web test`
 
@@ -251,7 +251,7 @@ task-size criteria in the quality checklist)
 
 ## Phase 6: Lifecycle, private key, and errors
 
-> **Phase baseline tree**: Pending — recorded by the exec-plan skill at phase start.
+> **Phase baseline tree**: 27f255a
 > **Lenses**: web-ui, security, accessibility
 > **Reasoning**: high — destructive actions and private-key handling are security-sensitive.
 
@@ -286,7 +286,7 @@ task-size criteria in the quality checklist)
 - [x] 6.3.3 Run the web suite and confirm no key appears in storage, the URL, the console, or the clipboard ✅ (completed: 2026-11-08 17:47)
 
 **Deliverables**:
-- [ ] Lifecycle, private-key, error, and accessibility tests pass
+- [x] Lifecycle, private-key, error, and accessibility tests pass
 
 **Verify**: `pnpm --filter @openvault/web test`
 
@@ -294,7 +294,7 @@ task-size criteria in the quality checklist)
 
 ## Phase 7: Documentation and release metadata
 
-> **Phase baseline tree**: Pending — recorded by the exec-plan skill at phase start.
+> **Phase baseline tree**: 4ea9769
 > **Lenses**: docs, release
 > **Reasoning**: medium — broad but mechanical documentation and version alignment; no product code.
 
@@ -331,11 +331,30 @@ task-size criteria in the quality checklist)
 - [x] 7.3.4 Confirm no tag, no published image, no GitHub release, and no new dependency; remove temporary artifacts ✅ (completed: 2026-11-08 17:59)
 
 **Deliverables**:
-- [ ] Docs and version labels state 1.1.0; `pnpm verify` passes; the roadmap is current
+- [x] Docs and version labels state 1.1.0; `pnpm verify` passes; the roadmap is current
 
 **Verify**: `pnpm verify`
 
 ---
+
+## Red Phase Evidence
+
+The specification tests were written before their implementation. The table records the observed
+red state and the green state for each phase.
+
+| Phase | Red observation | Green verification |
+|---|---|---|
+| 1 | 8 of 11 spec tests failed: the status default was undefined and the capability objects lacked the new fields. | 11 spec tests passed; 17 tests passed after the repository and zero-capability implementation tests. |
+| 2 | The validation functions were absent and the PEM helper module did not exist. | The web suite passed, including the validation and PEM helper tests. |
+| 3 | The list page module did not exist and three shell assertions failed on the missing Certificates entry. | The list, filter, pagination, empty-state, and shell tests passed. |
+| 4 | The detail page module did not exist. | The metadata, public-material, expired-current, and not-found tests passed. |
+| 5 | The dialog modules did not exist. The first execution after the initial implementation exposed eight label and validation failures; they were fixed before green. | Import, generate, renew, warning, file-picker, and limit tests passed. |
+| 6 | The first execution after the initial implementation exposed nine lifecycle, private-key, and error-mapping failures; they were fixed before green. | Lifecycle, private-key, error, and axe tests passed. |
+| 7 | The docs guard failed on the 1.1.0 labels and the missing certificate coverage. | The docs guard passed all nine checks. |
+
+Process note: phases 5 and 6 were written spec-first, but their first execution was recorded after
+the initial implementation. The failures above were corrected before the phase was marked green.
+The additional list wiring tests were added in phase 7 and do not change the phase 3 oracle.
 
 ## Dependencies
 

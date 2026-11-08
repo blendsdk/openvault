@@ -418,8 +418,8 @@ Idempotency-Key: 6f1c2d3e
                               "expiresAt": null },
           "version": { "id": "01J...", ... }, "consumers": [],
           "capabilities": { "canRead": true, "canWrite": true, "canDelete": true,
-                            "canRecover": false, "canPurge": true, "canManage": false,
-                            "canReadPrivate": false } }
+                            "canRecover": true, "canPurge": true, "canManage": false,
+                            "canReadPrivate": true } }
 
 GET /v1/data/payments/secrets/db-password
 -> 200 { "value": "s3cret", "encoding": "utf8", "version": { ... }, ... }

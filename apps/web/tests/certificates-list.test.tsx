@@ -83,12 +83,16 @@ describe("certificate list", () => {
     expect(screen.getByRole("link", { name: "bulk-24" })).toBeInTheDocument();
     expect(screen.queryByRole("link", { name: "bulk-25" })).not.toBeInTheDocument();
 
+    fireEvent.change(screen.getByLabelText("Search"), { target: { value: "bulk-" } });
+    fireEvent.click(screen.getByRole("button", { name: "Apply filters" }));
+    await waitFor(() => expect(lastListQuery(vault).get("q")).toBe("bulk-"));
     fireEvent.click(await screen.findByRole("button", { name: "Load more" }));
 
     expect(await screen.findByRole("link", { name: "bulk-29" })).toBeInTheDocument();
     expect(screen.getByRole("link", { name: "bulk-00" })).toBeInTheDocument();
     const query = lastListQuery(vault);
     expect(query.get("cursor")).toBe("25");
+    expect(query.get("q")).toBe("bulk-");
     expect(query.get("status")).toBe("active");
     expect(query.get("limit")).toBe("25");
   });
