@@ -22,6 +22,11 @@ RUN pnpm --filter @openvault/web... build
 
 FROM nginxinc/nginx-unprivileged:1.29-alpine@sha256:0c79d56aee561a1d81c63f00eee5fb5fe29279560cdc55e91425133104c7fbe6 AS runtime
 
+# The pinned base digest can lag the Alpine package repository. Apply the
+# current security fixes at build time so the runtime image is patched.
+USER root
+RUN apk upgrade --no-cache
+
 COPY deploy/docker/web-nginx.conf /etc/nginx/conf.d/default.conf
 COPY --from=build /src/apps/web/dist /usr/share/nginx/html
 USER 101:101
