@@ -196,8 +196,19 @@
     {
       "id": "C-13",
       "claim": "Release images are amd64 and arm64, signed with Cosign keyless, have an SBOM and provenance, and are scanned for HIGH/CRITICAL findings.",
-      "status": "planned",
-      "reason": "The release workflow builds amd64 and arm64 images and publishes them to Docker Hub; the first signed multi-arch image is published with v1.0.0. The Codex Security scan is manual and advisory.",
+      "status": "implemented",
+      "evidence": [
+        {
+          "type": "test",
+          "file": "tests/ci.spec.test.mjs",
+          "name": "should publish release images to Docker Hub"
+        },
+        {
+          "type": "manual",
+          "file": "docs/security/release-evidence.md",
+          "check": "The v1.0.0 release published signed amd64 and arm64 images to Docker Hub with SBOM and provenance attestations."
+        }
+      ],
       "docs": ["docs/security/release-process.md"]
     },
     {
