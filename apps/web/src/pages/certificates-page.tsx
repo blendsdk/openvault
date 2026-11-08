@@ -1,6 +1,8 @@
 import { Button, Field, Input, Select } from "@fluentui/react-components";
 import { useEffect, useState } from "react";
 import { Link } from "react-router";
+import { CertificateGenerateDialog } from "../components/certificate-generate-dialog.js";
+import { CertificateImportDialog } from "../components/certificate-import-dialog.js";
 import { DataTable } from "../components/data-table.js";
 import { AsyncPanel, EmptyState, ErrorAlert } from "../components/feedback.js";
 import { PageHeader } from "../components/page-header.js";
@@ -59,6 +61,7 @@ export function CertificatesPage() {
   const [nextCursor, setNextCursor] = useState<string | null>(null);
   const [moreLoading, setMoreLoading] = useState(false);
   const [moreError, setMoreError] = useState<unknown>(undefined);
+  const [createMode, setCreateMode] = useState<"import" | "generate" | undefined>(undefined);
 
   const page = useAsync(
     async (signal) =>
@@ -141,8 +144,12 @@ export function CertificatesPage() {
         actions={
           filters.status === "deleted" ? undefined : (
             <>
-              <Button appearance="primary">Import certificate</Button>
-              <Button appearance="secondary">Generate</Button>
+              <Button appearance="primary" onClick={() => setCreateMode("import")}>
+                Import certificate
+              </Button>
+              <Button appearance="secondary" onClick={() => setCreateMode("generate")}>
+                Generate
+              </Button>
             </>
           )
         }
@@ -254,8 +261,12 @@ export function CertificatesPage() {
               title="No certificates yet"
               action={
                 <>
-                  <Button appearance="primary">Import certificate</Button>
-                  <Button appearance="secondary">Generate</Button>
+                  <Button appearance="primary" onClick={() => setCreateMode("import")}>
+                    Import certificate
+                  </Button>
+                  <Button appearance="secondary" onClick={() => setCreateMode("generate")}>
+                    Generate
+                  </Button>
                 </>
               }
             >
@@ -312,6 +323,19 @@ export function CertificatesPage() {
           </>
         )}
       </AsyncPanel>
+
+      <CertificateImportDialog
+        open={createMode === "import"}
+        project={project.name}
+        onClose={() => setCreateMode(undefined)}
+        onSaved={page.reload}
+      />
+      <CertificateGenerateDialog
+        open={createMode === "generate"}
+        project={project.name}
+        onClose={() => setCreateMode(undefined)}
+        onSaved={page.reload}
+      />
     </section>
   );
 }

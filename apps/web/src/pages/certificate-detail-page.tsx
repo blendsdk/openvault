@@ -2,6 +2,8 @@ import { Loading } from "@blendsdk/fluentui-react-components";
 import { Button, Card, Field, Input, Text } from "@fluentui/react-components";
 import { useEffect, useState } from "react";
 import { Link, useParams, useSearchParams } from "react-router";
+import { CertificateGenerateDialog } from "../components/certificate-generate-dialog.js";
+import { CertificateImportDialog } from "../components/certificate-import-dialog.js";
 import { copyCredential, subscribeCredentialCopy } from "../components/credential-copy.js";
 import { EmptyState, ErrorAlert } from "../components/feedback.js";
 import { NavButton } from "../components/nav-button.js";
@@ -42,6 +44,7 @@ export function CertificateDetailPage() {
   const [publicLoading, setPublicLoading] = useState(false);
   const [publicError, setPublicError] = useState<unknown>(undefined);
   const [copyStatus, setCopyStatus] = useState<string | undefined>(undefined);
+  const [renewMode, setRenewMode] = useState<"import" | "generate" | undefined>(undefined);
 
   const metadata = useAsync(
     async (signal) => {
@@ -152,6 +155,18 @@ export function CertificateDetailPage() {
             <StatusBadge status={certificate.status} /> · updated{" "}
             {formatTime(certificate.updatedAt)}
           </span>
+        }
+        actions={
+          certificate.capabilities.canWrite && certificate.status !== "deleted" ? (
+            <>
+              <Button appearance="secondary" onClick={() => setRenewMode("import")}>
+                Import new version
+              </Button>
+              <Button appearance="secondary" onClick={() => setRenewMode("generate")}>
+                Generate new version
+              </Button>
+            </>
+          ) : undefined
         }
       />
 
@@ -310,6 +325,21 @@ export function CertificateDetailPage() {
           <p className="muted">You do not have permission to read the public certificate.</p>
         )}
       </Card>
+
+      <CertificateImportDialog
+        open={renewMode === "import"}
+        project={project.name}
+        renew={{ name: certificate.name, versionId: certificate.version.id }}
+        onClose={() => setRenewMode(undefined)}
+        onSaved={metadata.reload}
+      />
+      <CertificateGenerateDialog
+        open={renewMode === "generate"}
+        project={project.name}
+        renew={{ name: certificate.name, versionId: certificate.version.id }}
+        onClose={() => setRenewMode(undefined)}
+        onSaved={metadata.reload}
+      />
     </section>
   );
 }

@@ -2,8 +2,8 @@
 
 > **Document**: 99-execution-plan.md
 > **Parent**: [Index](00-index.md)
-> **Last Updated**: 2026-11-08 17:30
-> **Progress**: 41/77 tasks (53%)
+> **Last Updated**: 2026-11-08 17:38
+> **Progress**: 51/77 tasks (66%)
 > **CodeOps Artifact Schema**: 1
 
 ## Overview
@@ -219,28 +219,28 @@ task-size criteria in the quality checklist)
 **Reference**: [03-01 §CertificateImportDialog](03-01-web-ui.md), [03-01 §CertificateGenerateDialog](03-01-web-ui.md) · ST-24..ST-30 · AR-8, AR-17, AR-18, AR-23
 **Objective**: Pin the write forms, warning panel, and renewal guard.
 
-- [ ] 5.1.1 [spec-author] Write the import spec tests, including the local file picker and warning panel — `apps/web/tests/certificate-import.test.tsx`
-- [ ] 5.1.2 [spec-author] Write the generate and renew spec tests — `apps/web/tests/certificate-generate.test.tsx`
-- [ ] 5.1.3 Run the tests and confirm red
+- [x] 5.1.1 [spec-author] Write the import spec tests, including the local file picker and warning panel — `apps/web/tests/certificate-import.test.tsx` ✅ (completed: 2026-11-08 17:37)
+- [x] 5.1.2 [spec-author] Write the generate and renew spec tests — `apps/web/tests/certificate-generate.test.tsx` ✅ (completed: 2026-11-08 17:37)
+- [x] 5.1.3 Run the tests and confirm red ✅ (completed: 2026-11-08 17:37)
 
 ### Step 5.2: Implementation
 
 **Reference**: [03-01 §CertificateImportDialog](03-01-web-ui.md), [03-01 §CertificateGenerateDialog](03-01-web-ui.md) · AR-17, AR-18
 **Objective**: Implement both dialogs and wire create/renew.
 
-- [ ] 5.2.1 Implement the import dialog with pasted and local PEM input, tags, and `allowNotYetValid` — `apps/web/src/components/certificate-import-dialog.tsx`
-- [ ] 5.2.2 Implement the generate dialog with subject, SANs, key type, validity, and tags — `apps/web/src/components/certificate-generate-dialog.tsx`
-- [ ] 5.2.3 Wire Import and Generate on the list and renew actions on the detail with `expectedVersionId` — `apps/web/src/pages/certificates-page.tsx`, `apps/web/src/pages/certificate-detail-page.tsx`
-- [ ] 5.2.4 Implement the success result panel with version id, warnings, Open certificate, and Close — both dialogs
-- [ ] 5.2.5 Run the Phase 5 spec tests and confirm green
+- [x] 5.2.1 Implement the import dialog with pasted and local PEM input, tags, and `allowNotYetValid` — `apps/web/src/components/certificate-import-dialog.tsx` ✅ (completed: 2026-11-08 17:37)
+- [x] 5.2.2 Implement the generate dialog with subject, SANs, key type, validity, and tags — `apps/web/src/components/certificate-generate-dialog.tsx` ✅ (completed: 2026-11-08 17:37)
+- [x] 5.2.3 Wire Import and Generate on the list and renew actions on the detail with `expectedVersionId` — `apps/web/src/pages/certificates-page.tsx`, `apps/web/src/pages/certificate-detail-page.tsx` ✅ (completed: 2026-11-08 17:37)
+- [x] 5.2.4 Implement the success result panel with version id, warnings, Open certificate, and Close — both dialogs ✅ (completed: 2026-11-08 17:37)
+- [x] 5.2.5 Run the Phase 5 spec tests and confirm green ✅ (completed: 2026-11-08 17:37)
 
 ### Step 5.3: Implementation tests and hardening
 
 **Reference**: ST-24..ST-30 · AR-17, AR-18
 **Objective**: Cover the form edges and stale-version behavior.
 
-- [ ] 5.3.1 Add impl tests for empty tags, duplicate tag keys, a 100-SAN boundary, the file-size limits, and a stale `expectedVersionId` — `apps/web/tests/certificate-forms.impl.test.tsx`
-- [ ] 5.3.2 Confirm the dialog keeps its values after a failed submit
+- [x] 5.3.1 Add impl tests for empty tags, duplicate tag keys, a 100-SAN boundary, the file-size limits, and a stale `expectedVersionId` — `apps/web/tests/certificate-forms.impl.test.tsx` ✅ (completed: 2026-11-08 17:38)
+- [x] 5.3.2 Confirm the dialog keeps its values after a failed submit ✅ (completed: 2026-11-08 17:38)
 
 **Deliverables**:
 - [ ] Import, generate, and renew pass their tests, including warnings and version conflict
