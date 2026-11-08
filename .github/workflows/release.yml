@@ -171,19 +171,25 @@ jobs:
             aquasec/trivy@sha256:8f6bb947dbc528902e11f2f5be52f7b519f6a39d5d148f41166f2040499768fb \
             image --image-src remote --exit-code 1 --severity HIGH,CRITICAL --ignore-unfixed "$IMAGE"
 
-      - name: Install Cosign
-        uses: sigstore/cosign-installer@398d4b0eeef1380460a10c8013a76f728fb906ac # v3
-
       - name: Sign the image by digest
         env:
           IMAGE: docker.io/blendsdk/${{ matrix.name }}@${{ steps.build.outputs.digest }}
-        run: cosign sign --yes "$IMAGE"
+        run: |
+          docker run --rm --user 0:0 \
+            -v "$HOME/.docker/config.json:/root/.docker/config.json:ro" \
+            -e ACTIONS_ID_TOKEN_REQUEST_URL \
+            -e ACTIONS_ID_TOKEN_REQUEST_TOKEN \
+            ghcr.io/sigstore/cosign/cosign@sha256:23d07b53d59a1233e1ab5e7d082cf4182fc90067d2f86a662ba3003215cb0c95 \
+            sign --yes "$IMAGE"
 
       - name: Verify the signature
         env:
           IMAGE: docker.io/blendsdk/${{ matrix.name }}@${{ steps.build.outputs.digest }}
         run: |
-          cosign verify "$IMAGE" \
+          docker run --rm --user 0:0 \
+            -v "$HOME/.docker/config.json:/root/.docker/config.json:ro" \
+            ghcr.io/sigstore/cosign/cosign@sha256:23d07b53d59a1233e1ab5e7d082cf4182fc90067d2f86a662ba3003215cb0c95 \
+            verify "$IMAGE" \
             --certificate-identity-regexp '^https://github.com/blendsdk/openvault/.github/workflows/release.yml@refs/.*$' \
             --certificate-oidc-issuer https://token.actions.githubusercontent.com
 
