@@ -19,6 +19,13 @@ const guide = [
   { text: "Troubleshooting", link: "/guide/troubleshooting" },
 ];
 
+const tutorials = [
+  { text: "Tutorials", link: "/tutorials/" },
+  { text: "Your first secret", link: "/tutorials/first-secret" },
+  { text: "Deliver to a Compose service", link: "/tutorials/compose-agent" },
+  { text: "Backup and restore drill", link: "/tutorials/backup-restore-drill" },
+];
+
 const reference = [
   { text: "API", link: "/reference/api" },
   { text: "CLI reference", link: "/reference/cli" },
@@ -43,7 +50,7 @@ const security = [
   { text: "Review gates", link: "/security/review-gates" },
   { text: "Release process", link: "/security/release-process" },
   { text: "Release evidence", link: "/security/release-evidence" },
-  { text: "External review", link: "/security/external-review" },
+  { text: "Independent review", link: "/security/external-review" },
   { text: "Incident response", link: "/security/incident-response" },
   { text: "Reporting a vulnerability", link: "/security/reporting" },
 ];
@@ -64,12 +71,14 @@ export default defineConfig({
     logo: "/logo.svg",
     nav: [
       { text: "Guide", link: "/guide/getting-started" },
+      { text: "Tutorials", link: "/tutorials/" },
       { text: "Reference", link: "/reference/api" },
       { text: "Architecture", link: "/architecture/overview" },
       { text: "Security", link: "/security/threat-model" },
     ],
     sidebar: [
       { text: "Guide", items: guide },
+      { text: "Tutorials", items: tutorials },
       { text: "Reference", items: reference },
       { text: "Architecture", items: architecture },
       { text: "Security", items: security },
