@@ -47,7 +47,7 @@ service gets its own agent and its own tmpfs directory.
 
 ## Developer preview
 
-Requirements: Node.js 24.7+, pnpm 12.11.2.
+Requirements: Node.js 24.7+, pnpm 12.18.0.
 
 ```bash
 git clone https://github.com/blendsdk/openvault.git

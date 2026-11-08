@@ -8,7 +8,7 @@
 
 FROM node:24.21.0-alpine@sha256:ebfe2f90462722a7a4de65e91990e97fe0d401c70e0e762c5b53302f905ec1c1 AS build
 
-RUN corepack enable && corepack prepare pnpm@12.11.2 --activate
+RUN corepack enable && corepack prepare pnpm@12.18.0 --activate
 WORKDIR /src
 
 COPY package.json pnpm-lock.yaml pnpm-workspace.yaml .npmrc tsconfig.base.json ./

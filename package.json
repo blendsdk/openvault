@@ -5,7 +5,11 @@
   "description": "Self-hosted secret and certificate store for Docker Compose projects, built on BlendSDK v5.",
   "license": "Apache-2.0",
   "type": "module",
-  "packageManager": "pnpm@12.11.2",
+  "packageManager": "pnpm@12.18.0",
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
   "engines": {
     "node": ">=24.7.0"
   },
@@ -41,15 +45,17 @@
     "release": "changeset publish",
     "api:generate": "pnpm --filter @openvault/server api:generate",
     "api:check": "pnpm --filter @openvault/server api:check",
-    "security:release-gate": "node scripts/check-release-gate.mjs --self-test --mode alpha --version v0.0.0-alpha"
+    "security:release-gate": "node scripts/check-release-gate.mjs --self-test --mode alpha --version v0.0.0-alpha",
+    "ncu": "ncu -u --workspaces -x \"@openvault*\" -x \"pino\" -x \"pino-http\" -x \"react-router\" -x \"@types/node\" && rm -fR node_modules pnpm-lock.yaml && pnpm install && pnpm verify"
   },
   "devDependencies": {
-    "@biomejs/biome": "2.6.4",
+    "@biomejs/biome": "2.6.6",
     "@changesets/cli": "3.0.3",
     "@types/node": "24.19.2",
+    "npm-check-updates": "23.1.1",
     "typescript": "7.0.2",
     "vitepress": "2.0.0-alpha.21",
-    "vitest": "5.0.5",
+    "vitest": "5.1.0",
     "yaml": "2.9.1"
   }
 }
