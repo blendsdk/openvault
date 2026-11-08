@@ -22,7 +22,7 @@ implementation decisions that the RD leaves open.
 | PAR-01 | Technical | Which command proves the plan | `pnpm verify` / package-scoped suites / manual | **Project fact** — `package.json` defines `verify` as the full gate; every phase uses it, with narrower package commands during the phase. | ✅ Resolved |
 | PAR-02 | Technical | How the list status and search predicates are implemented | New repository method / branch in the existing method / service-side filter | **AI delegated** — keep one repository read method, parameterized by status; default `active`; `q` matches name or subject with the existing LIKE escaping. | ✅ Resolved |
 | PAR-03 | Data & state | How the browser learns private-key and recover permissions | Extend shared flags / certificate-only fields / derive from role names | **AI delegated** — extend the shared capability flags with `canRecover` and `canReadPrivate`; map secrets to `secret.recover`/`secret.read` and certificates to `certificate.recover`/`certificate.read_private`. | ✅ Resolved |
-| PAR-04 | Integration | How the browser gets typed certificate calls | Add the controller to the web contract / hand-write wrappers / reuse the CLI client | **AI delegated** — add `CertificatesController` to `WEB_CONTRACT_CONTROLLERS`, run `pnpm api:generate`, and use the generated `certificates` group. | ✅ Resolved |
+| PAR-04 | Integration | How the browser gets typed certificate calls | Add the controller to the web contract / hand-write wrappers / reuse the CLI client | **AI delegated** — add `CertificatesController` to `WEB_CONTRACT_CONTROLLERS`, add every certificate route to `WEB_ROUTE_DOCS` through `sharedRouteDoc`, run `pnpm api:generate`, and use the generated `certificates` group. | ✅ Resolved |
 | PAR-05 | Technical | How the detail page finds metadata and public material | List lookup + explicit read / direct read / new endpoint | **AI delegated** — list lookup with `status` and `q=name`; explicit public read with the selected version id; deleted items never call the public read. | ✅ Resolved |
 | PAR-06 | Naming | Which files and components own the screens | One page with drawers / two pages + dialogs / new feature module | **AI delegated** — `certificates-page.tsx`, `certificate-detail-page.tsx`, `certificate-import-dialog.tsx`, `certificate-generate-dialog.tsx`, `certificate-metadata-dialog.tsx`, plus small PEM/download helpers. | ✅ Resolved |
 | PAR-07 | Technical | How page state and data loading are managed | Local state + `useAsync` / global store / data library | **AI delegated** — local component state and the existing `useAsync` hook; no store or dependency. | ✅ Resolved |
@@ -72,8 +72,9 @@ Hardening: contract and generated-client tests. Policy version: 1. Root invocati
 
 **PAR-04:** Authority: AI — delegated by `--auto-design`. Eligibility: integration mechanism using
 the existing generator. Objective: typed browser calls without a second transport. Decision: add
-the controller and regenerate. Evidence: `apps/server/scripts/api-contract.ts:556-566` lists the
-browser controllers and explicitly excludes certificates today. Rejected alternatives: hand-written
+the controller, add its route docs to `WEB_ROUTE_DOCS` through `sharedRouteDoc`, and regenerate.
+Evidence: `apps/server/scripts/api-contract.ts:556-566` lists the browser controllers and explicitly
+excludes certificates today; the browser document resolves every route from `WEB_ROUTE_DOCS`. Rejected alternatives: hand-written
 fetch wrappers (drift); CLI client (bearer auth). Strongest counterargument: the browser contract
 grows; it is generated from the same routes and checked by `api:check`. Confidence: High. Hardening:
 `pnpm api:check`. Policy version: 1. Root invocation ID: `certificate-ui-2026-11-08T16:32Z`. Reopen

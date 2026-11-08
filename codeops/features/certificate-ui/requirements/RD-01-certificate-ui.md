@@ -115,9 +115,10 @@ resolver in `apps/web/src/docs.ts` maps the list to `/guide/certificates` and th
    The zero-capability fallback returns `false` for both. The list and detail responses include the
    new fields. [AR-7, AR-14]
 4. **Browser contract.** `WEB_CONTRACT_CONTROLLERS` in `apps/server/scripts/api-contract.ts` adds
-   `CertificatesController` at `/v1/data`, so `pnpm api:generate` produces
-   `apps/web/src/generated/client.certificates.ts` and adds the `certificates` group to
-   `OpenVaultWebClient`. The browser document remains cookie-authenticated. [AR-24]
+   `CertificatesController` at `/v1/data`, and `WEB_ROUTE_DOCS` adds each certificate route through
+   `sharedRouteDoc`. `pnpm api:generate` then produces `apps/web/src/generated/client.certificates.ts`
+   and adds the `certificates` group to `OpenVaultWebClient`. The browser document remains
+   cookie-authenticated. [AR-24]
 5. **No other API route or payload change.** The existing certificate routes keep their paths,
    request fields, response fields, limits, and error codes. [AR-9]
 

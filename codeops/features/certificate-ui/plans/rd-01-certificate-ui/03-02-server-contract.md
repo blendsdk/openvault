@@ -149,10 +149,39 @@ Add to `WEB_CONTRACT_CONTROLLERS`:
 { basePath: "/v1/data", controller: CertificatesController },
 ```
 
-Update the comment that says certificates are deliberately absent. The certificate routes already
-have `ROUTE_DOCS` entries, so the browser document picks them up without new route metadata. The
-browser document uses cookie authentication by default; the controller's `requirePrincipal` works
-unchanged. [AR-24, PAR-04]
+Update the comment that says certificates are deliberately absent. The browser document builds
+each route from `WEB_ROUTE_DOCS`, so add every certificate route through `sharedRouteDoc`:
+
+```ts
+"GET /v1/data/:project/certificates": sharedRouteDoc("GET /v1/data/:project/certificates"),
+"POST /v1/data/:project/certificates/import": sharedRouteDoc(
+  "POST /v1/data/:project/certificates/import",
+),
+"POST /v1/data/:project/certificates/generate": sharedRouteDoc(
+  "POST /v1/data/:project/certificates/generate",
+),
+"GET /v1/data/:project/certificates/:name": sharedRouteDoc(
+  "GET /v1/data/:project/certificates/:name",
+),
+"GET /v1/data/:project/certificates/:name/private-key": sharedRouteDoc(
+  "GET /v1/data/:project/certificates/:name/private-key",
+),
+"PATCH /v1/data/:project/certificates/:name": sharedRouteDoc(
+  "PATCH /v1/data/:project/certificates/:name",
+),
+"DELETE /v1/data/:project/certificates/:name": sharedRouteDoc(
+  "DELETE /v1/data/:project/certificates/:name",
+),
+"POST /v1/data/:project/certificates/:name/recover": sharedRouteDoc(
+  "POST /v1/data/:project/certificates/:name/recover",
+),
+"POST /v1/data/:project/certificates/:name/purge": sharedRouteDoc(
+  "POST /v1/data/:project/certificates/:name/purge",
+),
+```
+
+The missing-document check for `WEB_ROUTE_DOCS` then passes, and the browser document uses cookie
+authentication by default; the controller's `requirePrincipal` works unchanged. [AR-24, PAR-04]
 
 Run:
 

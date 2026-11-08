@@ -68,7 +68,7 @@ task-size criteria in the quality checklist)
 - [ ] 1.2.3 Update every capability fixture and exact-equality expectation with the new fields — `packages/api-contract/tests/`, `apps/server/tests/integration/rbac-policy.spec.test.ts`, `apps/server/tests/integration/rbac-policy.impl.test.ts`, `apps/server/tests/integration/secrets.spec.test.ts`, `apps/cli/tests/helpers/fake-vault.ts`, `apps/agent/tests/helpers/fake-vault.ts`, `apps/agent/tests/delivery-cancel.impl.test.ts`
 - [ ] 1.2.4 Map the new flags for secrets and certificates — `apps/server/src/rbac/policy-service.ts`
 - [ ] 1.2.5 Add the status branch and the name-or-subject predicate to the list read; pass `status` through the service — `apps/server/src/certificates/repository.ts`, `apps/server/src/certificates/service.ts`
-- [ ] 1.2.6 Add `CertificatesController` to `WEB_CONTRACT_CONTROLLERS` and update its comment — `apps/server/scripts/api-contract.ts`
+- [ ] 1.2.6 Add `CertificatesController` to `WEB_CONTRACT_CONTROLLERS`, add every certificate route to `WEB_ROUTE_DOCS` through `sharedRouteDoc`, and update the comment — `apps/server/scripts/api-contract.ts`
 - [ ] 1.2.7 Run `pnpm api:generate`; inspect the generated CLI and browser diffs — `packages/api-contract/openapi.json`, `apps/cli/src/generated/`, `apps/web/src/generated/`
 - [ ] 1.2.8 Run the Phase 1 spec tests and confirm green
 
