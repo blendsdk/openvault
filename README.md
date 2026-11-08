@@ -15,9 +15,9 @@ but designed for a small team running Docker Compose on one host.
 
 The v0.1 feature set is implemented and tested: secrets, certificates, RBAC, audit, the
 agent, the CLI, the web UI, encrypted backup/restore, KEK rotation, the hardened reference
-Compose stack, and the release-assurance pipeline. The remaining production gate is an
-independent OpenAI Codex Security review; alpha images are explicitly labelled not for
-production. See the [security evidence matrix](docs/security/evidence-matrix.md) and the
+Compose stack, and the release-assurance pipeline. The OpenAI Codex Security scan is a
+manual, periodic check. It is not part of CI/CD and does not block a release. See the
+[security evidence matrix](docs/security/evidence-matrix.md) and the
 [release process](docs/security/release-process.md).
 
 ## Why OpenVault?

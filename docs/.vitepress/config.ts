@@ -50,7 +50,7 @@ const security = [
   { text: "Review gates", link: "/security/review-gates" },
   { text: "Release process", link: "/security/release-process" },
   { text: "Release evidence", link: "/security/release-evidence" },
-  { text: "Independent review", link: "/security/external-review" },
+  { text: "Manual security scan", link: "/security/external-review" },
   { text: "Incident response", link: "/security/incident-response" },
   { text: "Reporting a vulnerability", link: "/security/reporting" },
 ];

@@ -1,6 +1,6 @@
-# Independent security review
+# Manual security scan record
 
-> **Status**: Pending
+> **Status**: Not run
 > **Release**: none
 > **Commit**: none
 > **Reviewed Commit**: none
@@ -11,19 +11,17 @@
 > **Open High**: 0
 > **Report**: none
 
-This file is the production-label gate. The release workflow reads the
-machine-readable fields above. A production tag fails unless `Status` is
-`Approved`, `Release` matches the tag, `Commit` matches the approval/tag commit,
-`Reviewed Commit` is the full code commit the scanner analyzed, `Scanner` is
-`OpenAI Codex Security`, `Scan ID` and `Scanned At` are recorded, the report
-file exists, and `Open Critical` and `Open High` are both `0`.
+This file records a manual OpenAI Codex Security scan. The scan needs a specific
+runtime environment that is not available in CI/CD, so it is run by the
+maintainer from time to time and is **not** part of the automated pipeline. It is
+not a release gate, has no fail-closed approval mechanism, and does not block a
+production tag.
 
-The review is an automated independent scan, not a human engagement. It
-analyzes the repository for security issues in the crypto, authentication,
-agent, deployment, and configuration surfaces. It does not replace human
-judgment for UI copy, operational procedures, or issues that require business
-context; those remain the maintainer's responsibility. Record every accepted
-High finding and its compensating control under [Accepted risks](#accepted-risks).
+The scan covers the crypto, authentication, agent, deployment, and configuration
+surfaces. It does not replace human judgment for UI copy, operational
+procedures, or issues that require business context; those remain the
+maintainer's responsibility. Record accepted findings under
+[Accepted risks](#accepted-risks).
 
 ## Scope
 
@@ -50,14 +48,14 @@ The scanner reads the repository directly. Supporting context:
 - The internal review reports under
   `codeops/features/openvault-v0-1/plans/rd-14-release/reviews/`.
 
-The scan must run against a clean checkout. It must not receive production
-secrets, real customer values, or a live production database. Use the seeded
-test fixtures and the restore drill.
+Run the scan against a clean checkout. It must not receive production secrets,
+real customer values, or a live production database. Use the seeded test
+fixtures and the restore drill.
 
-## Run the review
+## Run the review manually
 
 ```bash
-# Run on the release-candidate code commit with a clean working tree.
+# Run on a clean working tree; this is a local, manual command.
 codex-security scan . --headless --fail-on-severity high --max-cost 50
 
 # Review the findings.
@@ -67,39 +65,31 @@ codex-security findings
 codex-security export --scan <scan-id> --export-format json --output /tmp/openvault-codex.json
 ```
 
-The standard scan is the release gate. A Deep scan may be used when the change
-surface is unusually large, but it is not required for a routine release.
+The standard scan is the recommended manual check. A Deep scan may be used when
+the change surface is unusually large, but it is not required.
 
 ## Finding disposition
 
-| Severity | Required action |
+| Severity | Suggested action |
 |---|---|
-| Critical | Fix before the production label; no exception |
-| High | Fix before approval; do not accept a High finding for v0.1 |
+| Critical | Fix as soon as practical; the maintainer decides the release impact |
+| High | Fix or record the accepted risk and compensating control |
 | Medium | Fix or record an owner and target release |
 | Low | Track in the backlog |
 
-A production approval requires `Open Critical: 0` and `Open High: 0`. Fixing a
-finding changes the code commit, so re-run the scan on the new commit before
-approval.
+These are review guidelines, not automated release conditions. The maintainer
+decides whether a finding affects a release.
 
-## Approval protocol
+## Recording a scan
 
-1. Check out the release-candidate code commit with a clean working tree.
-2. Run the scan and resolve every Critical/High finding. Re-run after any fix.
-3. Export the finding summary and add a sanitized report under
-   `docs/security/` (for example `codex-security-<short-sha>.md`). Do not commit
-   raw findings that describe an unfixed vulnerability.
-4. Add the approval record in a docs-only commit. Set `Reviewed Commit` to the
-   scanned code commit and `Commit` to the approval commit that will be tagged.
-5. Set `Status: Approved`, `Release: v0.1.0`, the scanner fields, both severity
-   counts to `0`, and the report path. Merge the approval commit to `main`.
-6. Tag the approval commit and push the tag. The release workflow re-runs this
-   gate and fails closed if any field is missing or mismatched.
-
-The two-commit shape keeps the scanned code and the release tag auditable: the
-approval commit changes only the review record, while the code under review is
-the recorded `Reviewed Commit`.
+1. Check out the commit to scan with a clean working tree.
+2. Run the scan manually and review the findings.
+3. Export a sanitized report under `docs/security/` if useful. Do not commit raw
+   findings that describe an unfixed vulnerability.
+4. Update the fields at the top of this file with the scanned commit, scan id,
+   timestamp, open counts, and report path.
+5. Commit the record as documentation. No workflow reads it and no release step
+   depends on it.
 
 ## Accepted risks
 

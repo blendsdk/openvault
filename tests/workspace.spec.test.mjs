@@ -93,7 +93,6 @@ describe("workspace policy", () => {
       "pnpm check:compose",
       "pnpm security:evidence:check",
       "pnpm security:claims:check",
-      "pnpm security:release-gate",
       "pnpm docs:build",
     ];
 

@@ -29,8 +29,9 @@ features:
 
 ## Status
 
-The v0.1 feature set is implemented and tested. A production-labelled image remains gated
-on the independent OpenAI Codex Security review; alpha images are explicitly not for production.
+The v0.1 feature set is implemented and tested. The OpenAI Codex Security scan is a manual,
+periodic check; it is not part of CI/CD and does not block a release. Alpha images are
+explicitly not for production.
 
 See [Getting started](/guide/getting-started) for the installation flow, or the
 [security evidence matrix](/security/evidence-matrix) for the test-to-control mapping.

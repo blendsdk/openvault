@@ -11,16 +11,16 @@ reports live under
 | Auth and sessions | Security auditor plus correctness reviewer | See `crypto-auth-security.md` |
 | Audit | Security auditor plus tamper tests | See `audit-data-review.md` |
 | Agent and deploy | Security auditor plus concurrency reviewer | See `agent-deploy-review.md` |
-| Release candidate | OpenAI Codex Security review | Pending; see [`external-review.md`](external-review.md) |
-| Production label | All gates green, signed image, approved Codex Security review | Blocked until the Codex review is approved |
+| Manual security scan | OpenAI Codex Security, run by the maintainer when convenient | Advisory; see [`external-review.md`](external-review.md) |
 
 ## Rules
 
-- A Critical finding blocks the phase and the release. No exception.
-- A High finding blocks the release; v0.1 requires zero open High findings.
+- An internal review finding at Critical or High severity blocks the phase it
+  covers until it is fixed.
 - A reviewer report records the commit or diff it reviewed and a verdict line:
   `Critical: 0`, `High: 0`, `Medium: n`, `Low: n`.
-- The release gate script reads the independent-review file, not this summary.
+- The OpenAI Codex Security scan is a manual, periodic check. It is not part of
+  CI/CD, has no machine-readable approval gate, and does not block a release.
 
 ## Current internal reports
 
@@ -28,4 +28,3 @@ The reports were produced by independent review sessions against the RD-13 and
 RD-14 working tree. The four High findings (SEC-01, ADR-01, AC-01, AC-02) are
 fixed and covered by tests. The Medium/Low disposition is recorded in
 `codeops/features/openvault-v0-1/plans/rd-14-release/reviews/00-resolution.md`.
-The Codex Security approval remains the only release-specific gate.

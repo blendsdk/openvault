@@ -92,8 +92,8 @@
 - No explicit deny rules in v0.1.
 - The readiness timeout bounds the response, not an in-flight database query; the pool
   connection timeout and connection cap bound the residual work.
-- The OpenAI Codex Security review is pending; a production-labelled image is blocked
-  until it is approved. Alpha images are explicitly not for production.
+- The OpenAI Codex Security scan is a manual, periodic check. It is not part of CI/CD and
+  does not block a release. Alpha images are explicitly not for production.
 
 See [Known limitations](/security/limitations) and the
 [incident response runbook](incident-response.md).

@@ -49,6 +49,13 @@ describe("workflow security policy", () => {
     expect(deploy).toContain("id-token: write");
   });
 
+  it("should keep the manual Codex security scan out of CI/CD", () => {
+    for (const workflow of workflowFiles) {
+      expect(workflow.source.toLowerCase(), workflow.name).not.toContain("codex");
+      expect(workflow.source, workflow.name).not.toContain("check-release-gate");
+    }
+  });
+
   it("should run the full verification, audit, and PostgreSQL integration gates", () => {
     const ci = workflowFiles.find((workflow) => workflow.name === "ci.yml");
     expect(ci).toBeDefined();

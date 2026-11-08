@@ -6,7 +6,7 @@ product without a production host, a public domain, or real secrets.
 ::: warning Not a production deployment
 This environment uses Caddy's local CA, a one-time bootstrap password, and fake data. It is for
 product review only. It is not the independent security review described in
-[Independent review](/security/external-review), and it does not approve a production image.
+[manual security scan](/security/external-review), and it is not a production gate.
 :::
 
 ## What the environment gives you
@@ -169,7 +169,7 @@ The review stack never writes to production paths. `reset` refuses to delete a c
 
 ## Independent security review
 
-Product acceptance and the independent security review are separate. The Codex review covers
-cryptographic design, authentication and sessions, agent isolation, and deployment. Its status
-is recorded in `docs/security/external-review.md` and is currently **Pending**. No
-production-labelled image may be published until that review is approved.
+Product acceptance and the manual security scan are separate. The Codex scan covers
+cryptographic design, authentication and sessions, agent isolation, and deployment. Its record
+is in `docs/security/external-review.md`. The scan is run manually from time to time; it is
+not part of CI/CD and does not block a release.

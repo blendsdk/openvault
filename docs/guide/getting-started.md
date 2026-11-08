@@ -2,8 +2,8 @@
 
 ::: warning Release status
 The v0.1 feature set, the `ov` CLI, the web UI, and the API in this repository are
-implemented and tested. A production-labelled image is blocked until the OpenAI Codex Security
-review is approved; alpha images are explicitly not for production.
+implemented and tested. The OpenAI Codex Security scan is a manual, periodic check. It is not
+part of CI/CD and does not block a release. Alpha images are explicitly not for production.
 :::
 
 ## What OpenVault is

@@ -134,9 +134,10 @@ These are accepted for v0.1. They are documented so reviewers do not mistake the
     could store control characters. Tightening the shared contract is deferred to the identity
     surface.
 44. **Release images.** The repository builds server, agent, and web images and the release
-    workflow scans, signs, and attests them. No production-labelled image exists until the
-    OpenAI Codex Security review is approved. Alpha images are explicitly labelled not for
-    production. The scaffold's image tag is replaced by the signed digest for production.
+    workflow scans, signs, and attests them. Production images are published by a deliberate
+    operator action. The OpenAI Codex Security scan is manual and advisory; it is not an
+    automated release gate. Alpha images are explicitly labelled not for production. The
+    scaffold's image tag is replaced by the signed digest for production.
 45. **Scaffold serialization.** Grant reconciliation and join-token rotation are serialized by a
     per-identity in-process mutex. This covers the single-instance v0.1 deployment. A
     multi-instance deployment would need a database advisory lock for the same guarantee.
@@ -219,10 +220,10 @@ These are accepted for v0.1. They are documented so reviewers do not mistake the
 66. **Bind-mount ownership.** The reference stack uses host directories, not Docker-managed
     volumes, so the operator can set the exact non-root UID and mode. `prepare.sh` needs root
     (or equivalent) once; a rootless Docker host must map the same UIDs.
-67. **Automated review is a gate, not code.** The repository can verify test evidence, signed
-    images, SBOMs, scans, branch protection, and the OpenAI Codex Security approval record. The
-    scanner cannot replace human judgment for business context or operational procedures; a
-    production label remains blocked until the approval file is completed.
+67. **Manual security scan is advisory.** The OpenAI Codex Security scan needs a specific
+    runtime environment that is not available in CI/CD. It is run manually from time to time,
+    recorded in `docs/security/external-review.md`, and is not an automated or release-blocking
+    gate. It cannot replace human judgment for business context or operational procedures.
 68. **Off-box retention.** The systemd timers run on the vault host and push to an operator
     destination. If the host and the destination are lost together, the RPO is not met. Keep the
     checkpoint anchor on independent storage.
