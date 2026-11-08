@@ -23,3 +23,4 @@ minimumReleaseAgeExclude:
   - "@biomejs/cli-win32-x64@2.6.4"
   - "@blendsdk/fluentui-react-components@0.6.0"
   - blendsdk@5.68.1
+  - supertest@7.3.2

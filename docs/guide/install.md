@@ -5,7 +5,7 @@
 | Component | Version |
 |---|---|
 | Node.js | 24.7 or newer |
-| pnpm | 12.11.2 |
+| pnpm | 12.18.0 |
 | Docker | Current stable |
 | Docker Compose | v2 |
 | PostgreSQL | 16 or 17, when running without the reference stack |

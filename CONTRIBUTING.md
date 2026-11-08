@@ -6,7 +6,7 @@ matter more than speed.
 ## Prerequisites
 
 - Node.js 24.7 or newer
-- pnpm 12.11.2 (`corepack enable` is the simplest way to match it)
+- pnpm 12.18.0 (`corepack enable` is the simplest way to match it)
 - OpenSSL 1.1.1 or newer, for the ephemeral TLS/mTLS transport fixtures
 - Docker, for integration tests and the reference stack
 - Caddy 2.10, optional; the deployment test runs `caddy validate` when it is installed
@@ -43,6 +43,24 @@ Useful commands:
 | `pnpm docs:dev` | VitePress dev server |
 | `pnpm docs:build` | Static documentation build |
 | `pnpm changeset` | Record a user-visible change |
+| `pnpm ncu` | Update every workspace dependency, reinstall from scratch, and run `pnpm verify` |
+
+## Dependency updates
+
+`pnpm ncu` runs `npm-check-updates` across the workspace, removes `node_modules` and
+`pnpm-lock.yaml`, installs the new tree, and runs the full `pnpm verify` gate. Run it on a
+clean branch and review the resulting `package.json` and lockfile changes before committing.
+
+The command intentionally excludes four packages:
+
+| Package | Reason |
+|---|---|
+| `pino` / `pino-http` | `blendsdk@5.68.1` declares peer ranges `^9` and `^10`; upgrade both when BlendSDK supports the next majors |
+| `react-router` | `blendsdk@5.68.1` declares the peer range `^7`; upgrade when BlendSDK supports v8 |
+| `@types/node` | stays on the 24.x line to match the Node.js runtime; do not let it drift to a newer major |
+
+GitHub Actions are pinned by full commit SHA and are not handled by `ncu`. Update them in a
+separate, reviewed change and let CI exercise the workflow.
 
 ## Database migrations and types
 
