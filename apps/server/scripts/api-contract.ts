@@ -282,7 +282,7 @@ export const ROUTE_DOCS: Readonly<Record<string, RouteDoc>> = {
   "GET /v1/data/:project/certificates": {
     operationId: "listCertificates",
     tags: ["certificates"],
-    summary: "List certificates in a project",
+    summary: "List certificates by name or subject",
     secure: true,
     input: api.certificateListQuerySchema,
     responses: [
@@ -554,14 +554,15 @@ export interface WebContractController {
 /**
  * The browser-facing controllers.
  *
- * OIDC redirect/callback, certificates, scaffold, agent, and readiness routes
- * are deliberately absent. OIDC is a browser navigation, not a JSON call.
+ * OIDC redirect/callback, scaffold, agent, and readiness routes are
+ * deliberately absent. OIDC is a browser navigation, not a JSON call.
  */
 export const WEB_CONTRACT_CONTROLLERS: readonly WebContractController[] = [
   { basePath: "/v1/auth", controller: AuthController },
   { basePath: "/v1/meta", controller: MetaController },
   { basePath: "/v1/admin/projects", controller: ProjectsController },
   { basePath: "/v1/data", controller: SecretsController },
+  { basePath: "/v1/data", controller: CertificatesController },
   { basePath: "/v1/admin/identities", controller: IdentityController },
   { basePath: "/v1/admin/assignments", controller: AssignmentsController },
   { basePath: "/v1/admin/access-explain", controller: AccessExplainController },
@@ -673,6 +674,32 @@ export const WEB_ROUTE_DOCS: Readonly<Record<string, RouteDoc>> = {
   ),
   "POST /v1/data/:project/secrets/:name/purge": sharedRouteDoc(
     "POST /v1/data/:project/secrets/:name/purge",
+  ),
+
+  "GET /v1/data/:project/certificates": sharedRouteDoc("GET /v1/data/:project/certificates"),
+  "POST /v1/data/:project/certificates/import": sharedRouteDoc(
+    "POST /v1/data/:project/certificates/import",
+  ),
+  "POST /v1/data/:project/certificates/generate": sharedRouteDoc(
+    "POST /v1/data/:project/certificates/generate",
+  ),
+  "GET /v1/data/:project/certificates/:name": sharedRouteDoc(
+    "GET /v1/data/:project/certificates/:name",
+  ),
+  "GET /v1/data/:project/certificates/:name/private-key": sharedRouteDoc(
+    "GET /v1/data/:project/certificates/:name/private-key",
+  ),
+  "PATCH /v1/data/:project/certificates/:name": sharedRouteDoc(
+    "PATCH /v1/data/:project/certificates/:name",
+  ),
+  "DELETE /v1/data/:project/certificates/:name": sharedRouteDoc(
+    "DELETE /v1/data/:project/certificates/:name",
+  ),
+  "POST /v1/data/:project/certificates/:name/recover": sharedRouteDoc(
+    "POST /v1/data/:project/certificates/:name/recover",
+  ),
+  "POST /v1/data/:project/certificates/:name/purge": sharedRouteDoc(
+    "POST /v1/data/:project/certificates/:name/purge",
   ),
 
   "GET /v1/admin/identities": sharedRouteDoc("GET /v1/admin/identities"),

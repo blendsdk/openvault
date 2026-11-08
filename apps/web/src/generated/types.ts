@@ -14,7 +14,7 @@ export type __schema0_14 = string;
 
 export type __schema0_15 = string;
 
-export type __schema0_16 = Record<string, __schema2_5>;
+export type __schema0_16 = string;
 
 export type __schema0_17 = string;
 
@@ -24,9 +24,33 @@ export type __schema0_19 = string;
 
 export type __schema0_2 = string;
 
-export type __schema0_20 = string;
+export type __schema0_20 = Record<string, __schema2_9>;
+
+export type __schema0_21 = string;
+
+export type __schema0_22 = string;
+
+export type __schema0_23 = string;
+
+export type __schema0_24 = string;
+
+export type __schema0_25 = string;
+
+export type __schema0_26 = string;
+
+export type __schema0_27 = string;
+
+export type __schema0_28 = Record<string, __schema2_15>;
+
+export type __schema0_29 = string;
 
 export type __schema0_3 = string;
+
+export type __schema0_30 = string;
+
+export type __schema0_31 = string;
+
+export type __schema0_32 = string;
 
 export type __schema0_4 = string;
 
@@ -46,6 +70,22 @@ export type __schema1_10 = string;
 
 export type __schema1_11 = string;
 
+export type __schema1_12 = string;
+
+export type __schema1_13 = string;
+
+export type __schema1_14 = string;
+
+export type __schema1_15 = string;
+
+export type __schema1_16 = string;
+
+export type __schema1_17 = string;
+
+export type __schema1_18 = string;
+
+export type __schema1_19 = string;
+
 export type __schema1_2 =
   | 'org.admin'
   | 'project.admin'
@@ -56,6 +96,12 @@ export type __schema1_2 =
   | 'certificates.reader'
   | 'auditor'
   | 'reader';
+
+export type __schema1_20 = string;
+
+export type __schema1_21 = string;
+
+export type __schema1_22 = string;
 
 export type __schema1_3 = string;
 
@@ -73,6 +119,24 @@ export type __schema1_9 = string;
 
 export type __schema2 = 'org' | 'project' | 'object';
 
+export type __schema2_10 = string;
+
+export type __schema2_11 = string;
+
+export type __schema2_12 = string;
+
+export type __schema2_13 = string;
+
+export type __schema2_14 = string;
+
+export type __schema2_15 = string;
+
+export type __schema2_16 = string;
+
+export type __schema2_17 = string;
+
+export type __schema2_18 = string;
+
 export type __schema2_2 = string;
 
 export type __schema2_3 = string;
@@ -87,22 +151,26 @@ export type __schema2_7 = string;
 
 export type __schema2_8 = string;
 
+export type __schema2_9 = string;
+
 export type __schema3 = string;
 
-export type __schema3_2 = {
+export type __schema3_2 = boolean;
+
+export type __schema3_3 = {
   createdAt: string;
-  createdBy: __schema0_14;
+  createdBy: __schema0_26;
   expiresAt: string | null;
-  id: __schema0_14;
+  id: __schema0_26;
 };
 
-export type __schema3_3 = string;
+export type __schema3_4 = string;
 
-export type __schema3_4 = {
+export type __schema3_5 = {
   createdAt: string;
-  createdBy: __schema0_18;
+  createdBy: __schema0_30;
   expiresAt: string | null;
-  id: __schema0_18;
+  id: __schema0_30;
 };
 
 export type __schema4 = string;
@@ -610,6 +678,357 @@ export type SessionRevokeSessionParams = { id: string };
 
 export type SessionRevokeSessionResult = unknown;
 
+export type CertificatesListCertificatesParams = {
+  project: string;
+  q?: string;
+  san?: string;
+  expiresBefore?: string;
+  expiresAfter?: string;
+  status?: 'active' | 'deleted';
+  limit?: number;
+  cursor?: string;
+};
+
+export type CertificatesListCertificatesResult = {
+  certificates: {
+    capabilities: {
+      canDelete: boolean;
+      canManage: boolean;
+      canPurge: boolean;
+      canRead: boolean;
+      canReadPrivate: boolean;
+      canRecover: boolean;
+      canWrite: boolean;
+    };
+    chainLength: number;
+    createdAt: string;
+    daysToExpiry: number;
+    deletedAt: string | null;
+    fingerprint: string;
+    id: __schema0_12;
+    issuer: string;
+    name: string;
+    notAfter: string;
+    notBefore: string;
+    projectId: __schema0_12;
+    purgeAfter: string | null;
+    purgeProtected: boolean;
+    sans: string[];
+    serial: string;
+    status: 'active' | 'expired' | 'deleted';
+    subject: string;
+    tags: Record<string, __schema2_2>;
+    updatedAt: string;
+    version: {
+      createdAt: string;
+      createdBy: __schema0_12;
+      fingerprint: string;
+      id: __schema0_12;
+      notAfter: string;
+      notBefore: string;
+      serial: string;
+    };
+  }[];
+  nextCursor: string | null;
+};
+
+export type CertificatesGetCertificateParams = { project: string; name: string; version?: string };
+
+export type CertificatesGetCertificateResult = {
+  capabilities: {
+    canDelete: boolean;
+    canManage: boolean;
+    canPurge: boolean;
+    canRead: boolean;
+    canReadPrivate: boolean;
+    canRecover: boolean;
+    canWrite: boolean;
+  };
+  certificatePem: string;
+  chainLength: number;
+  chainPem: string;
+  createdAt: string;
+  daysToExpiry: number;
+  deletedAt: string | null;
+  fingerprint: string;
+  id: __schema0_19;
+  issuer: string;
+  name: string;
+  notAfter: string;
+  notBefore: string;
+  projectId: __schema0_19;
+  purgeAfter: string | null;
+  purgeProtected: boolean;
+  sans: string[];
+  serial: string;
+  status: 'active' | 'expired' | 'deleted';
+  subject: string;
+  tags: Record<string, __schema2_8>;
+  updatedAt: string;
+  version: {
+    createdAt: string;
+    createdBy: __schema0_19;
+    fingerprint: string;
+    id: __schema0_19;
+    notAfter: string;
+    notBefore: string;
+    serial: string;
+  };
+};
+
+export type CertificatesUpdateCertificateMetadataParams = {
+  project: string;
+  name: string;
+  tags?: __schema0_20;
+  purgeProtected?: __schema3_2;
+};
+
+export type CertificatesUpdateCertificateMetadataResult = {
+  capabilities: {
+    canDelete: boolean;
+    canManage: boolean;
+    canPurge: boolean;
+    canRead: boolean;
+    canReadPrivate: boolean;
+    canRecover: boolean;
+    canWrite: boolean;
+  };
+  chainLength: number;
+  createdAt: string;
+  daysToExpiry: number;
+  deletedAt: string | null;
+  fingerprint: string;
+  id: __schema0_21;
+  issuer: string;
+  name: string;
+  notAfter: string;
+  notBefore: string;
+  projectId: __schema0_21;
+  purgeAfter: string | null;
+  purgeProtected: boolean;
+  sans: string[];
+  serial: string;
+  status: 'active' | 'expired' | 'deleted';
+  subject: string;
+  tags: Record<string, __schema2_10>;
+  updatedAt: string;
+  version: {
+    createdAt: string;
+    createdBy: __schema0_21;
+    fingerprint: string;
+    id: __schema0_21;
+    notAfter: string;
+    notBefore: string;
+    serial: string;
+  };
+};
+
+export type CertificatesDeleteCertificateParams = { project: string; name: string };
+
+export type CertificatesDeleteCertificateResult = unknown;
+
+export type CertificatesGetCertificatePrivateKeyParams = {
+  project: string;
+  name: string;
+  version?: string;
+};
+
+export type CertificatesGetCertificatePrivateKeyResult = {
+  capabilities: {
+    canDelete: boolean;
+    canManage: boolean;
+    canPurge: boolean;
+    canRead: boolean;
+    canReadPrivate: boolean;
+    canRecover: boolean;
+    canWrite: boolean;
+  };
+  fingerprint: string;
+  id: __schema0_22;
+  name: string;
+  privateKeyPem: string;
+  projectId: __schema0_22;
+  version: {
+    createdAt: string;
+    createdBy: __schema0_22;
+    fingerprint: string;
+    id: __schema0_22;
+    notAfter: string;
+    notBefore: string;
+    serial: string;
+  };
+};
+
+export type CertificatesPurgeCertificateParams = { project: string; name: string };
+
+export type CertificatesPurgeCertificateResult = unknown;
+
+export type CertificatesRecoverCertificateParams = { project: string; name: string };
+
+export type CertificatesRecoverCertificateResult = {
+  capabilities: {
+    canDelete: boolean;
+    canManage: boolean;
+    canPurge: boolean;
+    canRead: boolean;
+    canReadPrivate: boolean;
+    canRecover: boolean;
+    canWrite: boolean;
+  };
+  chainLength: number;
+  createdAt: string;
+  daysToExpiry: number;
+  deletedAt: string | null;
+  fingerprint: string;
+  id: __schema0_23;
+  issuer: string;
+  name: string;
+  notAfter: string;
+  notBefore: string;
+  projectId: __schema0_23;
+  purgeAfter: string | null;
+  purgeProtected: boolean;
+  sans: string[];
+  serial: string;
+  status: 'active' | 'expired' | 'deleted';
+  subject: string;
+  tags: Record<string, __schema2_11>;
+  updatedAt: string;
+  version: {
+    createdAt: string;
+    createdBy: __schema0_23;
+    fingerprint: string;
+    id: __schema0_23;
+    notAfter: string;
+    notBefore: string;
+    serial: string;
+  };
+};
+
+export type CertificatesGenerateCertificateParams = {
+  project: string;
+  name: string;
+  subject: string;
+  sans: __schema0_13[];
+  keyType?: 'rsa-2048' | 'rsa-3072' | 'ec-p256';
+  validityDays?: number;
+  expectedVersionId?: string;
+  tags?: Record<string, __schema2_3>;
+};
+
+export type CertificatesGenerateCertificateResult = {
+  capabilities: {
+    canDelete: boolean;
+    canManage: boolean;
+    canPurge: boolean;
+    canRead: boolean;
+    canReadPrivate: boolean;
+    canRecover: boolean;
+    canWrite: boolean;
+  };
+  certificatePem: string;
+  chainLength: number;
+  chainPem: string;
+  createdAt: string;
+  daysToExpiry: number;
+  deletedAt: string | null;
+  fingerprint: string;
+  id: __schema0_14;
+  issuer: string;
+  name: string;
+  notAfter: string;
+  notBefore: string;
+  projectId: __schema0_14;
+  purgeAfter: string | null;
+  purgeProtected: boolean;
+  sans: string[];
+  serial: string;
+  status: 'active' | 'expired' | 'deleted';
+  subject: string;
+  tags: Record<string, __schema2_4>;
+  updatedAt: string;
+  version: {
+    createdAt: string;
+    createdBy: __schema0_14;
+    fingerprint: string;
+    id: __schema0_14;
+    notAfter: string;
+    notBefore: string;
+    serial: string;
+  };
+  warnings: {
+    code:
+      | 'expired'
+      | 'not_yet_valid'
+      | 'missing_intermediate'
+      | 'expired_intermediate'
+      | 'not_yet_valid_intermediate';
+    message: string;
+  }[];
+};
+
+export type CertificatesImportCertificateParams = {
+  project: string;
+  name: string;
+  certificatePem: string;
+  chainPem?: string;
+  privateKeyPem: string;
+  allowNotYetValid?: boolean;
+  expectedVersionId?: string;
+  tags?: Record<string, __schema1_8>;
+};
+
+export type CertificatesImportCertificateResult = {
+  capabilities: {
+    canDelete: boolean;
+    canManage: boolean;
+    canPurge: boolean;
+    canRead: boolean;
+    canReadPrivate: boolean;
+    canRecover: boolean;
+    canWrite: boolean;
+  };
+  certificatePem: string;
+  chainLength: number;
+  chainPem: string;
+  createdAt: string;
+  daysToExpiry: number;
+  deletedAt: string | null;
+  fingerprint: string;
+  id: __schema0_17;
+  issuer: string;
+  name: string;
+  notAfter: string;
+  notBefore: string;
+  projectId: __schema0_17;
+  purgeAfter: string | null;
+  purgeProtected: boolean;
+  sans: string[];
+  serial: string;
+  status: 'active' | 'expired' | 'deleted';
+  subject: string;
+  tags: Record<string, __schema2_6>;
+  updatedAt: string;
+  version: {
+    createdAt: string;
+    createdBy: __schema0_17;
+    fingerprint: string;
+    id: __schema0_17;
+    notAfter: string;
+    notBefore: string;
+    serial: string;
+  };
+  warnings: {
+    code:
+      | 'expired'
+      | 'not_yet_valid'
+      | 'missing_intermediate'
+      | 'expired_intermediate'
+      | 'not_yet_valid_intermediate';
+    message: string;
+  }[];
+};
+
 export type SecretsListSecretsParams = {
   project: string;
   q?: string;
@@ -627,6 +1046,8 @@ export type SecretsListSecretsResult = {
       canManage: boolean;
       canPurge: boolean;
       canRead: boolean;
+      canReadPrivate: boolean;
+      canRecover: boolean;
       canWrite: boolean;
     };
     consumers: { composeProject: string; composeService: string; lastSeen: string }[];
@@ -634,18 +1055,18 @@ export type SecretsListSecretsResult = {
     createdAt: string;
     currentVersion: {
       createdAt: string;
-      createdBy: __schema0_12;
+      createdBy: __schema0_24;
       expiresAt: string | null;
-      id: __schema0_12;
+      id: __schema0_24;
     } | null;
     deletedAt: string | null;
-    id: __schema0_12;
+    id: __schema0_24;
     name: string;
-    projectId: __schema0_12;
+    projectId: __schema0_24;
     purgeAfter: string | null;
     purgeProtected: boolean;
     status: 'active' | 'deleted';
-    tags: Record<string, __schema2_2>;
+    tags: Record<string, __schema2_12>;
     updatedAt: string;
   }[];
 };
@@ -656,7 +1077,7 @@ export type SecretsCreateSecretParams = {
   value: string;
   encoding?: 'utf8' | 'base64';
   contentType?: string;
-  tags?: Record<string, __schema1_5>;
+  tags?: Record<string, __schema1_16>;
   expiresAt?: string;
 };
 
@@ -666,22 +1087,24 @@ export type SecretsCreateSecretResult = {
     canManage: boolean;
     canPurge: boolean;
     canRead: boolean;
+    canReadPrivate: boolean;
+    canRecover: boolean;
     canWrite: boolean;
   };
   consumers: { composeProject: string; composeService: string; lastSeen: string }[];
   contentType: string;
   createdAt: string;
-  currentVersion: __schema3_2 | unknown | null;
+  currentVersion: __schema3_3 | unknown | null;
   deletedAt: string | null;
-  id: __schema0_14;
+  id: __schema0_26;
   name: string;
-  projectId: __schema0_14;
+  projectId: __schema0_26;
   purgeAfter: string | null;
   purgeProtected: boolean;
   status: 'active' | 'deleted';
-  tags: Record<string, __schema2_3>;
+  tags: Record<string, __schema2_13>;
   updatedAt: string;
-  version: __schema3_2;
+  version: __schema3_3;
 };
 
 export type SecretsGetSecretParams = { project: string; name: string; version?: string };
@@ -692,20 +1115,22 @@ export type SecretsGetSecretResult = {
     canManage: boolean;
     canPurge: boolean;
     canRead: boolean;
+    canReadPrivate: boolean;
+    canRecover: boolean;
     canWrite: boolean;
   };
   contentType: string;
   encoding: 'utf8' | 'base64';
-  id: __schema0_15;
+  id: __schema0_27;
   name: string;
-  projectId: __schema0_15;
-  tags: Record<string, __schema2_4>;
+  projectId: __schema0_27;
+  tags: Record<string, __schema2_14>;
   value: string;
   version: {
     createdAt: string;
-    createdBy: __schema0_15;
+    createdBy: __schema0_27;
     expiresAt: string | null;
-    id: __schema0_15;
+    id: __schema0_27;
   };
 };
 
@@ -723,29 +1148,31 @@ export type SecretsWriteSecretValueResult = {
     canManage: boolean;
     canPurge: boolean;
     canRead: boolean;
+    canReadPrivate: boolean;
+    canRecover: boolean;
     canWrite: boolean;
   };
   consumers: { composeProject: string; composeService: string; lastSeen: string }[];
   contentType: string;
   createdAt: string;
-  currentVersion: __schema3_4 | unknown | null;
+  currentVersion: __schema3_5 | unknown | null;
   deletedAt: string | null;
-  id: __schema0_18;
+  id: __schema0_30;
   name: string;
-  projectId: __schema0_18;
+  projectId: __schema0_30;
   purgeAfter: string | null;
   purgeProtected: boolean;
   status: 'active' | 'deleted';
-  tags: Record<string, __schema2_7>;
+  tags: Record<string, __schema2_17>;
   updatedAt: string;
-  version: __schema3_4;
+  version: __schema3_5;
 };
 
 export type SecretsUpdateSecretMetadataParams = {
   project: string;
   name: string;
-  tags?: __schema0_16;
-  contentType?: __schema3_3;
+  tags?: __schema0_28;
+  contentType?: __schema3_4;
   purgeProtected?: __schema4_2;
 };
 
@@ -755,6 +1182,8 @@ export type SecretsUpdateSecretMetadataResult = {
     canManage: boolean;
     canPurge: boolean;
     canRead: boolean;
+    canReadPrivate: boolean;
+    canRecover: boolean;
     canWrite: boolean;
   };
   consumers: { composeProject: string; composeService: string; lastSeen: string }[];
@@ -762,18 +1191,18 @@ export type SecretsUpdateSecretMetadataResult = {
   createdAt: string;
   currentVersion: {
     createdAt: string;
-    createdBy: __schema0_17;
+    createdBy: __schema0_29;
     expiresAt: string | null;
-    id: __schema0_17;
+    id: __schema0_29;
   } | null;
   deletedAt: string | null;
-  id: __schema0_17;
+  id: __schema0_29;
   name: string;
-  projectId: __schema0_17;
+  projectId: __schema0_29;
   purgeAfter: string | null;
   purgeProtected: boolean;
   status: 'active' | 'deleted';
-  tags: Record<string, __schema2_6>;
+  tags: Record<string, __schema2_16>;
   updatedAt: string;
 };
 
@@ -799,6 +1228,8 @@ export type SecretsRecoverSecretResult = {
     canManage: boolean;
     canPurge: boolean;
     canRead: boolean;
+    canReadPrivate: boolean;
+    canRecover: boolean;
     canWrite: boolean;
   };
   consumers: { composeProject: string; composeService: string; lastSeen: string }[];
@@ -806,18 +1237,18 @@ export type SecretsRecoverSecretResult = {
   createdAt: string;
   currentVersion: {
     createdAt: string;
-    createdBy: __schema0_19;
+    createdBy: __schema0_31;
     expiresAt: string | null;
-    id: __schema0_19;
+    id: __schema0_31;
   } | null;
   deletedAt: string | null;
-  id: __schema0_19;
+  id: __schema0_31;
   name: string;
-  projectId: __schema0_19;
+  projectId: __schema0_31;
   purgeAfter: string | null;
   purgeProtected: boolean;
   status: 'active' | 'deleted';
-  tags: Record<string, __schema2_8>;
+  tags: Record<string, __schema2_18>;
   updatedAt: string;
 };
 
@@ -826,9 +1257,9 @@ export type SecretsListSecretVersionsParams = { project: string; name: string };
 export type SecretsListSecretVersionsResult = {
   versions: {
     createdAt: string;
-    createdBy: __schema0_20;
+    createdBy: __schema0_32;
     expiresAt: string | null;
-    id: __schema0_20;
+    id: __schema0_32;
     isCurrent: boolean;
     status: 'active' | 'expired';
   }[];

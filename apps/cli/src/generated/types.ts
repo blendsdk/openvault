@@ -754,6 +754,7 @@ export type CertificatesListCertificatesParams = {
   san?: string;
   expiresBefore?: string;
   expiresAfter?: string;
+  status?: 'active' | 'deleted';
   limit?: number;
   cursor?: string;
 };
@@ -765,6 +766,8 @@ export type CertificatesListCertificatesResult = {
       canManage: boolean;
       canPurge: boolean;
       canRead: boolean;
+      canReadPrivate: boolean;
+      canRecover: boolean;
       canWrite: boolean;
     };
     chainLength: number;
@@ -807,6 +810,8 @@ export type CertificatesGetCertificateResult = {
     canManage: boolean;
     canPurge: boolean;
     canRead: boolean;
+    canReadPrivate: boolean;
+    canRecover: boolean;
     canWrite: boolean;
   };
   certificatePem: string;
@@ -854,6 +859,8 @@ export type CertificatesUpdateCertificateMetadataResult = {
     canManage: boolean;
     canPurge: boolean;
     canRead: boolean;
+    canReadPrivate: boolean;
+    canRecover: boolean;
     canWrite: boolean;
   };
   chainLength: number;
@@ -902,6 +909,8 @@ export type CertificatesGetCertificatePrivateKeyResult = {
     canManage: boolean;
     canPurge: boolean;
     canRead: boolean;
+    canReadPrivate: boolean;
+    canRecover: boolean;
     canWrite: boolean;
   };
   fingerprint: string;
@@ -932,6 +941,8 @@ export type CertificatesRecoverCertificateResult = {
     canManage: boolean;
     canPurge: boolean;
     canRead: boolean;
+    canReadPrivate: boolean;
+    canRecover: boolean;
     canWrite: boolean;
   };
   chainLength: number;
@@ -981,6 +992,8 @@ export type CertificatesGenerateCertificateResult = {
     canManage: boolean;
     canPurge: boolean;
     canRead: boolean;
+    canReadPrivate: boolean;
+    canRecover: boolean;
     canWrite: boolean;
   };
   certificatePem: string;
@@ -1041,6 +1054,8 @@ export type CertificatesImportCertificateResult = {
     canManage: boolean;
     canPurge: boolean;
     canRead: boolean;
+    canReadPrivate: boolean;
+    canRecover: boolean;
     canWrite: boolean;
   };
   certificatePem: string;
@@ -1101,6 +1116,8 @@ export type SecretsListSecretsResult = {
       canManage: boolean;
       canPurge: boolean;
       canRead: boolean;
+      canReadPrivate: boolean;
+      canRecover: boolean;
       canWrite: boolean;
     };
     consumers: { composeProject: string; composeService: string; lastSeen: string }[];
@@ -1140,6 +1157,8 @@ export type SecretsCreateSecretResult = {
     canManage: boolean;
     canPurge: boolean;
     canRead: boolean;
+    canReadPrivate: boolean;
+    canRecover: boolean;
     canWrite: boolean;
   };
   consumers: { composeProject: string; composeService: string; lastSeen: string }[];
@@ -1166,6 +1185,8 @@ export type SecretsGetSecretResult = {
     canManage: boolean;
     canPurge: boolean;
     canRead: boolean;
+    canReadPrivate: boolean;
+    canRecover: boolean;
     canWrite: boolean;
   };
   contentType: string;
@@ -1197,6 +1218,8 @@ export type SecretsWriteSecretValueResult = {
     canManage: boolean;
     canPurge: boolean;
     canRead: boolean;
+    canReadPrivate: boolean;
+    canRecover: boolean;
     canWrite: boolean;
   };
   consumers: { composeProject: string; composeService: string; lastSeen: string }[];
@@ -1229,6 +1252,8 @@ export type SecretsUpdateSecretMetadataResult = {
     canManage: boolean;
     canPurge: boolean;
     canRead: boolean;
+    canReadPrivate: boolean;
+    canRecover: boolean;
     canWrite: boolean;
   };
   consumers: { composeProject: string; composeService: string; lastSeen: string }[];
@@ -1273,6 +1298,8 @@ export type SecretsRecoverSecretResult = {
     canManage: boolean;
     canPurge: boolean;
     canRead: boolean;
+    canReadPrivate: boolean;
+    canRecover: boolean;
     canWrite: boolean;
   };
   consumers: { composeProject: string; composeService: string; lastSeen: string }[];

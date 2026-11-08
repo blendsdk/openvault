@@ -210,8 +210,10 @@ describe("version and list internals", () => {
       canRead: false,
       canWrite: false,
       canDelete: false,
+      canRecover: false,
       canPurge: false,
       canManage: false,
+      canReadPrivate: false,
     });
     expect((await policy.hasAny(user, "secret.read")).reason).toBe("inactive_principal");
   });

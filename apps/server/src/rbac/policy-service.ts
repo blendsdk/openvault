@@ -95,16 +95,20 @@ const SECRET_CAPABILITIES = {
   canRead: "secret.read",
   canWrite: "secret.write",
   canDelete: "secret.delete",
+  canRecover: "secret.recover",
   canPurge: "secret.purge",
   canManage: "assignment.write",
+  canReadPrivate: "secret.read",
 } as const;
 
 const CERTIFICATE_CAPABILITIES = {
   canRead: "certificate.read",
   canWrite: "certificate.write",
   canDelete: "certificate.delete",
+  canRecover: "certificate.recover",
   canPurge: "certificate.purge",
   canManage: "assignment.write",
+  canReadPrivate: "certificate.read_private",
 } as const;
 
 /** Returns true when an assignment is unexpired. */
@@ -486,7 +490,7 @@ export class PolicyService {
   }
 
   /**
-   * Projects the five capability flags without auditing.
+   * Projects the capability flags without auditing.
    *
    * @param actorId - Principal identifier.
    * @param resource - Secret or certificate resource.
@@ -503,8 +507,10 @@ export class PolicyService {
         canRead: false,
         canWrite: false,
         canDelete: false,
+        canRecover: false,
         canPurge: false,
         canManage: false,
+        canReadPrivate: false,
       };
     }
     const mapping = resource.type === "secret" ? SECRET_CAPABILITIES : CERTIFICATE_CAPABILITIES;
@@ -513,13 +519,15 @@ export class PolicyService {
       canRead: this.#evaluate(snapshot, mapping.canRead, resource, now).allowed,
       canWrite: this.#evaluate(snapshot, mapping.canWrite, resource, now).allowed,
       canDelete: this.#evaluate(snapshot, mapping.canDelete, resource, now).allowed,
+      canRecover: this.#evaluate(snapshot, mapping.canRecover, resource, now).allowed,
       canPurge: this.#evaluate(snapshot, mapping.canPurge, resource, now).allowed,
       canManage: this.#evaluate(snapshot, mapping.canManage, resource, now).allowed,
+      canReadPrivate: this.#evaluate(snapshot, mapping.canReadPrivate, resource, now).allowed,
     };
   }
 
   /**
-   * Computes the five flags for many resources with one actor snapshot.
+   * Computes the capability flags for many resources with one actor snapshot.
    *
    * List routes use this so a page does not load the same actor once per row.
    *
@@ -540,8 +548,10 @@ export class PolicyService {
           canRead: false,
           canWrite: false,
           canDelete: false,
+          canRecover: false,
           canPurge: false,
           canManage: false,
+          canReadPrivate: false,
         });
       }
       return result;
@@ -553,8 +563,10 @@ export class PolicyService {
         canRead: this.#evaluate(snapshot, mapping.canRead, resource, now).allowed,
         canWrite: this.#evaluate(snapshot, mapping.canWrite, resource, now).allowed,
         canDelete: this.#evaluate(snapshot, mapping.canDelete, resource, now).allowed,
+        canRecover: this.#evaluate(snapshot, mapping.canRecover, resource, now).allowed,
         canPurge: this.#evaluate(snapshot, mapping.canPurge, resource, now).allowed,
         canManage: this.#evaluate(snapshot, mapping.canManage, resource, now).allowed,
+        canReadPrivate: this.#evaluate(snapshot, mapping.canReadPrivate, resource, now).allowed,
       });
     }
     return result;

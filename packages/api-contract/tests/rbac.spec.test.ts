@@ -242,13 +242,15 @@ describe("response schemas", () => {
     expect(accessExplainResponseSchema.parse(explain)).toEqual(explain);
   });
 
-  it("should accept only the five boolean capability flags", () => {
+  it("should accept only the seven boolean capability flags", () => {
     const flags = {
       canRead: true,
       canWrite: false,
       canDelete: false,
+      canRecover: false,
       canPurge: false,
       canManage: false,
+      canReadPrivate: false,
     };
     expect(capabilityFlagsSchema.parse(flags)).toEqual(flags);
     expect(capabilityFlagsSchema.safeParse({ ...flags, canList: true }).success).toBe(false);

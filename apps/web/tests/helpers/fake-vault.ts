@@ -90,8 +90,10 @@ export class FakeVault implements RequestAdapter {
         canRead: true,
         canWrite: true,
         canDelete: true,
+        canRecover: true,
         canPurge: true,
         canManage: true,
+        canReadPrivate: true,
       },
     },
   ];
