@@ -3,6 +3,7 @@ import { defineConfig } from "vitepress";
 const guide = [
   { text: "Getting started", link: "/guide/getting-started" },
   { text: "Install", link: "/guide/install" },
+  { text: "Versioning", link: "/guide/versioning" },
   { text: "Review the app", link: "/guide/review" },
   { text: "Docker Compose", link: "/guide/docker-compose" },
   { text: "Agent", link: "/guide/agent" },

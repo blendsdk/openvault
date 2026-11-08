@@ -90,7 +90,7 @@ export function ProjectsPage() {
     const confirmed = await confirm({
       title: `Delete project ${project.name}?`,
       message:
-        "The project and its secrets become hidden. v0.1 has no project recovery; the data can only be restored from a backup.",
+        "The project and its secrets become hidden. v1.0 has no project recovery; the data can only be restored from a backup.",
       intent: "danger",
     });
     if (!confirmed) {

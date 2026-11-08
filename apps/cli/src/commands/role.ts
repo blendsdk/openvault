@@ -80,7 +80,7 @@ export function createRoleParser(globals: GlobalOptions, runtime: CliRuntime): C
   const context = createCommandContext(globals, runtime);
   const parser = new CommandLineParser({
     name: "ov role",
-    version: "0.1.0",
+    version: "1.0.0",
     strict: true,
   });
 

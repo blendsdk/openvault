@@ -13,7 +13,7 @@ app container ◀── tmpfs files ── agent ── mTLS ──▶ WebAFX se
 ```
 
 The server owns the API, the browser session, the static React build, and the agent mTLS
-endpoint. There is no separate UI server and no Redis in v0.1.
+endpoint. There is no separate UI server and no Redis in v1.0.
 
 ## Components
 
@@ -32,7 +32,7 @@ endpoint. There is no separate UI server and no Redis in v0.1.
 
 ## Web UI
 
-`apps/web` is the minimal v0.1 browser surface: login, projects, secrets with audited reveal,
+`apps/web` is the minimal v1.0 browser surface: login, projects, secrets with audited reveal,
 identities, permissions, audit, and consumers. It uses Fluent UI v9,
 `@blendsdk/fluentui-react-components`, `blendsdk/react` for the session bridge/loader/i18n,
 and the generated browser client.

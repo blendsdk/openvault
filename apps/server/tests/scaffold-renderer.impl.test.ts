@@ -19,6 +19,8 @@ describe("scaffold renderer", () => {
     const otherProject = renderCompose({ project: "reports", service: "api", entries: [] });
     expect(api).toContain("openvault-agent-api");
     expect(worker).toContain("openvault-agent-worker");
+    expect(api).toContain("blendsdk/openvault-agent:1.0.0");
+    expect(api).not.toContain("ghcr.io");
     expect(api).toContain(`/dev/shm/openvault/payments/${COMPOSE_PROJECT_VAR}/api`);
     expect(worker).toContain(`/dev/shm/openvault/payments/${COMPOSE_PROJECT_VAR}/worker`);
     expect(api).toContain(`openvault-state/payments/${COMPOSE_PROJECT_VAR}/api`);

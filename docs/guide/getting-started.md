@@ -1,9 +1,9 @@
 # Getting started
 
 ::: warning Release status
-The v0.1 feature set, the `ov` CLI, the web UI, and the API in this repository are
-implemented and tested. The OpenAI Codex Security scan is a manual, periodic check. It is not
-part of CI/CD and does not block a release. Alpha images are explicitly not for production.
+OpenVault 1.0 is the first stable release. The `ov` CLI, the web UI, and the API are included.
+The OpenAI Codex Security scan is a manual, periodic check. It is not part of CI/CD and does
+not block a release. Pre-release images are explicitly not for production.
 :::
 
 ## What OpenVault is
@@ -15,7 +15,7 @@ secrets and writes them to an isolated tmpfs directory.
 
 The application never talks to the vault. The agent is the only bridge.
 
-## Developer preview
+## Run from source
 
 Requirements: Node.js 24.7+ and pnpm 12.18.0.
 

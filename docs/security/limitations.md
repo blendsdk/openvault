@@ -1,6 +1,6 @@
 # Known limitations
 
-These are accepted for v0.1. They are documented so reviewers do not mistake them for bugs.
+These are accepted for v1.0. They are documented so reviewers do not mistake them for bugs.
 
 1. **Node memory.** Node cannot guarantee zeroization. Buffers are cleared where practical,
    but plaintext may remain in the heap until garbage collection.
@@ -21,12 +21,13 @@ These are accepted for v0.1. They are documented so reviewers do not mistake the
    always-on backup daemon.
 7. **Environment injection.** Environment variables cannot update a running process and
    leak through `/proc`, children, and crash dumps. Prefer files.
-8. **Browser sessions.** Sessions live in memory in v0.1. A restart signs users out.
+8. **Browser sessions.** Sessions live in memory in v1.0. A restart signs users out.
 9. **Certificates.** OpenVault stores and generates self-signed certificates; it is not a
    public CA. ACME is a later phase.
 10. **Dynamic credentials.** No database user or cloud token leasing.
-11. **Certificate UI.** Certificate management is API/CLI in v0.1; screens are v0.2.
-12. **Remote hosts.** Agents must run on the same Docker host as the vault in v0.1.
+11. **Certificate UI.** Certificate management is API/CLI in v1.0; screens are planned for a
+    later release.
+12. **Remote hosts.** Agents must run on the same Docker host as the vault in v1.0.
 13. **Kubernetes and KMS.** Later phases.
 14. **Audit pruning.** Pruning is a manual maintenance command. It verifies the retained
     chain, exports the prefix, writes a boundary checkpoint, and then deletes under a
@@ -42,7 +43,7 @@ These are accepted for v0.1. They are documented so reviewers do not mistake the
 17. **OIDC state locality.** The callback must reach the process that handled the login
     redirect. A load-balanced deployment without shared state cannot complete the flow.
 18. **Lockout denial of service.** Anyone who knows an account email can lock it with five
-    bad guesses. v0.1 has no administrator unlock endpoint; the lock expires after 15 minutes.
+    bad guesses. v1.0 has no administrator unlock endpoint; the lock expires after 15 minutes.
     The per-account login bucket can also deny the identifier for up to one hour after ten
     attempts, even after the 15-minute lockout expires.
 19. **Forced-change reuse.** The forced-change flow accepts the current password as the new
@@ -72,7 +73,7 @@ These are accepted for v0.1. They are documented so reviewers do not mistake the
     remains valid for data until expiry, but it cannot renew.
 26. **Project deletion.** A soft-deleted project hides its secrets and certificates and
     neither can be purged through the API until an operator restores the project. There is no
-    project-recovery route in v0.1.
+    project-recovery route in v1.0.
 27. **Protected deleted names.** Purge protection is one-way. A protected secret or
     certificate can never be purged, so its name remains reserved permanently even after
     retention. Recover it before retention or use a different name.
@@ -112,7 +113,7 @@ These are accepted for v0.1. They are documented so reviewers do not mistake the
 37. **Certificate agent access.** A certificate request on the agent listener is denied; a
     same-project agent receives 401 and a project-mismatched certificate is rejected 403 by the
     existing agent guard. No certificate data is returned either way.
-38. **Certificate history surface.** v0.1 has no certificate versions-list route and no
+38. **Certificate history surface.** v1.0 has no certificate versions-list route and no
     certificate consumers. A client can read a selected version with `?version=<ulid>` when it
     knows the version id from a write or read response.
 39. **Wrapper same-UID trust.** In wrapper mode the application runs as the same UID as the
@@ -136,17 +137,17 @@ These are accepted for v0.1. They are documented so reviewers do not mistake the
 44. **Release images.** The repository builds server, agent, and web images and the release
     workflow scans, signs, and attests them. Production images are published by a deliberate
     operator action. The OpenAI Codex Security scan is manual and advisory; it is not an
-    automated release gate. Alpha images are explicitly labelled not for production. The
+    automated release gate. Pre-release images are explicitly labelled not for production. The
     scaffold's image tag is replaced by the signed digest for production.
 45. **Scaffold serialization.** Grant reconciliation and join-token rotation are serialized by a
-    per-identity in-process mutex. This covers the single-instance v0.1 deployment. A
+    per-identity in-process mutex. This covers the single-instance v1.0 deployment. A
     multi-instance deployment would need a database advisory lock for the same guarantee.
 
 46. **Native Windows CLI credentials.** The `ov` credential store fails closed with
     `credential_store_unsupported` on native Windows because Node cannot enforce an
     owner-only ACL without an external, untested command. WSL uses the POSIX path with
     `0700`/`0600` checks.
-47. **Logical backup format.** The v0.1 backup uses a portable logical JSON row dump rather
+47. **Logical backup format.** The v1.0 backup uses a portable logical JSON row dump rather
     than `pg_dump` custom format. This avoids a host `pg_dump` dependency; a future release can
     add a native dump format. The archive is still age-encrypted and checksum-verified.
 48. **Restore ownership.** Restore and KEK rotation disable immutability triggers inside a
@@ -157,7 +158,7 @@ These are accepted for v0.1. They are documented so reviewers do not mistake the
     that gives the server different role names bypasses that check. Stop the server before
     `ov kek rotate`; otherwise a late write can use the old `kek_id` after the verification
     step. The old key is removed only after the CLI's own count check.
-50. **Bootstrap credential rotation.** The v0.1 bootstrap administrator is created with
+50. **Bootstrap credential rotation.** The v1.0 bootstrap administrator is created with
     `must_change=false` so the reference stack can complete its first login without an extra
     interactive step. The web UI includes a password-change screen and the server enforces the
     gate when `must_change` is set. Change the bootstrap password immediately and remove the
@@ -186,7 +187,7 @@ These are accepted for v0.1. They are documented so reviewers do not mistake the
     `GET /v1/auth/me`, so a successful local login or password change performs one same-origin
     reload instead of keeping the previous document's in-memory state. The reload is
     intentional and does not add a network round trip beyond the session check.
-57. **Consumers are derived.** The v0.1 API has no project-level consumer list. The consumers
+57. **Consumers are derived.** The v1.0 API has no project-level consumer list. The consumers
     screen reads identity detail, which embeds the latest self-reported consumer. Hostnames,
     manifest hashes, and host paths are not displayed.
 58. **Inline styles in the UI CSP.** Fluent UI's Griffel runtime injects style elements, so the
@@ -197,15 +198,15 @@ These are accepted for v0.1. They are documented so reviewers do not mistake the
     Playwright checks belong to release assurance.
 60. **Certificate screens are CLI-only.** The web UI deliberately excludes certificate
     lifecycle, private-key reads, backup/restore, and KEK rotation. Those remain CLI-only in
-    v0.1.
+    v1.0.
 61. **Project deletion has no browser recovery.** The projects screen can soft-delete a
-    project, but v0.1 has no process to restore a deleted project in the UI. The operator
+    project, but v1.0 has no process to restore a deleted project in the UI. The operator
     must restore from backup. The confirmation text states this instead of implying a
     recoverable secret state.
 62. **Clipboard clearing is best effort.** The browser can deny clipboard writes or skip the
     delayed clear when the page is not focused. The UI reports that outcome; it cannot
     guarantee that another application has not already read the clipboard.
-63. **Agent certificate restore check.** The v0.1 schema does not store agent leaf certificate
+63. **Agent certificate restore check.** The v1.0 schema does not store agent leaf certificate
     PEMs. A restore that needs the pre-backup agent check supplies the certificate saved by the
     drill with `--agent-certificate`; without it the CA probe still verifies the signing key.
 64. **Split web container.** The reference stack serves the SPA from a separate nginx container

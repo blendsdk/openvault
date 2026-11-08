@@ -29,8 +29,8 @@ features:
 
 ## Status
 
-The v0.1 feature set is implemented and tested. The OpenAI Codex Security scan is a manual,
-periodic check; it is not part of CI/CD and does not block a release. Alpha images are
+OpenVault 1.0 is the first stable release. The OpenAI Codex Security scan is a manual,
+periodic check; it is not part of CI/CD and does not block a release. Pre-release images are
 explicitly not for production.
 
 See [Getting started](/guide/getting-started) for the installation flow, or the

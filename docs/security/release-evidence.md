@@ -44,10 +44,11 @@ scan is a manual, advisory check; it is not part of CI/CD and does not block a r
 
 ## Release image evidence
 
-The release workflow publishes, scans, signs, and attests the images. The first
-alpha image is produced by a manual dispatch. A production image is produced by
-a deliberate `v*.*.*` tag or tagged dispatch. The workflow writes the digest and
-SBOM list to the GitHub release and the job summary.
+The release workflow publishes the images to Docker Hub under `blendsdk`,
+scans, signs, and attests them. The first stable image is produced by the
+`v1.0.0` tag. Later releases use a deliberate `v*.*.*` tag or tagged dispatch.
+The workflow writes the digest and SBOM list to the GitHub release and the job
+summary.
 
 ## Manual security scan
 

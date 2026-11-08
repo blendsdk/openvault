@@ -49,6 +49,25 @@ describe("workflow security policy", () => {
     expect(deploy).toContain("id-token: write");
   });
 
+  it("should publish release images to Docker Hub", () => {
+    const release = workflowFiles.find((workflow) => workflow.name === "release.yml");
+    expect(release).toBeDefined();
+    expect(release.source).toContain("registry: docker.io");
+    expect(release.source).toContain("${{ secrets.DOCKERHUB_USERNAME }}");
+    expect(release.source).toContain("${{ secrets.DOCKERHUB_TOKEN }}");
+    expect(release.source).toContain("docker.io/blendsdk/");
+    expect(release.source).toContain("linux/amd64,linux/arm64");
+    expect(release.source).not.toContain("ghcr.io");
+  });
+
+  it("should rescan Docker Hub images", () => {
+    const scan = workflowFiles.find((workflow) => workflow.name === "security-scan.yml");
+    expect(scan).toBeDefined();
+    expect(scan.source).toContain("registry: docker.io");
+    expect(scan.source).toContain("docker.io/blendsdk/");
+    expect(scan.source).not.toContain("ghcr.io");
+  });
+
   it("should keep the manual Codex security scan out of CI/CD", () => {
     for (const workflow of workflowFiles) {
       expect(workflow.source.toLowerCase(), workflow.name).not.toContain("codex");

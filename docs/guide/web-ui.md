@@ -34,7 +34,7 @@ address and sign-out action. The theme toggle is unchanged.
 
 | Screen | What it does |
 |---|---|
-| Projects | List, create, rename, and delete projects; deletion is not recoverable in the browser in v0.1 |
+| Projects | List, create, rename, and delete projects; deletion is not recoverable in the browser in v1.0 |
 | Project overview | Ids, dates, certificate count, secret/identity/assignment counts, recent audit |
 | Secrets | Search, tag filter, cursor pagination, create, and a masked value |
 | Secret detail | Metadata, versions, consumers, audited reveal, and capability-gated actions; after a page reload a deleted secret is recovered with the CLI |
@@ -119,7 +119,7 @@ use a consistent vertical rhythm rather than zero-margin stacking.
 Axe runs in the Vitest/jsdom suite on login, secret detail, audit, and the application shell.
 Browser automation across real engines belongs to the release assurance work.
 
-## Out of scope in v0.1
+## Out of scope in v1.0
 
 Certificate screens, rotation wizards, settings, user self-registration, password reset,
 rich secret editing, file upload, and additional locales. Use the `ov` CLI for certificates,

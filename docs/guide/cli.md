@@ -197,7 +197,7 @@ dump, the raw keyring, a redacted configuration manifest, the public internal CA
 audit checkpoints. The passphrase comes from a `0600` file or an interactive hidden prompt;
 it is never accepted in argv. The database password and every stored secret value remain
 outside the manifest. Compaction and `pg_dump` compatibility are deferred; the archive is a
-portable v0.1 logical dump.
+portable v1.0 logical dump.
 
 `ov restore` decrypts and verifies every manifest checksum before touching the target. The
 target must be empty unless `--force` is set, and `--yes` is required for the destructive

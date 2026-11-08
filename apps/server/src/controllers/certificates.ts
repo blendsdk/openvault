@@ -75,7 +75,7 @@ function certificateName(req: Request): string {
  * Data-plane certificate routes.
  *
  * Every route requires a browser or CLI principal. Certificate requests on the agent listener
- * are denied; v0.1 agent delivery is secrets only.
+ * are denied; v1.0 agent delivery is secrets only.
  */
 export class CertificatesController extends BaseController {
   /** @inheritDoc */

@@ -27,7 +27,7 @@ JIT provisioning is a system action, not an admin `identity.create` call. It req
 verified email that belongs to another principal is a collision that an administrator must
 link; JIT users receive no roles until RBAC grants them.
 
-Sessions live in memory in v0.1. A server restart signs users out.
+Sessions live in memory in v1.0. A server restart signs users out.
 
 ## CLI: JWT
 

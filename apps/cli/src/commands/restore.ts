@@ -13,7 +13,7 @@ export function createRestoreParser(
   runtime: CliRuntime,
 ): CommandLineParser {
   const context = createCommandContext(globals, runtime);
-  const parser = new CommandLineParser({ name: "ov restore", version: "0.1.0", strict: true });
+  const parser = new CommandLineParser({ name: "ov restore", version: "1.0.0", strict: true });
   parser.addCommand({
     name: "restore",
     description: "Restore an encrypted backup into a migrated target",

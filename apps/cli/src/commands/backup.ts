@@ -21,7 +21,7 @@ function envPath(runtime: CliRuntime, name: string): string {
 /** Builds the backup group parser. */
 export function createBackupParser(globals: GlobalOptions, runtime: CliRuntime): CommandLineParser {
   const context = createCommandContext(globals, runtime);
-  const parser = new CommandLineParser({ name: "ov backup", version: "0.1.0", strict: true });
+  const parser = new CommandLineParser({ name: "ov backup", version: "1.0.0", strict: true });
   parser.addCommand({
     name: "backup",
     description: "Create an encrypted logical backup",

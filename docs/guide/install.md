@@ -108,11 +108,12 @@ Age-encrypted keyrings are not supported in the current release. Setting
 
 ## Verify a release image
 
-Production images are signed with Cosign keyless and carry SBOM and provenance
-attestations. Alpha images are explicitly labelled not for production.
+Production images are published to Docker Hub under `blendsdk`, signed with
+Cosign keyless, and carry SBOM and provenance attestations. Pre-release images
+are explicitly labelled not for production.
 
 ```bash
-IMAGE=ghcr.io/blendsdk/openvault@sha256:<digest>
+IMAGE=docker.io/blendsdk/openvault@sha256:<digest>
 cosign verify "$IMAGE" \
   --certificate-identity-regexp '^https://github.com/blendsdk/openvault/.github/workflows/release.yml@refs/.*$' \
   --certificate-oidc-issuer https://token.actions.githubusercontent.com

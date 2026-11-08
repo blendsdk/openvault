@@ -14,7 +14,7 @@ host directories and Docker secrets were prepared with
 | Soft-delete retention | 30 days by default | `OPENVAULT_SOFT_DELETE_DAYS` |
 | Session lifetime | 8 hours by default | `OPENVAULT_SESSION_TTL_HOURS` |
 
-The single-node v0.1 stack has no high availability. A host loss is recovered
+The single-node v1.0 stack has no high availability. A host loss is recovered
 from the encrypted backup and the keyring, not from a replica.
 
 ## First start

@@ -35,7 +35,7 @@ ov audit checkpoint --out /var/backups/openvault/checkpoint-$(date -u +%Y%m%dT%H
 The archive contains a logical JSON database dump, the keyring, the redacted configuration
 manifest, the public internal CA certificate, and the audit checkpoints. It is encrypted with
 age using a passphrase from a `0600` file or a hidden prompt. Recipient-key encryption is not
-implemented in v0.1.
+implemented in v1.0.
 
 `OPENVAULT_BACKUP_DB_URL_FILE` selects the read-only `openvault_backup` dump connection;
 `OPENVAULT_DB_URL_FILE` is used only for the `backup.create` audit event. Point both at

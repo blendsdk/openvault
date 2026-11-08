@@ -1,6 +1,6 @@
 # Roles and actions
 
-OpenVault ships fixed roles and actions. Custom roles are not supported in v0.1.
+OpenVault ships fixed roles and actions. Custom roles are not supported in v1.0.
 
 ## Actions
 

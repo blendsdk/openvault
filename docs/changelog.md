@@ -1,6 +1,9 @@
 # Changelog
 
-## 0.1.0 — in development
+## 1.0.0 — 2026-11-08
+
+The first stable release. The `/v1` API and the v1 data format are stable; breaking changes
+require a new major version. See [Versioning and compatibility](/guide/versioning).
 
 ### Added
 
@@ -83,9 +86,9 @@
   checkpoint export.
 - Threat-model-to-test evidence matrix, security-claims ledger, and generated documentation
   pages checked by `pnpm verify`.
-- Release workflow: amd64 build, BuildKit SBOM/provenance, Trivy HIGH/CRITICAL gate, Cosign
-  keyless signing, signature verification, GitHub release assets, and an alpha-only manual
-  mode labelled not for production.
+- Release workflow: amd64 and arm64 builds, Docker Hub publication, BuildKit SBOM/provenance,
+  Trivy HIGH/CRITICAL gate, Cosign keyless signing, signature verification, GitHub release
+  assets, and a pre-release manual mode labelled not for production.
 - Weekly dependency audit and container rescan workflow.
 - Incident response runbook, release process, branch-protection evidence, and a manual
   external-scan record.
@@ -94,5 +97,5 @@
 
 - The OpenAI Codex Security scan is a manual, periodic check; it is not part of CI/CD and does
   not block a release.
-- Multi-arch images, certificate screens, and real-browser Playwright checks across engines;
-  v0.1 keeps certificates in the CLI and runs axe in jsdom.
+- Certificate screens and real-browser Playwright checks across engines; v1.0 keeps
+  certificate management in the CLI and runs axe in jsdom.

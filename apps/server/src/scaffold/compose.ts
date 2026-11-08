@@ -8,7 +8,7 @@ export interface ComposeScaffoldInput {
   readonly entries: readonly string[];
 }
 
-const AGENT_IMAGE = "ghcr.io/blendsdk/openvault-agent:0.1.0";
+const AGENT_IMAGE = "blendsdk/openvault-agent:1.0.0";
 const COMPOSE_PROJECT_VAR = "$" + "{COMPOSE_PROJECT_NAME}";
 const JOIN_TOKEN_VAR = "$" + "{OPENVAULT_JOIN_TOKEN}";
 

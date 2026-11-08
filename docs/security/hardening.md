@@ -33,7 +33,7 @@ Use this before putting OpenVault in front of real workloads.
 - [ ] Workload certificates are short-lived and renewed.
 - [ ] Revoked identities are removed from service.
 - [ ] Certificate expiry alerts reach a real channel.
-- [ ] The keyring file is mode `0600`; the keyring itself is not age-encrypted in v0.1, so the host directory and backups are the protection boundary.
+- [ ] The keyring file is mode `0600`; the keyring itself is not age-encrypted in v1.0, so the host directory and backups are the protection boundary.
 - [ ] The backup archive passphrase is stored separately from the archive.
 
 ## Identity

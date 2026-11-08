@@ -27,7 +27,7 @@ image. There is no always-on second administrator.
 | Service identity | `ov identity revoke <name> --project <project>` disables the principal, revokes every unexpired certificate, and invalidates unused join tokens in one transaction. |
 | Agent files | A revoked agent receives 401/403, removes its managed files, and exits. Rotate the delivered values anyway. |
 | CLI session | `ov auth sessions` lists the current principal's sessions; `ov auth sessions --revoke <id>` removes one; `ov auth logout` removes the current session. |
-| Browser session | Browser sessions are in memory in v0.1. Restart `openvaultd` to clear every browser session, then change the affected user's password and remove unnecessary role assignments. |
+| Browser session | Browser sessions are in memory in v1.0. Restart `openvaultd` to clear every browser session, then change the affected user's password and remove unnecessary role assignments. |
 | OIDC session | Disable the account at the identity provider and restart `openvaultd` to clear local sessions. |
 | Database role | Change the app, purger, pruner, or migrator password and restart the affected service. |
 
@@ -54,7 +54,7 @@ one.
 
 ### Workload CA
 
-A compromised CA key is a full trust break. The v0.1 schema has one current CA
+A compromised CA key is a full trust break. The v1.0 schema has one current CA
 row and no supported online CA rotation. Treat the deployment as compromised:
 
 1. Preserve evidence and the audit checkpoints.
