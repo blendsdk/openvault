@@ -114,7 +114,7 @@ helper.
 
 | Column | Render |
 |---|---|
-| Name | `<Link>` to the detail route |
+| Name | `<Link>` to the detail route with `?status=<applied status>` |
 | Status | `<StatusBadge status={certificate.status} />` |
 | Subject | text, wrapping |
 | Expires | `formatTime(notAfter)` plus `in N days` / `N days ago` from `daysToExpiry` |
@@ -183,7 +183,8 @@ long fields:
 
 A labeled `Input` for a version ULID and a **Load version** button. Empty means current. Store the
 selected version id in state; reset it to the current version when the metadata reloads. Use the
-same value for public and private reads. [AR-6, PAR-05]
+same resolved version id for public and private reads: an empty control resolves to
+`certificate.version.id`, so the request always names a concrete version. [AR-6, PAR-05]
 
 **Public material**
 
@@ -191,10 +192,14 @@ A `Card` with **View public certificate**, shown only when `certificate.capabili
 true and the certificate is not deleted. On click:
 
 ```ts
+// An empty version control means the current version. The id is still sent
+// explicitly so an expired current certificate bypasses the server's
+// current-version expiry gate and remains inspectable.
+const effectiveVersion = version.length > 0 ? version : certificate.version.id;
 const response = await client.certificates.getCertificate({
   project: project.name,
   name,
-  ...(version ? { version } : {}),
+  version: effectiveVersion,
 });
 ```
 
@@ -218,7 +223,7 @@ On confirm:
 const response = await client.certificates.getCertificatePrivateKey({
   project: project.name,
   name,
-  ...(version ? { version } : {}),
+  version: effectiveVersion,
 });
 ```
 
