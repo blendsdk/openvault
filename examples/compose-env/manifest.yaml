@@ -1,0 +1,7 @@
+project: quickstart
+service: api
+refresh: 60s
+output_dir: /run/secrets
+entries:
+  - name: api-token
+    file: api-token

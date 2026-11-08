@@ -1,0 +1,118 @@
+# OpenVault environment-variable example.
+#
+# The agent fetches one secret and writes it to the shared tmpfs. The app
+# entrypoint loads that file into an environment variable, then execs the
+# application. Start the reference stack first, then run ./run.sh from this
+# directory. The join token belongs in .env and is never committed.
+services:
+  openvault-agent-api:
+    image: "blendsdk/openvault-agent:1.0.1"
+    # Pin the release digest instead of the tag in a production deployment.
+    command: ["run"]
+    user: "10001:10001"
+    read_only: true
+    cap_drop: [ALL]
+    security_opt: ["no-new-privileges:true"]
+    environment:
+      OPENVAULT_URL: "https://openvaultd:8444"
+      OPENVAULT_CA_FILE: "/etc/openvault/ca.pem"
+      OPENVAULT_JOIN_TOKEN: "${OPENVAULT_JOIN_TOKEN:?set OPENVAULT_JOIN_TOKEN in examples/compose-env/.env}"
+      OPENVAULT_PROJECT: "quickstart"
+      OPENVAULT_SERVICE: "api"
+      COMPOSE_PROJECT_NAME: "${COMPOSE_PROJECT_NAME}"
+      OPENVAULT_MANIFEST: "/etc/openvault/manifest.yaml"
+      OPENVAULT_OUTPUT_DIR: "/run/secrets"
+      OPENVAULT_STATE_DIR: "/var/lib/openvault"
+    tmpfs:
+      - /run/openvault:uid=10001,gid=10001,mode=0700,size=16m
+    volumes:
+      - type: bind
+        source: /dev/shm/openvault/quickstart/${COMPOSE_PROJECT_NAME}/api
+        target: /run/secrets
+        bind:
+          create_host_path: false
+      - type: bind
+        source: ./openvault-state/quickstart/${COMPOSE_PROJECT_NAME}/api
+        target: /var/lib/openvault
+        bind:
+          create_host_path: false
+      - type: bind
+        source: ./openvault-ca.pem
+        target: /etc/openvault/ca.pem
+        read_only: true
+      - type: bind
+        source: ./manifest.yaml
+        target: /etc/openvault/manifest.yaml
+        read_only: true
+    networks:
+      - default
+      - vault_net
+    healthcheck:
+      test: ["CMD", "ov-agent", "health", "--ready"]
+      interval: 10s
+      timeout: 10s
+      retries: 3
+      start_period: 10s
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+    deploy:
+      resources:
+        limits:
+          cpus: "0.25"
+          memory: 64M
+    restart: unless-stopped
+
+  api:
+    image: "alpine:3.21@sha256:87a4361f6c819618a6bafa2ed5228714cb0bb22195d2b49c95eb26799990128a"
+    user: "10001:10001"
+    read_only: true
+    cap_drop: [ALL]
+    security_opt: ["no-new-privileges:true"]
+    entrypoint: ["/bin/sh", "/opt/openvault/load-env.sh"]
+    command:
+      - sh
+      - -c
+      - >-
+        test -n "$$APP_API_TOKEN" &&
+        echo "APP_API_TOKEN is set";
+        exec sleep infinity
+    volumes:
+      - type: bind
+        source: /dev/shm/openvault/quickstart/${COMPOSE_PROJECT_NAME}/api
+        target: /run/secrets
+        read_only: true
+        bind:
+          create_host_path: false
+      - type: bind
+        source: ./loader.sh
+        target: /opt/openvault/load-env.sh
+        read_only: true
+      - type: bind
+        source: ./env.map
+        target: /opt/openvault/env.map
+        read_only: true
+    tmpfs:
+      - /tmp:size=8m,mode=1777
+    depends_on:
+      openvault-agent-api:
+        condition: service_healthy
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+    deploy:
+      resources:
+        limits:
+          cpus: "0.25"
+          memory: 64M
+    restart: unless-stopped
+
+networks:
+  # The reference stack creates this network with the explicit name vault_net.
+  vault_net:
+    external: true
+    name: vault_net

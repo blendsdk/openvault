@@ -14,8 +14,10 @@ expiry. The application never talks to the vault.
 | Once | `ov-agent run --once` | Debugging and CI | Sidecar rules |
 
 Environment variables set in one container cannot reach another. The default sidecar therefore
-delivers files only. Wrapper mode is for a fully trusted application: the child runs as the
-same UID and can read the agent state directory.
+delivers files only. To export those files as environment variables inside the application
+container, use the loader pattern in [Environment variables](/guide/environment-variables).
+Wrapper mode is for a fully trusted application that cannot run a loader: the child runs as
+the same UID and can read the agent state directory.
 
 ## Configuration
 
@@ -121,4 +123,5 @@ The metadata is self-reported and never used for authorization.
 ## Next
 
 - [Docker Compose](/guide/docker-compose)
+- [Environment variables](/guide/environment-variables)
 - [Troubleshooting](/guide/troubleshooting)

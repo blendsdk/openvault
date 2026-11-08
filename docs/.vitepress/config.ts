@@ -7,6 +7,7 @@ const guide = [
   { text: "Review the app", link: "/guide/review" },
   { text: "Docker Compose", link: "/guide/docker-compose" },
   { text: "Agent", link: "/guide/agent" },
+  { text: "Environment variables", link: "/guide/environment-variables" },
   { text: "Web UI", link: "/guide/web-ui" },
   { text: "CLI", link: "/guide/cli" },
   { text: "Authentication", link: "/guide/authentication" },
