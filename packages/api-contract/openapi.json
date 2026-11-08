@@ -2,7 +2,7 @@
   "openapi": "3.1.0",
   "info": {
     "title": "OpenVault CLI API",
-    "version": "0.1.0",
+    "version": "1.0.0",
     "description": "The CLI-facing OpenVault API. Internal agent and browser routes are excluded."
   },
   "paths": {

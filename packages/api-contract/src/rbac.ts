@@ -7,7 +7,7 @@ export { RBAC_ACTIONS, type RbacAction } from "./actions.js";
 /**
  * The nine fixed roles.
  *
- * Custom roles are not supported in v0.1. The order is the public catalog
+ * Custom roles are not supported in v1.0. The order is the public catalog
  * order used by the role reference and the catalog response.
  */
 export const RBAC_ROLES = [

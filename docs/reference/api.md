@@ -359,7 +359,7 @@ DELETE /v1/admin/projects/01J...
 
 Project names match `^[a-z0-9][a-z0-9-]{1,38}[a-z0-9]$`. A duplicate active name returns 409
 `project_name_conflict`. A deleted project returns 404 and hides its secrets, certificates,
-identities, and assignments. There is no project-recovery route in v0.1. Project **list items**
+identities, and assignments. There is no project-recovery route in v1.0. Project **list items**
 add `certificateCount`, the number of active certificates in the project; single-project
 responses keep the existing shape.
 

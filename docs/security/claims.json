@@ -195,9 +195,9 @@
     },
     {
       "id": "C-13",
-      "claim": "Release images are amd64, signed with Cosign keyless, have an SBOM and provenance, and are scanned for HIGH/CRITICAL findings.",
+      "claim": "Release images are amd64 and arm64, signed with Cosign keyless, have an SBOM and provenance, and are scanned for HIGH/CRITICAL findings.",
       "status": "planned",
-      "reason": "The release workflow is implemented; the first signed image awaits the first release tag. The Codex Security scan is manual and advisory.",
+      "reason": "The release workflow builds amd64 and arm64 images and publishes them to Docker Hub; the first signed multi-arch image is published with v1.0.0. The Codex Security scan is manual and advisory.",
       "docs": ["docs/security/release-process.md"]
     },
     {
@@ -217,21 +217,27 @@
       "id": "C-15",
       "claim": "The deployment supports high availability, replication, or multi-region operation.",
       "status": "planned",
-      "reason": "Out of scope for v0.1. The reference stack is single-node and the limitation is documented.",
+      "reason": "Out of scope for v1.0. The reference stack is single-node and the limitation is documented.",
       "docs": ["docs/security/limitations.md"]
     },
     {
       "id": "C-16",
       "claim": "Release images support multiple CPU architectures.",
-      "status": "planned",
-      "reason": "Out of scope for v0.1. The release pipeline builds amd64 only.",
+      "status": "implemented",
+      "evidence": [
+        {
+          "type": "test",
+          "file": "tests/ci.spec.test.mjs",
+          "name": "should publish release images to Docker Hub"
+        }
+      ],
       "docs": ["docs/security/release-process.md"]
     },
     {
       "id": "C-17",
       "claim": "The internal CA can be rotated online with a supported command.",
       "status": "planned",
-      "reason": "CA rotation is not implemented in v0.1. A suspected CA compromise requires a fresh deployment, restore from a pre-compromise backup, new workstation identities, and new agent join tokens.",
+      "reason": "CA rotation is not implemented in v1.0. A suspected CA compromise requires a fresh deployment, restore from a pre-compromise backup, new workstation identities, and new agent join tokens.",
       "docs": ["docs/security/incident-response.md", "docs/security/limitations.md"]
     }
   ]

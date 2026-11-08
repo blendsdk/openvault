@@ -27,7 +27,7 @@ opaque cookie.
 - Listing: `GET /v1/auth/sessions` returns public session ids, timestamps, auth method, and a
   current flag. `DELETE /v1/auth/sessions/:id` revokes an owned session.
 - OIDC tokens are discarded after the login. They are not stored in the cache or database.
-- Sessions live in memory in v0.1; a server restart signs users out. Disabling a principal
+- Sessions live in memory in v1.0; a server restart signs users out. Disabling a principal
   invalidates its sessions on the next request.
 
 If a principal is disabled, the session middleware revokes the session and clears the cookie.

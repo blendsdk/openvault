@@ -1,6 +1,6 @@
 # Reference Compose stack
 
-This directory contains the single-host v0.1 deployment. The full operator guide is
+This directory contains the single-host v1.0 deployment. The full operator guide is
 [Docker Compose](/guide/docker-compose); the day-two runbook is
 [Operations](/guide/operations).
 

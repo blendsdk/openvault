@@ -115,7 +115,7 @@ and asks for a restore from backup.
 refused if it is the `openvault_app` or `openvault_auth` role or cannot read the control-plane
 tables. The archive is encrypted
 with age using the passphrase from `--passphrase-file`, `OPENVAULT_BACKUP_PASSPHRASE_FILE`, or
-an interactive hidden prompt. The v0.1 archive contains a logical JSON row dump, the raw
+an interactive hidden prompt. The v1.0 archive contains a logical JSON row dump, the raw
 keyring, a redacted configuration manifest, the public CA, and audit checkpoints. It is not a
 `pg_dump` custom-format archive.
 

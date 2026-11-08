@@ -230,7 +230,7 @@ function main() {
     broken.services.openvaultd.ports = ["8443:8443"];
     broken.services.openvaultd.user = "0:10001";
     broken.services.openvaultd.cap_add = ["SYS_ADMIN"];
-    broken.services.openvaultd.image = "ghcr.io/example/mutable:latest";
+    broken.services.openvaultd.image = "docker.io/example/mutable:latest";
     broken.services.postgres.environment.POSTGRES_PASSWORD = "plaintext";
     const negative = validateCompose(broken);
     for (const expected of [

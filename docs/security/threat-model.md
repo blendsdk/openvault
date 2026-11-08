@@ -43,7 +43,7 @@
 | Limited insider | Only the actions granted to the role; every action audited |
 | Stolen agent certificate | Service-scoped access until revoked |
 | Supply-chain attacker | Full-SHA action pins, pinned base images, Trivy, SBOM, Cosign, and provenance |
-| Host root | Can read the KEK, tmpfs, and plaintext memory; out of scope for v0.1 |
+| Host root | Can read the KEK, tmpfs, and plaintext memory; out of scope for v1.0 |
 
 ## Threats and protections
 
@@ -89,11 +89,11 @@
   proves it.
 - Single-node deployment has no high availability.
 - Browser sessions are lost on restart.
-- No explicit deny rules in v0.1.
+- No explicit deny rules in v1.0.
 - The readiness timeout bounds the response, not an in-flight database query; the pool
   connection timeout and connection cap bound the residual work.
 - The OpenAI Codex Security scan is a manual, periodic check. It is not part of CI/CD and
-  does not block a release. Alpha images are explicitly not for production.
+  does not block a release. Pre-release images are explicitly not for production.
 
 See [Known limitations](/security/limitations) and the
 [incident response runbook](incident-response.md).

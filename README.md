@@ -3,7 +3,7 @@
 [![CI](https://github.com/blendsdk/openvault/actions/workflows/ci.yml/badge.svg)](https://github.com/blendsdk/openvault/actions/workflows/ci.yml)
 [![Docs](https://github.com/blendsdk/openvault/actions/workflows/docs.yml/badge.svg)](https://blendsdk.github.io/openvault/)
 [![License](https://img.shields.io/badge/license-Apache--2.0-blue.svg)](LICENSE)
-[![Status](https://img.shields.io/badge/status-v0.1%20development-orange.svg)](#status)
+[![Status](https://img.shields.io/badge/status-v1.0%20release-brightgreen.svg)](#status)
 
 Self-hosted secrets and certificates for Docker Compose projects, built on BlendSDK v5.
 
@@ -13,12 +13,13 @@ but designed for a small team running Docker Compose on one host.
 
 ## Status
 
-The v0.1 feature set is implemented and tested: secrets, certificates, RBAC, audit, the
-agent, the CLI, the web UI, encrypted backup/restore, KEK rotation, the hardened reference
+OpenVault 1.0 is the first stable release. It includes secrets, certificates, RBAC, audit,
+the agent, the CLI, the web UI, encrypted backup/restore, KEK rotation, the hardened reference
 Compose stack, and the release-assurance pipeline. The OpenAI Codex Security scan is a
 manual, periodic check. It is not part of CI/CD and does not block a release. See the
-[security evidence matrix](docs/security/evidence-matrix.md) and the
-[release process](docs/security/release-process.md).
+[security evidence matrix](docs/security/evidence-matrix.md), the
+[release process](docs/security/release-process.md), and the
+[versioning policy](docs/guide/versioning.md).
 
 ## Why OpenVault?
 
@@ -148,9 +149,8 @@ Start with [Your first secret](docs/tutorials/first-secret.md) or
 
 ## Roadmap
 
-- **v0.1**: secrets, certificates, RBAC, audit, agent, CLI, minimal UI, Compose
-- **v0.2**: certificate UI, rotation workflow, Redis sessions, remote Docker hosts
-- **v0.3**: Kubernetes identity, external KMS/HSM, ACME, high availability
+- **v1.x**: certificate UI, rotation workflow, Redis sessions, remote Docker hosts
+- **Next**: Kubernetes identity, external KMS/HSM, ACME, high availability
 
 ## Contributing
 

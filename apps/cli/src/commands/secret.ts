@@ -131,7 +131,7 @@ export function createSecretParser(globals: GlobalOptions, runtime: CliRuntime):
   const context = createCommandContext(globals, runtime);
   const parser = new CommandLineParser({
     name: "ov secret",
-    version: "0.1.0",
+    version: "1.0.0",
     strict: true,
   });
 

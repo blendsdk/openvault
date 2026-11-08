@@ -2,11 +2,12 @@
 
 ## Supported versions
 
-OpenVault is in early development. Security fixes are applied to the `main` branch. Once
-v0.1 is released, the latest minor release will receive security fixes.
+OpenVault 1.0 is the first stable release. Security fixes are applied to the latest 1.x
+release and to the `main` branch.
 
 | Version | Supported |
 |---|---|
+| `1.x` | Yes |
 | `main` | Yes |
 | Pre-release tags | Best effort |
 

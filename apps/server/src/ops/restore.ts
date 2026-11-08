@@ -50,7 +50,7 @@ export interface RestoreOptions {
   /**
    * Optional agent certificate captured before the backup.
    *
-   * The v0.1 schema stores agent certificate metadata but not the leaf PEM, so
+   * The v1.0 schema stores agent certificate metadata but not the leaf PEM, so
    * the restore drill supplies the certificate it saved before the backup. The
    * restore verifies its signature, profile, and validity against the restored
    * CA.
@@ -279,7 +279,7 @@ async function migrate(databaseUrl: string): Promise<void> {
  * The certificate must be a valid client certificate for a principal id, and
  * its validity window must include the restore clock. The caller passes the
  * certificate that was captured before the backup; the database does not store
- * agent leaf PEMs in v0.1.
+ * agent leaf PEMs in v1.0.
  */
 async function verifyAgentCertificate(
   certificatePem: string,

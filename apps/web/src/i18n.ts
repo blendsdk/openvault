@@ -1,6 +1,6 @@
 import type { TranslationLoader } from "blendsdk/react";
 
-/** The English-only v0.1 catalog. */
+/** The English-only v1.0 catalog. */
 const ENGLISH = {
   "app.name": "OpenVault",
   "app.tagline": "Secrets for your Compose projects",
@@ -26,7 +26,7 @@ const ENGLISH = {
 /**
  * Loads one locale.
  *
- * Only English ships in v0.1; an unknown locale falls back to English so the
+ * Only English ships in v1.0; an unknown locale falls back to English so the
  * provider never shows raw keys.
  */
 export const loadTranslations: TranslationLoader = async (locale) => {

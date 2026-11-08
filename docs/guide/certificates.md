@@ -224,7 +224,7 @@ version. Moving a certificate envelope into a secret row fails authentication. T
 change is one-way for this pre-release repository; both version tables must be empty before
 first boot.
 
-v0.1 does not implement a CA, ACME, OCSP/CRL, HSM keys, a certificate UI, agent certificate
+v1.0 does not implement a CA, ACME, OCSP/CRL, HSM keys, a certificate UI, agent certificate
 delivery, certificate consumers, a versions-list route, or import/generate idempotency. A
 generated or imported private key exists briefly as a PEM string that cannot be zeroed; the DER
 buffer is zeroed. A certificate route never accepts an agent principal: a same-project agent

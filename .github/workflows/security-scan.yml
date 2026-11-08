@@ -39,27 +39,27 @@ jobs:
         run: pnpm audit:full
 
   container-rescan:
-    name: Rescan ${{ matrix.image }}
+    name: Rescan ${{ matrix.image }}:${{ matrix.tag }}
     runs-on: ubuntu-latest
     permissions:
       contents: read
-      packages: read
     strategy:
       fail-fast: false
       matrix:
         image: [openvault, openvault-agent, openvault-web]
+        tag: [latest]
     steps:
-      - name: Log in to GHCR
+      - name: Log in to Docker Hub
         uses: docker/login-action@c94ce9fb468520275223c153574b00df6fe4bcc9 # v3
         with:
-          registry: ghcr.io
-          username: ${{ github.actor }}
-          password: ${{ secrets.GITHUB_TOKEN }}
+          registry: docker.io
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
 
       - name: Check that the image is published
         id: published
         env:
-          IMAGE: ghcr.io/blendsdk/${{ matrix.image }}:latest
+          IMAGE: docker.io/blendsdk/${{ matrix.image }}:${{ matrix.tag }}
         run: |
           if docker manifest inspect "$IMAGE" >/dev/null 2>&1; then
             echo "present=true" >> "$GITHUB_OUTPUT"
@@ -73,7 +73,7 @@ jobs:
         uses: aquasecurity/trivy-action@b6643a29fecd7f34b3597bc6acb0a98b03d33ff8 # v0.33.1
         with:
           scan-type: image
-          image-ref: ghcr.io/blendsdk/${{ matrix.image }}:latest
+          image-ref: docker.io/blendsdk/${{ matrix.image }}:${{ matrix.tag }}
           format: table
           severity: HIGH,CRITICAL
           exit-code: "1"

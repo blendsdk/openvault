@@ -84,7 +84,7 @@ export function checkBackupAge(
 
 /** Builds the doctor group parser. */
 export function createDoctorParser(globals: GlobalOptions, runtime: CliRuntime): CommandLineParser {
-  const parser = new CommandLineParser({ name: "ov doctor", version: "0.1.0", strict: true });
+  const parser = new CommandLineParser({ name: "ov doctor", version: "1.0.0", strict: true });
   parser.addCommand({
     name: "doctor",
     description:
