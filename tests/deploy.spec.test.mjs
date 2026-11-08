@@ -61,6 +61,22 @@ function publishedPorts(service) {
 }
 
 describe("deployment contract", () => {
+  it("patches the runtime base packages and removes unused npm tooling", () => {
+    const runtimeDockerfiles = [
+      "../deploy/docker/server.Dockerfile",
+      "../deploy/docker/agent.Dockerfile",
+      "../deploy/docker/web.Dockerfile",
+    ].map((path) => readFileSync(fileURLToPath(new URL(path, import.meta.url)), "utf8"));
+
+    for (const dockerfile of runtimeDockerfiles) {
+      expect(dockerfile).toContain("apk upgrade --no-cache");
+    }
+    for (const dockerfile of runtimeDockerfiles.slice(0, 2)) {
+      expect(dockerfile).toContain("rm -rf /usr/local/lib/node_modules/npm");
+      expect(dockerfile).toContain("rm -f /usr/local/bin/npm");
+    }
+  });
+
   it("places the proxy and server on a dedicated admin network", () => {
     const compose = readCompose();
 

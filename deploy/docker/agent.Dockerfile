@@ -27,7 +27,12 @@ ENV NODE_ENV=production \
     HOME=/tmp
 WORKDIR /app
 
-RUN addgroup -g 10001 openvault \
+# The pinned base digest can lag the Alpine package repository. Apply the
+# current security fixes at build time so the runtime image is patched.
+RUN apk upgrade --no-cache \
+ && rm -rf /usr/local/lib/node_modules/npm /usr/local/lib/node_modules/corepack \
+ && rm -f /usr/local/bin/npm /usr/local/bin/npx /usr/local/bin/corepack \
+ && addgroup -g 10001 openvault \
  && adduser -D -u 10001 -G openvault -h /app openvault
 
 COPY --from=build /out/agent /app/agent
