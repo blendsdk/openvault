@@ -163,14 +163,13 @@ jobs:
           sbom: true
 
       - name: Scan for HIGH and CRITICAL findings
-        uses: aquasecurity/trivy-action@a9c7b0f06e461e9d4b4d1711f154ee024b8d7ab8 # v0.36.0
-        with:
-          scan-type: image
-          image-ref: docker.io/blendsdk/${{ matrix.name }}@${{ steps.build.outputs.digest }}
-          format: table
-          severity: HIGH,CRITICAL
-          exit-code: "1"
-          ignore-unfixed: true
+        env:
+          IMAGE: docker.io/blendsdk/${{ matrix.name }}@${{ steps.build.outputs.digest }}
+        run: |
+          docker run --rm \
+            -v "$HOME/.docker/config.json:/root/.docker/config.json:ro" \
+            aquasec/trivy@sha256:8f6bb947dbc528902e11f2f5be52f7b519f6a39d5d148f41166f2040499768fb \
+            image --image-src remote --exit-code 1 --severity HIGH,CRITICAL --ignore-unfixed "$IMAGE"
 
       - name: Generate SPDX SBOM
         uses: anchore/sbom-action@e22c389904149dbc22b58101806040fa8d37a610 # v0
