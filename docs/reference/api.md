@@ -1,6 +1,6 @@
 # API reference
 
-The API is served under `/v1`. Requests and responses use the WebAFX envelopes.
+The API is served under `/v1`. Requests and responses use JSON envelopes.
 
 ## Success
 
@@ -32,11 +32,11 @@ stack traces.
 | Caller | Method |
 |---|---|
 | Browser | `__Host-ov_session` cookie plus `X-CSRF-Token` on mutations |
-| CLI | `Authorization: Bearer <jwt>` |
+| CLI | `Authorization: Bearer <access token>` |
 | Agent | mTLS client certificate; `/v1/agent/join` uses a single-use join token |
 
 The browser session cookie is `__Host-ov_session`: HttpOnly, Secure, SameSite=Lax, Path=/,
-and no Domain. Session ids are 32 random bytes stored only as a SHA-256 hash. The absolute
+and no Domain. Session ids are random and stored only as a hash. The absolute
 lifetime is `OPENVAULT_SESSION_TTL_HOURS` (default 8). Refresh rotates the secret and CSRF
 token. OIDC login additionally uses a short-lived `__Host-ov_oidc` binding cookie; the
 callback rejects a flow without the matching binding.
@@ -50,34 +50,6 @@ While `mustChangePassword` is true, the browser may use only `GET /v1/auth/me`,
 `POST /v1/auth/password`, `POST /v1/auth/logout`, and `GET /v1/meta/*`. The CLI may use only
 `GET /v1/auth/cli/me` and `POST /v1/auth/cli/logout`. Other authenticated routes return
 `403 password_change_required`.
-
-## Generated contract
-
-The CLI-facing API is published as OpenAPI 3.1:
-
-| Artifact | Path |
-|---|---|
-| OpenAPI document | `packages/api-contract/openapi.json` |
-| Generated typed client (CLI) | `apps/cli/src/generated/` |
-| Generated typed client (web) | `apps/web/src/generated/` |
-| Generator | `apps/server/scripts/api-contract.ts` |
-
-`pnpm api:generate` regenerates the OpenAPI document, the CLI client, and the browser client
-from the real controllers plus one route metadata table. `pnpm api:check` rebuilds all of them
-in memory and fails on any document or client drift; `pnpm verify` runs it. Generated files are
-committed but ignored by Biome, because the generator uses its own formatting. The browser
-client is built from a separate in-memory document with cookie-session security, because the
-published JSON contract stays CLI-facing and bearer-authenticated.
-
-The contract covers the CLI-facing routes only: CLI authentication, projects, secrets,
-certificates, identities, assignments, access explanation, audit query/verify/export, scaffold,
-meta, and `/ready`. Internal agent, browser/OIDC, and probe routes remain documented by this
-reference but are deliberately excluded from the generated client.
-
-The metadata table is the schema source for the generated client; the real controllers are the
-source for paths and methods. `api:check` therefore detects route and artifact drift. A
-controller schema change that leaves the table untouched is caught by the representative
-command end-to-end tests against the real server.
 
 ## Routes
 
@@ -135,17 +107,15 @@ POST /v1/auth/cli/logout
 
 Login and refresh return:
 `{ accessToken, refreshToken, tokenType: "Bearer", accessExpiresAt, refreshExpiresAt, user,
-mustChangePassword }`. The access token is an Ed25519 JWT with a 15-minute lifetime, issuer
-`openvault`, audience `openvault-cli`, and claims `sub`, `sid`, `jti`, `iat`, `exp`, `kind`.
-`sid` is the CLI session family id. The refresh token is 32 random bytes encoded as
-43-character base64url; it is not a JWT. A family has an absolute 12-hour lifetime from login;
-rotation does not extend it. Reuse of a rotated or revoked token, logout, password change, or
-principal disable revokes the family.
+mustChangePassword }`. The access token is short-lived (15 minutes) and scoped to the CLI.
+The refresh token is random, not an access token. A family has an absolute 12-hour lifetime
+from login; rotation does not extend it. Reuse of a rotated or revoked token, logout, password
+change, or principal disable revokes the family.
 
-CLI requests use `Authorization: Bearer <jwt>` and must not send a browser cookie or CSRF
-token. Every request verifies the signature, algorithm, issuer, audience, `kid`, and expiry,
-then checks that the principal is active and the family has a live row. A revoked family or
-disabled principal returns `401 authentication_required`; a bad login returns
+CLI requests use `Authorization: Bearer <access token>` and must not send a browser cookie or
+CSRF token. Every request verifies the token and then checks that the principal is active and
+the family has a live row. A revoked family or disabled principal returns
+`401 authentication_required`; a bad login returns
 `401 invalid_credentials`; an unknown, expired, or reused refresh token returns
 `401 invalid_refresh_token`. Refresh is limited to 60/minute per IP and 30/minute per family;
 a rejected limit returns `429 RATE_LIMIT_EXCEEDED`. Logout returns 204 for any well-formed
@@ -267,33 +237,31 @@ object's read, write, delete, and purge actions.
 ```text
 POST /v1/agent/join
 { "token": "<43-character base64url>",
-  "csr": "<PEM PKCS#10>",
+  "csr": "<PEM certificate request>",
   "consumer": { "composeProject": "payments", "composeService": "api",
                 "hostname": "b7c1...", "manifestHash": "sha256:<64 lowercase hex>" } }
 -> 200 { "certificatePem", "chainPem", "identityId", "serial", "notAfter" }
 
 POST /v1/agent/renew
-{ "csr": "<PEM PKCS#10>", "consumer": { ... } }
+{ "csr": "<PEM certificate request>", "consumer": { ... } }
 -> 200 { "certificatePem", "chainPem", "identityId", "serial", "notAfter" }
 ```
 
 `POST /v1/agent/join` is the only agent route that does not require a client certificate. It
 is token-authenticated, rate-limited to 10/minute per source IP, and returns `401 join_failed`
 for an unknown, expired, used, or revoked token. Token failures use one generic body. The
-token is 32 random bytes encoded as 43-character base64url; only a 32-byte SHA-256 hash is
-stored. The server claims the token atomically with certificate and consumer insertion, so a
-concurrent second exchange cannot issue another certificate.
+token is random; only a hash is stored. The server claims the token atomically with
+certificate and consumer insertion, so a concurrent second exchange cannot issue another
+certificate.
 
-The server derives the certificate CN and SAN from the token identity, not from the CSR. The
-issued certificate has CN = principal id, exactly one SAN URI
-`openvault://identity/<id>`, `CA:FALSE`, `digitalSignature`, and `clientAuth`. The CSR must
-prove possession of an EC P-256 key; non-P-256 keys, invalid signatures, requested SANs,
-`CA:TRUE`, requested key usage/EKU, and unknown critical extensions return
-`422 validation_error` and issue no certificate. An arbitrary or empty CSR subject is
-accepted. The response contains the leaf certificate and CA chain, never a private key.
+The server derives the certificate identity from the token, not from the request. The issued
+certificate identifies the service and is valid only for client authentication. The request
+must prove possession of a supported key; invalid requests return `422 validation_error` and
+issue no certificate. The response contains the leaf certificate and CA chain, never a
+private key.
 
 Every other agent request requires a client certificate chained to
-`OPENVAULT_INTERNAL_CA`, an unexpired certificate, a matching stored SHA-256 fingerprint, no
+`OPENVAULT_INTERNAL_CA`, an unexpired certificate, a matching stored fingerprint, no
 revocation, an active principal, and an active project. A failed check returns
 `401 authentication_required`; a database/cache failure returns 503. The check runs on every
 request, not only at the TLS handshake, and the state cache is bounded to 5 seconds.
@@ -304,7 +272,7 @@ The certificate principal's `owner_project_id` must equal the id of the project 
 data-plane work. Revocation removes all
 certificates and unused tokens in one transaction; no request succeeds more than 5 seconds
 after the revocation commits, including on an existing keep-alive connection. Renewal is
-allowed after two thirds of the certificate's actual lifetime and requires a fresh CSR/key.
+allowed after two thirds of the certificate's actual lifetime and requires a fresh request and key.
 Only the newest unexpired, unrevoked certificate may renew; older certificates remain valid
 for data until expiry. Join tokens and workload certificates have bounded retention: tokens
 for 24 hours after expiry/use; certificates for 30 days after expiry or revocation.
@@ -562,7 +530,7 @@ organization-only verify returns 403; storage or audit-key failures return 503.
 
 ### Operational
 
-`GET /health` is provided by WebAFX. `GET /ready` checks the database, keyring, TLS/CA
+`GET /health` is provided by the server. `GET /ready` checks the database, keyring, TLS/CA
 material, CA signing key loaded at startup (including a sign/verify probe), and audit table.
 
 ## Status codes
@@ -575,7 +543,7 @@ material, CA signing key loaded at startup (including a sign/verify probe), and 
 | 404 | Unknown or hidden object; a name-addressed denial from a caller that cannot list the collection; `identity_not_found`; or `oidc_not_configured` |
 | 409 | Duplicate, last-admin, or `renewal_not_due`/`identity_name_conflict` conflict |
 | 413 | Payload too large |
-| 422 | WebAFX route validation failure, including an invalid CSR or consumer metadata |
+| 422 | Route validation failure, including an invalid certificate request or consumer metadata |
 | 429 | Rate limited (`RATE_LIMIT_EXCEEDED`) |
 | 500 | Integrity failure or unexpected error |
 | 503 | Database, audit, CA signing key, or identity provider unavailable (`oidc_unavailable`) |

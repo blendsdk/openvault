@@ -5,7 +5,7 @@ OpenVault has three credential types:
 | Caller | Credential | Lifetime |
 |---|---|---|
 | Browser | Opaque BFF session cookie | 8 hours by default |
-| CLI | Ed25519 JWT + rotating refresh token | 15 minutes / 12 hours |
+| CLI | Access token + rotating refresh token | 15 minutes / 12 hours |
 | Agent | One-time join token, then mTLS | `OPENVAULT_CERT_TTL_DAYS`, default 30, renewed |
 
 ## Browser sessions
@@ -15,7 +15,7 @@ OIDC authorization-code flow with PKCE, fetches UserInfo, creates a session, and
 opaque cookie.
 
 - Cookie: `__Host-ov_session`, HttpOnly, Secure, SameSite=Lax, Path=/, no Domain.
-- Session id: 32 random bytes, stored only as a SHA-256 hash.
+- Session id: random, stored only as a hash.
 - Lifetime: `OPENVAULT_SESSION_TTL_HOURS` (default 8, range 1–24), measured from creation.
 - CSRF: a per-session token returned by `/v1/auth/me`; mutating requests send
   `X-CSRF-Token`. The server also requires a same-origin `Origin` or
@@ -36,14 +36,14 @@ Forced password changes allow only `/v1/auth/me`, `/v1/auth/password`, `/v1/auth
 
 ## Local login
 
-`POST /v1/auth/local/login` verifies an Argon2id password with the Node.js 24.7+ built-in
-`crypto.argon2` (64 MiB memory, 3 passes, 1 lane) and creates the same opaque session.
+`POST /v1/auth/local/login` verifies the password with a memory-hard hash and creates the same
+opaque session.
 
 - The identifier is trimmed and lowercased; a mixed-case email and surrounding whitespace are
   accepted.
 - Unknown users, wrong passwords, disabled principals, and locked accounts all return
-  `401 invalid_credentials` with the same body. Each rejected path spends one Argon2
-  derivation, so the response time does not reveal whether the account exists.
+  `401 invalid_credentials` with the same body. Each rejected path spends the same work, so
+  the response time does not reveal whether the account exists.
 - Five failures in a rolling 15-minute window lock the account for 15 minutes. While locked,
   the server does not verify the real password and does not extend the lock.
 - Login is limited to 5/min per IP and 10/hour per account.
@@ -82,7 +82,7 @@ returns `400 oidc_callback_failed`; a denied identity returns `403 access_denied
 
 ## CLI tokens
 
-`POST /v1/auth/cli/login` returns a short-lived Ed25519 JWT and an opaque refresh token.
+`POST /v1/auth/cli/login` returns a short-lived access token and an opaque refresh token.
 Refresh tokens rotate on use and are stored hashed. A family has an absolute 12-hour lifetime
 from login; rotation does not extend it. Reuse, logout, password change, or principal disable
 revokes the family. Every access-token request checks the principal status and a live family
@@ -113,22 +113,20 @@ rejected, and concurrent processes are serialized. Tokens never appear in argv o
 ## Agent certificates
 
 1. An administrator creates a service identity owned by a project and issues a single-use
-   join token. The token is shown once, stored only as a SHA-256 hash, and expires after 15
+   join token. The token is shown once, stored only as a one-way hash, and expires after 15
    minutes by default (maximum 24 hours).
-2. The agent generates an EC P-256 key and PKCS#10 CSR with consumer metadata.
+2. The agent generates a key pair and a certificate request with consumer metadata.
 3. `POST /v1/agent/join` is the only agent route that does not require a client certificate.
-   It validates the CSR, claims the token atomically, derives the certificate identity from
-   the token, signs the certificate, and stores the principal id, serial, SHA-256
-   fingerprint, validity window, and revocation state.
-4. The certificate has CN = principal id, exactly one SAN URI
-   `openvault://identity/<id>`, `CA:FALSE`, `digitalSignature`, and `clientAuth`. Its lifetime
-   is `OPENVAULT_CERT_TTL_DAYS` (default 30, range 1–90).
-5. The agent connects with mTLS. Every other agent request checks the chain, fingerprint,
-   expiry, revocation, principal status, and project status, with a cache bounded to 5
-   seconds.
+   It validates the request, claims the token atomically, derives the identity from the
+   token, signs a short-lived certificate, and records the identity and revocation state.
+4. The certificate identifies the service identity and works only for agent authentication.
+   Its lifetime is `OPENVAULT_CERT_TTL_DAYS` (default 30, range 1–90).
+5. The agent connects with mutual TLS. Every other agent request checks the chain, expiry,
+   revocation, principal status, and project status, with a cache bounded to 5 seconds.
 6. Renewal is allowed after two thirds of the certificate's actual lifetime and requires a
-   fresh P-256 key and CSR. Only the newest certificate may renew; the old certificate stays
-   valid for data until expiry. An expired certificate requires a new join token.
+   fresh key and certificate request. Only the newest certificate may renew; the old
+   certificate stays valid for data until expiry. An expired certificate requires a new join
+   token.
 
 Join is limited to 10/minute per source IP; renew is limited to 10/minute per principal and
 60/minute per source IP. A revoked identity's certificates and unused join tokens are
@@ -139,4 +137,4 @@ identity, browser session, or CLI family.
 ## Next
 
 - [RBAC](/guide/rbac)
-- [Threat model](/security/threat-model)
+- [Security overview](/security/)

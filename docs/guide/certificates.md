@@ -1,9 +1,9 @@
 # Certificates
 
 A certificate is a named project object with immutable versions. A version stores a public
-leaf and optional intermediate chain as text, the leaf metadata, and an AES-256-GCM envelope
-over the PKCS#8 private key. Import and generation are create-or-renew by name: an existing
-active name receives a new immutable version.
+leaf and optional intermediate chain, the leaf metadata, and an encrypted private key. Import
+and generation are create-or-renew by name: an existing active name receives a new immutable
+version.
 
 ## Import
 
@@ -34,8 +34,8 @@ Validation rules:
   more `CERTIFICATE` blocks. The key field contains exactly one PKCS#8 `PRIVATE KEY` block.
 - PEM armor, canonical base64, and bounds are strict. The combined public chain is limited to
   `OPENVAULT_CERT_MAX_BYTES` (131,072); the private key is limited to 16,384 bytes.
-- Keys are RSA 2048, RSA 3072, or EC P-256. Traditional `RSA PRIVATE KEY`/`EC PRIVATE KEY`,
-  encrypted keys, RSA-PSS, Ed25519, EC P-384, and RSA 4096 are rejected.
+- Keys must be RSA 2048, RSA 3072, or EC P-256. Other key types and encrypted keys are
+  rejected.
 - The leaf public key must match the private key. A mismatch is 422 and writes no row.
 - Provided chain links are verified with signature-only verification. A used intermediate must
   be a CA certificate with `keyCertSign`. An expired or not-yet-valid intermediate imports with
@@ -65,10 +65,9 @@ POST /v1/data/payments/certificates/generate
 ```
 
 Supported key types are `rsa-2048`, `rsa-3072`, and `ec-p256`. The certificate is self-signed
-with SHA-256, `CA=false`, `digitalSignature` (plus `keyEncipherment` for RSA), server and client
-authentication EKU, and the requested typed SANs. Validity is 1–825 days (default 365).
-`notBefore` is backdated 30 seconds to absorb modest client clock lag. Only the public
-certificate is returned.
+with the requested key type and typed SANs, valid for 1–825 days (default 365). `notBefore` is
+backdated 30 seconds to absorb modest client clock lag. Only the public certificate is
+returned.
 
 ## Renewal
 

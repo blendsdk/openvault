@@ -90,7 +90,7 @@ export function createRestoreParser(
           `audit chain: ${value.auditOk ? "ok" : "broken"}\n` +
           `secrets verified: ${value.secretsVerified}\n` +
           `certificate private keys verified: ${value.certificatesVerified}\n` +
-          `JWT signing key: ${value.signingKeyVerified ? "verified" : "failed"}\n` +
+          `session signing key: ${value.signingKeyVerified ? "verified" : "failed"}\n` +
           `CA key: ${value.caVerified ? "verified" : "failed"}\n` +
           `pre-backup agent certificate: ${value.agentCertificateVerified ? "verified" : "not supplied"}\n` +
           `public CA: ${value.internalCaPath}`,

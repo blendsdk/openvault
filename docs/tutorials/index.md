@@ -12,7 +12,6 @@ local environment and fake values; none of them is a production installation gui
 ## Before you start
 
 - Docker with Compose v2.24 or newer.
-- Node.js 24.7+ and pnpm 12.18.0 if you run the CLI or build images from source.
 - About 4 GB of free disk space for the review stack.
 
 The tutorials use only the shipped `deploy/compose/` files and the public CLI. Read

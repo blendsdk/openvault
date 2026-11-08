@@ -4,19 +4,18 @@ This page sets up a disposable local OpenVault stack with synthetic data so you 
 product without a production host, a public domain, or real secrets.
 
 ::: warning Not a production deployment
-This environment uses Caddy's local CA, a one-time bootstrap password, and fake data. It is for
-product review only. It is not the independent security review described in
-[manual security scan](/security/external-review), and it is not a production gate.
+This environment uses a local CA, a one-time bootstrap password, and fake data. It is for
+product review only and is not a production gate.
 :::
 
 ## What the environment gives you
 
-`deploy/compose/review.sh` builds the current checkout, prepares host directories and Docker
+`deploy/compose/review.sh` builds the local images, prepares host directories and Docker
 secrets without requiring `sudo`, starts the full reference stack on `127.0.0.1`, and seeds
 three projects, secrets, certificates, identities, grants, and audit events.
 
 Only the proxy is reachable from the host, on `https://localhost:8443`. The API, agent, web,
-and PostgreSQL listeners remain on internal Docker networks.
+and database listeners remain on internal Docker networks.
 
 ## Quick start
 
@@ -28,7 +27,6 @@ The first run builds the server and web images and can take several minutes.
 ./deploy/compose/review.sh password
 ```
 
-After changing application code, rebuild with `./deploy/compose/review.sh up --build`.
 Open `https://localhost:8443` and sign in as:
 
 | Field | Value |
@@ -36,7 +34,7 @@ Open `https://localhost:8443` and sign in as:
 | Email | `admin@openvault.local` |
 | Password | The value printed by `review.sh password` |
 
-The first visit shows a certificate warning because Caddy uses a local CA. In Chrome choose
+The first visit shows a certificate warning because the proxy uses a local CA. In Chrome choose
 **Advanced → Proceed to localhost (unsafe)**; in Firefox choose **Advanced → Accept the Risk and
 Continue**. To inspect the CA or import it, run:
 
@@ -167,9 +165,8 @@ The review stack never writes to production paths. `reset` refuses to delete a c
 | Seed fails after a password change | The bootstrap password no longer works; run `review.sh reset` for a fresh stack |
 | Password file was removed | It is one-time; if you did not save the password, reset the environment |
 
-## Independent security review
+## Next
 
-Product acceptance and the manual security scan are separate. The Codex scan covers
-cryptographic design, authentication and sessions, agent isolation, and deployment. Its record
-is in `docs/security/external-review.md`. The scan is run manually from time to time; it is
-not part of CI/CD and does not block a release.
+- [Getting started](/guide/getting-started)
+- [Docker Compose](/guide/docker-compose)
+- [Security overview](/security/)

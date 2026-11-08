@@ -86,9 +86,10 @@ set.
 
 ## Renewal
 
-The agent renews after two thirds of the certificate's actual lifetime with a fresh EC P-256
-key and CSR. It retries with jitter and exponential backoff, keeps the old certificate usable
-until expiry, and reuses the same pending key/CSR for the server's five-minute replay window.
+The agent renews after two thirds of the certificate's actual lifetime with a fresh key and
+certificate request. It retries with jitter and exponential backoff, keeps the old certificate
+usable until expiry, and reuses the same pending request for the server's five-minute replay
+window.
 A lost response can therefore be retried without creating a second certificate. After the
 window, or after a server restart that lost the replay cache, a retry may require a new join
 token. A credential rejection clears the stored identity, so a new token can be used on the next

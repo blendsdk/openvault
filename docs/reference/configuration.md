@@ -1,8 +1,7 @@
 # Configuration
 
-Configuration is read from environment variables, validated at boot, and passed to the
-WebAFX application. Missing required values stop startup before migrations or a listener
-bind. The server requires Node.js 24.7 or newer (the built-in Argon2 API).
+Configuration is read from environment variables and validated at boot. Missing required
+values stop startup before migrations or a listener bind.
 
 | Variable | Default | Required | Notes |
 |---|---|---|---|
@@ -11,26 +10,25 @@ bind. The server requires Node.js 24.7 or newer (the built-in Argon2 API).
 | `OPENVAULT_ADMIN_PORT` | `8443` | no | Canonical admin HTTPS port |
 | `PORT` | — | no | Compatibility alias for `OPENVAULT_ADMIN_PORT`; a conflict is an error |
 | `OPENVAULT_AGENT_PORT` | `8444` | no | Agent TLS port; join is token-authenticated, other routes are mTLS; must differ from the admin port |
-| `OPENVAULT_DB_URL` | — | one URL form | Runtime PostgreSQL connection string; the server connects as `openvault_app` |
+| `OPENVAULT_DB_URL` | — | one URL form | Runtime database connection string; the server connects as `openvault_app` |
 | `OPENVAULT_DB_URL_FILE` | — | one URL form | Read the runtime URL from a regular file that is not group- or world-writable; Docker secrets are `0444` and work |
 | `OPENVAULT_MIGRATION_DB_URL` | none | no | Migrator URL used for startup DDL; must target the same host, port, and database |
 | `OPENVAULT_MIGRATION_DB_URL_FILE` | none | no | File form of the migrator URL |
 | `OPENVAULT_KEYRING` | — | yes | Absolute path to a regular file with mode `0600` |
-| `OPENVAULT_KEYRING_PASSPHRASE_FILE` | none | no | Reserved for age keyrings; setting it fails closed in the current release |
 | `OPENVAULT_TLS_CERT` | — | yes | Readable server certificate PEM |
 | `OPENVAULT_TLS_KEY` | — | yes | Readable private-key PEM that matches the certificate |
-| `OPENVAULT_INTERNAL_CA` | — | yes | Readable public CA certificate with `CA:TRUE` and a valid self-signature; the private key is wrapped in `ca_keys` |
+| `OPENVAULT_INTERNAL_CA` | — | yes | Readable public CA certificate; the private key is wrapped in the database |
 | `OPENVAULT_OIDC_ISSUER` | none | no | HTTPS URL; enables OIDC |
 | `OPENVAULT_OIDC_CLIENT_ID` / `_SECRET` | none | with OIDC | Non-empty when an issuer is set |
 | `OPENVAULT_OIDC_REDIRECT_URL` | `${BASE_URL}/v1/auth/callback` | no | HTTPS URL |
 | `OPENVAULT_OIDC_ALLOWED_DOMAINS` | none | no | Comma-separated domain allowlist |
 | `OPENVAULT_OIDC_ENDPOINT_ORIGINS` | issuer origin | no | Comma-separated HTTPS origins allowed for authorization, token, JWKS, and UserInfo endpoints |
 | `OPENVAULT_SECRET_MAX_BYTES` | `65536` | no | 1024–65536; decoded value limit enforced by the secret routes |
-| `OPENVAULT_AUTH_DB_URL` | app URL in development/test | production | Dedicated `openvault_auth` PostgreSQL URL for control-plane writes |
+| `OPENVAULT_AUTH_DB_URL` | app URL in development/test | production | Dedicated `openvault_auth` database URL for control-plane writes |
 | `OPENVAULT_AUTH_DB_URL_FILE` | none | no | File form of the auth URL |
 | `OPENVAULT_BACKUP_DB_URL` | none | for `ov backup` | Dedicated read-only `openvault_backup` URL used for the logical dump |
 | `OPENVAULT_BACKUP_DB_URL_FILE` | none | no | File form of the backup URL |
-| `OPENVAULT_PURGE_DB_URL` | none | no | Dedicated `openvault_purger` PostgreSQL URL used only by secret and certificate purge |
+| `OPENVAULT_PURGE_DB_URL` | none | no | Dedicated `openvault_purger` database URL used only by secret and certificate purge |
 | `OPENVAULT_PURGE_DB_URL_FILE` | none | no | File form of the purge URL |
 | `OPENVAULT_CERT_MAX_BYTES` | `131072` | no | 1024–131072; combined public chain bound; the private key is separately limited to 16,384 bytes |
 | `OPENVAULT_CERT_EXPIRY_HOUR` | `3` | no | 0–23 UTC; daily expiry-scan hour |
@@ -79,11 +77,10 @@ the raw environment.
 | `OPENVAULT_RESTORE_DB_URL_FILE` | none | for restore | File form of the restore URL |
 | `OPENVAULT_RESTORE_AGENT_CERTIFICATE` | none | no | Pre-backup agent certificate PEM verified after restore |
 | `OPENVAULT_BACKUP_DIR` | none | for `ov doctor` | Directory checked against the 24-hour RPO |
-| `OPENVAULT_WEB_ROOT` | `apps/web/dist` beside the server | no | Built SPA directory; when absent the server runs API-only |
-| `OPENVAULT_DEV_URL` | `https://localhost:8443` | dev only | Vite proxy target for local UI development |
+| `OPENVAULT_WEB_ROOT` | bundled UI directory | no | Directory containing the built web UI; when absent the server runs API-only |
 
 The bootstrap command `ov init` reads the server database and file settings from the
-environment. It never accepts the database URL as a command-line option, because a PostgreSQL
+environment. It never accepts the database URL as a command-line option, because a database
 URL usually contains a password.
 
 | Variable | Default | Required | Notes |
@@ -114,37 +111,32 @@ and asks for a restore from backup.
 `OPENVAULT_INTERNAL_CA` (or a `ca.pem` beside `OPENVAULT_TLS_CERT`). The dump connection is
 refused if it is the `openvault_app` or `openvault_auth` role or cannot read the control-plane
 tables. The archive is encrypted
-with age using the passphrase from `--passphrase-file`, `OPENVAULT_BACKUP_PASSPHRASE_FILE`, or
-an interactive hidden prompt. The v1.0 archive contains a logical JSON row dump, the raw
-keyring, a redacted configuration manifest, the public CA, and audit checkpoints. It is not a
-`pg_dump` custom-format archive.
+using the passphrase from `--passphrase-file`, `OPENVAULT_BACKUP_PASSPHRASE_FILE`, or
+an interactive hidden prompt. The v1.0 archive contains a logical row dump, the raw
+keyring, a redacted configuration manifest, the public CA, and audit checkpoints. It is a portable logical archive.
 
 `ov restore` uses `OPENVAULT_RESTORE_DB_URL` for migrations and data loading. It must target
 the same database as `OPENVAULT_DB_URL`, and that role must own the tables so user triggers can
 be disabled. Stop the server during restore. The target must be empty unless `--force` is
 supplied, and `--yes` is required in a non-interactive session. The command verifies the
-archive checksums, every current secret and certificate private key, the JWT signing key, the
+archive checksums, every current secret and certificate private key, the session signing key, the
 audit chain, and the CA key before reporting success. `--agent-certificate` adds the pre-backup
 agent certificate check.
 
 `ov kek rotate` also needs table ownership. Stop the server first: a running process holds the
-old keyring in memory and could write a row with the old `kek_id` after the CLI's verification.
+old keyring in memory and could write a row with the old key id after the CLI's verification.
 The command removes the old key only after every key table has been checked.
 
 ## Web UI serving
 
-The server serves the built SPA when `OPENVAULT_WEB_ROOT` (or the default `apps/web/dist`)
-contains `index.html` and `assets`. Hashed assets are immutable for one year; `index.html` is
-not cached; unmatched `GET` HTML routes fall back to the SPA. Unknown API routes remain JSON
+The server serves the web UI when `OPENVAULT_WEB_ROOT` (or its bundled default) contains
+`index.html` and `assets`. Hashed assets are immutable for one year; `index.html` is
+not cached; unmatched `GET` HTML routes fall back to the web UI. Unknown API routes remain JSON
 404s. If the build is absent the server starts normally and serves no UI.
 
 The UI-enabled CSP allows same-origin scripts, connections, images, fonts, and inline style
 elements. Scripts are same-origin only and `unsafe-eval` is never allowed. API-only mode keeps
 the deny-by-default policy.
-
-For local development, `pnpm --filter @openvault/web dev` proxies `/v1` to
-`OPENVAULT_DEV_URL`, disables verification for the local certificate, and rewrites
-`Origin`/`Referer` to `OPENVAULT_BASE_URL`.
 
 ## Audit maintenance
 
@@ -155,7 +147,7 @@ configuration as the process and additionally reads:
 
 | Variable | Default | Required | Notes |
 |---|---|---|---|
-| `OPENVAULT_PRUNE_DB_URL` | — | for `audit:prune` | PostgreSQL URL for the dedicated `openvault_pruner` session |
+| `OPENVAULT_PRUNE_DB_URL` | — | for `audit:prune` | Database URL for the dedicated `openvault_pruner` session |
 
 Deployment must create a login role named `openvault_pruner` and grant it `EXECUTE` on
 `public.openvault_prune_audit_prefix(text)`. Do not grant table, sequence, column, `UPDATE`,
@@ -241,36 +233,23 @@ after a one-hour lease on a later run.
 
 ## Keyring
 
-The keyring is a JSON file outside PostgreSQL:
-
-```json
-{
-  "version": 1,
-  "current": "k2",
-  "keys": {
-    "k1": "base64-32-bytes",
-    "k2": "base64-32-bytes"
-  }
-}
-```
-
-The path is required and must be an absolute path to a regular file with exact mode
+The keyring is a file outside the database. The path is required and must be an absolute path
+to a regular file with exact mode
 `0600`. The parent directory must be owned by the current user and must not be group- or
 world-writable; `0700` is used when init creates it. A group- or world-readable file, or a
 group- or world-writable directory, stops startup.
 
-Age-encrypted keyrings are deferred to a later release. Setting
-`OPENVAULT_KEYRING_PASSPHRASE_FILE` fails closed with an unsupported-feature error; there is
-no plaintext fallback. `ov init` creates the keyring file; `ov backup`, `ov restore`, and `ov kek rotate` consume and replace it.
+`ov init` creates the keyring file; `ov backup`, `ov restore`, and `ov kek rotate` consume and
+replace it.
 
 ## Workload CA
 
 The public CA certificate at `OPENVAULT_INTERNAL_CA` must match the CA key stored in
-`ca_keys`. The key is a P-256 scalar wrapped by the current KEK; it is never a file and is
+the CA key. It is a wrapped key; it is never a file and is
 never returned. The deployment provisioner generates the CA once. Re-running the provisioner
 does not rotate it. Startup fails closed if the row is missing, the KEK cannot unwrap it, or it does not match
 the public certificate. `/ready` signs and verifies a short test certificate with the loaded
-key; it does not re-read the row. `ov kek rotate` re-wraps the `ca_keys` row; `ov restore`
+key; it does not re-read the row. `ov kek rotate` re-wraps the CA key row; `ov restore`
 re-materializes the public certificate and verifies the restored CA key.
 
 ## Readiness
@@ -278,7 +257,7 @@ re-materializes the public certificate and verifies the restored CA key.
 | Endpoint | Semantics |
 |---|---|
 | `GET /health` | Liveness only; remains 200 during a dependency outage |
-| `GET /ready` | PostgreSQL, keyring, TLS/CA, CA signing key loaded at startup (including a sign/verify probe), and audit-table probes; 200 or 503 `not_ready` |
+| `GET /ready` | Database, keyring, TLS/CA, CA signing key loaded at startup (including a sign/verify probe), and audit-table probes; 200 or 503 `not_ready` |
 
 `/v1/ready` is not part of the contract. The readiness database probe uses a 2-second
 connection timeout and a bounded outer timeout.

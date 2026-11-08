@@ -30,17 +30,13 @@ continue if this stack will live longer than the tutorial.
 
 ## 2. Create the project and secret
 
-Build the CLI if you have not already:
+Use the `ov` CLI from the release. If it is not on your `PATH`, run it from the server
+image. The commands below use `ov`:
 
 ```bash
-pnpm install
-pnpm --filter @openvault/cli build
 export OPENVAULT_CA_FILE="$PWD/deploy/compose/data/ca/ca.pem"
-node apps/cli/dist/main.js login --url https://localhost --identifier admin@openvault.local
+ov login --url https://localhost --identifier admin@openvault.local
 ```
-
-The commands below use `ov`; substitute `node apps/cli/dist/main.js` if the binary is not on your
-`PATH`.
 
 ```bash
 ov project create tutorial
@@ -100,27 +96,18 @@ The generated `api` service has the volume and `depends_on` wiring but no image.
 services:
   api:
     image: alpine:3.21
-    command: ["sh", "-c", "cat /run/secrets/api_token; sleep 3600"]
+    command: ["sh", "-c", "cat /run/secrets/api-token; sleep 3600"]
     # Keep the generated user, volumes, and depends_on below this block.
 ```
 
-For the agent image, use the published release image or build it locally:
-
-```bash
-docker build -f deploy/docker/agent.Dockerfile -t openvault-agent:tutorial .
-```
-
-Then replace `blendsdk/openvault-agent:1.0.1` in the generated file with
-`openvault-agent:tutorial` if you built it locally.
-
-The generated file ends with an external `vault_net`. The reference stack's network is named
-after its Compose project, so add the real name:
+The generated file ends with an external `vault_net`. The reference stack creates that network
+with the explicit name `vault_net`:
 
 ```yaml
 networks:
   vault_net:
     external: true
-    name: openvault_vault_net
+    name: vault_net
 ```
 
 ## 6. Start the service and read the file
@@ -129,7 +116,7 @@ networks:
 docker compose -f tutorial/openvault.tutorial.api.compose.yaml up -d
 docker compose -f tutorial/openvault.tutorial.api.compose.yaml ps
 docker compose -f tutorial/openvault.tutorial.api.compose.yaml \
-  exec api cat /run/secrets/api_token
+  exec api cat /run/secrets/api-token
 ```
 
 You should see `tutorial-value-1`. The application never talks to the vault; the agent fetched
@@ -160,7 +147,7 @@ Restart the agent to fetch immediately, or wait for its refresh interval:
 docker compose -f tutorial/openvault.tutorial.api.compose.yaml \
   restart openvault-agent-api
 docker compose -f tutorial/openvault.tutorial.api.compose.yaml \
-  exec api cat /run/secrets/api_token
+  exec api cat /run/secrets/api-token
 ```
 
 The file now contains `tutorial-value-2`. The old version remains readable through the API until

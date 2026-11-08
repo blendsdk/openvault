@@ -49,7 +49,7 @@ on a command line.
 ## 3. Take the backup and a checkpoint
 
 ```bash
-ov backup --out "/var/backups/openvault/openvault-$(date -u +%Y%m%dT%H%M%SZ).age"
+ov backup --out "/var/backups/openvault/openvault-$(date -u +%Y%m%dT%H%M%SZ).backup"
 ov audit checkpoint --out "/var/backups/openvault/checkpoint-$(date -u +%Y%m%dT%H%M%SZ).json"
 ```
 
@@ -70,9 +70,10 @@ Move the target database, keyring, and TLS material aside. Keep a copy of the de
 so you can compare it with the restored state:
 
 ```bash
-pg_dump "$OPENVAULT_DB_URL" > /tmp/pre-drill.sql
 mv /var/lib/openvault/keyring.json /tmp/keyring.pre-drill.json
 ```
+
+Take a safety copy of the database with your normal database tooling before dropping it.
 
 Drop and recreate an empty database owned by the migrator role. The restore target must be empty
 unless you pass `--force`.
@@ -81,7 +82,7 @@ unless you pass `--force`.
 
 ```bash
 export OPENVAULT_RESTORE_DB_URL='postgres://openvault_migrator:...@postgres:5432/openvault'
-ov restore "/var/backups/openvault/openvault-<timestamp>.age" \
+ov restore "/var/backups/openvault/openvault-<timestamp>.backup" \
   --agent-certificate /tmp/payments-api.pem \
   --ca-public-dir /etc/openvault/ca \
   --yes
@@ -93,7 +94,7 @@ Expected result lines:
 audit chain: ok
 secrets verified: <count>
 certificate private keys verified: <count>
-JWT signing key: verified
+Session signing key: verified
 CA key: verified
 pre-backup agent certificate: verified
 ```
@@ -128,7 +129,7 @@ docker compose -f deploy/compose/compose.yaml up -d
 ```
 
 Rotation generates a new KEK and re-wraps every secret and certificate data key, the audit HMAC
-key, the `ca_keys` CA key, and the JWT signing seed. Values are never re-encrypted. The old key
+key, the CA key, and the session signing seed. Values are never re-encrypted. The old key
 is removed only after every key table reports that no row references it.
 
 Verify after rotation:
@@ -141,8 +142,8 @@ ov audit verify
 ## 8. Repeat the drill after changes
 
 Run the drill after every schema change, release upgrade, or key-custody change. The automated
-equivalent is `apps/server/tests/integration/ops.spec.test.ts`, which covers a tampered archive,
-a wrong passphrase, a checksum mismatch, a non-empty target, an invalid agent certificate, and a
+equivalent is the project's automated test suite, which covers a tampered archive, a wrong
+passphrase, a checksum mismatch, a non-empty target, an invalid agent certificate, and a
 successful restore with the saved certificate.
 
 ## Clean up

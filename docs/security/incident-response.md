@@ -60,7 +60,7 @@ row and no supported online CA rotation. Treat the deployment as compromised:
 1. Preserve evidence and the audit checkpoints.
 2. Build a fresh deployment from a backup taken before the suspected compromise,
    or create a new empty deployment and migrate data through the API.
-3. Generate a new internal CA, server TLS pair, proxy trust file, and JWT signing
+3. Generate a new internal CA, server TLS pair, proxy trust file, and session signing
    key.
 4. Revoke every service identity and issue new join tokens.
 5. Rotate every secret and certificate value.
@@ -88,13 +88,13 @@ an available control.
 ## 4. Restore after loss or destructive change
 
 1. Stop the server.
-2. Start PostgreSQL with an empty target, or use `--force` on a disposable
+2. Start the database with an empty target, or use `--force` on a disposable
    target.
 3. Set `OPENVAULT_RESTORE_DB_URL` to the migrator URL.
 4. Restore:
 
    ```bash
-   ov restore /secure/openvault-<date>.age \
+   ov restore /secure/openvault-<date>.backup \
      --agent-certificate /secure/openvault-agent-<date>.pem \
      --yes
    ```
@@ -114,7 +114,7 @@ A host root compromise invalidates every local control. Rebuild the host rather
 than cleaning it:
 
 1. Preserve the evidence volumes and logs.
-2. Provision a new host and a new PostgreSQL volume.
+2. Provision a new host and a new database volume.
 3. Restore the last known-good backup.
 4. Generate a new internal CA and server TLS material.
 5. Rotate the KEK and every secret and certificate value.
@@ -155,7 +155,7 @@ checkpoints are the only anchor for that case.
 - [ ] Keyring file (mode `0600`) and its matching backups
 - [ ] Backup passphrase, stored separately from the archive
 - [ ] Public internal CA certificate and server TLS material
-- [ ] PostgreSQL migrator, app, purger, and pruner URLs
+- [ ] Database migrator, app, purger, and pruner URLs
 - [ ] The signed release image digest
 - [ ] The last known-good audit checkpoint
 - [ ] A tested restore drill from the current release

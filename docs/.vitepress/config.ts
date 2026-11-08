@@ -35,24 +35,12 @@ const reference = [
   { text: "Roles and actions", link: "/reference/roles" },
 ];
 
-const architecture = [
-  { text: "Overview", link: "/architecture/overview" },
-  { text: "Cryptography", link: "/architecture/crypto" },
-  { text: "Identity", link: "/architecture/identity" },
-  { text: "Agent delivery", link: "/architecture/agent-delivery" },
-  { text: "Decisions", link: "/architecture/decisions" },
-];
+const architecture = [{ text: "How it works", link: "/architecture/overview" }];
 
 const security = [
-  { text: "Threat model", link: "/security/threat-model" },
-  { text: "Evidence matrix", link: "/security/evidence-matrix" },
-  { text: "Security claims", link: "/security/claims" },
-  { text: "Known limitations", link: "/security/limitations" },
+  { text: "Security overview", link: "/security/" },
+  { text: "Known limitations", link: "/security/known-limitations" },
   { text: "Hardening checklist", link: "/security/hardening" },
-  { text: "Review gates", link: "/security/review-gates" },
-  { text: "Release process", link: "/security/release-process" },
-  { text: "Release evidence", link: "/security/release-evidence" },
-  { text: "Manual security scan", link: "/security/external-review" },
   { text: "Incident response", link: "/security/incident-response" },
   { text: "Reporting a vulnerability", link: "/security/reporting" },
 ];
@@ -65,6 +53,23 @@ export default defineConfig({
   base,
   cleanUrls: true,
   lastUpdated: true,
+  // Implementation notes and security-assurance records stay in the repository
+  // for maintainers. They are not part of the reader-facing documentation.
+  srcExclude: [
+    "architecture/crypto.md",
+    "architecture/identity.md",
+    "architecture/agent-delivery.md",
+    "architecture/decisions.md",
+    "security/threat-model.md",
+    "security/evidence-matrix.md",
+    "security/claims.md",
+    "security/review-gates.md",
+    "security/release-process.md",
+    "security/release-evidence.md",
+    "security/external-review.md",
+    "security/limitations.md",
+    "contributing.md",
+  ],
   head: [["link", { rel: "icon", type: "image/svg+xml", href: `${base}logo.svg` }]],
   sitemap: {
     hostname: "https://blendsdk.github.io/openvault/",
@@ -75,19 +80,22 @@ export default defineConfig({
       { text: "Guide", link: "/guide/getting-started" },
       { text: "Tutorials", link: "/tutorials/" },
       { text: "Reference", link: "/reference/api" },
-      { text: "Architecture", link: "/architecture/overview" },
-      { text: "Security", link: "/security/threat-model" },
+      { text: "How it works", link: "/architecture/overview" },
+      { text: "Security", link: "/security/" },
     ],
     sidebar: [
       { text: "Guide", items: guide },
       { text: "Tutorials", items: tutorials },
       { text: "Reference", items: reference },
-      { text: "Architecture", items: architecture },
+      { text: "How it works", items: architecture },
       { text: "Security", items: security },
       {
         text: "Project",
         items: [
-          { text: "Contributing", link: "/contributing" },
+          {
+            text: "Contributing",
+            link: "https://github.com/blendsdk/openvault/blob/main/CONTRIBUTING.md",
+          },
           { text: "Changelog", link: "/changelog" },
         ],
       },

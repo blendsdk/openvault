@@ -131,7 +131,7 @@ reserved permanently; recover it before retention or use a new name.
 
 ### Purge credential
 
-Purge needs a dedicated PostgreSQL session because the schema trigger rejects deletes from the
+Purge needs a dedicated database session because the schema trigger rejects deletes from the
 application role. Set `OPENVAULT_PURGE_DB_URL` for a login role named `openvault_purger` with:
 
 ```sql

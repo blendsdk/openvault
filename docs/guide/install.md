@@ -1,39 +1,18 @@
 # Install
 
-The shortest path uses the published 1.0.1 images. See
-[Getting started](/guide/getting-started#quickstart) for the reference stack, or continue
-below for a source install.
-
 ## Requirements
 
-| Component | Version |
+| Component | Requirement |
 |---|---|
-| Node.js | 24.7 or newer |
-| pnpm | 12.18.0 |
 | Docker | Current stable |
-| Docker Compose | v2 |
-| PostgreSQL | 16 or 17, when running without the reference stack |
-
-## Developer install
-
-```bash
-git clone https://github.com/blendsdk/openvault.git
-cd openvault
-corepack enable
-pnpm install
-pnpm verify
-```
-
-For a disposable full-stack environment with synthetic data, use the
-[local review setup](/guide/review) instead:
-
-```bash
-./deploy/compose/review.sh up
-```
+| Docker Compose | v2.24 or newer |
+| Database | PostgreSQL 16 or 17 when running without the reference stack |
 
 ## Reference Compose installation
 
 ```bash
+git clone https://github.com/blendsdk/openvault.git
+cd openvault
 ./deploy/compose/prepare.sh
 export OPENVAULT_BASE_URL=https://vault.example.com
 export OPENVAULT_SITE_ADDRESS=vault.example.com
@@ -48,41 +27,33 @@ The stack runs:
 
 | Service | Purpose |
 |---|---|
-| `proxy` | Public TLS, HSTS, API/UI routing |
-| `openvaultd` | API, auth, policy, audit, agent listener |
-| `web` | Static SPA |
-| `postgres` | Metadata, ciphertext, audit chain |
-| `openvault-init` | One-shot keyring, CA, TLS, organization, bootstrap admin |
+| `proxy` | Public TLS, routing, and security headers |
+| `openvaultd` | API, authentication, access control, audit, and agent listener |
+| `web` | Web UI |
+| `postgres` | Database |
+| `openvault-init` | One-shot keyring, certificate authority, TLS, organization, and bootstrap administrator |
 | `openvault-roles` | One-shot least-privilege database grants |
 
 Only the proxy publishes port 443. The admin listener (`8443`) and agent listener
-(`8444`) stay on internal networks. Replace the `tls internal` certificate with a
-trusted certificate for anything beyond local use.
+(`8444`) stay on internal networks. Replace the local `tls internal` certificate
+with a trusted certificate for anything beyond local use.
 
 ## First initialization
 
 The Compose stack runs `ov init --prepare` automatically. For a manual install, set
-`OPENVAULT_MIGRATION_DB_URL` to the migrator/owner role; `ov init` performs bootstrap data
-writes and cannot use the app role:
+`OPENVAULT_MIGRATION_DB_URL` to the migration role and run:
 
 ```bash
-export OPENVAULT_MIGRATION_DB_URL=postgres://openvault_migrator:...@postgres:5432/openvault
 ov init
 ```
 
-This creates:
+This creates the organization, bootstrap administrator, keyring, internal certificate
+authority, server certificate, and signing material. Re-running `ov init` does not rotate an
+existing certificate authority.
 
-- the organization and bootstrap administrator
-- the KEK keyring file
-- the internal CA for workload certificates: the public certificate at
-  `OPENVAULT_INTERNAL_CA` and the private key wrapped in `ca_keys`
-- the server certificate signed by the internal CA
-- the JWT signing key, wrapped by the KEK
-
-Re-running `ov init` does not rotate an existing CA. The bootstrap password is written once
-to a file with mode `0600`; it is never printed to stdout, stderr, or container logs. Read it
-through the init container, sign in through the web UI, change the password, then remove the
-temporary copy:
+The bootstrap password is written once to a file with mode `0600`; it is never printed to
+stdout, stderr, or container logs. Read it through the init container, sign in through the web
+UI, change the password, then remove the temporary copy:
 
 ```bash
 install -m 0600 /dev/null /tmp/openvault-bootstrap
@@ -97,51 +68,25 @@ If the password is lost before the first login, start again with an empty databa
 File-backed Compose secrets are bind mounts. `prepare.sh` makes them `0444` so non-root
 container users can read them; the `0700` secrets directory keeps other host users out.
 
-`ov init` creates the keyring and TLS material used by the reference stack. The keyring and
-password directories must be owned by the current user and must not be group- or
-world-writable; mode `0700` is used when init creates them.
-
 ::: danger Protect the keyring
-The keyring is outside PostgreSQL and is the only way to decrypt stored values. Back it up
+The keyring is outside the database and is the only way to decrypt stored values. Back it up
 separately from the database, with mode `0600` and a parent directory that is not group- or
 world-writable. Losing it means losing every secret.
 :::
-
-Age-encrypted keyrings are not supported in the current release. Setting
-`OPENVAULT_KEYRING_PASSPHRASE_FILE` stops startup rather than falling back to plaintext.
-
-## Verify a release image
-
-Production images are published to Docker Hub under `blendsdk`, signed with
-Cosign keyless, and carry SBOM and provenance attestations. Pre-release images
-are explicitly labelled not for production.
-
-```bash
-IMAGE=docker.io/blendsdk/openvault@sha256:<digest>
-cosign verify "$IMAGE" \
-  --certificate-identity-regexp '^https://github.com/blendsdk/openvault/.github/workflows/release.yml@refs/.*$' \
-  --certificate-oidc-issuer https://token.actions.githubusercontent.com
-
-docker buildx imagetools inspect "$IMAGE"
-```
-
-Use the digest from the GitHub release, not a floating tag. The same procedure applies to
-`openvault-agent` and `openvault-web`. See [Release process](/security/release-process).
 
 ## Ports and networks
 
 | Port | Listener | Exposure |
 |---|---|---|
-| 443 | Caddy public TLS | Host |
+| 443 | Public TLS | Host |
 | 8443 | Admin HTTPS | `admin_net` only; not published |
-| 8444 | Agent TLS (token join + mTLS) | `vault_net` only; not published |
-| 8080 | Static web | `web_net` only; not published |
-| 5432 | PostgreSQL | `db_net` only; not published |
+| 8444 | Agent TLS | `vault_net` only; not published |
+| 8080 | Web UI | `web_net` only; not published |
+| 5432 | Database | `db_net` only; not published |
 
 The proxy reaches the admin listener on `admin_net`. Agents use the separate listener on
-`vault_net`; the first join is token-authenticated, and every later agent request uses mTLS.
-Agents never use the admin port. Application containers must not join
-`admin_net`, `vault_net`, or `db_net`.
+`vault_net`; the first join is token-authenticated, and every later agent request uses mutual
+TLS. Application containers must not join `admin_net`, `vault_net`, or `db_net`.
 
 ## Next
 

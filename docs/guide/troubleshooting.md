@@ -35,13 +35,13 @@ token and restart it.
 
 ## The UI is blank or assets 404
 
-The production build must be served under the configured base path. The default GitHub
-Pages base is `/openvault/`; a custom domain uses `/`. Rebuild after changing it.
+The UI is served at the origin root. The reverse proxy must forward `/` and `/assets/*`
+to the web container and `/v1/*` to the API.
 
 ## Database is unavailable
 
 `/ready` fails and agents run with the last known good values, marked degraded. Restore
-PostgreSQL before rotating secrets.
+the database before rotating secrets.
 
 ## Audit verification fails
 

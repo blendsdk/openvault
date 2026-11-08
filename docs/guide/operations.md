@@ -76,7 +76,7 @@ ov doctor \
 ```
 
 The doctor checks the API readiness, TLS trust, CLI credentials, clock skew, the
-database, the keyring, and the newest backup age. A check that is not configured
+database, the keyring, and the newest backup file. A check that is not configured
 is reported as skipped, not failed. A configured check that fails exits 1.
 
 The server also exposes:
@@ -94,7 +94,7 @@ configuration, the public internal CA, and the audit checkpoints. The keyring
 and the archive passphrase are stored separately.
 
 ```bash
-ov backup --out /var/backups/openvault/openvault-$(date -u +%Y%m%dT%H%M%SZ).age
+ov backup --out /var/backups/openvault/openvault-$(date -u +%Y%m%dT%H%M%SZ).backup
 ov audit checkpoint --out /var/backups/openvault/checkpoint-$(date -u +%Y%m%dT%H%M%SZ).json
 ```
 
@@ -107,7 +107,7 @@ A backup is not usable until it has been restored. Run the drill in
 
 ## Restore drill
 
-The drill covers the RD-13 acceptance criteria:
+The drill covers the restore criteria:
 
 1. Create a project with one secret and one certificate.
 2. Join a test agent and save its client certificate PEM.
@@ -118,14 +118,12 @@ The drill covers the RD-13 acceptance criteria:
    certificate.
 7. Record the elapsed time; it must remain under the one-hour RTO.
 
-The automated version is `apps/server/tests/integration/ops.spec.test.ts`;
-the operator version is the sequence above. Both exercise the same restore
-function.
+The project's automated test suite covers the same restore function.
 
 ## KEK rotation
 
 Stop the server first. A running process holds the old keyring in memory and can
-write a row with the old `kek_id` after the CLI verifies the rotation.
+write a row with the old key id after the CLI verifies the rotation.
 
 ```bash
 ov kek rotate --dry-run
@@ -133,7 +131,7 @@ ov kek rotate --yes
 ```
 
 Values are never re-encrypted. The command rewraps every DEK, the audit key, the
-CA key, and the JWT signing seed, verifies that no old reference remains, and
+CA key, and the session signing seed, verifies that no old reference remains, and
 then removes the old key. Keep the pre-rotation keyring with any backup taken
 before the rotation; an old archive needs the old keyring.
 
@@ -162,7 +160,7 @@ Use a maintenance window for:
 - KEK rotation.
 - Restore.
 - CA replacement.
-- A PostgreSQL major-version upgrade.
+- A database major-version upgrade.
 
 Stop the server before a restore or KEK rotation. Migrations are idempotent and
 run at startup, so a normal release does not need a separate migration step.
@@ -171,7 +169,7 @@ run at startup, so a normal release does not need a separate migration step.
 
 1. Take the keyring, the encrypted backup, and the passphrase from separate
    custody locations.
-2. Provision a fresh host and PostgreSQL volume.
+2. Provision a fresh host and database volume.
 3. Restore as described in the incident runbook.
 4. Rotate every credential and value before returning the service to users.
 

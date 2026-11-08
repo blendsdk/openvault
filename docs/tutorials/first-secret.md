@@ -33,7 +33,7 @@ account menu after sign-in; the change is audited.
 3. Open `tutorial → Secrets` and create a secret named `demo-token`.
 4. Enter a fake value such as `tutorial-value-1` and save.
 
-The value is encrypted before it reaches PostgreSQL. The list shows only metadata; the value is
+The value is encrypted before it reaches the database. The list shows only metadata; the value is
 returned only when you explicitly reveal it.
 
 ## 3. Reveal the value and check the audit trail
