@@ -226,11 +226,14 @@ never derives permissions from client-side role math.
 
 ```json
 { "capabilities": { "canRead": true, "canWrite": false, "canDelete": false,
-                    "canPurge": false, "canManage": false } }
+                    "canRecover": false, "canPurge": false, "canManage": false,
+                    "canReadPrivate": false } }
 ```
 
-`canManage` is the `assignment.write` action at the object's scope; the other flags map to the
-object's read, write, delete, and purge actions.
+`canManage` is the `assignment.write` action at the object's scope. `canRecover` and
+`canReadPrivate` map to the object's recover and private-read actions; for secrets the
+private-read flag follows `secret.read`. The other flags map to the object's read, write, delete,
+and purge actions.
 
 ### Agent authentication
 
@@ -415,7 +418,8 @@ Idempotency-Key: 6f1c2d3e
                               "expiresAt": null },
           "version": { "id": "01J...", ... }, "consumers": [],
           "capabilities": { "canRead": true, "canWrite": true, "canDelete": true,
-                            "canPurge": true, "canManage": false } }
+                            "canRecover": false, "canPurge": true, "canManage": false,
+                            "canReadPrivate": false } }
 
 GET /v1/data/payments/secrets/db-password
 -> 200 { "value": "s3cret", "encoding": "utf8", "version": { ... }, ... }
@@ -475,7 +479,7 @@ GET /v1/data/payments/certificates/tls-server/private-key
 -> 200 { "privateKeyPem": "-----BEGIN PRIVATE KEY-----...", "version": { ... },
           "fingerprint": "...", "name": "tls-server", "capabilities": { ... } }
 
-GET /v1/data/payments/certificates?q=payments&san=DNS:payments.internal&limit=50
+GET /v1/data/payments/certificates?q=payments&status=active&san=DNS:payments.internal&limit=50
 -> 200 { "certificates": [ { "name": "tls-server", ... } ], "nextCursor": null }
 
 PATCH /v1/data/payments/certificates/tls-server
@@ -491,6 +495,10 @@ POST /v1/data/payments/certificates/tls-server/recover
 POST /v1/data/payments/certificates/tls-server/purge
 -> 204
 ```
+
+`q` matches the certificate name or subject, case-insensitively. `status` is `active`
+(default) or `deleted`; the deleted view lists only soft-deleted certificates and contains no
+PEM body or private key.
 
 Import/generate are create-or-renew by name: a new name returns 201 and an active name returns
 200 with a new immutable version. `?version=<ulid>` reads a selected version; an expired current

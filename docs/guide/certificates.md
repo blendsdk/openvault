@@ -114,7 +114,8 @@ GET /v1/data/payments/certificates?q=payments&san=DNS:payments.internal&expiresB
 -> 200 { "certificates": [ { "name": "tls-server", ... } ], "nextCursor": null }
 ```
 
-`q` is a literal case-insensitive subject substring. `san` is an exact case-insensitive SAN.
+`q` is a literal case-insensitive substring of the certificate name or subject. `status` is
+`active` (default) or `deleted`. `san` is an exact case-insensitive SAN.
 `expiresBefore`/`expiresAfter` filter the current version's `not_after`. Results are ordered by
 name and id; `limit` is 1–100 (default 50). A malformed cursor or inverted expiry window is 422.
 List items contain no PEM and no private key.
@@ -216,6 +217,33 @@ before an object decision returns 404/422 without an allow event.
 | 500 | Stored certificate material failed integrity verification |
 | 503 | Policy, audit, keyring, or purge unavailable |
 
+## Web UI
+
+The project **Certificates** section lists, searches, filters, and paginates the project's
+certificates. It is reachable from the project section navigation and the application launcher.
+
+- The list defaults to active certificates. The status filter switches to deleted certificates
+  and hides Import and Generate.
+- Search matches the certificate name or subject; SAN and expiry filters narrow the result.
+- Import accepts a leaf, an optional chain, and a private key as pasted PEM or local files. The
+  files are read in the browser and sent through the normal JSON request; no separate upload
+  endpoint is used.
+- Generate accepts a subject, typed SANs, a key type, and a validity period.
+- Renewing from the detail page sends the current version id as `expectedVersionId`.
+- The detail page reads the current version or a known version id, shows the public leaf and
+  chain, and copies or downloads them.
+- The private key is revealed only after confirmation. It is hidden after 60 seconds, when
+  focus leaves the region or window, on a route change, and when the page closes. It is
+  downloaded, never copied automatically, and never written to browser storage, the URL, or
+  logs.
+- Tags and purge protection are edited in one dialog. Delete asks for confirmation; Recover is
+  immediate; Purge is unavailable until the certificate is deleted, unprotected, and past the
+  retention boundary.
+- Actions follow the capability flags in certificate metadata. The server still authorizes
+  every request.
+
+See the [web UI guide](/guide/web-ui) for the shared screen patterns.
+
 ## Envelope and limitations
 
 Certificate private keys use the v2 AAD with `objectType=certificate`, project, certificate, and
@@ -223,8 +251,8 @@ version. Moving a certificate envelope into a secret row fails authentication. T
 change is one-way for this pre-release repository; both version tables must be empty before
 first boot.
 
-v1.0 does not implement a CA, ACME, OCSP/CRL, HSM keys, a certificate UI, agent certificate
-delivery, certificate consumers, a versions-list route, or import/generate idempotency. A
+v1.0 does not implement a CA, ACME, OCSP/CRL, HSM keys, agent certificate delivery,
+certificate consumers, a versions-list route, or import/generate idempotency. A
 generated or imported private key exists briefly as a PEM string that cannot be zeroed; the DER
 buffer is zeroed. A certificate route never accepts an agent principal: a same-project agent
 receives 401 from the controller, and a project-mismatched certificate is rejected 403 by the

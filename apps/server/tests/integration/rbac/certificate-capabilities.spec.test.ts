@@ -9,7 +9,11 @@ import { PolicyRepository } from "../../../src/rbac/policy-repository.js";
 import { PolicyService } from "../../../src/rbac/policy-service.js";
 import { type AuditActors, seedAuditActors } from "../helpers/audit-harness.js";
 import { type BaseFixture, seedBase } from "../helpers/fixtures.js";
-import { applyMigrations, createTestDatabase, type TestDatabase } from "../helpers/test-database.js";
+import {
+  applyMigrations,
+  createTestDatabase,
+  type TestDatabase,
+} from "../helpers/test-database.js";
 
 class RecordingAudit implements PolicyAuditPort {
   readonly decisions: PolicyDecisionEvent[] = [];

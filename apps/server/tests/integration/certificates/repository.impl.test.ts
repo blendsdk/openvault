@@ -10,7 +10,11 @@ import { type AuditActors, seedAuditActors } from "../helpers/audit-harness.js";
 import { createSelfSignedFixture } from "../helpers/certificate-fixtures.js";
 import { type BaseFixture, seedBase } from "../helpers/fixtures.js";
 import { createServerEnvironment } from "../helpers/server-environment.js";
-import { applyMigrations, createTestDatabase, type TestDatabase } from "../helpers/test-database.js";
+import {
+  applyMigrations,
+  createTestDatabase,
+  type TestDatabase,
+} from "../helpers/test-database.js";
 
 let testDb: TestDatabase;
 let base: BaseFixture;
@@ -21,9 +25,7 @@ let service: CertificateService;
 const repository = new CertificateRepository();
 
 async function importCertificate(name: string, subject?: string): Promise<void> {
-  const fixture = await createSelfSignedFixture(
-    subject === undefined ? {} : { subject },
-  );
+  const fixture = await createSelfSignedFixture(subject === undefined ? {} : { subject });
   await service.import(actors.orgAdmin, "foundation", {
     name,
     certificatePem: fixture.certificatePem,

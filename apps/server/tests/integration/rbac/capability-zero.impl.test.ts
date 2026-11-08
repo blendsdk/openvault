@@ -8,7 +8,11 @@ import type {
 import { PolicyRepository } from "../../../src/rbac/policy-repository.js";
 import { PolicyService } from "../../../src/rbac/policy-service.js";
 import { type BaseFixture, seedBase } from "../helpers/fixtures.js";
-import { applyMigrations, createTestDatabase, type TestDatabase } from "../helpers/test-database.js";
+import {
+  applyMigrations,
+  createTestDatabase,
+  type TestDatabase,
+} from "../helpers/test-database.js";
 
 class RecordingAudit implements PolicyAuditPort {
   async recordDecision(_event: PolicyDecisionEvent): Promise<void> {}

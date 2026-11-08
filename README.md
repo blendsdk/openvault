@@ -3,7 +3,7 @@
 [![CI](https://github.com/blendsdk/openvault/actions/workflows/ci.yml/badge.svg)](https://github.com/blendsdk/openvault/actions/workflows/ci.yml)
 [![Docs](https://github.com/blendsdk/openvault/actions/workflows/docs.yml/badge.svg)](https://blendsdk.github.io/openvault/)
 [![License](https://img.shields.io/badge/license-Apache--2.0-blue.svg)](LICENSE)
-[![Status](https://img.shields.io/badge/status-v1.0%20release-brightgreen.svg)](#status)
+[![Status](https://img.shields.io/badge/status-v1.1%20release-brightgreen.svg)](#status)
 
 Self-hosted secrets and certificates for Docker Compose projects.
 
@@ -13,8 +13,8 @@ running Docker Compose on one host.
 
 ## Status
 
-OpenVault 1.0 is the first stable release.
-**Current release: [1.0.1](https://github.com/blendsdk/openvault/releases/tag/v1.0.1).**
+OpenVault 1.0 is the first stable release. OpenVault 1.1 is the current release.
+**Current release: [1.1.0](https://github.com/blendsdk/openvault/releases/tag/v1.1.0).**
 
 ## Quickstart
 
@@ -75,7 +75,7 @@ Start with [Your first secret](docs/tutorials/first-secret.md) or
 
 ## Roadmap
 
-- **v1.x**: certificate UI, rotation workflow, remote Docker hosts
+- **v1.x**: rotation workflow, remote Docker hosts
 - **Next**: Kubernetes identity, external key services, ACME, high availability
 
 ## Contributing

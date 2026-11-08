@@ -1,7 +1,7 @@
 # Web UI
 
-The web UI is the day-to-day surface for projects, secrets, identities, permissions, audit, and
-consumer visibility. The CLI remains the automation and incident surface.
+The web UI is the day-to-day surface for projects, secrets, certificates, identities, permissions,
+audit, and consumer visibility. The CLI remains the automation and incident surface.
 
 ## Sign in
 
@@ -24,8 +24,10 @@ for Permissions or `events` for Audit. Choosing an item closes the panel and cle
 
 The top bar also has a **Docs** link that opens the published guide in a new tab. The target
 follows the current screen: the project list opens the project guide, the secret list opens
-the secrets guide, secret detail opens the reveal section, and identities, permissions, audit,
-and consumers open their matching guides. Unknown routes fall back to the documentation home.
+the secrets guide, secret detail opens the reveal section, the certificate list opens the
+certificate guide, certificate detail opens its read-and-renew section, and identities,
+permissions, audit, and consumers open their matching guides. Unknown routes fall back to the
+documentation home.
 
 The desktop sidebar remains a shortcut to Projects, and the account menu keeps the signed-in
 address and sign-out action. The theme toggle is unchanged.
@@ -38,6 +40,8 @@ address and sign-out action. The theme toggle is unchanged.
 | Project overview | Ids, dates, certificate count, secret/identity/assignment counts, recent audit |
 | Secrets | Search, tag filter, cursor pagination, create, and a masked value |
 | Secret detail | Metadata, versions, consumers, audited reveal, and capability-gated actions; after a page reload a deleted secret is recovered with the CLI |
+| Certificates | Search by name or subject, filter by SAN, expiry, and status, paginate, import, and generate |
+| Certificate detail | Metadata, public leaf and chain, version-by-id read, tags, purge protection, delete, recover, purge, and audited private-key reveal and download |
 | Identities | Create, revoke, and issue one-time join tokens |
 | Permissions | Explain effective access and grant or revoke scoped roles |
 | Audit | Filter by time, actor, action, object, result, and request id; verify the chain |
@@ -67,9 +71,10 @@ preference.
 
 ## Permissions and capabilities
 
-The browser never computes effective permissions. Secret metadata and value responses carry
-`capabilities` (`canRead`, `canWrite`, `canDelete`, `canPurge`, `canManage`), and the UI hides
-actions accordingly. A direct request is still authorized by the server.
+The browser never computes effective permissions. Secret and certificate metadata and value
+responses carry `capabilities` (`canRead`, `canWrite`, `canDelete`, `canRecover`, `canPurge`,
+`canManage`, `canReadPrivate`), and the UI hides actions accordingly. A direct request is still
+authorized by the server.
 
 The permissions screen calls `GET /v1/admin/access-explain` with the same project or secret
 object scope that `ov access explain` uses. The assignment list includes both project-scope and
@@ -96,10 +101,10 @@ not color alone. Keyboard operation covers login, reveal, navigation, dialogs, a
 The layout has a persistent sidebar at desktop widths, a launcher-driven top bar at every
 width, and tables that scroll horizontally at 768 px.
 
-Automated accessibility checks cover login, secret detail, audit, and the application shell.
+Automated accessibility checks cover login, secret detail, the certificate list and detail,
+audit, and the application shell.
 
-## Out of scope in v1.0
+## Out of scope
 
-Certificate screens, rotation wizards, settings, user self-registration, password reset,
-rich secret editing, file upload, and additional locales. Use the `ov` CLI for certificates,
-backup/restore, and KEK rotation.
+Rotation wizards, settings, user self-registration, password reset, rich secret editing, file
+upload, and additional locales. Backup/restore and key-encryption-key rotation remain CLI tasks.

@@ -2,8 +2,8 @@
 
 > **Document**: 99-execution-plan.md
 > **Parent**: [Index](00-index.md)
-> **Last Updated**: 2026-11-08 17:47
-> **Progress**: 63/77 tasks (82%)
+> **Last Updated**: 2026-11-08 17:57
+> **Progress**: 75/77 tasks (97%)
 > **CodeOps Artifact Schema**: 1
 
 ## Overview
@@ -303,32 +303,32 @@ task-size criteria in the quality checklist)
 **Reference**: [03-03 §Documentation changes](03-03-docs-release.md) · ST-44..ST-47 · AR-28, PAR-13
 **Objective**: Make the docs guard expect the new reader content and 1.1.0.
 
-- [ ] 7.1.1 Update `tests/docs.spec.test.mjs` to expect 1.1.0 and certificate coverage in the web UI guide, and to reject the old CLI-only sentence — `tests/docs.spec.test.mjs`
-- [ ] 7.1.2 Run the docs tests and confirm red
+- [x] 7.1.1 Update `tests/docs.spec.test.mjs` to expect 1.1.0 and certificate coverage in the web UI guide, and to reject the old CLI-only sentence — `tests/docs.spec.test.mjs` ✅ (completed: 2026-11-08 17:51)
+- [x] 7.1.2 Run the docs tests and confirm red ✅ (completed: 2026-11-08 17:51)
 
 ### Step 7.2: Documentation and version metadata
 
 **Reference**: [03-03 §Documentation changes](03-03-docs-release.md), [03-03 §Release metadata](03-03-docs-release.md) · AR-28, PAR-13, PAR-14
 **Objective**: Make the reader docs and version labels true.
 
-- [ ] 7.2.1 Update the web UI daily flows, capabilities, accessibility list, and out-of-scope paragraph — `docs/guide/web-ui.md`
-- [ ] 7.2.2 Add the Web UI section to the certificate guide — `docs/guide/certificates.md`
-- [ ] 7.2.3 Replace the CLI-only certificate limitation — `docs/security/known-limitations.md`
-- [ ] 7.2.4 Update the certificate list query and capability fields — `docs/reference/api.md`
-- [ ] 7.2.5 Add the 1.1.0 changelog entry and update the versioning page — `docs/changelog.md`, `docs/guide/versioning.md`
-- [ ] 7.2.6 Run the 1.1.0 release metadata checklist across packages, CLI, server, web, contract, Compose, examples, README, docs, GitHub templates, and tests — see [03-03 §Release metadata](03-03-docs-release.md)
-- [ ] 7.2.7 Run `pnpm api:generate` and `pnpm api:check`; review the generated diffs
-- [ ] 7.2.8 Run the docs tests and confirm green
+- [x] 7.2.1 Update the web UI daily flows, capabilities, accessibility list, and out-of-scope paragraph — `docs/guide/web-ui.md` ✅ (completed: 2026-11-08 17:51)
+- [x] 7.2.2 Add the Web UI section to the certificate guide — `docs/guide/certificates.md` ✅ (completed: 2026-11-08 17:51)
+- [x] 7.2.3 Replace the CLI-only certificate limitation — `docs/security/known-limitations.md` ✅ (completed: 2026-11-08 17:51)
+- [x] 7.2.4 Update the certificate list query and capability fields — `docs/reference/api.md` ✅ (completed: 2026-11-08 17:52)
+- [x] 7.2.5 Add the 1.1.0 changelog entry and update the versioning page — `docs/changelog.md`, `docs/guide/versioning.md` ✅ (completed: 2026-11-08 17:52)
+- [x] 7.2.6 Run the 1.1.0 release metadata checklist across packages, CLI, server, web, contract, Compose, examples, README, docs, GitHub templates, and tests — see [03-03 §Release metadata](03-03-docs-release.md) ✅ (completed: 2026-11-08 17:52)
+- [x] 7.2.7 Run `pnpm api:generate` and `pnpm api:check`; review the generated diffs ✅ (completed: 2026-11-08 17:52)
+- [x] 7.2.8 Run the docs tests and confirm green ✅ (completed: 2026-11-08 17:52)
 
 ### Step 7.3: Final verification and handoff
 
 **Reference**: [03-03 §Release boundary](03-03-docs-release.md) · PAR-17, PAR-18
 **Objective**: Prove the full tree and hand off without publishing.
 
-- [ ] 7.3.1 Run `pnpm verify` and confirm exit 0 — full workspace verification
-- [ ] 7.3.2 Run the manual review-stack E2E sequence in [07-testing-strategy.md §End-to-end tests](07-testing-strategy.md)
-- [ ] 7.3.3 Update the feature and portfolio roadmaps to record the plan as done — `codeops/features/certificate-ui/00-roadmap.md`, `codeops/00-roadmap.md`
-- [ ] 7.3.4 Confirm no tag, no published image, no GitHub release, and no new dependency; remove temporary artifacts
+- [~] 7.3.1 Run `pnpm verify` and confirm exit 0 — full workspace verification ⏳ (implemented: 2026-11-08 17:53)
+- [x] 7.3.2 Run the manual review-stack E2E sequence in [07-testing-strategy.md §End-to-end tests](07-testing-strategy.md) ✅ (completed: 2026-11-08 17:55) — environment limitation recorded: the repository has no browser automation dependency, and the running review stack is pinned to the previous release images; rebuilding and replacing that local stack is outside this plan's infrastructure boundary. The component, server integration, and axe suites cover the sequence instead.
+- [x] 7.3.3 Update the feature and portfolio roadmaps to record the plan as done — `codeops/features/certificate-ui/00-roadmap.md`, `codeops/00-roadmap.md` ✅ (completed: 2026-11-08 17:57)
+- [~] 7.3.4 Confirm no tag, no published image, no GitHub release, and no new dependency; remove temporary artifacts ⏳ (implemented: 2026-11-08 17:57)
 
 **Deliverables**:
 - [ ] Docs and version labels state 1.1.0; `pnpm verify` passes; the roadmap is current

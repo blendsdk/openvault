@@ -89,12 +89,27 @@ describe("documentation version labels", () => {
   it("should state the current release and keep the package version in sync", () => {
     const packageJson = JSON.parse(read("package.json"));
 
-    expect(packageJson.version).toBe("1.0.1");
+    expect(packageJson.version).toBe("1.1.0");
     expect(read("README.md")).toContain("Current release");
-    expect(read("README.md")).toContain("1.0.1");
-    expect(read("docs/index.md")).toContain("1.0.1");
+    expect(read("README.md")).toContain("1.1.0");
+    expect(read("docs/index.md")).toContain("1.1.0");
     expect(read("docs/guide/versioning.md")).toContain("1.0.0");
-    expect(read("docs/guide/versioning.md")).toContain("1.0.1");
+    expect(read("docs/guide/versioning.md")).toContain("1.1.0");
+  });
+
+  it("should describe the certificate UI and drop the CLI-only limitation", () => {
+    const webUi = read("docs/guide/web-ui.md");
+    expect(webUi).toContain("Certificates");
+    expect(webUi).toContain("Certificate detail");
+    expect(webUi).toContain("canRecover");
+    expect(webUi).toContain("canReadPrivate");
+
+    const limitations = read("docs/security/known-limitations.md");
+    expect(limitations).not.toContain("not the web UI");
+    expect(limitations).not.toContain("not in the web UI");
+    expect(limitations).toContain("web UI");
+
+    expect(read("docs/guide/certificates.md")).toContain("## Web UI");
   });
 
   it("should record the release in the CodeOps roadmaps", () => {

@@ -1,6 +1,7 @@
 import { fireEvent, screen, waitFor, within } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 import { CertificatesPage } from "../src/pages/certificates-page.js";
+import { ProjectOverviewPage } from "../src/pages/project-overview-page.js";
 import { endOfDayIso, startOfDayIso } from "../src/validation.js";
 import { certificate, FakeVault } from "./helpers/fake-vault.js";
 import { renderProjectPage } from "./helpers/render.js";
@@ -155,5 +156,32 @@ describe("certificate list", () => {
       "href",
       "/projects/payments/certificates/retired-tls?status=deleted",
     );
+  });
+
+  it("should open the import dialog from the list", async () => {
+    const vault = new FakeVault();
+    renderList(vault);
+    await screen.findByRole("link", { name: "api-tls" });
+    fireEvent.click(screen.getByRole("button", { name: "Import certificate" }));
+    expect(await screen.findByRole("dialog")).toBeInTheDocument();
+    expect(screen.getByLabelText(/Certificate name/)).toBeInTheDocument();
+  });
+
+  it("should open the generate dialog from the list", async () => {
+    const vault = new FakeVault();
+    renderList(vault);
+    await screen.findByRole("link", { name: "api-tls" });
+    fireEvent.click(screen.getByRole("button", { name: "Generate" }));
+    expect(await screen.findByRole("dialog")).toBeInTheDocument();
+    expect(screen.getByLabelText(/Subject/)).toBeInTheDocument();
+  });
+
+  it("should link the project overview certificate count to the list", async () => {
+    const vault = new FakeVault();
+    renderProjectPage(<ProjectOverviewPage />, { vault });
+    const link = await screen.findByRole("link", {
+      name: String(vault.projects[0]?.certificateCount ?? 0),
+    });
+    expect(link).toHaveAttribute("href", "/projects/payments/certificates");
   });
 });
