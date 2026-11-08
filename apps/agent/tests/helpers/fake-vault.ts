@@ -79,9 +79,10 @@ async function bodyOf(request: IncomingMessage): Promise<string> {
   return Buffer.concat(chunks).toString("utf8");
 }
 
-/** Sends a JSON response. */
+/** Sends a JSON response in the same envelope the real server uses. */
 function send(response: ServerResponse, status: number, value: unknown): void {
-  const body = JSON.stringify(value);
+  const payload = status >= 200 && status < 300 ? { success: true, data: value } : value;
+  const body = JSON.stringify(payload);
   response.writeHead(status, {
     "Content-Type": "application/json",
     "Content-Length": Buffer.byteLength(body),
