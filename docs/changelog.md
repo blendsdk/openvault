@@ -18,7 +18,7 @@ require a new major version. See [Versioning and compatibility](/guide/versionin
 ### Included
 
 - Versioned secrets and certificates with encrypted storage and a keyring outside the database.
-- Deny-by-default access control at organization, project, and object scope.
+- Deny-by-default access control (RBAC) with role assignments at organization, project, and object scope.
 - Per-service agents that deliver only the secrets and certificates for that service.
 - A tamper-evident audit log with verification, export, and checkpoints.
 - A web UI and a CLI for projects, secrets, identities, permissions, and audit.
