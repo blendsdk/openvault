@@ -1,4 +1,4 @@
-import { readdirSync, readFileSync } from "node:fs";
+import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
@@ -35,21 +35,11 @@ describe("RBAC release documentation", () => {
     expect(guide).toContain("policyVersion");
   });
 
-  it("should publish the RBAC release note and changeset", () => {
+  it("should publish the RBAC release note", () => {
     const changelog = read("docs/changelog.md");
+    expect(changelog).toContain("## 1.0.0");
     expect(changelog.toLowerCase()).toContain("rbac");
-
-    const changesetDirectory = join(root, ".changeset");
-    const changesets = readdirSync(changesetDirectory)
-      .filter((name) => name.endsWith(".md"))
-      .map((name) => readFileSync(join(changesetDirectory, name), "utf8"));
-    const rbac = changesets.find(
-      (content) =>
-        content.includes('"@openvault/server": minor') &&
-        content.includes('"@openvault/api-contract": minor') &&
-        content.toLowerCase().includes("rbac"),
-    );
-    expect(rbac).toBeDefined();
+    expect(changelog.toLowerCase()).toContain("role");
   });
 
   it("should not contain planning identifiers in user documentation", () => {
