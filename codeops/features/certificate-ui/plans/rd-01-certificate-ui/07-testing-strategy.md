@@ -48,6 +48,7 @@ server tests use the existing PostgreSQL integration harness and real services.
 | ST-13 | Fill Search, SAN, Expires after, Expires before, Status; Apply filters | The list request sends `q`, `san`, `expiresAfter`, `expiresBefore`, and `status`; the cursor is absent | RD-01 AC-8 |
 | ST-14 | Click Load more | The next page request carries the cursor and the applied filters; new rows append | RD-01 AC-8 |
 | ST-15 | Select Deleted | Import and Generate are absent; the request sends `status=deleted` | RD-01 AC-9 |
+| ST-15a | A reader without `certificate.write` uses Import on the active list | The request returns 403 and the dialog shows the access-denied message; the server remains the authority | RD-01 AC-23 |
 | ST-16 | Active list with no rows, deleted list with no rows, filtered list with no matches | Three distinct empty states with the documented actions | RD-01 AC-9 |
 | ST-17 | Navigate to the Certificates section | The section link is current; the launcher lists Certificates; the Docs link targets `/guide/certificates` | RD-01 AC-1 |
 | ST-18 | Open a certificate from a deleted-list row | The detail request searches `status=deleted` with `q=<name>` and shows the deleted state | AR-13, PAR-05 |
@@ -61,6 +62,7 @@ server tests use the existing PostgreSQL integration harness and real services.
 | ST-21 | Copy leaf, Copy chain, Download leaf, Download chain | The copied/downloaded text equals the returned PEM; the chain may be empty | RD-01 AC-11, AC-22 |
 | ST-22 | Open an expired certificate and view its current public material | The read includes the current version id and succeeds | RD-01 AC-12 |
 | ST-23 | Enter a version id and reveal the private key | The private-key read sends the same `version` value | AR-6, PAR-05 |
+| ST-23a | A list-capable caller without `certificate.read` opens the detail | View public certificate and View private key are absent; metadata remains visible | RD-01 AC-11 |
 
 ### Web: import, generate, renew
 
@@ -71,7 +73,7 @@ server tests use the existing PostgreSQL integration harness and real services.
 | ST-26 | Import succeeds with one warning | The result panel shows the version id and the warning before the dialog closes | RD-01 AC-13 |
 | ST-27 | Fill subject, two typed SANs, key type, validity, tags; submit generate | The request contains the same values | RD-01 AC-14 |
 | ST-28 | Submit a SAN without a prefix, an empty SAN list, or validity 0/826 | The dialog blocks submission with the matching field error | RD-01 AC-14 |
-| ST-29 | Renew from detail | The request includes `expectedVersionId` equal to the current version id | RD-01 AC-15 |
+| ST-29 | Renew from detail, including while the version control shows a past version | The request includes `expectedVersionId` equal to the current version id, not the inspected version | RD-01 AC-15 |
 | ST-30 | Renew with a stale expected version | The dialog stays open and shows the version-conflict message | RD-01 AC-15 |
 
 ### Web: metadata and lifecycle
@@ -80,8 +82,8 @@ server tests use the existing PostgreSQL integration harness and real services.
 |---|---|---|---|
 | ST-31 | Edit tags and turn purge protection on | The PATCH contains the new tag map and `purgeProtected=true` | RD-01 AC-16 |
 | ST-32 | Open metadata for a protected certificate | The protection switch is on, disabled, and the dialog cannot send `false` | RD-01 AC-16 |
-| ST-33 | Delete and confirm | The delete request runs; the detail shows the deleted state with Recover and Purge | RD-01 AC-17 |
-| ST-34 | Recover a deleted certificate | The recover request runs and the active state returns | RD-01 AC-18 |
+| ST-33 | Delete and confirm | The delete request runs; the detail shows the deleted state with Recover and Purge; the URL status is `deleted` | RD-01 AC-17 |
+| ST-34 | Recover a deleted certificate | The recover request runs, the active state returns, and the URL status is `active` | RD-01 AC-18 |
 | ST-35 | Purge while active, protected, or before the deadline | The action is disabled with the matching reason and sends no request | RD-01 AC-19 |
 | ST-36 | Purge a deleted, unprotected, due certificate and confirm | The purge request runs and the browser returns to the list | RD-01 AC-19 |
 
@@ -118,7 +120,7 @@ server tests use the existing PostgreSQL integration harness and real services.
 | Test file | ST cases | Component |
 |---|---|---|
 | `apps/server/tests/integration/certificate-list.spec.test.ts` | ST-1..ST-7 | List query |
-| `apps/server/tests/rbac/certificate-capabilities.spec.test.ts` | ST-8..ST-10 | Capability projection |
+| `apps/server/tests/integration/rbac/certificate-capabilities.spec.test.ts` | ST-8..ST-10 | Capability projection |
 | `apps/web/tests/certificates-list.test.tsx` | ST-12..ST-16, ST-18 | List and filters |
 | `apps/web/tests/layout.test.tsx` | ST-17 | Launcher, section, and docs link |
 | `apps/web/tests/certificate-detail.test.tsx` | ST-19..ST-23 | Detail and public material |
@@ -137,8 +139,8 @@ server tests use the existing PostgreSQL integration harness and real services.
 |---|---|---|
 | `apps/web/tests/pem.impl.test.ts` | `readPemFile` size/empty/marker errors and `downloadPem` object-URL cleanup | High |
 | `apps/web/tests/certificate-validation.impl.test.ts` | Subject, SAN, validity, and date-boundary helpers | High |
-| `apps/server/tests/certificates/repository.impl.test.ts` | LIKE escaping, cursor with status, empty page | High |
-| `apps/server/tests/rbac/capability-zero.impl.test.ts` | Inactive principal and missing actor snapshot return all false | Medium |
+| `apps/server/tests/integration/certificates/repository.impl.test.ts` | LIKE escaping, cursor with status, empty page | High |
+| `apps/server/tests/integration/rbac/capability-zero.impl.test.ts` | Inactive principal and missing actor snapshot return all false | Medium |
 
 ### Integration tests
 

@@ -56,8 +56,10 @@ client, public issuance, remote-host support, or new runtime dependency.
 - [ ] A private key is revealed only after an explicit confirmation, is hidden after 60 seconds or
   when focus leaves the region/window, and can be downloaded as a PEM file. It is never written to
   browser storage, the URL, the console, or application logs. [AR-3, AR-16, AR-27]
-- [ ] The UI hides an action when its capability flag is false. The server still authorizes every
-  request. [AR-10]
+- [ ] The UI hides an object action when its capability flag is false. List-level Import and
+  Generate remain visible because the list response carries no project-level write flag; an
+  unauthorized write returns 403 and the dialog shows the access-denied message. The server still
+  authorizes every request. [AR-10]
 - [ ] All reads, writes, private-key reads, and lifecycle actions produce the existing audit
   events. [AR-11]
 
@@ -89,7 +91,7 @@ client, public issuance, remote-host support, or new runtime dependency.
 | Route | Screen | Access |
 |---|---|---|
 | `/projects/:project/certificates` | Certificate list | Any caller with `certificate.list` |
-| `/projects/:project/certificates/:name` | Certificate detail | Any caller with `certificate.read`; deleted items show lifecycle actions only |
+| `/projects/:project/certificates/:name` | Certificate detail | Any caller with `certificate.list` can see metadata; public and private reads require `certificate.read` / `certificate.read_private`; deleted items show lifecycle actions only |
 
 The project section list in `apps/web/src/projects/project-route.tsx` gains a **Certificates**
 entry between **Secrets** and **Identities**. The launcher in
@@ -171,6 +173,7 @@ The action bar is capability-driven:
 
 | Action | Visible when | Notes |
 |---|---|---|
+| View public certificate | `capabilities.canRead` and not deleted | Explicit, audited read |
 | Edit metadata | `capabilities.canWrite` and the certificate is active or expired | Tags and purge protection |
 | Import new version | `capabilities.canWrite` and the certificate is active or expired | Sends `expectedVersionId` |
 | Generate new version | `capabilities.canWrite` and the certificate is active or expired | Sends `expectedVersionId` |
@@ -232,8 +235,9 @@ The metadata dialog edits tags and purge protection with
 ### Delete, recover, and purge
 
 - **Delete** opens a danger confirmation naming the certificate and the recovery window. On
-  success, the detail page shows the deleted state in place.
-- **Recover** calls the recover route and reloads the metadata. No confirmation is required.
+  success, the detail page shows the deleted state in place and sets the URL status to `deleted`.
+- **Recover** calls the recover route, reloads the metadata, and sets the URL status back to
+  `active`. No confirmation is required.
 - **Purge** opens a danger confirmation. The action is disabled with a visible reason when the
   certificate is not deleted, `purgeProtected` is true, or `purgeAfter` is in the future. After a
   successful purge, the browser navigates to the list. [AR-20]
@@ -390,8 +394,9 @@ records the list status filter and the new capability flags. [AR-28]
    state is distinct from the active empty state.
 10. [ ] The detail page shows the metadata fields in the Must Have list, including the SANs,
     fingerprint, version id, and purge deadline.
-11. [ ] **View public certificate** sends a read with the selected version id and renders the leaf
-    and chain in text areas. **Copy leaf** and **Download leaf** produce the same PEM text.
+11. [ ] **View public certificate** is hidden when `canRead` is false or the certificate is deleted.
+    When visible, it sends a read with the selected version id and renders the leaf and chain in
+    text areas. **Copy leaf** and **Download leaf** produce the same PEM text.
 12. [ ] An expired certificate's detail page can display its current public material because the
     read includes the current version id.
 13. [ ] Import sends the leaf, key, tags, and `allowNotYetValid`; it sends the chain when one is

@@ -127,7 +127,9 @@ helper.
 
 - **Import certificate** (primary) opens `CertificateImportDialog` with `mode="create"`.
 - **Generate** (secondary) opens `CertificateGenerateDialog` with `mode="create"`.
-- Both are hidden when `filters.status === "deleted"`. [AR-13]
+- Both are hidden when `filters.status === "deleted"`. They are not hidden by a project-level
+  capability because the list response has none; an unauthorized write returns 403 and the dialog
+  shows the access-denied message. [AR-13]
 
 **Empty states**
 
@@ -185,7 +187,8 @@ same value for public and private reads. [AR-6, PAR-05]
 
 **Public material**
 
-A `Card` with **View public certificate**. On click:
+A `Card` with **View public certificate**, shown only when `certificate.capabilities.canRead` is
+true and the certificate is not deleted. On click:
 
 ```ts
 const response = await client.certificates.getCertificate({
@@ -230,8 +233,12 @@ mirroring `secret-detail-page.tsx`. [AR-3, AR-16, PAR-09]
 | Edit metadata (active or expired only) | `updateCertificateMetadata` | Reload metadata |
 | Import new version | `importCertificate` with `expectedVersionId` | Result panel; reload |
 | Generate new version | `generateCertificate` with `expectedVersionId` | Result panel; reload |
-| Delete | `deleteCertificate` after confirm | Show deleted state in place; clear public/private material |
-| Recover | `recoverCertificate` | Reload metadata; return to active state |
+
+Renew always sends the **current** version id from the metadata as `expectedVersionId`, even when
+the version-viewing control is showing a past version. The server's guard is about the current
+pointer, not the version being inspected. [AR-18]
+| Delete | `deleteCertificate` after confirm | Show deleted state in place; set URL status to `deleted`; clear public/private material |
+| Recover | `recoverCertificate` | Reload metadata; set URL status to `active`; return to active state |
 | Purge | `purgeCertificate` after confirm | Navigate to list |
 
 Purge eligibility:

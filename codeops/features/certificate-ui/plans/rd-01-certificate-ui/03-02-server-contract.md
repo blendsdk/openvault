@@ -138,8 +138,9 @@ const CERTIFICATE_CAPABILITIES = {
 ```
 
 `capabilitiesFor` and `capabilitiesForMany` return the new fields; the zero-capability returns and
-the two `ZERO_CAPABILITIES` constants return `false` for both. Update comments that say “five flags”
-to “seven flags” or, preferably, “the capability flags” so they do not drift. [AR-7, AR-14, PAR-03]
+the two `ZERO_CAPABILITIES` constants return `false` for both. Update every “five flags” comment in
+`policy-service.ts` and `secrets/service.ts` to “the capability flags” so it does not drift.
+[AR-7, AR-14, PAR-03]
 
 ### Browser contract
 

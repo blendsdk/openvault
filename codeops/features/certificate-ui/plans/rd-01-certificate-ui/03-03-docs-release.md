@@ -25,9 +25,9 @@ separate, user-authorized action.
 
 - The capabilities paragraph lists `canRecover` and `canReadPrivate`.
 - The accessibility section includes the certificate list and detail.
-- The “Out of scope in v1.0” paragraph no longer lists certificate screens. It keeps rotation
-  wizards, settings, self-registration, password reset, rich secret editing, and additional
-  locales; backup/restore and KEK rotation remain CLI tasks.
+- The “Out of scope in v1.0” section becomes “Out of scope” and no longer lists certificate
+  screens. It keeps rotation wizards, settings, self-registration, password reset, rich secret
+  editing, and additional locales; backup/restore and KEK rotation remain CLI tasks.
 
 ### `docs/guide/certificates.md`
 
@@ -89,8 +89,11 @@ still covers the `/v1` API and data format.
 
 ### `docs/index.md` and `README.md`
 
-At the end of the final phase, state **Current release: 1.1.0** and update the release link. Until
-the final phase, keep 1.0.1.
+At the end of the final phase, state **Current release: 1.1.0**, update the release link, update the
+README status badge from `v1.0 release` to `v1.1 release`, change the “OpenVault 1.0 is the first
+stable release” wording to “OpenVault 1.1 is the current release” while preserving the
+first-stable-release fact for 1.0, and remove “certificate UI” from the README roadmap because it
+now ships. Until the final phase, keep 1.0.1.
 
 ### `tests/docs.spec.test.mjs`
 

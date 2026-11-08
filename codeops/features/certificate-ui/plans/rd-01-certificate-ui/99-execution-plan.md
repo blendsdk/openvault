@@ -55,7 +55,7 @@ task-size criteria in the quality checklist)
 **Objective**: Prove the status filter, search semantics, and capability flags before implementation.
 
 - [ ] 1.1.1 [spec-author] Write integration spec tests for active/deleted lists, name/subject search, filters, cursor, and invalid status — `apps/server/tests/integration/certificate-list.spec.test.ts`
-- [ ] 1.1.2 [spec-author] Write capability spec tests for reader, officer, and admin — `apps/server/tests/rbac/certificate-capabilities.spec.test.ts`
+- [ ] 1.1.2 [spec-author] Write capability spec tests for reader, officer, and admin — `apps/server/tests/integration/rbac/certificate-capabilities.spec.test.ts`
 - [ ] 1.1.3 Run the new spec tests and confirm the expected red failures (the status filter and flags do not exist yet)
 
 ### Step 1.2: Implementation
@@ -65,8 +65,8 @@ task-size criteria in the quality checklist)
 
 - [ ] 1.2.1 Add `status` to `certificateListQuerySchema`; update the route summary for name-or-subject `q` — `packages/api-contract/src/certificates.ts`, `apps/server/scripts/api-contract.ts`
 - [ ] 1.2.2 Add `canRecover` and `canReadPrivate` to `capabilityFlagsSchema` and the zero-capability returns — `packages/api-contract/src/rbac.ts`, `apps/server/src/certificates/service.ts`, `apps/server/src/secrets/service.ts`
-- [ ] 1.2.3 Update every capability fixture and exact-equality expectation with the new fields — `packages/api-contract/tests/`, `apps/server/tests/integration/rbac-policy.spec.test.ts`, `apps/server/tests/integration/rbac-policy.impl.test.ts`, `apps/server/tests/integration/secrets.spec.test.ts`, `apps/cli/tests/helpers/fake-vault.ts`, `apps/agent/tests/helpers/fake-vault.ts`, `apps/agent/tests/delivery-cancel.impl.test.ts`
-- [ ] 1.2.4 Map the new flags for secrets and certificates — `apps/server/src/rbac/policy-service.ts`
+- [ ] 1.2.3 Update every capability fixture and exact-equality expectation with the new fields — `packages/api-contract/tests/`, `apps/server/tests/integration/rbac-policy.spec.test.ts`, `apps/server/tests/integration/rbac-policy.impl.test.ts`, `apps/server/tests/integration/secrets.spec.test.ts`, `apps/web/tests/helpers/fake-vault.ts`, `apps/cli/tests/helpers/fake-vault.ts`, `apps/agent/tests/helpers/fake-vault.ts`, `apps/agent/tests/delivery-cancel.impl.test.ts`
+- [ ] 1.2.4 Map the new flags for secrets and certificates and update the “five flags” comments — `apps/server/src/rbac/policy-service.ts`, `apps/server/src/secrets/service.ts`
 - [ ] 1.2.5 Add the status branch and the name-or-subject predicate to the list read; pass `status` through the service — `apps/server/src/certificates/repository.ts`, `apps/server/src/certificates/service.ts`
 - [ ] 1.2.6 Add `CertificatesController` to `WEB_CONTRACT_CONTROLLERS`, add every certificate route to `WEB_ROUTE_DOCS` through `sharedRouteDoc`, and update the comment — `apps/server/scripts/api-contract.ts`
 - [ ] 1.2.7 Run `pnpm api:generate`; inspect the generated CLI and browser diffs — `packages/api-contract/openapi.json`, `apps/cli/src/generated/`, `apps/web/src/generated/`
@@ -77,8 +77,8 @@ task-size criteria in the quality checklist)
 **Reference**: ST-1..ST-11 · PAR-02, PAR-03
 **Objective**: Cover the query edge cases and the contract drift gate.
 
-- [ ] 1.3.1 Add repository tests for LIKE escaping, cursor with the deleted status, and an empty page — `apps/server/tests/certificates/repository.impl.test.ts`
-- [ ] 1.3.2 Add a zero-capability test for an inactive principal — `apps/server/tests/rbac/capability-zero.impl.test.ts`
+- [ ] 1.3.1 Add repository tests for LIKE escaping, cursor with the deleted status, and an empty page — `apps/server/tests/integration/certificates/repository.impl.test.ts`
+- [ ] 1.3.2 Add a zero-capability test for an inactive principal — `apps/server/tests/integration/rbac/capability-zero.impl.test.ts`
 - [ ] 1.3.3 Run `pnpm typecheck` and fix any fixture or generated-type drift
 - [ ] 1.3.4 Run `pnpm api:check` and confirm no drift
 

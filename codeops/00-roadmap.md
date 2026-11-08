@@ -7,7 +7,7 @@
 
 ## Legend
 
-⬜ Backlog · 🔄 In progress · ✅ Done · ⛔ Blocked · ⏸️ Deferred · 📦 Archived
+⬜ Backlog · 📋 Plan Created · 🔄 In progress · ✅ Done · ⛔ Blocked · ⏸️ Deferred · 📦 Archived
 
 ## Features
 

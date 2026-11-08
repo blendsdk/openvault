@@ -65,7 +65,9 @@ mechanism within the user-approved capability policy. Objective: let the UI hide
 private-key actions accurately. Decision: extend the shared flags and map them per resource type.
 Evidence: `apps/server/src/rbac/policy-service.ts:94-107` owns the mapping and
 `packages/api-contract/src/rbac.ts:226-232` owns the shape. Rejected alternatives: derive from role
-names (UI would duplicate policy); certificate-only fields (splits the concept). Strongest
+names (UI would duplicate policy); certificate-only fields (splits the concept). The list-level
+Import and Generate actions are not gated by a project capability because the list response has
+none; the server rejects unauthorized writes and the dialog shows the error. Strongest
 counterargument: secret responses grow by two booleans; the change is additive. Confidence: High.
 Hardening: contract and generated-client tests. Policy version: 1. Root invocation ID:
 `certificate-ui-2026-11-08T16:32Z`. Reopen triggers: a resource gains a new distinct action.
