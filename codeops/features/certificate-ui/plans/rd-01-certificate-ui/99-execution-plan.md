@@ -2,8 +2,8 @@
 
 > **Document**: 99-execution-plan.md
 > **Parent**: [Index](00-index.md)
-> **Last Updated**: 2026-11-08 17:12
-> **Progress**: 15/77 tasks (19%)
+> **Last Updated**: 2026-11-08 17:17
+> **Progress**: 24/77 tasks (31%)
 > **CodeOps Artifact Schema**: 1
 
 ## Overview
@@ -91,7 +91,7 @@ task-size criteria in the quality checklist)
 
 ## Phase 2: Web helpers and fixtures
 
-> **Phase baseline tree**: Pending — recorded by the exec-plan skill at phase start.
+> **Phase baseline tree**: 4d9259275faeeb65f3198dfb36ac095ff23a8f54
 > **Lenses**: web-ui, accessibility
 > **Reasoning**: medium — pure helpers and a test adapter; no page behavior yet.
 
@@ -100,27 +100,27 @@ task-size criteria in the quality checklist)
 **Reference**: [03-01 §Client validation](03-01-web-ui.md) · [03-01 §PEM helpers](03-01-web-ui.md) · ST-24, ST-25, ST-27, ST-28 · AR-8, AR-23, PAR-08
 **Objective**: Pin the validation and PEM behavior before writing the helpers.
 
-- [ ] 2.1.1 [spec-author] Write validation spec tests for names, subjects, SANs, validity, and day-bound timestamps — `apps/web/tests/certificate-validation.spec.test.ts`
-- [ ] 2.1.2 [spec-author] Write PEM helper spec tests for empty, oversized, marker-missing, successful read, and download cleanup — `apps/web/tests/pem.spec.test.ts`
-- [ ] 2.1.3 Run the new tests and confirm red
+- [x] 2.1.1 [spec-author] Write validation spec tests for names, subjects, SANs, validity, and day-bound timestamps — `apps/web/tests/certificate-validation.spec.test.ts` ✅ (completed: 2026-11-08 17:13)
+- [x] 2.1.2 [spec-author] Write PEM helper spec tests for empty, oversized, marker-missing, successful read, and download cleanup — `apps/web/tests/pem.spec.test.ts` ✅ (completed: 2026-11-08 17:13)
+- [x] 2.1.3 Run the new tests and confirm red ✅ (completed: 2026-11-08 17:13)
 
 ### Step 2.2: Implementation
 
 **Reference**: [03-01 §Client validation](03-01-web-ui.md), [03-01 §PEM helpers](03-01-web-ui.md) · AR-8, AR-23
 **Objective**: Implement the shared client helpers and extend the test adapter.
 
-- [ ] 2.2.1 Add `validateCertificateName`, `parseSubject`, `parseSans`, `parseValidityDays`, `startOfDayIso`, and `endOfDayIso` — `apps/web/src/validation.ts`
-- [ ] 2.2.2 Add `readPemFile` and `downloadPem` — `apps/web/src/components/pem.ts`
-- [ ] 2.2.3 Extend `FakeVault` with certificate list, detail, import, generate, metadata, delete, recover, purge, and private-key routes plus fixed fixtures — `apps/web/tests/helpers/fake-vault.ts`
-- [ ] 2.2.4 Run the Phase 2 spec tests and confirm green
+- [x] 2.2.1 Add `validateCertificateName`, `parseSubject`, `parseSans`, `parseValidityDays`, `startOfDayIso`, and `endOfDayIso` — `apps/web/src/validation.ts` ✅ (completed: 2026-11-08 17:14)
+- [x] 2.2.2 Add `readPemFile` and `downloadPem` — `apps/web/src/components/pem.ts` ✅ (completed: 2026-11-08 17:14)
+- [x] 2.2.3 Extend `FakeVault` with certificate list, detail, import, generate, metadata, delete, recover, purge, and private-key routes plus fixed fixtures — `apps/web/tests/helpers/fake-vault.ts` ✅ (completed: 2026-11-08 17:17)
+- [x] 2.2.4 Run the Phase 2 spec tests and confirm green ✅ (completed: 2026-11-08 17:17)
 
 ### Step 2.3: Implementation tests and hardening
 
 **Reference**: ST-24, ST-25, ST-27, ST-28 · PAR-08
 **Objective**: Cover the helper edges that the spec cases do not.
 
-- [ ] 2.3.1 Add impl tests for control characters, 100/101 SANs, 1/825/0/826 days, and a leap-day date boundary — `apps/web/tests/certificate-validation.impl.test.ts`
-- [ ] 2.3.2 Add a `FakeVault` self-check that each certificate route returns the envelope the generated client expects
+- [x] 2.3.1 Add impl tests for control characters, 100/101 SANs, 1/825/0/826 days, and a leap-day date boundary — `apps/web/tests/certificate-validation.impl.test.ts` ✅ (completed: 2026-11-08 17:17)
+- [x] 2.3.2 Add a `FakeVault` self-check that each certificate route returns the envelope the generated client expects ✅ (completed: 2026-11-08 17:17)
 
 **Deliverables**:
 - [ ] Validation and PEM helpers pass their tests; the fake vault serves certificate routes
