@@ -304,8 +304,10 @@ export async function startFakeVault(options: FakeVaultOptions = {}): Promise<Fa
             canRead: true,
             canWrite: false,
             canDelete: false,
+            canRecover: false,
             canPurge: false,
             canManage: false,
+            canReadPrivate: false,
           },
         });
         return;

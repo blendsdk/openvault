@@ -18,6 +18,7 @@ import {
 } from "@fluentui/react-components";
 import {
   BookOpen20Regular,
+  Certificate20Regular,
   DarkTheme20Regular,
   DocumentBulletList20Regular,
   Folder20Regular,
@@ -103,6 +104,13 @@ function launcherEntries(projectName: string | undefined): LauncherEntry[] {
       to: `${base}/secrets`,
       icon: <Key20Regular aria-hidden="true" />,
       keywords: "values credentials",
+      exact: false,
+    },
+    {
+      label: "Certificates",
+      to: `${base}/certificates`,
+      icon: <Certificate20Regular aria-hidden="true" />,
+      keywords: "certificates tls x509",
       exact: false,
     },
     {

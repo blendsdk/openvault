@@ -46,8 +46,10 @@ const ZERO_CAPABILITIES: CapabilityFlags = {
   canRead: false,
   canWrite: false,
   canDelete: false,
+  canRecover: false,
   canPurge: false,
   canManage: false,
+  canReadPrivate: false,
 };
 const CERTIFICATE_ACTIONS = [
   "certificate.write",
@@ -667,7 +669,7 @@ export class CertificateService {
   }
 
   /**
-   * Lists active certificates in one project.
+   * Lists certificates in one project.
    *
    * @param actorId - Authenticated principal.
    * @param projectName - Active project name.
@@ -692,11 +694,12 @@ export class CertificateService {
     if (!result.decision.allowed) {
       throw denialError("project_not_found", true, "Project not found");
     }
-    const rows = await this.#repository.listActiveCertificates(this.#database, project.id, {
+    const rows = await this.#repository.listCertificates(this.#database, project.id, {
       q: query.q,
       san: query.san,
       expiresBefore: query.expiresBefore,
       expiresAfter: query.expiresAfter,
+      status: query.status,
       cursor,
       limit: query.limit,
     });
@@ -934,7 +937,7 @@ export class CertificateService {
     };
   }
 
-  /** Computes the five certificate flags for one certificate. */
+  /** Computes the capability flags for one certificate. */
   async #capabilities(actorId: string, certificate: CertificateRecord): Promise<CapabilityFlags> {
     const result = await this.#policy.capabilitiesForMany(actorId, [
       { type: "certificate", id: certificate.id, projectId: certificate.projectId },

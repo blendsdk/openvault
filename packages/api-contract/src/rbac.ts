@@ -227,8 +227,10 @@ export const capabilityFlagsSchema = z.strictObject({
   canRead: z.boolean(),
   canWrite: z.boolean(),
   canDelete: z.boolean(),
+  canRecover: z.boolean(),
   canPurge: z.boolean(),
   canManage: z.boolean(),
+  canReadPrivate: z.boolean(),
 });
 
 /** One persisted assignment. */

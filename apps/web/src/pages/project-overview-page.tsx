@@ -1,5 +1,6 @@
 import { DescriptionList, DescriptionListItem } from "@blendsdk/fluentui-react-components";
 import { Card, Text } from "@fluentui/react-components";
+import { Link } from "react-router";
 import { AsyncPanel } from "../components/feedback.js";
 import { NavButton } from "../components/nav-button.js";
 import { PageHeader } from "../components/page-header.js";
@@ -48,7 +49,9 @@ export function ProjectOverviewPage() {
         </DescriptionListItem>
         <DescriptionListItem label="Created">{formatTime(project.createdAt)}</DescriptionListItem>
         <DescriptionListItem label="Updated">{formatTime(project.updatedAt)}</DescriptionListItem>
-        <DescriptionListItem label="Certificates">{project.certificateCount}</DescriptionListItem>
+        <DescriptionListItem label="Certificates">
+          <Link to={`${base}/certificates`}>{project.certificateCount}</Link>
+        </DescriptionListItem>
       </DescriptionList>
 
       <div className="summary-grid">

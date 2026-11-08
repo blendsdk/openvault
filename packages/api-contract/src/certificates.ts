@@ -148,6 +148,7 @@ export const certificateListQuerySchema = z
     san: certificateSanSchema.optional(),
     expiresBefore: z.iso.datetime().optional(),
     expiresAfter: z.iso.datetime().optional(),
+    status: z.enum(["active", "deleted"]).default("active"),
     limit: z.coerce.number().int().min(1).max(100).default(50),
     cursor: z
       .string()

@@ -72,7 +72,11 @@ beforeEach(async () => {
 describe("certificate read internals", () => {
   it("should reject a malformed cursor", async () => {
     await expect(
-      service.list(actors.orgAdmin, "foundation", { limit: 1, cursor: "not-a-cursor" }),
+      service.list(actors.orgAdmin, "foundation", {
+        status: "active",
+        limit: 1,
+        cursor: "not-a-cursor",
+      }),
     ).rejects.toMatchObject({ statusCode: 422 });
   });
 

@@ -148,7 +148,7 @@ install -m 0444 -o 10001 -g 10001 ./openvault-ca.pem \
 ```yaml
 services:
   openvault-agent-api:
-    image: "blendsdk/openvault-agent:1.0.1"
+    image: "blendsdk/openvault-agent:1.1.0"
     command: ["run"]
     user: "10001:10001"
     read_only: true

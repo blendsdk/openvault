@@ -4,6 +4,7 @@ import { createApiClient, type ApiClientOptions } from 'blendsdk/api-client';
 import { createAccessClient, type AccessClient } from './client.access.js';
 import { createAssignmentsClient, type AssignmentsClient } from './client.assignments.js';
 import { createAuditClient, type AuditClient } from './client.audit.js';
+import { createCertificatesClient, type CertificatesClient } from './client.certificates.js';
 import { createIdentitiesClient, type IdentitiesClient } from './client.identities.js';
 import { createMetaClient, type MetaClient } from './client.meta.js';
 import { createProjectsClient, type ProjectsClient } from './client.projects.js';
@@ -14,6 +15,7 @@ export interface OpenVaultWebClient {
   access: AccessClient;
   assignments: AssignmentsClient;
   audit: AuditClient;
+  certificates: CertificatesClient;
   identities: IdentitiesClient;
   meta: MetaClient;
   projects: ProjectsClient;
@@ -27,6 +29,7 @@ export function createOpenVaultWebClient(options: ApiClientOptions): OpenVaultWe
     access: createAccessClient(runtime),
     assignments: createAssignmentsClient(runtime),
     audit: createAuditClient(runtime),
+    certificates: createCertificatesClient(runtime),
     identities: createIdentitiesClient(runtime),
     meta: createMetaClient(runtime),
     projects: createProjectsClient(runtime),

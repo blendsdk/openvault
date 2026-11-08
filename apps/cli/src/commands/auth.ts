@@ -30,7 +30,7 @@ export function createAuthParser(globals: GlobalOptions, runtime: CliRuntime): C
   const context = createCommandContext(globals, runtime);
   const parser = new CommandLineParser({
     name: "ov auth",
-    version: "1.0.1",
+    version: "1.1.0",
     strict: true,
   });
 

@@ -8,7 +8,7 @@
 # Set OPENVAULT_JOIN_TOKEN in the shell or an env file outside this Compose file.
 services:
   openvault-agent-api:
-    image: "blendsdk/openvault-agent:1.0.1"
+    image: "blendsdk/openvault-agent:1.1.0"
     command: ["run"]
     user: "10001:10001"
     read_only: true
