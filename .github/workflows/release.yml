@@ -171,14 +171,6 @@ jobs:
             aquasec/trivy@sha256:8f6bb947dbc528902e11f2f5be52f7b519f6a39d5d148f41166f2040499768fb \
             image --image-src remote --exit-code 1 --severity HIGH,CRITICAL --ignore-unfixed "$IMAGE"
 
-      - name: Generate SPDX SBOM
-        uses: anchore/sbom-action@e22c389904149dbc22b58101806040fa8d37a610 # v0
-        with:
-          image: docker.io/blendsdk/${{ matrix.name }}@${{ steps.build.outputs.digest }}
-          format: spdx-json
-          output-file: sbom-${{ matrix.name }}.spdx.json
-          upload-artifact: false
-
       - name: Install Cosign
         uses: sigstore/cosign-installer@398d4b0eeef1380460a10c8013a76f728fb906ac # v3
 
@@ -207,7 +199,6 @@ jobs:
           name: release-${{ matrix.name }}
           path: |
             digest-${{ matrix.name }}.txt
-            sbom-${{ matrix.name }}.spdx.json
           if-no-files-found: error
 
   publish:
@@ -266,7 +257,7 @@ jobs:
             cat digest-*.txt
             echo '```'
             echo
-            echo "SBOMs: $(ls sbom-*.spdx.json | tr '\n' ' ')"
+            echo "SBOM and provenance attestations are attached to the images."
           } >> "$GITHUB_STEP_SUMMARY"
 
       - name: Create the GitHub release
@@ -285,6 +276,8 @@ jobs:
             cat digest-*.txt
             echo '```'
             echo
+            echo "The images carry BuildKit SBOM and provenance attestations."
+            echo
             echo "Verify an image with:"
             echo
             echo '```'
@@ -294,10 +287,10 @@ jobs:
             echo '```'
           } > release-notes.md
           if gh release view "$VERSION" >/dev/null 2>&1; then
-            gh release upload "$VERSION" sbom-*.spdx.json digest-*.txt --clobber
+            gh release upload "$VERSION" digest-*.txt --clobber
             gh release edit "$VERSION" --notes-file release-notes.md
           else
-            gh release create "$VERSION" sbom-*.spdx.json digest-*.txt \
+            gh release create "$VERSION" digest-*.txt \
               --title "OpenVault ${VERSION}" \
               --notes-file release-notes.md
           fi

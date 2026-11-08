@@ -20,7 +20,7 @@ tag v1.0.0 (or pre-release dispatch)
   → build amd64 and arm64 images to staging tags
   → BuildKit SBOM and max provenance attestations
   → Trivy scan; fail on HIGH or CRITICAL
-  → SPDX SBOM asset
+  → BuildKit SBOM attestation
   → Cosign keyless signature by digest
   → signature verification
   → promote the already-scanned digest to release tags
@@ -78,9 +78,9 @@ docker buildx imagetools inspect "$IMAGE"
 docker pull "$IMAGE"
 ```
 
-The SBOM and digest list are attached to the GitHub release. The image also
-carries BuildKit SBOM and provenance attestations; inspect them with
-`docker buildx imagetools inspect` or `cosign download attestation`.
+The image carries BuildKit SBOM and provenance attestations; inspect them with
+`docker buildx imagetools inspect` or `cosign download attestation`. The digest
+list is attached to the GitHub release.
 
 ## Rescan
 
