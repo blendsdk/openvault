@@ -68,6 +68,15 @@ describe("workflow security policy", () => {
     expect(scan.source).not.toContain("ghcr.io");
   });
 
+  it("should scan images with a digest-pinned Trivy image", () => {
+    for (const name of ["release.yml", "security-scan.yml"]) {
+      const workflow = workflowFiles.find((entry) => entry.name === name);
+      expect(workflow, name).toBeDefined();
+      expect(workflow.source).toMatch(/aquasec\/trivy@sha256:[0-9a-f]{64}/);
+      expect(workflow.source).not.toContain("aquasecurity/trivy-action");
+    }
+  });
+
   it("should keep the manual Codex security scan out of CI/CD", () => {
     for (const workflow of workflowFiles) {
       expect(workflow.source.toLowerCase(), workflow.name).not.toContain("codex");
