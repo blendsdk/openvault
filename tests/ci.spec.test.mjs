@@ -57,7 +57,7 @@ describe("workflow security policy", () => {
     expect(release.source).toContain("${{ secrets.DOCKERHUB_TOKEN }}");
     expect(release.source).toContain("docker.io/blendsdk/");
     expect(release.source).toContain("linux/amd64,linux/arm64");
-    expect(release.source).not.toContain("ghcr.io");
+    expect(release.source).not.toContain("ghcr.io/blendsdk/");
   });
 
   it("should rescan Docker Hub images", () => {
@@ -65,7 +65,7 @@ describe("workflow security policy", () => {
     expect(scan).toBeDefined();
     expect(scan.source).toContain("registry: docker.io");
     expect(scan.source).toContain("docker.io/blendsdk/");
-    expect(scan.source).not.toContain("ghcr.io");
+    expect(scan.source).not.toContain("ghcr.io/blendsdk/");
   });
 
   it("should scan images with a digest-pinned Trivy image", () => {
@@ -75,6 +75,13 @@ describe("workflow security policy", () => {
       expect(workflow.source).toMatch(/aquasec\/trivy@sha256:[0-9a-f]{64}/);
       expect(workflow.source).not.toContain("aquasecurity/trivy-action");
     }
+  });
+
+  it("should sign images with a digest-pinned Cosign image", () => {
+    const release = workflowFiles.find((workflow) => workflow.name === "release.yml");
+    expect(release).toBeDefined();
+    expect(release.source).toMatch(/ghcr\.io\/sigstore\/cosign\/cosign@sha256:[0-9a-f]{64}/);
+    expect(release.source).not.toContain("sigstore/cosign-installer");
   });
 
   it("should keep the manual Codex security scan out of CI/CD", () => {
