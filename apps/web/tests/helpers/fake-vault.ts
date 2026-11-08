@@ -10,7 +10,7 @@ const OBJECT_ASSIGNMENT_ID = "01ARZ3NDEKTSV4RRFFQ69G5FB8";
 const EVENT_ID = "01ARZ3NDEKTSV4RRFFQ69G5FB0";
 const ADMIN_ID = "01ARZ3NDEKTSV4RRFFQ69G5FB1";
 const CERTIFICATE_ID = "01ARZ3NDEKTSV4RRFFQ69G5FC1";
-const CERTIFICATE_VERSION_ID = "01ARZ3NDEKTSV4RRFFQ69G5FC2";
+export const CERTIFICATE_VERSION_ID = "01ARZ3NDEKTSV4RRFFQ69G5FC2";
 const CERTIFICATE_DELETED_ID = "01ARZ3NDEKTSV4RRFFQ69G5FC3";
 const CERTIFICATE_LOCKED_ID = "01ARZ3NDEKTSV4RRFFQ69G5FC4";
 const CERTIFICATE_EXPIRED_ID = "01ARZ3NDEKTSV4RRFFQ69G5FC5";
@@ -30,7 +30,7 @@ type CertificateRecord = Awaited<
 >["certificates"][number];
 
 /** One certificate fixture with the full browser metadata shape. */
-function certificate(
+export function certificate(
   overrides: Partial<CertificateRecord> & Pick<CertificateRecord, "id" | "name" | "status">,
 ): CertificateRecord {
   return {
@@ -198,6 +198,8 @@ export class FakeVault implements RequestAdapter {
     }),
   ];
   certificateWarnings: { code: string; message: string }[] = [];
+  certificateLeafPem = TEST_CERTIFICATE_PEM;
+  certificateChainPem = TEST_CHAIN_PEM;
   failCertificate: { status: number; code: string; message: string } | undefined;
   denyPrivateKey = false;
   privateKeyRevealCount = 0;
@@ -575,14 +577,21 @@ export class FakeVault implements RequestAdapter {
           if (url.searchParams.get("version") === null && found.status === "expired") {
             return failure(410, "certificate_expired", "Certificate expired");
           }
-          return ok({ ...found, certificatePem: TEST_CERTIFICATE_PEM, chainPem: TEST_CHAIN_PEM });
+          return ok({
+            ...found,
+            certificatePem: this.certificateLeafPem,
+            chainPem: this.certificateChainPem,
+          });
         }
 
         if (method === "PATCH" && suffix === undefined) {
           if (found === undefined) {
             return failure(404, "certificate_not_found", "Certificate not found");
           }
-          if (certificateBody?.tags === undefined && certificateBody?.purgeProtected === undefined) {
+          if (
+            certificateBody?.tags === undefined &&
+            certificateBody?.purgeProtected === undefined
+          ) {
             return failure(422, "validation_error", "Validation failed");
           }
           if (certificateBody.purgeProtected === false && found.purgeProtected) {

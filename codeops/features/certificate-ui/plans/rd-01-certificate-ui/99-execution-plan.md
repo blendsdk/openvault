@@ -2,8 +2,8 @@
 
 > **Document**: 99-execution-plan.md
 > **Parent**: [Index](00-index.md)
-> **Last Updated**: 2026-11-08 17:23
-> **Progress**: 33/77 tasks (43%)
+> **Last Updated**: 2026-11-08 17:30
+> **Progress**: 41/77 tasks (53%)
 > **CodeOps Artifact Schema**: 1
 
 ## Overview
@@ -180,26 +180,26 @@ task-size criteria in the quality checklist)
 **Reference**: [03-01 §CertificateDetailPage](03-01-web-ui.md) · ST-19..ST-23 · AR-6, AR-15, AR-27
 **Objective**: Pin the metadata, version read, public material, and expired-current behavior.
 
-- [ ] 4.1.1 [spec-author] Write the detail and public-material spec tests — `apps/web/tests/certificate-detail.test.tsx`
-- [ ] 4.1.2 Run the tests and confirm red
+- [x] 4.1.1 [spec-author] Write the detail and public-material spec tests — `apps/web/tests/certificate-detail.test.tsx` ✅ (completed: 2026-11-08 17:26)
+- [x] 4.1.2 Run the tests and confirm red ✅ (completed: 2026-11-08 17:26)
 
 ### Step 4.2: Implementation
 
 **Reference**: [03-01 §CertificateDetailPage](03-01-web-ui.md), [03-01 §PEM helpers](03-01-web-ui.md) · AR-15, AR-27
 **Objective**: Implement metadata, version selection, and public material.
 
-- [ ] 4.2.1 Add the detail route and implement the metadata card, status, SANs, and purge fields — `apps/web/src/App.tsx`, `apps/web/src/pages/certificate-detail-page.tsx`
-- [ ] 4.2.2 Implement the version control and the explicit public read with the selected version id — `apps/web/src/pages/certificate-detail-page.tsx`
-- [ ] 4.2.3 Add copy and download for leaf and chain; handle an empty chain — `apps/web/src/pages/certificate-detail-page.tsx`, `apps/web/src/components/pem.ts`
-- [ ] 4.2.4 Run the Phase 4 spec tests and confirm green
+- [x] 4.2.1 Add the detail route and implement the metadata card, status, SANs, and purge fields — `apps/web/src/App.tsx`, `apps/web/src/pages/certificate-detail-page.tsx` ✅ (completed: 2026-11-08 17:28)
+- [x] 4.2.2 Implement the version control and the explicit public read with the selected version id — `apps/web/src/pages/certificate-detail-page.tsx` ✅ (completed: 2026-11-08 17:28)
+- [x] 4.2.3 Add copy and download for leaf and chain; handle an empty chain — `apps/web/src/pages/certificate-detail-page.tsx`, `apps/web/src/components/pem.ts` ✅ (completed: 2026-11-08 17:28)
+- [x] 4.2.4 Run the Phase 4 spec tests and confirm green ✅ (completed: 2026-11-08 17:28)
 
 ### Step 4.3: Implementation tests and hardening
 
 **Reference**: ST-19..ST-23 · AR-15
 **Objective**: Cover version reset and expired-current behavior.
 
-- [ ] 4.3.1 Add impl tests for the version state reset on reload, the not-found state, and an expired current certificate — `apps/web/tests/certificate-detail.impl.test.tsx`
-- [ ] 4.3.2 Confirm the long fingerprint and subject wrap without horizontal overflow
+- [x] 4.3.1 Add impl tests for the version state reset on reload, the not-found state, and an expired current certificate — `apps/web/tests/certificate-detail.impl.test.tsx` ✅ (completed: 2026-11-08 17:30)
+- [x] 4.3.2 Confirm the long fingerprint and subject wrap without horizontal overflow ✅ (completed: 2026-11-08 17:30)
 
 **Deliverables**:
 - [ ] The detail page, version read, and public material pass their tests
