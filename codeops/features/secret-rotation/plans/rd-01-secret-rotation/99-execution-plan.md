@@ -3,7 +3,7 @@
 > **Document**: 99-execution-plan.md
 > **Parent**: [Index](00-index.md)
 > **Last Updated**: 2026-11-09
-> **Progress**: 42/85 tasks (49%)
+> **Progress**: 53/85 tasks (62%)
 > **CodeOps Artifact Schema**: 1
 
 ## Overview
@@ -186,29 +186,29 @@ migration/schema invariants.
 **Reference**: [03-04 §RotationPage](03-04-web-ui.md) · ST-32..ST-35, ST-41..ST-43 · AR-18, AR-19, AR-20
 **Objective**: Pin the page, filters, empty states, badges, and navigation.
 
-- [ ] 4.1.1 [spec-author] Write the Rotation page spec tests — `apps/web/tests/rotation-page.test.tsx`
-- [ ] 4.1.2 [spec-author] Extend the shell and overview specs — `apps/web/tests/layout.test.tsx`, `apps/web/tests/projects.test.tsx`
-- [ ] 4.1.3 Run the tests and confirm red
+- [x] 4.1.1 [spec-author] Write the Rotation page spec tests — `apps/web/tests/rotation-page.test.tsx`
+- [x] 4.1.2 [spec-author] Extend the shell and overview specs — `apps/web/tests/layout.test.tsx`, `apps/web/tests/projects.test.tsx`
+- [x] 4.1.3 Run the tests and confirm red
 
 ### Step 4.2: Implementation
 
 **Reference**: [03-04 §RotationPage](03-04-web-ui.md) · AR-18, AR-19, PAR-09
 **Objective**: Implement the page, route, navigation, docs mapping, list badge, and overview counts.
 
-- [ ] 4.2.1 Implement the Rotation page with search, status filter, `?status=` initialization, table, pagination, and empty states — `apps/web/src/pages/rotation-page.tsx`
-- [ ] 4.2.2 Add the route, section nav, launcher entry, and docs mapping — `apps/web/src/App.tsx`, `apps/web/src/projects/project-route.tsx`, `apps/web/src/layout/app-shell.tsx`, `apps/web/src/docs.ts`
-- [ ] 4.2.3 Add the rotation status badge and Needs rotation link to the secrets list — `apps/web/src/pages/secrets-page.tsx`
-- [ ] 4.2.4 Add due/overdue counts to the project overview — `apps/web/src/pages/project-overview-page.tsx`
-- [ ] 4.2.5 Extend the web `FakeVault` with secret PATCH/PUT and rotation-query handling — `apps/web/tests/helpers/fake-vault.ts`
-- [ ] 4.2.6 Run the Phase 4 spec tests and confirm green
+- [x] 4.2.1 Implement the Rotation page with search, status filter, `?status=` initialization, table, pagination, and empty states — `apps/web/src/pages/rotation-page.tsx`
+- [x] 4.2.2 Add the route, section nav, launcher entry, and docs mapping — `apps/web/src/App.tsx`, `apps/web/src/projects/project-route.tsx`, `apps/web/src/layout/app-shell.tsx`, `apps/web/src/docs.ts`
+- [x] 4.2.3 Add the rotation status badge and Needs rotation link to the secrets list — `apps/web/src/pages/secrets-page.tsx`
+- [x] 4.2.4 Add due/overdue counts to the project overview — `apps/web/src/pages/project-overview-page.tsx`
+- [x] 4.2.5 Extend the web `FakeVault` with secret PATCH/PUT and rotation-query handling — `apps/web/tests/helpers/fake-vault.ts`
+- [x] 4.2.6 Run the Phase 4 spec tests and confirm green
 
 ### Step 4.3: Implementation tests and hardening
 
 **Reference**: ST-32..ST-35, ST-41..ST-43 · PAR-11
 **Objective**: Cover filters, pagination, and capability gating.
 
-- [ ] 4.3.1 Add impl tests for filter reset, Load more, and a reader without `canWrite` — `apps/web/tests/rotation-page.impl.test.tsx`
-- [ ] 4.3.2 Confirm the table scrolls at 768 px and the empty states are reachable
+- [x] 4.3.1 Add impl tests for filter reset, Load more, and a reader without `canWrite` — `apps/web/tests/rotation-page.impl.test.tsx`
+- [x] 4.3.2 Confirm the table scrolls at 768 px and the empty states are reachable
 
 **Deliverables**:
 - [ ] The page, nav, badge, and overview pass their tests

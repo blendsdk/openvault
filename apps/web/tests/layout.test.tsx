@@ -127,6 +127,30 @@ describe("application shell", () => {
     );
   });
 
+  it("should expose Rotation in the launcher, section nav, and docs", async () => {
+    renderShell({ initialPath: "/projects/payments/rotation" });
+    expect(screen.getByRole("link", { name: "Docs" })).toHaveAttribute(
+      "href",
+      `${DOCS_BASE_URL}/guide/rotation`,
+    );
+    fireEvent.click(screen.getByRole("button", { name: "Open navigation" }));
+    expect(await screen.findByRole("button", { name: "Rotation" })).toBeInTheDocument();
+
+    const vault = new FakeVault();
+    renderPage(
+      <Routes>
+        <Route path="/projects/:project" element={<ProjectRoute />}>
+          <Route path="rotation" element={<p>Rotation content</p>} />
+        </Route>
+      </Routes>,
+      { vault, path: "/projects/payments/rotation" },
+    );
+    expect(await screen.findByText("Rotation content")).toBeInTheDocument();
+    const link = screen.getByRole("link", { name: "Rotation" });
+    expect(link).toHaveAttribute("aria-current", "page");
+    expect(link).toHaveAttribute("href", "/projects/payments/rotation");
+  });
+
   it("should show an empty state when no destination matches", async () => {
     renderShell({ initialPath: "/projects/payments/secrets" });
     fireEvent.click(screen.getByRole("button", { name: "Open navigation" }));

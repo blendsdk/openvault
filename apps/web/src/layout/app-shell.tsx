@@ -17,6 +17,7 @@ import {
   Text,
 } from "@fluentui/react-components";
 import {
+  ArrowRotateClockwise20Regular,
   BookOpen20Regular,
   Certificate20Regular,
   DarkTheme20Regular,
@@ -104,6 +105,13 @@ function launcherEntries(projectName: string | undefined): LauncherEntry[] {
       to: `${base}/secrets`,
       icon: <Key20Regular aria-hidden="true" />,
       keywords: "values credentials",
+      exact: false,
+    },
+    {
+      label: "Rotation",
+      to: `${base}/rotation`,
+      icon: <ArrowRotateClockwise20Regular aria-hidden="true" />,
+      keywords: "rotation policy due overdue",
       exact: false,
     },
     {

@@ -1,5 +1,6 @@
 import { FormTextareaField, FormTextField } from "@blendsdk/fluentui-react-components";
 import {
+  Badge,
   Button,
   Dialog,
   DialogActions,
@@ -156,9 +157,14 @@ export function SecretsPage() {
         title="Secrets"
         description="Values are masked until an explicit, audited reveal."
         actions={
-          <Button appearance="primary" onClick={openCreate}>
-            New secret
-          </Button>
+          <>
+            <Link to={`/projects/${encodeURIComponent(project.name)}/rotation?status=due`}>
+              Needs rotation
+            </Link>
+            <Button appearance="primary" onClick={openCreate}>
+              New secret
+            </Button>
+          </>
         }
       />
       <form
@@ -242,6 +248,33 @@ export function SecretsPage() {
                   key: "status",
                   header: "Status",
                   render: (secret) => <StatusBadge status={secret.status} />,
+                },
+                {
+                  key: "rotation",
+                  header: "Rotation",
+                  render: (secret) => {
+                    if (secret.rotationIntervalDays === null) {
+                      return "—";
+                    }
+                    const status =
+                      typeof secret.rotationStatus === "string" ? secret.rotationStatus : "unknown";
+                    return status === "due_soon" || status === "overdue" ? (
+                      <Link
+                        to={`/projects/${encodeURIComponent(project.name)}/rotation?status=due`}
+                      >
+                        <Badge
+                          appearance="tint"
+                          color={status === "overdue" ? "danger" : "warning"}
+                        >
+                          {status}
+                        </Badge>
+                      </Link>
+                    ) : (
+                      <Badge appearance="tint" color="success">
+                        {status}
+                      </Badge>
+                    );
+                  },
                 },
                 {
                   key: "version",
