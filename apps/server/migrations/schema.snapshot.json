@@ -2469,6 +2469,154 @@
     },
     {
       "schema": "public",
+      "name": "secret_rotation_notifications",
+      "columns": [
+        {
+          "name": "audit_event_id",
+          "type": "text",
+          "nullable": true
+        },
+        {
+          "name": "claim_id",
+          "type": "text",
+          "nullable": true
+        },
+        {
+          "name": "claimed_at",
+          "type": "timestamptz",
+          "nullable": true
+        },
+        {
+          "name": "created_at",
+          "type": "timestamptz",
+          "nullable": false,
+          "default": "now()"
+        },
+        {
+          "name": "days_until_due",
+          "type": "integer",
+          "nullable": false
+        },
+        {
+          "name": "due_at",
+          "type": "timestamptz",
+          "nullable": false
+        },
+        {
+          "name": "id",
+          "type": "text",
+          "nullable": false
+        },
+        {
+          "name": "project_id",
+          "type": "text",
+          "nullable": false
+        },
+        {
+          "name": "secret_id",
+          "type": "text",
+          "nullable": false
+        },
+        {
+          "name": "sent_at",
+          "type": "timestamptz",
+          "nullable": true
+        },
+        {
+          "name": "status",
+          "type": "text",
+          "nullable": false
+        },
+        {
+          "name": "version_id",
+          "type": "text",
+          "nullable": false
+        }
+      ],
+      "primaryKey": {
+        "kind": "primaryKey",
+        "name": "secret_rotation_notifications_id_pkey",
+        "columns": [
+          "id"
+        ]
+      },
+      "uniqueConstraints": [
+        {
+          "kind": "unique",
+          "name": "secret_rotation_notifications_audit_event_id_key",
+          "columns": [
+            "audit_event_id"
+          ]
+        },
+        {
+          "kind": "unique",
+          "name": "secret_rotation_notifications_secret_id_version_id_s_55f86645f5",
+          "columns": [
+            "secret_id",
+            "version_id",
+            "status",
+            "due_at"
+          ]
+        }
+      ],
+      "checkConstraints": [
+        {
+          "kind": "check",
+          "name": "secret_rotation_notifications_349d6258df_check",
+          "expression": "id ~ '^[0-9A-HJKMNP-TV-Z]{26}$'"
+        },
+        {
+          "kind": "check",
+          "name": "secret_rotation_notifications_4ca1c67c7d_check",
+          "expression": "status IN ('due_soon', 'overdue')"
+        }
+      ],
+      "foreignKeys": [
+        {
+          "name": "secret_rotation_notifications_secret_id_fkey",
+          "kind": "foreignKey",
+          "columns": [
+            "secret_id"
+          ],
+          "referencedSchema": "public",
+          "referencedTable": "secrets",
+          "referencedColumns": [
+            "id"
+          ],
+          "onUpdate": "NO ACTION",
+          "onDelete": "CASCADE"
+        },
+        {
+          "name": "secret_rotation_notifications_secret_id_version_id_fkey",
+          "kind": "foreignKey",
+          "columns": [
+            "secret_id",
+            "version_id"
+          ],
+          "referencedSchema": "public",
+          "referencedTable": "secret_versions",
+          "referencedColumns": [
+            "secret_id",
+            "id"
+          ],
+          "onUpdate": "NO ACTION",
+          "onDelete": "CASCADE"
+        }
+      ],
+      "indexes": [
+        {
+          "name": "secret_rotation_notifications_status_idx",
+          "columns": [
+            "sent_at",
+            "claimed_at"
+          ],
+          "unique": false,
+          "concurrent": false
+        }
+      ]
+    },
+    {
+      "schema": "public",
       "name": "secret_versions",
       "columns": [
         {
@@ -2687,6 +2835,11 @@
           "default": false
         },
         {
+          "name": "rotation_interval_days",
+          "type": "integer",
+          "nullable": true
+        },
+        {
           "name": "tags",
           "type": "jsonb",
           "nullable": false,
@@ -2736,6 +2889,11 @@
           "kind": "check",
           "name": "secrets_5cd7f14688_check",
           "expression": "purge_after IS NULL OR (deleted_at IS NOT NULL AND purge_after >= deleted_at)"
+        },
+        {
+          "kind": "check",
+          "name": "secrets_9195b03144_check",
+          "expression": "rotation_interval_days BETWEEN 1 AND 3650"
         },
         {
           "kind": "check",
@@ -2794,6 +2952,15 @@
             "project_id"
           ],
           "unique": false,
+          "concurrent": false
+        },
+        {
+          "name": "secrets_rotation_idx",
+          "columns": [
+            "rotation_interval_days"
+          ],
+          "unique": false,
+          "where": "rotation_interval_days IS NOT NULL",
           "concurrent": false
         }
       ]
@@ -3057,7 +3224,7 @@
     {
       "schema": "public",
       "name": "secret_consumer_summaries",
-      "source": "\n  SELECT s.id AS secret_id,\n         s.project_id,\n         c.compose_project,\n         c.compose_service,\n         c.last_seen\n    FROM secrets s\n    JOIN consumers c ON c.project_id = s.project_id\n    JOIN principals p ON p.id = c.principal_id AND p.status = 'active'\n   WHERE EXISTS (\n     SELECT 1\n       FROM role_assignments r\n      WHERE r.principal_id = c.principal_id\n        AND r.role IN ('org.admin', 'project.admin', 'secrets.manager',\n                       'secrets.officer', 'secrets.reader')\n        AND (r.expires_at IS NULL OR r.expires_at > now())\n        AND (\n          r.scope_type = 'org'\n          OR (r.scope_type = 'project' AND r.scope_id = s.project_id)\n          OR (r.scope_type = 'object' AND r.scope_id = s.id AND r.role = 'secrets.reader')\n        )\n   )\n",
+      "source": "\n  SELECT s.id AS secret_id,\n         s.project_id,\n         c.compose_project,\n         c.compose_service,\n         c.last_seen,\n         c.state\n    FROM secrets s\n    JOIN consumers c ON c.project_id = s.project_id\n    JOIN principals p ON p.id = c.principal_id AND p.status = 'active'\n   WHERE EXISTS (\n     SELECT 1\n       FROM role_assignments r\n      WHERE r.principal_id = c.principal_id\n        AND r.role IN ('org.admin', 'project.admin', 'secrets.manager',\n                       'secrets.officer', 'secrets.reader')\n        AND (r.expires_at IS NULL OR r.expires_at > now())\n        AND (\n          r.scope_type = 'org'\n          OR (r.scope_type = 'project' AND r.scope_id = s.project_id)\n          OR (r.scope_type = 'object' AND r.scope_id = s.id AND r.role = 'secrets.reader')\n        )\n   )\n",
       "materialized": false
     }
   ]

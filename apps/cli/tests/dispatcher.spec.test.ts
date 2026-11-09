@@ -82,7 +82,7 @@ describe("CLI dispatcher", () => {
     const harness = runtime();
     const result = await harness.run(["--version"]);
     expect(result.code).toBe(0);
-    expect(result.stdout.trim()).toBe("1.1.0");
+    expect(result.stdout.trim()).toBe("1.2.0");
   });
 
   it("should print root help and exit 2 for an unknown group", async () => {

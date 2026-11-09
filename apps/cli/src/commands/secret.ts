@@ -56,7 +56,10 @@ async function readAll(runtime: CliRuntime, maxBytes: number): Promise<Buffer> {
 }
 
 /** Reads a value from a file, a file descriptor, or stdin. */
-async function readValue(options: Record<string, unknown>, runtime: CliRuntime): Promise<string> {
+export async function readValue(
+  options: Record<string, unknown>,
+  runtime: CliRuntime,
+): Promise<string> {
   const fromFile = textOption(options, "from-file");
   if (flagOption(options, "stdin")) {
     const bytes = await readAll(runtime, MAX_VALUE_BYTES);
@@ -131,7 +134,7 @@ export function createSecretParser(globals: GlobalOptions, runtime: CliRuntime):
   const context = createCommandContext(globals, runtime);
   const parser = new CommandLineParser({
     name: "ov secret",
-    version: "1.1.0",
+    version: "1.2.0",
     strict: true,
   });
 

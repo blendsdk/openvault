@@ -52,6 +52,7 @@ export const secretVersionSummarySchema = secretVersionSchema.extend({
 export const secretConsumerSummarySchema = z.strictObject({
   composeProject: z.string().min(1).max(100),
   composeService: z.string().min(1).max(100),
+  state: z.enum(["ok", "degraded", "failed"]),
   lastSeen: z.iso.datetime(),
 });
 
@@ -69,6 +70,9 @@ export const secretMetadataSchema = z.strictObject({
   deletedAt: z.iso.datetime().nullable(),
   purgeAfter: z.iso.datetime().nullable(),
   purgeProtected: z.boolean(),
+  rotationIntervalDays: z.number().int().min(1).max(3650).nullable(),
+  rotationDueAt: z.iso.datetime().nullable(),
+  rotationStatus: z.enum(["ok", "due_soon", "overdue"]).nullable(),
   consumers: z.array(secretConsumerSummarySchema),
   capabilities: capabilityFlagsSchema,
 });
@@ -101,12 +105,14 @@ export const secretMetadataUpdateRequestSchema = z
     tags: secretTagsSchema.optional(),
     contentType: secretContentTypeSchema.optional(),
     purgeProtected: z.boolean().optional(),
+    rotationIntervalDays: z.number().int().min(1).max(3650).nullable().optional(),
   })
   .refine(
     (value) =>
       value.tags !== undefined ||
       value.contentType !== undefined ||
-      value.purgeProtected !== undefined,
+      value.purgeProtected !== undefined ||
+      value.rotationIntervalDays !== undefined,
     "at least one field is required",
   );
 
@@ -126,6 +132,7 @@ export const secretListQuerySchema = z
       .optional(),
     tagKey: secretTagKeySchema.optional(),
     tagValue: secretTagValueSchema.optional(),
+    rotation: z.enum(["policy", "due", "overdue"]).optional(),
     limit: z.coerce.number().int().min(1).max(100).default(50),
     cursor: z
       .string()

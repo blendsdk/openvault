@@ -147,6 +147,48 @@ export class FakeVault implements RequestAdapter {
       deletedAt: null,
       purgeAfter: null,
       purgeProtected: false,
+      rotationIntervalDays: 30,
+      rotationDueAt: "2026-12-02T10:00:00.000Z",
+      rotationStatus: "ok",
+      consumers: [
+        {
+          composeProject: "payments",
+          composeService: "api",
+          state: "ok",
+          lastSeen: "2026-11-05T10:00:00.000Z",
+        },
+      ],
+      capabilities: {
+        canRead: true,
+        canWrite: true,
+        canDelete: true,
+        canRecover: true,
+        canPurge: true,
+        canManage: true,
+        canReadPrivate: true,
+      },
+    },
+    {
+      id: "01ARZ3NDEKTSV4RRFFQ69G5FC9",
+      projectId: PROJECT_ID,
+      name: "api-key",
+      tags: {},
+      contentType: "text/plain",
+      status: "active",
+      currentVersion: {
+        id: "01ARZ3NDEKTSV4RRFFQ69G5FC8",
+        createdAt: "2026-10-10T10:00:00.000Z",
+        createdBy: ADMIN_ID,
+        expiresAt: null,
+      },
+      createdAt: "2026-10-10T10:00:00.000Z",
+      updatedAt: "2026-10-10T10:00:00.000Z",
+      deletedAt: null,
+      purgeAfter: null,
+      purgeProtected: false,
+      rotationIntervalDays: 30,
+      rotationDueAt: "2026-11-09T10:00:00.000Z",
+      rotationStatus: "due_soon",
       consumers: [],
       capabilities: {
         canRead: true,
@@ -201,6 +243,8 @@ export class FakeVault implements RequestAdapter {
   certificateLeafPem = TEST_CERTIFICATE_PEM;
   certificateChainPem = TEST_CHAIN_PEM;
   failCertificate: { status: number; code: string; message: string } | undefined;
+  secretWriteFault: { status: number; code: string; message: string } | undefined;
+  secretMetadataFault: { status: number; code: string; message: string } | undefined;
   denyPrivateKey = false;
   privateKeyRevealCount = 0;
   certificateReadGate: Promise<void> | undefined;
@@ -240,6 +284,7 @@ export class FakeVault implements RequestAdapter {
   revealCount = 0;
   denyReveal = false;
   emptySecrets = false;
+  failNextSecretWrite = false;
   mustChangePassword = false;
   oidcEnabled = false;
   auditBroken = false;
@@ -404,7 +449,20 @@ export class FakeVault implements RequestAdapter {
         if (this.emptySecrets) {
           return ok({ secrets: [], nextCursor: null });
         }
-        return ok({ secrets: this.secrets, nextCursor: null });
+        const rotation = url.searchParams.get("rotation");
+        const rows = this.secrets.filter((secret) => {
+          if (rotation === null) {
+            return true;
+          }
+          if (rotation === "policy") {
+            return secret.rotationIntervalDays !== null;
+          }
+          if (rotation === "due") {
+            return secret.rotationStatus === "due_soon" || secret.rotationStatus === "overdue";
+          }
+          return secret.rotationStatus === "overdue";
+        });
+        return ok({ secrets: rows, nextCursor: null });
       }
       if (method === "GET" && secretName !== undefined && suffix === "/versions") {
         return ok({
@@ -438,6 +496,60 @@ export class FakeVault implements RequestAdapter {
           tags: { env: "prod" },
           version: this.secrets[0]?.currentVersion,
           capabilities: this.secrets[0]?.capabilities,
+        });
+      }
+      if (method === "PATCH" && secretName !== undefined) {
+        const secret = this.secrets.find((entry) => entry.name === secretName);
+        if (secret === undefined) {
+          return failure(404, "secret_not_found", "Secret not found");
+        }
+        if (this.secretMetadataFault !== undefined) {
+          const fault = this.secretMetadataFault;
+          this.secretMetadataFault = undefined;
+          return failure(fault.status, fault.code, fault.message);
+        }
+        const input = body as { rotationIntervalDays?: number | null };
+        if (input.rotationIntervalDays !== undefined) {
+          secret.rotationIntervalDays = input.rotationIntervalDays;
+          secret.rotationDueAt =
+            input.rotationIntervalDays === null
+              ? null
+              : new Date(
+                  Date.parse(secret.currentVersion?.createdAt ?? "2026-11-02T10:00:00.000Z") +
+                    input.rotationIntervalDays * 86_400_000,
+                ).toISOString();
+          secret.rotationStatus = input.rotationIntervalDays === null ? null : "ok";
+        }
+        return ok(secret);
+      }
+      if (method === "PUT" && secretName !== undefined) {
+        const secret = this.secrets.find((entry) => entry.name === secretName);
+        if (secret === undefined) {
+          return failure(404, "secret_not_found", "Secret not found");
+        }
+        if (this.secretWriteFault !== undefined) {
+          const fault = this.secretWriteFault;
+          this.secretWriteFault = undefined;
+          return failure(fault.status, fault.code, fault.message);
+        }
+        if (this.failNextSecretWrite) {
+          this.failNextSecretWrite = false;
+          return failure(503, "service_unavailable", "Service unavailable");
+        }
+        const input = body as { value?: string; expiresAt?: string };
+        if (typeof input.value === "string" && input.value.length > 0) {
+          this.secretValue = input.value;
+        }
+        return ok({
+          ...secret,
+          version: {
+            id: "01ARZ3NDEKTSV4RRFFQ69G5FD9",
+            createdAt: "2026-11-05T12:00:00.000Z",
+            createdBy: ADMIN_ID,
+            expiresAt: input.expiresAt ?? null,
+          },
+          rotationDueAt: "2026-12-05T12:00:00.000Z",
+          rotationStatus: "ok",
         });
       }
     }

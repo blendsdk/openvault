@@ -89,7 +89,7 @@ export async function runCommand(
 function createRunParser(): CommandLineParser {
   const parser = new CommandLineParser({
     name: "ov run",
-    version: "1.1.0",
+    version: "1.2.0",
     strict: true,
   });
   parser.addCommand({

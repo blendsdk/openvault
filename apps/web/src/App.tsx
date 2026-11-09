@@ -12,6 +12,7 @@ import { NotFoundPage } from "./pages/not-found-page.js";
 import { PermissionsPage } from "./pages/permissions-page.js";
 import { ProjectOverviewPage } from "./pages/project-overview-page.js";
 import { ProjectsPage } from "./pages/projects-page.js";
+import { RotationPage } from "./pages/rotation-page.js";
 import { SecretDetailPage } from "./pages/secret-detail-page.js";
 import { SecretsPage } from "./pages/secrets-page.js";
 import { ProjectRoute } from "./projects/project-route.js";
@@ -31,6 +32,7 @@ export function App() {
               <Route index element={<ProjectOverviewPage />} />
               <Route path="secrets" element={<SecretsPage />} />
               <Route path="secrets/:name" element={<SecretDetailPage />} />
+              <Route path="rotation" element={<RotationPage />} />
               <Route path="certificates" element={<CertificatesPage />} />
               <Route path="certificates/:name" element={<CertificateDetailPage />} />
               <Route path="identities" element={<IdentitiesPage />} />

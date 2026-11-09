@@ -1,8 +1,9 @@
 import { fireEvent, screen, waitFor, within } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
+import { ProjectOverviewPage } from "../src/pages/project-overview-page.js";
 import { ProjectsPage } from "../src/pages/projects-page.js";
 import { FakeVault } from "./helpers/fake-vault.js";
-import { renderPage } from "./helpers/render.js";
+import { renderPage, renderProjectPage } from "./helpers/render.js";
 
 describe("projects page", () => {
   it("should list projects and create one", async () => {
@@ -66,6 +67,13 @@ describe("projects page", () => {
       ).toBe(true);
     });
     expect(await screen.findByRole("link", { name: "payments-v2" })).toBeInTheDocument();
+  });
+
+  it("should show due rotation counts on the project overview", async () => {
+    const vault = new FakeVault();
+    renderProjectPage(<ProjectOverviewPage />, { vault });
+    expect(await screen.findByText("1 need attention")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Open rotation" })).toBeInTheDocument();
   });
 
   it("should confirm before deleting a project", async () => {

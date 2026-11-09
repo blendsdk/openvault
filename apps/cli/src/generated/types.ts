@@ -189,6 +189,8 @@ export type __schema4 = string;
 
 export type __schema4_2 = boolean;
 
+export type __schema5 = number | null;
+
 export type MetaGetReadinessResult = { status: 'ready' };
 
 export type AccessExplainAccessParams = {
@@ -543,7 +545,8 @@ export type AuditListAuditEventsParams = {
     | 'audit.prune'
     | 'backup.create'
     | 'backup.restore'
-    | 'certificate.expiry_warning';
+    | 'certificate.expiry_warning'
+    | 'secret.rotation_warning';
   objectType?: string;
   objectId?: string;
   result?: 'allow' | 'deny' | 'error';
@@ -594,7 +597,8 @@ export type AuditListAuditEventsResult = {
       | 'audit.prune'
       | 'backup.create'
       | 'backup.restore'
-      | 'certificate.expiry_warning';
+      | 'certificate.expiry_warning'
+      | 'secret.rotation_warning';
     actorId: __schema0_10 | unknown | null;
     actorKind: 'user' | 'service' | 'system';
     auditKeyId: __schema0_10;
@@ -660,7 +664,8 @@ export type AuditExportAuditParams = {
     | 'audit.prune'
     | 'backup.create'
     | 'backup.restore'
-    | 'certificate.expiry_warning';
+    | 'certificate.expiry_warning'
+    | 'secret.rotation_warning';
   objectType?: string;
   objectId?: string;
   result?: 'allow' | 'deny' | 'error';
@@ -1104,6 +1109,7 @@ export type SecretsListSecretsParams = {
   q?: string;
   tagKey?: string;
   tagValue?: string;
+  rotation?: 'policy' | 'due' | 'overdue';
   limit?: number;
   cursor?: string;
 };
@@ -1120,7 +1126,12 @@ export type SecretsListSecretsResult = {
       canRecover: boolean;
       canWrite: boolean;
     };
-    consumers: { composeProject: string; composeService: string; lastSeen: string }[];
+    consumers: {
+      composeProject: string;
+      composeService: string;
+      lastSeen: string;
+      state: 'ok' | 'degraded' | 'failed';
+    }[];
     contentType: string;
     createdAt: string;
     currentVersion: {
@@ -1135,6 +1146,9 @@ export type SecretsListSecretsResult = {
     projectId: __schema0_27;
     purgeAfter: string | null;
     purgeProtected: boolean;
+    rotationDueAt: string | null;
+    rotationIntervalDays: number | null;
+    rotationStatus: 'ok' | 'due_soon' | 'overdue' | unknown | null;
     status: 'active' | 'deleted';
     tags: Record<string, __schema2_13>;
     updatedAt: string;
@@ -1161,7 +1175,12 @@ export type SecretsCreateSecretResult = {
     canRecover: boolean;
     canWrite: boolean;
   };
-  consumers: { composeProject: string; composeService: string; lastSeen: string }[];
+  consumers: {
+    composeProject: string;
+    composeService: string;
+    lastSeen: string;
+    state: 'ok' | 'degraded' | 'failed';
+  }[];
   contentType: string;
   createdAt: string;
   currentVersion: __schema3_4 | unknown | null;
@@ -1171,6 +1190,9 @@ export type SecretsCreateSecretResult = {
   projectId: __schema0_29;
   purgeAfter: string | null;
   purgeProtected: boolean;
+  rotationDueAt: string | null;
+  rotationIntervalDays: number | null;
+  rotationStatus: 'ok' | 'due_soon' | 'overdue' | unknown | null;
   status: 'active' | 'deleted';
   tags: Record<string, __schema2_14>;
   updatedAt: string;
@@ -1222,7 +1244,12 @@ export type SecretsWriteSecretValueResult = {
     canRecover: boolean;
     canWrite: boolean;
   };
-  consumers: { composeProject: string; composeService: string; lastSeen: string }[];
+  consumers: {
+    composeProject: string;
+    composeService: string;
+    lastSeen: string;
+    state: 'ok' | 'degraded' | 'failed';
+  }[];
   contentType: string;
   createdAt: string;
   currentVersion: __schema3_6 | unknown | null;
@@ -1232,6 +1259,9 @@ export type SecretsWriteSecretValueResult = {
   projectId: __schema0_33;
   purgeAfter: string | null;
   purgeProtected: boolean;
+  rotationDueAt: string | null;
+  rotationIntervalDays: number | null;
+  rotationStatus: 'ok' | 'due_soon' | 'overdue' | unknown | null;
   status: 'active' | 'deleted';
   tags: Record<string, __schema2_18>;
   updatedAt: string;
@@ -1244,6 +1274,7 @@ export type SecretsUpdateSecretMetadataParams = {
   tags?: __schema0_31;
   contentType?: __schema3_5;
   purgeProtected?: __schema4_2;
+  rotationIntervalDays?: __schema5;
 };
 
 export type SecretsUpdateSecretMetadataResult = {
@@ -1256,7 +1287,12 @@ export type SecretsUpdateSecretMetadataResult = {
     canRecover: boolean;
     canWrite: boolean;
   };
-  consumers: { composeProject: string; composeService: string; lastSeen: string }[];
+  consumers: {
+    composeProject: string;
+    composeService: string;
+    lastSeen: string;
+    state: 'ok' | 'degraded' | 'failed';
+  }[];
   contentType: string;
   createdAt: string;
   currentVersion: {
@@ -1271,6 +1307,9 @@ export type SecretsUpdateSecretMetadataResult = {
   projectId: __schema0_32;
   purgeAfter: string | null;
   purgeProtected: boolean;
+  rotationDueAt: string | null;
+  rotationIntervalDays: number | null;
+  rotationStatus: 'ok' | 'due_soon' | 'overdue' | unknown | null;
   status: 'active' | 'deleted';
   tags: Record<string, __schema2_17>;
   updatedAt: string;
@@ -1283,7 +1322,12 @@ export type SecretsDeleteSecretResult = unknown;
 export type SecretsListSecretConsumersParams = { project: string; name: string };
 
 export type SecretsListSecretConsumersResult = {
-  consumers: { composeProject: string; composeService: string; lastSeen: string }[];
+  consumers: {
+    composeProject: string;
+    composeService: string;
+    lastSeen: string;
+    state: 'ok' | 'degraded' | 'failed';
+  }[];
 };
 
 export type SecretsPurgeSecretParams = { project: string; name: string };
@@ -1302,7 +1346,12 @@ export type SecretsRecoverSecretResult = {
     canRecover: boolean;
     canWrite: boolean;
   };
-  consumers: { composeProject: string; composeService: string; lastSeen: string }[];
+  consumers: {
+    composeProject: string;
+    composeService: string;
+    lastSeen: string;
+    state: 'ok' | 'degraded' | 'failed';
+  }[];
   contentType: string;
   createdAt: string;
   currentVersion: {
@@ -1317,6 +1366,9 @@ export type SecretsRecoverSecretResult = {
   projectId: __schema0_34;
   purgeAfter: string | null;
   purgeProtected: boolean;
+  rotationDueAt: string | null;
+  rotationIntervalDays: number | null;
+  rotationStatus: 'ok' | 'due_soon' | 'overdue' | unknown | null;
   status: 'active' | 'deleted';
   tags: Record<string, __schema2_19>;
   updatedAt: string;

@@ -1,5 +1,19 @@
 # Changelog
 
+## 1.2.0 — 2026-11-09
+
+### Added
+
+- Per-secret rotation policies, a derived due date, and live `ok`, due soon, and overdue
+  status in the web UI and secrets metadata.
+- A project Rotation page, a secret-detail rotation card, list badges, and overview counts.
+- Guided rotation with a manual or generated 32-byte base64url value in the web UI and
+  `ov rotation`.
+- An optional daily signed webhook for due-soon and overdue rotation reminders. The payload
+  contains metadata only.
+- `secret.rotation_warning` audit events and purge, dump, and role-grant coverage for the
+  notification table.
+
 ## 1.1.0 — 2026-11-08
 
 ### Added

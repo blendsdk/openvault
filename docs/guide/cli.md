@@ -44,6 +44,27 @@ human mode so it can be piped; `--json` prints the full response.
 and content type are written with the value on create; on update they are applied in a
 separate metadata request.
 
+## Rotation
+
+```bash
+ov rotation set db-password --every-days 30 --project payments
+ov rotation clear db-password --project payments
+ov rotation list --due --project payments
+ov rotation status db-password --project payments
+ov rotation rotate db-password --stdin --project payments
+ov rotation rotate db-password --generate --out ./db-password --project payments
+```
+
+The due date follows the current version, so a successful rotation starts the next interval.
+`--generate` creates 32 random bytes encoded as base64url. With `--out` the value is written
+to a file with mode `0600` before the new version is submitted; a failed submission removes
+that file. Without `--out`, the value is printed once and a warning is written to standard
+error. `--force` replaces an existing output file. `--due` and `--overdue` are mutually
+exclusive.
+
+The agent fetches the new version on its next refresh. Restart the application or make it
+watch the delivered file; OpenVault does not control the application process.
+
 ## Certificates, identities, and roles
 
 ```bash

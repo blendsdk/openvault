@@ -34,6 +34,10 @@ values stop startup before migrations or a listener bind.
 | `OPENVAULT_CERT_EXPIRY_HOUR` | `3` | no | 0–23 UTC; daily expiry-scan hour |
 | `OPENVAULT_CERT_EXPIRY_WEBHOOK_URL` | none | no | HTTPS URL (loopback HTTP outside production); credentials, fragments, and production link-local/metadata targets are rejected |
 | `OPENVAULT_CERT_EXPIRY_WEBHOOK_SECRET` | none | no | 16–256 characters; adds `X-OpenVault-Timestamp` and an HMAC signature; never logged or redacted-exposed |
+| `OPENVAULT_ROTATION_SCAN_HOUR` | `4` | no | 0–23 UTC; daily secret-rotation scan hour |
+| `OPENVAULT_ROTATION_WARNING_DAYS` | `7` | no | 1–30; due-soon window |
+| `OPENVAULT_ROTATION_WEBHOOK_URL` | none | no | HTTPS URL (loopback HTTP outside production); credentials, fragments, and production link-local/metadata targets are rejected |
+| `OPENVAULT_ROTATION_WEBHOOK_SECRET` | none | no | 16–256 characters; adds `X-OpenVault-Timestamp` and an HMAC signature; never logged or redacted-exposed |
 | `OPENVAULT_SOFT_DELETE_DAYS` | `30` | no | 7–90 |
 | `OPENVAULT_AUDIT_RETENTION_DAYS` | `180` | no | 30–3650 |
 | `OPENVAULT_JOIN_TOKEN_TTL` | `15m` | no | 1m–24h; default join-token lifetime; an admin request may override it up to 24 hours |
@@ -210,6 +214,7 @@ GRANT SELECT, DELETE ON secret_versions TO openvault_purger;
 GRANT SELECT, DELETE ON certificates TO openvault_purger;
 GRANT SELECT, DELETE ON certificate_versions TO openvault_purger;
 GRANT SELECT, DELETE ON certificate_expiry_notifications TO openvault_purger;
+GRANT SELECT, DELETE ON secret_rotation_notifications TO openvault_purger;
 ```
 
 Do not make the role a superuser, a table owner, or a member of any owner role. The server
@@ -230,6 +235,24 @@ request carries `X-OpenVault-Timestamp` and `X-OpenVault-Signature:
 sha256=<HMAC-SHA256(secret, timestamp + "." + rawBody)>`. A failed delivery is retried on a
 later run. The notification table makes the claim durable; a crash after a claim is recovered
 after a one-hour lease on a later run.
+
+## Secret rotation
+
+The rotation scan runs once per UTC day at `OPENVAULT_ROTATION_SCAN_HOUR`. It considers the
+current version of an active secret with a policy in an active project. A secret is due soon
+inside `OPENVAULT_ROTATION_WARNING_DAYS` and overdue at or after its due date.
+
+Set `OPENVAULT_ROTATION_WEBHOOK_URL` to deliver warnings. Without it, the warning is audited
+with `webhook: "skipped"` and the page still shows live status. With
+`OPENVAULT_ROTATION_WEBHOOK_SECRET`, the request carries `X-OpenVault-Timestamp` and
+`X-OpenVault-Signature: sha256=<HMAC-SHA256(secret, timestamp + "." + rawBody)>`. The payload
+contains metadata only: secret and project ids, name, version id, due date, days until due,
+status, event id, and event time. It never contains a value, key, or ciphertext.
+
+The scan records one warning per secret version, status, and due date. A failed delivery is
+retried on a later scan; a durable claim lease prevents a second process from sending the same
+warning. The notification rows are removed when the secret is purged and are included in the
+logical database dump.
 
 ## Keyring
 

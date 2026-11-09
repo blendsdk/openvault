@@ -12,7 +12,7 @@ on:
         options: [alpha, production]
         default: alpha
       version:
-        description: "Version label, for example v1.1.0 or v1.1.0-alpha.1"
+        description: "Version label, for example v1.2.0 or v1.2.0-alpha.1"
         type: string
         required: true
 

@@ -61,7 +61,7 @@ services:
 
   openvault-init:
     <<: *hardening
-    image: ${OPENVAULT_IMAGE:-blendsdk/openvault:1.1.0}
+    image: ${OPENVAULT_IMAGE:-blendsdk/openvault:1.2.0}
     entrypoint: ["/usr/local/bin/ov"]
     command: ["init", "--prepare"]
     user: "10001:10001"
@@ -157,7 +157,7 @@ services:
 
   openvaultd:
     <<: *hardening
-    image: ${OPENVAULT_IMAGE:-blendsdk/openvault:1.1.0}
+    image: ${OPENVAULT_IMAGE:-blendsdk/openvault:1.2.0}
     user: "10001:10001"
     read_only: true
     environment:
@@ -212,7 +212,7 @@ services:
 
   web:
     <<: *hardening
-    image: ${OPENVAULT_WEB_IMAGE:-blendsdk/openvault-web:1.1.0}
+    image: ${OPENVAULT_WEB_IMAGE:-blendsdk/openvault-web:1.2.0}
     user: "101:101"
     read_only: true
     tmpfs:

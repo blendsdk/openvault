@@ -37,6 +37,7 @@ function parseWebhookUrl(
   value: string | undefined,
   envMode: EnvMode,
   context: z.RefinementCtx,
+  envKey: string,
 ): string | undefined {
   if (value === undefined) {
     return undefined;
@@ -44,7 +45,7 @@ function parseWebhookUrl(
   if (value.length > 2_048) {
     context.addIssue({
       code: "custom",
-      path: ["OPENVAULT_CERT_EXPIRY_WEBHOOK_URL"],
+      path: [envKey],
       message: "must be at most 2048 characters",
     });
     return undefined;
@@ -55,7 +56,7 @@ function parseWebhookUrl(
   } catch {
     context.addIssue({
       code: "custom",
-      path: ["OPENVAULT_CERT_EXPIRY_WEBHOOK_URL"],
+      path: [envKey],
       message: "must be an absolute URL",
     });
     return undefined;
@@ -71,7 +72,7 @@ function parseWebhookUrl(
   ) {
     context.addIssue({
       code: "custom",
-      path: ["OPENVAULT_CERT_EXPIRY_WEBHOOK_URL"],
+      path: [envKey],
       message: "must use HTTPS",
     });
     return undefined;
@@ -79,7 +80,7 @@ function parseWebhookUrl(
   if (url.username !== "" || url.password !== "" || url.hash !== "") {
     context.addIssue({
       code: "custom",
-      path: ["OPENVAULT_CERT_EXPIRY_WEBHOOK_URL"],
+      path: [envKey],
       message: "must not contain credentials or a fragment",
     });
     return undefined;
@@ -96,7 +97,7 @@ function parseWebhookUrl(
     if (linkLocalV4 || linkLocalV6 || metadata) {
       context.addIssue({
         code: "custom",
-        path: ["OPENVAULT_CERT_EXPIRY_WEBHOOK_URL"],
+        path: [envKey],
         message: "must not target a link-local address",
       });
       return undefined;
@@ -472,6 +473,13 @@ const configSchema = z
       blankToUndefined,
       z.string().min(16).max(256).optional(),
     ),
+    OPENVAULT_ROTATION_SCAN_HOUR: integerField("OPENVAULT_ROTATION_SCAN_HOUR", 4, 0, 23),
+    OPENVAULT_ROTATION_WARNING_DAYS: integerField("OPENVAULT_ROTATION_WARNING_DAYS", 7, 1, 30),
+    OPENVAULT_ROTATION_WEBHOOK_URL: optionalString,
+    OPENVAULT_ROTATION_WEBHOOK_SECRET: z.preprocess(
+      blankToUndefined,
+      z.string().min(16).max(256).optional(),
+    ),
     OPENVAULT_SECRET_MAX_BYTES: integerField("OPENVAULT_SECRET_MAX_BYTES", 65_536, 1_024, 65_536),
     OPENVAULT_CERT_MAX_BYTES: integerField("OPENVAULT_CERT_MAX_BYTES", 131_072, 1_024, 131_072),
     OPENVAULT_SOFT_DELETE_DAYS: integerField("OPENVAULT_SOFT_DELETE_DAYS", 30, 7, 90),
@@ -548,6 +556,13 @@ const configSchema = z
       value.OPENVAULT_CERT_EXPIRY_WEBHOOK_URL,
       value.ENV_MODE,
       context,
+      "OPENVAULT_CERT_EXPIRY_WEBHOOK_URL",
+    );
+    const rotationWebhookUrl = parseWebhookUrl(
+      value.OPENVAULT_ROTATION_WEBHOOK_URL,
+      value.ENV_MODE,
+      context,
+      "OPENVAULT_ROTATION_WEBHOOK_URL",
     );
 
     return Object.freeze({
@@ -588,6 +603,12 @@ const configSchema = z
       ...(value.OPENVAULT_CERT_EXPIRY_WEBHOOK_SECRET === undefined
         ? {}
         : { certExpiryWebhookSecret: value.OPENVAULT_CERT_EXPIRY_WEBHOOK_SECRET }),
+      rotationScanHour: value.OPENVAULT_ROTATION_SCAN_HOUR,
+      rotationWarningDays: value.OPENVAULT_ROTATION_WARNING_DAYS,
+      ...(rotationWebhookUrl === undefined ? {} : { rotationWebhookUrl }),
+      ...(value.OPENVAULT_ROTATION_WEBHOOK_SECRET === undefined
+        ? {}
+        : { rotationWebhookSecret: value.OPENVAULT_ROTATION_WEBHOOK_SECRET }),
       sessionTtlHours: value.OPENVAULT_SESSION_TTL_HOURS,
       trustProxy: value.OPENVAULT_TRUST_PROXY,
       runMigrationsAtStartup: value.OPENVAULT_RUN_MIGRATIONS,

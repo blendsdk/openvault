@@ -366,6 +366,28 @@ export const eSecretConsumerSummaries = {
   LAST_SEEN: "last_seen",
   PROJECT_ID: "project_id",
   SECRET_ID: "secret_id",
+  STATE: "state",
+};
+
+/**
+ * Constant type for relation secret_rotation_notifications
+ * @export
+ * @constant
+ */
+export const eSecretRotationNotifications = {
+  $TABLE: "secret_rotation_notifications",
+  AUDIT_EVENT_ID: "audit_event_id",
+  CLAIM_ID: "claim_id",
+  CLAIMED_AT: "claimed_at",
+  CREATED_AT: "created_at",
+  DAYS_UNTIL_DUE: "days_until_due",
+  DUE_AT: "due_at",
+  ID: "id",
+  PROJECT_ID: "project_id",
+  SECRET_ID: "secret_id",
+  SENT_AT: "sent_at",
+  STATUS: "status",
+  VERSION_ID: "version_id",
 };
 
 /**
@@ -405,6 +427,7 @@ export const eSecrets = {
   PROJECT_ID: "project_id",
   PURGE_AFTER: "purge_after",
   PURGE_PROTECTED: "purge_protected",
+  ROTATION_INTERVAL_DAYS: "rotation_interval_days",
   TAGS: "tags",
   UPDATED_AT: "updated_at",
 };

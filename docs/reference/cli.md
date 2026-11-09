@@ -70,6 +70,23 @@ fails closed on missing or malformed server settings.
 file, `/dev/fd/N`, or a hidden prompt; it never accepts a value option. `get` prints only the
 value in human mode. `--out` writes decoded bytes with mode `0600`.
 
+### Rotation
+
+| Command | Options | Purpose |
+|---|---|---|
+| `ov rotation set <name>` | `--every-days 1-3650` | Set the rotation interval |
+| `ov rotation clear <name>` | — | Remove the policy |
+| `ov rotation list` | `--due`, `--overdue`, `--limit`, `--cursor` | List policy secrets; the default lists all policies |
+| `ov rotation status <name>` | — | Show the policy, due state, current version, and consumers |
+| `ov rotation rotate <name>` | `--generate`, `--out`, `--force`, `--stdin`, `--from-file`, `--encoding utf8\|base64`, `--expires-at`, `--idempotency-key` | Write a new version |
+
+`--project` is required. `--generate` cannot be combined with `--stdin` or `--from-file`;
+without `--generate`, one input option is required. `--out` requires `--generate`. With
+`--out`, the file is written with mode `0600` before the server write and removed if the write
+fails. Without `--out`, the generated value is printed once and the warning goes to standard
+error. The value never enters JSON metadata, logs, or errors. `--due` and `--overdue` are
+mutually exclusive.
+
 ### Certificates
 
 | Command | Options | Purpose |

@@ -44,6 +44,8 @@ export function docsPathForRoute(pathname: string): string {
       return segments.length > 3
         ? "/guide/web-ui#reveal-and-clipboard"
         : "/guide/secrets#secret-write-and-read";
+    case "rotation":
+      return "/guide/rotation";
     case "certificates":
       return segments.length > 3 ? "/guide/certificates#read-and-renew" : "/guide/certificates";
     case "identities":

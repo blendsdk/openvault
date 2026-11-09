@@ -58,7 +58,10 @@ describe("service identity generated artifacts", () => {
     expect(ids).toContain("20261107010908_audit-prune-authorization");
     expect(ids).toContain("20261107010919_audit-prune-procedure");
     expect(ids).toContain("20261107011546_secret-consumer-summary-view");
-    expect(ids).toHaveLength(14);
+    expect(ids).toContain("20261109120932_secret-rotation-policy");
+    expect(ids).toContain("20261109121017_secret-rotation-consumer-state");
+    expect(ids).toContain("20261109121755_secret-rotation-notifications");
+    expect(ids).toHaveLength(17);
   });
 });
 

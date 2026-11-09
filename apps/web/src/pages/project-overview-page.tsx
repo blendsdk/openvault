@@ -35,6 +35,14 @@ export function ProjectOverviewPage() {
       await client.audit.listAuditEvents({ projectId: project.id, limit: 5 }, { signal }),
     [client, project.id],
   );
+  const rotation = useAsync(
+    async (signal) =>
+      await client.secrets.listSecrets(
+        { project: project.name, rotation: "due", limit: 100 },
+        { signal },
+      ),
+    [client, project.name],
+  );
 
   const base = `/projects/${encodeURIComponent(project.name)}`;
   return (
@@ -89,6 +97,18 @@ export function ProjectOverviewPage() {
             <p className="summary-count">{assignments.data?.assignments.length ?? 0}</p>
             <p className="muted">Project-scope grants</p>
             <NavButton to={`${base}/permissions`}>Open permissions</NavButton>
+          </AsyncPanel>
+        </Card>
+        <Card className="summary-card">
+          <Text weight="semibold">Rotation</Text>
+          <AsyncPanel loading={rotation.loading} error={rotation.error} onRetry={rotation.reload}>
+            <p className="summary-count">
+              {rotation.data?.nextCursor === null || rotation.data?.nextCursor === undefined
+                ? `${rotation.data?.secrets.length ?? 0} need attention`
+                : "100+ need attention"}
+            </p>
+            <p className="muted">Due-soon and overdue secrets</p>
+            <NavButton to={`${base}/rotation`}>Open rotation</NavButton>
           </AsyncPanel>
         </Card>
       </div>

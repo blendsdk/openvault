@@ -63,6 +63,14 @@ export interface OpenVaultConfig {
   readonly certExpiryHour: number;
   readonly certExpiryWebhookUrl?: string;
   readonly certExpiryWebhookSecret?: string;
+  /** UTC hour for the secret rotation scan. */
+  readonly rotationScanHour: number;
+  /** Due-soon window for secret rotation. */
+  readonly rotationWarningDays: number;
+  /** Optional rotation-reminder webhook URL. */
+  readonly rotationWebhookUrl?: string;
+  /** Optional rotation-reminder HMAC secret. */
+  readonly rotationWebhookSecret?: string;
   readonly sessionTtlHours: number;
   readonly trustProxy: boolean;
   /** Run migrations at startup; false when a one-shot init job already did it. */
@@ -111,6 +119,9 @@ export interface RedactedOpenVaultConfig {
   readonly certTtlDays: number;
   readonly certExpiryHour: number;
   readonly webhookConfigured: boolean;
+  readonly rotationScanHour: number;
+  readonly rotationWarningDays: number;
+  readonly rotationWebhookConfigured: boolean;
   readonly sessionTtlHours: number;
   readonly trustProxy: boolean;
   readonly proxyCidrs: readonly string[];

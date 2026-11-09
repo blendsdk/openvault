@@ -89,12 +89,27 @@ describe("documentation version labels", () => {
   it("should state the current release and keep the package version in sync", () => {
     const packageJson = JSON.parse(read("package.json"));
 
-    expect(packageJson.version).toBe("1.1.0");
+    expect(packageJson.version).toBe("1.2.0");
     expect(read("README.md")).toContain("Current release");
-    expect(read("README.md")).toContain("1.1.0");
-    expect(read("docs/index.md")).toContain("1.1.0");
+    expect(read("README.md")).toContain("1.2.0");
+    expect(read("docs/index.md")).toContain("1.2.0");
     expect(read("docs/guide/versioning.md")).toContain("1.0.0");
     expect(read("docs/guide/versioning.md")).toContain("1.1.0");
+    expect(read("docs/guide/versioning.md")).toContain("1.2.0");
+  });
+
+  it("should describe the secret rotation workflow", () => {
+    const rotation = read("docs/guide/rotation.md");
+    expect(rotation).toContain("## Rotation policy");
+    expect(rotation).toContain("ov rotation");
+    expect(rotation).toContain("Restart");
+    expect(rotation).toContain("due soon");
+    expect(rotation).toContain("overdue");
+
+    const webUi = read("docs/guide/web-ui.md");
+    expect(webUi).toContain("Rotation");
+    expect(webUi).toContain("Rotate now");
+    expect(webUi).toContain("will not be shown again");
   });
 
   it("should describe the certificate UI and drop the CLI-only limitation", () => {

@@ -1,7 +1,7 @@
 # Web UI
 
-The web UI is the day-to-day surface for projects, secrets, certificates, identities, permissions,
-audit, and consumer visibility. The CLI remains the automation and incident surface.
+The web UI is the day-to-day surface for projects, secrets, certificates, rotation, identities,
+permissions, audit, and consumer visibility. The CLI remains the automation and incident surface.
 
 ## Sign in
 
@@ -24,10 +24,10 @@ for Permissions or `events` for Audit. Choosing an item closes the panel and cle
 
 The top bar also has a **Docs** link that opens the published guide in a new tab. The target
 follows the current screen: the project list opens the project guide, the secret list opens
-the secrets guide, secret detail opens the reveal section, the certificate list opens the
-certificate guide, certificate detail opens its read-and-renew section, and identities,
-permissions, audit, and consumers open their matching guides. Unknown routes fall back to the
-documentation home.
+the secrets guide, secret detail opens the reveal section, the Rotation page opens the
+rotation guide, the certificate list opens the certificate guide, certificate detail opens its
+read-and-renew section, and identities, permissions, audit, and consumers open their matching
+guides. Unknown routes fall back to the documentation home.
 
 The desktop sidebar remains a shortcut to Projects, and the account menu keeps the signed-in
 address and sign-out action. The theme toggle is unchanged.
@@ -39,7 +39,8 @@ address and sign-out action. The theme toggle is unchanged.
 | Projects | List, create, rename, and delete projects; deletion is not recoverable in the browser in v1.0 |
 | Project overview | Ids, dates, certificate count, secret/identity/assignment counts, recent audit |
 | Secrets | Search, tag filter, cursor pagination, create, and a masked value |
-| Secret detail | Metadata, versions, consumers, audited reveal, and capability-gated actions; after a page reload a deleted secret is recovered with the CLI |
+| Secret detail | Metadata, versions, consumers, rotation policy and rotate actions, audited reveal, and capability-gated actions; after a page reload a deleted secret is recovered with the CLI |
+| Rotation | Policy secrets, due soon and overdue, interval, last rotation, consumers, and guided rotation |
 | Certificates | Search by name or subject, filter by SAN, expiry, and status, paginate, import, and generate |
 | Certificate detail | Metadata, public leaf and chain, version-by-id read, tags, purge protection, delete, recover, purge, and audited private-key reveal and download |
 | Identities | Create, revoke, and issue one-time join tokens |
@@ -68,6 +69,24 @@ instead of claiming a guaranteed clear.
 No secret value is written to `localStorage`, `sessionStorage`, IndexedDB, a JavaScript
 cookie, the URL, or logs. The only local-storage key is `openvault.theme` for the light/dark
 preference.
+
+## Rotation
+
+The project **Rotation** page lists the secrets that carry a rotation policy. Search by name
+and choose all policies, the secrets that need attention (due soon or overdue), or only
+overdue secrets. Each row shows the status, due date, interval, last rotation, and consumer
+count. The page uses the same cursor pagination as the secrets list.
+
+The secret detail page has a rotation card with the policy, due state, last rotation, and
+current consumers. **Set policy** sets or clears the interval. **Rotate now** accepts a manual
+value or generates a 32-byte random value encoded as base64url. The generated value is shown
+once and can be copied or regenerated before submitting. It will not be shown again after the
+dialog closes. It is never written to browser storage, the URL, the console, or a log. If the
+request fails, the dialog stays open and the value stays in the form.
+
+The rotation card states the restart requirement: the agent fetches the new version on its
+next refresh, and the application must restart or watch the delivered file. Old versions stay
+readable.
 
 ## Permissions and capabilities
 
@@ -101,10 +120,11 @@ not color alone. Keyboard operation covers login, reveal, navigation, dialogs, a
 The layout has a persistent sidebar at desktop widths, a launcher-driven top bar at every
 width, and tables that scroll horizontally at 768 px.
 
-Automated accessibility checks cover login, secret detail, the certificate list and detail,
-audit, and the application shell.
+Automated accessibility checks cover login, secret detail, the rotation page and dialog, the
+certificate list and detail, audit, and the application shell.
 
 ## Out of scope
 
-Rotation wizards, settings, user self-registration, password reset, rich secret editing, file
-upload, and additional locales. Backup/restore and key-encryption-key rotation remain CLI tasks.
+Settings, user self-registration, password reset, rich secret editing, file upload, and
+additional locales. Automatic rotation and external-provider rotation are not available.
+Backup/restore and key-encryption-key rotation remain CLI tasks.

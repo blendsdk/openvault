@@ -50,6 +50,7 @@ const INSERTION_ORDER = [
   "workload_certs",
   "secrets",
   "secret_versions",
+  "secret_rotation_notifications",
   "certificates",
   "certificate_versions",
   "certificate_expiry_notifications",

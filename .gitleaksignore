@@ -5,3 +5,7 @@
 # It is not credential material; the variable was renamed to avoid the generic
 # API-key heuristic, and this fingerprint covers the already-pushed commit.
 739958891772159cf43aaf7221a7bd0c1351ac7a:apps/web/tests/helpers/fake-vault.ts:generic-api-key:4
+# The secret rotation webhook test uses a ULID fixture on a line whose
+# property name contains "secret"; it is not credential material. The
+# fixture was restructured, and this fingerprint covers the pushed commit.
+df6b91a19355260efb5d67edca10ab6728f3c5ce:apps/server/tests/integration/secrets/rotation-webhook.impl.test.ts:generic-api-key:9

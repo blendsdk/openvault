@@ -115,6 +115,15 @@ const EXPIRY_DETAIL_KEYS: ReadonlySet<string> = new Set([
   "reason",
 ]);
 
+/** Details keys permitted on secret rotation warnings. */
+const ROTATION_DETAIL_KEYS: ReadonlySet<string> = new Set([
+  "status",
+  "daysUntilDue",
+  "version",
+  "webhook",
+  "reason",
+]);
+
 /** Query filter keys accepted inside `details.filters`. */
 const FILTER_KEYS: ReadonlySet<string> = new Set([
   "from",
@@ -170,6 +179,8 @@ export function allowedDetailKeys(action: AuditAction): ReadonlySet<string> {
       return CERTIFICATE_DETAIL_KEYS;
     case "certificate.expiry_warning":
       return EXPIRY_DETAIL_KEYS;
+    case "secret.rotation_warning":
+      return ROTATION_DETAIL_KEYS;
     case "kek.rotate":
       return KEK_DETAIL_KEYS;
     default:

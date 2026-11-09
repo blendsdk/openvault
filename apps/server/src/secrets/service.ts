@@ -48,6 +48,7 @@ import type {
   SecretVersionMetadata,
   SecretVersionRecord,
 } from "./repository.js";
+import { rotationDueAt, rotationState } from "./rotation/state.js";
 
 const MAX_VERSIONS = 1_000;
 const MAX_SECRET_CIPHERTEXT = 65_536;
@@ -81,6 +82,8 @@ export interface SecretServiceOptions {
   readonly softDeleteDays: number;
   /** Dedicated purge executor, absent when purge is not configured. */
   readonly purger?: VaultPurger;
+  /** Due-soon window in days; defaults to 7. */
+  readonly rotationWarningDays?: number;
   /** Injectable clock in milliseconds since the Unix epoch. */
   readonly now?: () => number;
 }
@@ -172,6 +175,7 @@ export class SecretService {
   readonly #secretMaxBytes: number;
   readonly #softDeleteDays: number;
   readonly #purger: VaultPurger | undefined;
+  readonly #rotationWarningDays: number;
   readonly #now: () => number;
 
   /**
@@ -187,6 +191,7 @@ export class SecretService {
     this.#secretMaxBytes = options.secretMaxBytes;
     this.#softDeleteDays = options.softDeleteDays;
     this.#purger = options.purger;
+    this.#rotationWarningDays = options.rotationWarningDays ?? 7;
     this.#now = options.now ?? Date.now;
   }
 
@@ -692,6 +697,9 @@ export class SecretService {
       q: query.q,
       tagKey: query.tagKey,
       tagValue: query.tagValue,
+      rotation: query.rotation,
+      warningDays: this.#rotationWarningDays,
+      now: new Date(this.#now()),
       cursor,
       limit: query.limit,
     });
@@ -817,6 +825,15 @@ export class SecretService {
     if (secret === undefined) {
       throw new SecretServiceError(404, "secret_not_found", "Resource not found");
     }
+    if (
+      input.rotationIntervalDays !== undefined &&
+      input.rotationIntervalDays !== null &&
+      (!Number.isInteger(input.rotationIntervalDays) ||
+        input.rotationIntervalDays < 1 ||
+        input.rotationIntervalDays > 3_650)
+    ) {
+      throw new SecretServiceError(422, "validation_error", "Validation failed");
+    }
     const decision = await this.#policy.authorize(
       actorId,
       "secret.write",
@@ -851,6 +868,10 @@ export class SecretService {
           tags: input.tags ?? locked.tags,
           contentType: input.contentType ?? locked.contentType,
           purgeProtected: input.purgeProtected === true ? true : locked.purgeProtected,
+          rotationIntervalDays:
+            input.rotationIntervalDays === undefined
+              ? locked.rotationIntervalDays
+              : input.rotationIntervalDays,
         });
         if (updated === undefined) {
           throw new SecretServiceError(404, "secret_not_found", "Resource not found");
@@ -1277,6 +1298,8 @@ export class SecretService {
     consumers: readonly ConsumerSummary[],
     capabilities: CapabilityFlags,
   ): SecretMetadata {
+    const dueAt = rotationDueAt(currentVersion?.createdAt ?? null, secret.rotationIntervalDays);
+    const rotationStatus = rotationState(dueAt, this.#now(), this.#rotationWarningDays);
     return {
       id: secret.id,
       projectId: secret.projectId,
@@ -1290,6 +1313,9 @@ export class SecretService {
       deletedAt: secret.deletedAt?.toISOString() ?? null,
       purgeAfter: secret.purgeAfter?.toISOString() ?? null,
       purgeProtected: secret.purgeProtected,
+      rotationIntervalDays: secret.rotationIntervalDays,
+      rotationDueAt: dueAt?.toISOString() ?? null,
+      rotationStatus: rotationStatus,
       consumers: consumers.map((consumer) => this.#consumer(consumer)),
       capabilities,
     };
@@ -1320,6 +1346,7 @@ export class SecretService {
     return {
       composeProject: consumer.composeProject,
       composeService: consumer.composeService,
+      state: consumer.state,
       lastSeen: consumer.lastSeen.toISOString(),
     };
   }

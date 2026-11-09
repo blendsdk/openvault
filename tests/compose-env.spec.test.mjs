@@ -82,7 +82,7 @@ describe("environment-variable example", () => {
   it("should pin the agent release and the application base image", () => {
     const compose = parse(read(composePath));
 
-    expect(compose.services["openvault-agent-api"].image).toBe("blendsdk/openvault-agent:1.1.0");
+    expect(compose.services["openvault-agent-api"].image).toBe("blendsdk/openvault-agent:1.2.0");
     expect(compose.services["openvault-agent-api"].command).toEqual(["run"]);
     expect(compose.services.api.image).toMatch(/^alpine:3\.21@sha256:[0-9a-f]{64}$/);
   });

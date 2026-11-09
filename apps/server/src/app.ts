@@ -40,6 +40,10 @@ import { VaultPurger } from "./purge/vault-purger.js";
 import { createPolicyRuntime } from "./rbac/runtime.js";
 import { createProductionProbes, ReadinessService } from "./readiness/service.js";
 import { ScaffoldService } from "./scaffold/service.js";
+import { SecretRotationRepository } from "./secrets/rotation/repository.js";
+import { SecretRotationScheduler } from "./secrets/rotation/scheduler.js";
+import { SecretRotationService } from "./secrets/rotation/service.js";
+import { SecretRotationWebhook } from "./secrets/rotation/webhook.js";
 import { createSecretRuntime } from "./secrets/runtime.js";
 import { KeyringProvider } from "./security/keyring.js";
 import { installPreStack, type PreStackOptions } from "./transport/pre-stack.js";
@@ -195,6 +199,7 @@ export function createApplication(
     secretMaxBytes: config.secretMaxBytes,
     softDeleteDays: config.softDeleteDays,
     purger: vaultPurger,
+    rotationWarningDays: config.rotationWarningDays,
   });
 
   const agentConsumerService = new AgentConsumerService({
@@ -233,6 +238,28 @@ export function createApplication(
   const certificateExpiryScheduler = new CertificateExpiryScheduler({
     service: certificateExpiryService,
     hour: config.certExpiryHour,
+    logger: provider,
+  });
+  const secretRotationWebhook =
+    config.rotationWebhookUrl === undefined
+      ? undefined
+      : new SecretRotationWebhook({
+          url: new URL(config.rotationWebhookUrl),
+          ...(config.rotationWebhookSecret === undefined
+            ? {}
+            : { secret: config.rotationWebhookSecret }),
+        });
+  const secretRotationService = new SecretRotationService({
+    database: dependencies.database,
+    repository: new SecretRotationRepository(),
+    ...(secretRotationWebhook === undefined ? {} : { webhook: secretRotationWebhook }),
+    audit: auditRuntime.writer,
+    logger: provider,
+    warningDays: config.rotationWarningDays,
+  });
+  const secretRotationScheduler = new SecretRotationScheduler({
+    service: secretRotationService,
+    hour: config.rotationScanHour,
     logger: provider,
   });
   const identityRuntime =
@@ -426,6 +453,21 @@ export function createApplication(
     },
   });
   app.registerService({
+    name: "secretRotationService",
+    type: "singleton",
+    factory: () => secretRotationService,
+  });
+  app.registerService({
+    name: "secretRotationScheduler",
+    type: "singleton",
+    factory: () => secretRotationScheduler,
+    dispose: async (value: unknown) => {
+      if (value instanceof SecretRotationScheduler) {
+        await value.stop();
+      }
+    },
+  });
+  app.registerService({
     name: "identityRuntime",
     type: "singleton",
     factory: () => identityRuntime,
@@ -541,6 +583,7 @@ export function createApplication(
 
   if (dependencies.disableBackgroundJobs !== true) {
     void certificateExpiryScheduler.start();
+    void secretRotationScheduler.start();
   }
   app.use(createLoggerPlugin(provider));
 

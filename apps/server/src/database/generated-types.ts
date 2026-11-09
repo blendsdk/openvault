@@ -1353,6 +1353,95 @@ export interface SecretConsumerSummaries {
    * @memberOf {SecretConsumerSummaries}
    */
   secret_id?: string | null;
+  /**
+   * @optional
+   * @nullable
+   * @memberOf {SecretConsumerSummaries}
+   */
+  state?: string | null;
+}
+
+/**
+ * @unique audit_event_id
+ * @default created_at to now()
+ * @unique due_at
+ * @primaryKey id
+ * @unique id
+ * @checkContraint id CHECK ((id ~ '^[0-9A-HJKMNP-TV-Z]{26}$'::text))
+ * @unique secret_id
+ * @unique status
+ * @checkContraint status CHECK ((status = ANY (ARRAY['due_soon'::text, 'overdue'::text])))
+ * @unique version_id
+ * @interface
+ */
+export interface SecretRotationNotifications {
+  /**
+   * @unique
+   * @optional
+   * @nullable
+   * @memberOf {SecretRotationNotifications}
+   */
+  audit_event_id?: string | null;
+  /**
+   * @optional
+   * @nullable
+   * @memberOf {SecretRotationNotifications}
+   */
+  claim_id?: string | null;
+  /**
+   * @optional
+   * @nullable
+   * @memberOf {SecretRotationNotifications}
+   */
+  claimed_at?: Date | null;
+  /**
+   * @default now()
+   * @optional
+   * @memberOf {SecretRotationNotifications}
+   */
+  created_at?: Date;
+  /**
+   * @memberOf {SecretRotationNotifications}
+   */
+  days_until_due: number;
+  /**
+   * @unique
+   * @memberOf {SecretRotationNotifications}
+   */
+  due_at: Date;
+  /**
+   * @primaryKey
+   * @unique
+   * @checkContraint CHECK ((id ~ '^[0-9A-HJKMNP-TV-Z]{26}$'::text))
+   * @memberOf {SecretRotationNotifications}
+   */
+  id: string;
+  /**
+   * @memberOf {SecretRotationNotifications}
+   */
+  project_id: string;
+  /**
+   * @unique
+   * @memberOf {SecretRotationNotifications}
+   */
+  secret_id: string;
+  /**
+   * @optional
+   * @nullable
+   * @memberOf {SecretRotationNotifications}
+   */
+  sent_at?: Date | null;
+  /**
+   * @unique
+   * @checkContraint CHECK ((status = ANY (ARRAY['due_soon'::text, 'overdue'::text])))
+   * @memberOf {SecretRotationNotifications}
+   */
+  status: string;
+  /**
+   * @unique
+   * @memberOf {SecretRotationNotifications}
+   */
+  version_id: string;
 }
 
 /**
@@ -1450,6 +1539,7 @@ export interface SecretVersions {
  * @unique project_id
  * @checkContraint purge_after CHECK (((purge_after IS NULL) OR ((deleted_at IS NOT NULL) AND (purge_after >= deleted_at))))
  * @default purge_protected to false
+ * @checkContraint rotation_interval_days CHECK (((rotation_interval_days >= 1) AND (rotation_interval_days <= 3650)))
  * @default tags to '{}'::jsonb
  * @checkContraint tags CHECK ((jsonb_typeof(tags) = 'object'::text))
  * @default updated_at to now()
@@ -1514,6 +1604,13 @@ export interface Secrets {
    * @memberOf {Secrets}
    */
   purge_protected?: boolean;
+  /**
+   * @checkContraint CHECK (((rotation_interval_days >= 1) AND (rotation_interval_days <= 3650)))
+   * @optional
+   * @nullable
+   * @memberOf {Secrets}
+   */
+  rotation_interval_days?: number | null;
   /**
    * @default '{}'::jsonb
    * @checkContraint CHECK ((jsonb_typeof(tags) = 'object'::text))

@@ -14,7 +14,7 @@ running Docker Compose on one host.
 ## Status
 
 OpenVault 1.0 is the first stable release. OpenVault 1.1 is the current release.
-**Current release: [1.1.0](https://github.com/blendsdk/openvault/releases/tag/v1.1.0).**
+**Current release: [1.2.0](https://github.com/blendsdk/openvault/releases/tag/v1.2.0).**
 
 ## Quickstart
 
@@ -75,7 +75,7 @@ Start with [Your first secret](docs/tutorials/first-secret.md) or
 
 ## Roadmap
 
-- **v1.x**: rotation workflow, remote Docker hosts
+- **v1.x**: remote Docker hosts
 - **Next**: Kubernetes identity, external key services, ACME, high availability
 
 ## Contributing
