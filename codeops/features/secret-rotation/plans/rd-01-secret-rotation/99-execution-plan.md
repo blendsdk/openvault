@@ -3,7 +3,7 @@
 > **Document**: 99-execution-plan.md
 > **Parent**: [Index](00-index.md)
 > **Last Updated**: 2026-11-09
-> **Progress**: 53/85 tasks (62%)
+> **Progress**: 63/85 tasks (74%)
 > **CodeOps Artifact Schema**: 1
 
 ## Overview
@@ -227,28 +227,28 @@ migration/schema invariants.
 **Reference**: [03-04 §Secret detail rotation card](03-04-web-ui.md) · ST-36..ST-40 · AR-5, AR-17, AR-6
 **Objective**: Pin the card, policy dialog, rotate dialog, generator, and one-time reveal.
 
-- [ ] 5.1.1 [spec-author] Write the detail card and policy dialog spec tests — `apps/web/tests/rotation-policy.test.tsx`
-- [ ] 5.1.2 [spec-author] Write the rotate dialog and generator spec tests — `apps/web/tests/rotation-dialog.test.tsx`
-- [ ] 5.1.3 Run the tests and confirm red
+- [x] 5.1.1 [spec-author] Write the detail card and policy dialog spec tests — `apps/web/tests/rotation-policy.test.tsx`
+- [x] 5.1.2 [spec-author] Write the rotate dialog and generator spec tests — `apps/web/tests/rotation-dialog.test.tsx`
+- [x] 5.1.3 Run the tests and confirm red
 
 ### Step 5.2: Implementation
 
 **Reference**: [03-04 §Secret detail rotation card](03-04-web-ui.md) · AR-5, AR-17, PAR-10
 **Objective**: Implement the card, dialogs, generator, and success state.
 
-- [ ] 5.2.1 Add the rotation card with status, due, interval, last rotation, consumers (including state), null-current-version handling, and actions — `apps/web/src/pages/secret-detail-page.tsx`
-- [ ] 5.2.2 Implement the policy dialog with set/clear and validation — `apps/web/src/components/rotation-policy-dialog.tsx`
-- [ ] 5.2.3 Implement the rotate dialog with manual value, generator, copy, regenerate, expiry, success, and state clearing — `apps/web/src/components/rotation-dialog.tsx`
-- [ ] 5.2.4 Add the base64url generator helper — `apps/web/src/validation.ts` or `apps/web/src/components/generated-value.ts`
-- [ ] 5.2.5 Run the Phase 5 spec tests and confirm green
+- [x] 5.2.1 Add the rotation card with status, due, interval, last rotation, consumers (including state), null-current-version handling, and actions — `apps/web/src/pages/secret-detail-page.tsx`
+- [x] 5.2.2 Implement the policy dialog with set/clear and validation — `apps/web/src/components/rotation-policy-dialog.tsx`
+- [x] 5.2.3 Implement the rotate dialog with manual value, generator, copy, regenerate, expiry, success, and state clearing — `apps/web/src/components/rotation-dialog.tsx`
+- [x] 5.2.4 Add the base64url generator helper — `apps/web/src/validation.ts` or `apps/web/src/components/generated-value.ts`
+- [x] 5.2.5 Run the Phase 5 spec tests and confirm green
 
 ### Step 5.3: Implementation tests and hardening
 
 **Reference**: ST-36..ST-40 · PAR-10
 **Objective**: Prove the generated value never persists.
 
-- [ ] 5.3.1 Add impl tests for close/unmount clearing, no storage, no URL, no console, and copy — `apps/web/tests/rotation-dialog.impl.test.tsx`
-- [ ] 5.3.2 Confirm a failed write keeps the dialog open and the value in place
+- [x] 5.3.1 Add impl tests for close/unmount clearing, no storage, no URL, no console, and copy — `apps/web/tests/rotation-dialog.impl.test.tsx`
+- [x] 5.3.2 Confirm a failed write keeps the dialog open and the value in place
 
 **Deliverables**:
 - [ ] The card, policy dialog, rotate dialog, and generator pass their tests

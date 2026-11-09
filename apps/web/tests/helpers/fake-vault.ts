@@ -150,7 +150,14 @@ export class FakeVault implements RequestAdapter {
       rotationIntervalDays: 30,
       rotationDueAt: "2026-12-02T10:00:00.000Z",
       rotationStatus: "ok",
-      consumers: [],
+      consumers: [
+        {
+          composeProject: "payments",
+          composeService: "api",
+          state: "ok",
+          lastSeen: "2026-11-05T10:00:00.000Z",
+        },
+      ],
       capabilities: {
         canRead: true,
         canWrite: true,
@@ -275,6 +282,7 @@ export class FakeVault implements RequestAdapter {
   revealCount = 0;
   denyReveal = false;
   emptySecrets = false;
+  failNextSecretWrite = false;
   mustChangePassword = false;
   oidcEnabled = false;
   auditBroken = false;
@@ -511,6 +519,10 @@ export class FakeVault implements RequestAdapter {
         const secret = this.secrets.find((entry) => entry.name === secretName);
         if (secret === undefined) {
           return failure(404, "secret_not_found", "Secret not found");
+        }
+        if (this.failNextSecretWrite) {
+          this.failNextSecretWrite = false;
+          return failure(503, "service_unavailable", "Service unavailable");
         }
         const input = body as { value?: string; expiresAt?: string };
         if (typeof input.value === "string" && input.value.length > 0) {

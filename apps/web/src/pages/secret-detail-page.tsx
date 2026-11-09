@@ -8,6 +8,8 @@ import { DataTable } from "../components/data-table.js";
 import { AsyncPanel, EmptyState, ErrorAlert } from "../components/feedback.js";
 import { NavButton } from "../components/nav-button.js";
 import { PageHeader } from "../components/page-header.js";
+import { RotationDialog } from "../components/rotation-dialog.js";
+import { RotationPolicyDialog } from "../components/rotation-policy-dialog.js";
 import { formatTags, formatTime, StatusBadge } from "../components/status.js";
 import type { OpenVaultWebClient } from "../generated/index.js";
 import { useAsync } from "../hooks/use-async.js";
@@ -38,6 +40,8 @@ export function SecretDetailPage() {
   const [revealFailure, setRevealFailure] = useState<unknown>(undefined);
   const [actionFailure, setActionFailure] = useState<unknown>(undefined);
   const [versionOpen, setVersionOpen] = useState(false);
+  const [rotationPolicyOpen, setRotationPolicyOpen] = useState(false);
+  const [rotationOpen, setRotationOpen] = useState(false);
   const [deletedMetadata, setDeletedMetadata] = useState<SecretMetadata | undefined>(undefined);
   const [copyStatus, setCopyStatus] = useState<string | undefined>(undefined);
   const revealRegion = useRef<HTMLDivElement>(null);
@@ -367,6 +371,55 @@ export function SecretDetailPage() {
         </p>
       </Card>
 
+      {secret.status === "active" ? (
+        <Card>
+          <div className="card-heading">
+            <Text weight="semibold">Rotation</Text>
+            {secret.capabilities.canWrite ? (
+              <div className="row-actions">
+                <Button appearance="secondary" onClick={() => setRotationPolicyOpen(true)}>
+                  Set policy
+                </Button>
+                <Button appearance="primary" onClick={() => setRotationOpen(true)}>
+                  Rotate now
+                </Button>
+              </div>
+            ) : null}
+          </div>
+          <dl className="metadata-list">
+            <dt>Policy</dt>
+            <dd>
+              {secret.rotationIntervalDays === null
+                ? "No policy"
+                : `every ${secret.rotationIntervalDays} days`}
+            </dd>
+            <dt>Due</dt>
+            <dd>
+              {secret.rotationDueAt === null
+                ? "—"
+                : `${formatTime(secret.rotationDueAt)} (${typeof secret.rotationStatus === "string" ? secret.rotationStatus : "unknown"})`}
+            </dd>
+            <dt>Last rotated</dt>
+            <dd>{formatTime(secret.currentVersion?.createdAt)}</dd>
+            <dt>Consumers</dt>
+            <dd>
+              {secret.consumers.length === 0
+                ? "No consumers"
+                : secret.consumers
+                    .map(
+                      (consumer) =>
+                        `${consumer.composeProject}/${consumer.composeService} ${consumer.state} ${formatTime(consumer.lastSeen)}`,
+                    )
+                    .join("; ")}
+            </dd>
+          </dl>
+          <p className="muted">
+            The agent fetches the new version on its next refresh. Restart or reload the application
+            to use it.
+          </p>
+        </Card>
+      ) : null}
+
       <div className="detail-grid">
         <Card>
           <Text weight="semibold">Metadata</Text>
@@ -505,6 +558,24 @@ export function SecretDetailPage() {
           </form>
         </section>
       ) : null}
+
+      <RotationPolicyDialog
+        open={rotationPolicyOpen}
+        project={project.name}
+        secret={secret}
+        onClose={() => setRotationPolicyOpen(false)}
+        onSaved={() => metadata.reload()}
+      />
+      <RotationDialog
+        open={rotationOpen}
+        project={project.name}
+        secret={secret}
+        onClose={() => setRotationOpen(false)}
+        onSaved={() => {
+          metadata.reload();
+          versions.reload();
+        }}
+      />
     </section>
   );
 }
