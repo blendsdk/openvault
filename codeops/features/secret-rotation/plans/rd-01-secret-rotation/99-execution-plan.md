@@ -3,7 +3,7 @@
 > **Document**: 99-execution-plan.md
 > **Parent**: [Index](00-index.md)
 > **Last Updated**: 2026-11-09
-> **Progress**: 34/85 tasks (40%)
+> **Progress**: 42/85 tasks (49%)
 > **CodeOps Artifact Schema**: 1
 
 ## Overview
@@ -148,26 +148,26 @@ migration/schema invariants.
 **Reference**: [03-03](03-03-cli.md) · ST-23..ST-31 · AR-16, AR-17
 **Objective**: Pin command parsing, API bodies, generator output, and file mode.
 
-- [ ] 3.1.1 [spec-author] Write parser and command spec tests — `apps/cli/tests/rotation.spec.test.ts`
-- [ ] 3.1.2 Run the tests and confirm red
+- [x] 3.1.1 [spec-author] Write parser and command spec tests — `apps/cli/tests/rotation.spec.test.ts`
+- [x] 3.1.2 Run the tests and confirm red
 
 ### Step 3.2: Implementation
 
 **Reference**: [03-03](03-03-cli.md) · AR-16, AR-17, PAR-08
 **Objective**: Add the `ov rotation` group.
 
-- [ ] 3.2.1 Implement `rotation set`, `clear`, `list`, and `status` — `apps/cli/src/commands/rotation.ts`
-- [ ] 3.2.2 Implement `rotation rotate` with manual input, `--generate`, write-ahead `--out`/`--force` with cleanup on a failed write, expiry, and idempotency — `apps/cli/src/commands/rotation.ts`
-- [ ] 3.2.3 Register the group in the root command list — `apps/cli/src/commands/index.ts`
-- [ ] 3.2.4 Run the Phase 3 spec tests and confirm green
+- [x] 3.2.1 Implement `rotation set`, `clear`, `list`, and `status` — `apps/cli/src/commands/rotation.ts`
+- [x] 3.2.2 Implement `rotation rotate` with manual input, `--generate`, write-ahead `--out`/`--force` with cleanup on a failed write, expiry, and idempotency — `apps/cli/src/commands/rotation.ts`
+- [x] 3.2.3 Register the group in the root command list — `apps/cli/src/commands/index.ts`
+- [x] 3.2.4 Run the Phase 3 spec tests and confirm green
 
 ### Step 3.3: Implementation tests and hardening
 
 **Reference**: ST-23..ST-31 · PAR-08
 **Objective**: Cover the generator and secure output.
 
-- [ ] 3.3.1 Add generator/output tests: 43 characters, mode `0600`, `--force`, failure cleanup, no value in metadata/errors — `apps/cli/tests/rotation-generator.impl.test.ts`
-- [ ] 3.3.2 Confirm `--generate` conflicts with `--stdin`/`--from-file`, `--out` requires `--generate`, and `--due` conflicts with `--overdue`
+- [x] 3.3.1 Add generator/output tests: 43 characters, mode `0600`, `--force`, failure cleanup, no value in metadata/errors — `apps/cli/tests/rotation-generator.impl.test.ts`
+- [x] 3.3.2 Confirm `--generate` conflicts with `--stdin`/`--from-file`, `--out` requires `--generate`, and `--due` conflicts with `--overdue`
 
 **Deliverables**:
 - [ ] All five commands and the generator pass; no value leaks

@@ -33,6 +33,7 @@ export interface FakeVault {
       value: string;
       encoding: "utf8" | "base64";
       tags: Record<string, string>;
+      rotationIntervalDays?: number | null;
     }
   >;
   readonly identities: Map<string, { id: string; name: string; projectId: string }>;
@@ -49,6 +50,7 @@ export interface FakeVault {
   >;
   auditOk: boolean;
   rejectNextAuthorized: boolean;
+  failNextSecretWrite: boolean;
   auditExportFails: boolean;
   close(): Promise<void>;
 }
@@ -110,9 +112,21 @@ function secretMetadata(
     value: string;
     encoding: "utf8" | "base64";
     tags: Record<string, string>;
+    rotationIntervalDays?: number | null;
   },
   versionId = ULID,
 ): Record<string, unknown> {
+  const interval = secret.rotationIntervalDays ?? null;
+  const dueAt =
+    interval === null ? null : new Date(Date.parse(NOW) + interval * 86_400_000).toISOString();
+  const status =
+    dueAt === null
+      ? null
+      : Date.parse(dueAt) <= Date.parse(NOW)
+        ? "overdue"
+        : Date.parse(dueAt) - Date.parse(NOW) <= 7 * 86_400_000
+          ? "due_soon"
+          : "ok";
   return {
     id: secret.id,
     projectId: ULID,
@@ -126,9 +140,9 @@ function secretMetadata(
     deletedAt: null,
     purgeAfter: null,
     purgeProtected: false,
-    rotationIntervalDays: null,
-    rotationDueAt: null,
-    rotationStatus: null,
+    rotationIntervalDays: interval,
+    rotationDueAt: dueAt,
+    rotationStatus: status,
     consumers: [],
     capabilities: {
       canRead: true,
@@ -159,6 +173,7 @@ export async function startFakeVault(): Promise<FakeVault> {
       value: string;
       encoding: "utf8" | "base64";
       tags: Record<string, string>;
+      rotationIntervalDays?: number | null;
     }
   >();
   const identities = new Map<string, { id: string; name: string; projectId: string }>();
@@ -186,6 +201,7 @@ export async function startFakeVault(): Promise<FakeVault> {
     certificates,
     auditOk: true,
     rejectNextAuthorized: false,
+    failNextSecretWrite: false,
     auditExportFails: false,
     async close(): Promise<void> {
       await new Promise<void>((resolve) => server?.close(() => resolve()));
@@ -296,10 +312,23 @@ export async function startFakeVault(): Promise<FakeVault> {
       return;
     }
     if (route === "GET /v1/data/payments/secrets") {
-      ok(response, {
-        secrets: [...secrets.values()].map((secret) => secretMetadata(secret)),
-        nextCursor: null,
+      const rotation = url.searchParams.get("rotation");
+      const entries = [...secrets.values()].map((secret) => secretMetadata(secret));
+      const filtered = entries.filter((entry) => {
+        if (rotation === null) {
+          return true;
+        }
+        const interval = entry.rotationIntervalDays as number | null;
+        const status = entry.rotationStatus as string | null;
+        if (rotation === "policy") {
+          return interval !== null;
+        }
+        if (rotation === "due") {
+          return status === "due_soon" || status === "overdue";
+        }
+        return status === "overdue";
       });
+      ok(response, { secrets: filtered, nextCursor: null });
       return;
     }
     if (request.method === "GET" && url.pathname.match(/^\/v1\/data\/payments\/secrets\/[^/]+$/)) {
@@ -331,6 +360,11 @@ export async function startFakeVault(): Promise<FakeVault> {
       return;
     }
     if (request.method === "PUT" && url.pathname.match(/^\/v1\/data\/payments\/secrets\/[^/]+$/)) {
+      if (fake.failNextSecretWrite) {
+        fake.failNextSecretWrite = false;
+        fail(response, 503, "service_unavailable", "Service unavailable");
+        return;
+      }
       const name = decodeURIComponent(url.pathname.split("/").pop() ?? "");
       const input = body as { value: string; encoding?: "utf8" | "base64" };
       const existing = secrets.get(name);
@@ -385,9 +419,15 @@ export async function startFakeVault(): Promise<FakeVault> {
         fail(response, 404, "secret_not_found", "Secret not found");
         return;
       }
-      const input = body as { tags?: Record<string, string> };
+      const input = body as {
+        tags?: Record<string, string>;
+        rotationIntervalDays?: number | null;
+      };
       if (input.tags !== undefined) {
         existing.tags = input.tags;
+      }
+      if (input.rotationIntervalDays !== undefined) {
+        existing.rotationIntervalDays = input.rotationIntervalDays;
       }
       ok(response, secretMetadata(existing));
       return;

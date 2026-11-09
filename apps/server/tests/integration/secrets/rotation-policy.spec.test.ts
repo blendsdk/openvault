@@ -17,7 +17,6 @@ import {
   type TestDatabase,
 } from "../helpers/test-database.js";
 
-const DAY_MS = 86_400_000;
 const NOW = Date.parse("2026-11-04T12:00:00.000Z");
 
 let testDb: TestDatabase;

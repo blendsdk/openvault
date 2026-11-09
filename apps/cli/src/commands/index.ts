@@ -14,6 +14,7 @@ import { kekGroup } from "./kek.js";
 import { projectGroup } from "./project.js";
 import { restoreGroup } from "./restore.js";
 import { roleGroup } from "./role.js";
+import { rotationGroup } from "./rotation.js";
 import { runGroup } from "./run.js";
 import { secretGroup } from "./secret.js";
 
@@ -23,6 +24,7 @@ export const GROUPS: readonly CommandGroup[] = [
   configGroup,
   projectGroup,
   secretGroup,
+  rotationGroup,
   certGroup,
   identityGroup,
   roleGroup,

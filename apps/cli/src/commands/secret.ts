@@ -56,7 +56,10 @@ async function readAll(runtime: CliRuntime, maxBytes: number): Promise<Buffer> {
 }
 
 /** Reads a value from a file, a file descriptor, or stdin. */
-async function readValue(options: Record<string, unknown>, runtime: CliRuntime): Promise<string> {
+export async function readValue(
+  options: Record<string, unknown>,
+  runtime: CliRuntime,
+): Promise<string> {
   const fromFile = textOption(options, "from-file");
   if (flagOption(options, "stdin")) {
     const bytes = await readAll(runtime, MAX_VALUE_BYTES);
