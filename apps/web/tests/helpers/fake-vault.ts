@@ -243,6 +243,8 @@ export class FakeVault implements RequestAdapter {
   certificateLeafPem = TEST_CERTIFICATE_PEM;
   certificateChainPem = TEST_CHAIN_PEM;
   failCertificate: { status: number; code: string; message: string } | undefined;
+  secretWriteFault: { status: number; code: string; message: string } | undefined;
+  secretMetadataFault: { status: number; code: string; message: string } | undefined;
   denyPrivateKey = false;
   privateKeyRevealCount = 0;
   certificateReadGate: Promise<void> | undefined;
@@ -501,6 +503,11 @@ export class FakeVault implements RequestAdapter {
         if (secret === undefined) {
           return failure(404, "secret_not_found", "Secret not found");
         }
+        if (this.secretMetadataFault !== undefined) {
+          const fault = this.secretMetadataFault;
+          this.secretMetadataFault = undefined;
+          return failure(fault.status, fault.code, fault.message);
+        }
         const input = body as { rotationIntervalDays?: number | null };
         if (input.rotationIntervalDays !== undefined) {
           secret.rotationIntervalDays = input.rotationIntervalDays;
@@ -519,6 +526,11 @@ export class FakeVault implements RequestAdapter {
         const secret = this.secrets.find((entry) => entry.name === secretName);
         if (secret === undefined) {
           return failure(404, "secret_not_found", "Secret not found");
+        }
+        if (this.secretWriteFault !== undefined) {
+          const fault = this.secretWriteFault;
+          this.secretWriteFault = undefined;
+          return failure(fault.status, fault.code, fault.message);
         }
         if (this.failNextSecretWrite) {
           this.failNextSecretWrite = false;

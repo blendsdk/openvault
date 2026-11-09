@@ -3,7 +3,7 @@
 > **Document**: 99-execution-plan.md
 > **Parent**: [Index](00-index.md)
 > **Last Updated**: 2026-11-09
-> **Progress**: 63/85 tasks (74%)
+> **Progress**: 69/85 tasks (81%)
 > **CodeOps Artifact Schema**: 1
 
 ## Overview
@@ -267,18 +267,18 @@ migration/schema invariants.
 **Reference**: [03-04 §Error handling](03-04-web-ui.md) · ST-44, ST-45 · AR-11, AR-12, AR-25
 **Objective**: Pin error text and axe coverage.
 
-- [ ] 6.1.1 [spec-author] Write error-mapping tests — `apps/web/tests/rotation-errors.test.tsx`
-- [ ] 6.1.2 [spec-author] Add the Rotation page and dialog to the axe suite — `apps/web/tests/accessibility.test.tsx`
-- [ ] 6.1.3 Run the tests and confirm red
+- [x] 6.1.1 [spec-author] Write error-mapping tests — `apps/web/tests/rotation-errors.test.tsx`
+- [x] 6.1.2 [spec-author] Add the Rotation page and dialog to the axe suite — `apps/web/tests/accessibility.test.tsx`
+- [x] 6.1.3 Run the tests and confirm red
 
 ### Step 6.2: Implementation and hardening
 
 **Reference**: ST-44, ST-45 · PAR-15
 **Objective**: Make the error and accessibility behavior pass.
 
-- [ ] 6.2.1 Add the documented error mapping and fallbacks — `apps/web/src/pages/rotation-page.tsx`, dialogs
-- [ ] 6.2.2 Fix labels, dialog focus, table caption, and status text issues found by axe
-- [ ] 6.2.3 Run the web suite and confirm green
+- [x] 6.2.1 Add the documented error mapping and fallbacks — `apps/web/src/pages/rotation-page.tsx`, dialogs
+- [x] 6.2.2 Fix labels, dialog focus, table caption, and status text issues found by axe
+- [x] 6.2.3 Run the web suite and confirm green
 
 **Deliverables**:
 - [ ] Error and axe tests pass

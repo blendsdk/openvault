@@ -1,10 +1,11 @@
-import { screen } from "@testing-library/react";
+import { fireEvent, screen } from "@testing-library/react";
 import axe from "axe-core";
 import { describe, expect, it } from "vitest";
 import { AuditPage } from "../src/pages/audit-page.js";
 import { CertificateDetailPage } from "../src/pages/certificate-detail-page.js";
 import { CertificatesPage } from "../src/pages/certificates-page.js";
 import { LoginPage } from "../src/pages/login-page.js";
+import { RotationPage } from "../src/pages/rotation-page.js";
 import { SecretDetailPage } from "../src/pages/secret-detail-page.js";
 import { FakeVault } from "./helpers/fake-vault.js";
 import { renderPage, renderProjectPage, testSession } from "./helpers/render.js";
@@ -78,6 +79,30 @@ describe("accessibility", () => {
     });
     await screen.findByRole("heading", { name: "api-tls" });
     await expectNoSeriousAxe(result.container);
+  });
+
+  it("should pass axe on the rotation page", async () => {
+    const vault = new FakeVault();
+    const result = renderProjectPage(<RotationPage />, {
+      vault,
+      path: "/projects/payments/rotation",
+      route: "/projects/:project/rotation",
+    });
+    await screen.findByRole("link", { name: "api-key" });
+    await expectNoSeriousAxe(result.container);
+  });
+
+  it("should pass axe on the rotate dialog", async () => {
+    const vault = new FakeVault();
+    renderProjectPage(<SecretDetailPage />, {
+      vault,
+      path: "/projects/payments/secrets/db-password",
+      route: "/projects/:project/secrets/:name",
+    });
+    await screen.findByText("Rotation");
+    fireEvent.click(screen.getByRole("button", { name: "Rotate now" }));
+    await screen.findByRole("button", { name: "Rotate secret" });
+    await expectNoSeriousAxe(document.body);
   });
 
   it("should pass axe on the application shell", async () => {

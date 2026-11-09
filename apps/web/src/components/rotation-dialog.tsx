@@ -2,9 +2,9 @@ import { Button, Field, Input } from "@fluentui/react-components";
 import { useEffect, useState } from "react";
 import { useSessionApi } from "../session/session-api-provider.js";
 import { copyCredential } from "./credential-copy.js";
-import { ErrorAlert } from "./feedback.js";
 import { FormDialog } from "./form-dialog.js";
 import { generateSecretValue } from "./generated-value.js";
+import { RotationErrorAlert } from "./rotation-errors.js";
 import type { RotationSecret } from "./rotation-types.js";
 
 /** Parses one optional future ISO timestamp. */
@@ -121,7 +121,7 @@ export function RotationDialog({
         </>
       }
     >
-      {failure === undefined ? null : <ErrorAlert error={failure} />}
+      {failure === undefined ? null : <RotationErrorAlert error={failure} />}
       <Field
         label="New value"
         required

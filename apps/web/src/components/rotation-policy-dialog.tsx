@@ -1,8 +1,8 @@
 import { Button, Field, Input } from "@fluentui/react-components";
 import { useEffect, useState } from "react";
 import { useSessionApi } from "../session/session-api-provider.js";
-import { ErrorAlert } from "./feedback.js";
 import { FormDialog } from "./form-dialog.js";
+import { RotationErrorAlert } from "./rotation-errors.js";
 import type { RotationSecret } from "./rotation-types.js";
 
 /** Parses and validates one interval value. */
@@ -100,7 +100,7 @@ export function RotationPolicyDialog({
         </>
       }
     >
-      {failure === undefined ? null : <ErrorAlert error={failure} />}
+      {failure === undefined ? null : <RotationErrorAlert error={failure} />}
       <Field
         label="Interval days"
         required
