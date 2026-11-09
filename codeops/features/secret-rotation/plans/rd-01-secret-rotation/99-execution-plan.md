@@ -312,7 +312,7 @@ migration/schema invariants.
 - [x] 7.2.5 Add the API fields/filter and the config env vars — `docs/reference/api.md`, `docs/reference/configuration.md`
 - [x] 7.2.6 Add the 1.2.0 changelog entry and versioning text — `docs/changelog.md`, `docs/guide/versioning.md`
 - [x] 7.2.7 Run the 1.2.0 release metadata checklist across packages, CLI, server, web, contract, Compose, examples, README, docs, GitHub templates, and tests; preserve historical release evidence — see [03-05 §Release metadata](03-05-docs-release.md)
-- [x] 7.2.8 Add the changeset and remove “Rotation wizards” from the web-ui out-of-scope list — `.changeset/secret-rotation.md`, `docs/guide/web-ui.md`
+- [x] 7.2.8 Remove “Rotation wizards” from the web-ui out-of-scope list; do not leave a changeset that would double-bump the manual 1.2.0 version — `docs/guide/web-ui.md`
 - [x] 7.2.9 Run `pnpm api:generate` and `pnpm api:check`; review the generated diffs
 - [x] 7.2.10 Run the docs tests and confirm green
 

@@ -581,7 +581,7 @@ verified against the repository:
 | PF-008 | Replaced both filter declarations and removed the self-correcting paragraph | `03-01` now states `policy | due | overdue` once |
 | PF-009 | Added `runtime.ts`, optional warning days default 7, and the test-constructor impact | `03-01`, `02`, `99` now name `runtime.ts` |
 | PF-010 | Defined the days formula and boundary cases | `03-02` and `07` now state `ceil`/`floor` and pin the three instants |
-| PF-011 | Restricted the release bump, preserved historical evidence, edited the actual "Rotation wizards" line, and added a changeset | `03-05` now separates current labels from history and names the exact line |
+| PF-011 | Restricted the release bump, preserved historical evidence, edited the actual "Rotation wizards" line; the final check found the manual release flow, so no changeset is left behind | `03-05` now separates current labels from history and names the exact line |
 | PF-012 | Named the redacted fields and parameterized the URL parser | `03-02` §Configuration now specifies them |
 | PF-013 | Added `pnpm db:types` and `db:types:check` to Phase 1 | `99` now includes the generated DB type files |
 | PF-014 | Added URL status initialization, a linked empty-state action, clarified copy, and a null guard | `03-04` now covers the deep link and null-current-version case |

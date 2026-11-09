@@ -87,10 +87,9 @@ historical release records: `docs/security/release-evidence.md`, `docs/security/
 "current release" label means the package versions, the current-release lines in README and docs,
 the image examples, and the CLI/API version output. [PF-011]
 
-Add a changeset for the user-visible minor release. The repository's CONTRIBUTING guide requires a
-changeset; use the existing `.changeset` workflow, for example `.changeset/secret-rotation.md` with
-a `minor` bump for the affected packages. A changeset is release metadata, not a tag or publication.
-[PF-011]
+Do not add a changeset. The repository's v1.0 and v1.1 release commits bump the package and
+application versions manually; a leftover changeset would make `pnpm version` bump 1.2.0 a second
+time. The version bump itself is the release metadata, not a tag or publication. [PF-011]
 
 | Area | Files |
 |---|---|
@@ -102,7 +101,6 @@ a `minor` bump for the affected packages. A changeset is release metadata, not a
 | Compose | `deploy/compose/compose.yaml`, `agent.example.yaml`, `examples/compose-env/compose.yaml` |
 | Docs | README, docs index, getting started, versioning, docker-compose, changelog |
 | GitHub | issue template placeholder; release workflow description example |
-| Release record | `.changeset/secret-rotation.md` (minor bump) |
 | Tests | compose example and docs guard expectations; scaffold renderer and dispatcher version expectations |
 
 Do not change the release workflow logic, image names, or signing configuration. Do not tag or
