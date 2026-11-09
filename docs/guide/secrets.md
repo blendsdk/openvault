@@ -66,6 +66,17 @@ the requested version has expired. Without a version selector, the newest active
 returned; if every version has expired, the read returns 410. A new write becomes the current
 version even when the previous version expired.
 
+### Rotation
+
+A secret may carry an optional `rotationIntervalDays` from 1 to 3650. The server derives
+`rotationDueAt` from the current version's creation time plus the interval and returns a live
+`rotationStatus` of `ok`, `due_soon`, or `overdue`, or null when there is no policy. A new write
+moves the current version and starts the next interval.
+
+`PATCH /:name` accepts `rotationIntervalDays`; `null` clears the policy. The list accepts
+`rotation=policy`, `rotation=due` (due soon or overdue), and `rotation=overdue`. See the
+[rotation guide](/guide/rotation) for the workflow and the restart requirement.
+
 ### Tags and content type
 
 Tags are at most 15 key/value pairs; keys are 1–64 characters and values 1–256 characters.
@@ -96,8 +107,8 @@ Every secret metadata and value response includes `canRead`, `canWrite`, `canDel
 derive permissions from role names.
 
 `GET /:name/consumers` lists the active consumers in the same project whose live role grants
-`secret.read` on the secret. It returns Compose project/service and `lastSeen`; host paths and
-manifest hashes stay out of secret metadata.
+`secret.read` on the secret. It returns Compose project/service, the aggregate `state`, and
+`lastSeen`; host paths and manifest hashes stay out of secret metadata.
 
 An agent fetch sends its aggregate delivery state in `X-OpenVault-Consumer-State` and the
 entry's optional flag in `X-OpenVault-Entry-Optional`. A successful read refreshes `last_seen`

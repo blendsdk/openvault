@@ -45,7 +45,7 @@ describe("rotate dialog", () => {
     expect(input.value).toMatch(/^[A-Za-z0-9_-]{43}$/);
   });
 
-  it("should clear the value on close and keep it after a failed write", async () => {
+  it("should clear the value and not persist it on close", async () => {
     const vault = new FakeVault();
     const storageSpy = vi.spyOn(Storage.prototype, "setItem");
     await openDialog(vault);
@@ -55,10 +55,12 @@ describe("rotate dialog", () => {
     expect(window.localStorage.length).toBe(0);
     expect(storageSpy).not.toHaveBeenCalled();
     storageSpy.mockRestore();
+  });
 
+  it("should keep the value and dialog open after a failed write", async () => {
+    const vault = new FakeVault();
+    await openDialog(vault);
     vault.failNextSecretWrite = true;
-    fireEvent.click(screen.getByRole("button", { name: "Rotate now" }));
-    await screen.findByRole("dialog");
     fireEvent.click(screen.getByRole("button", { name: "Generate value" }));
     const failedValue = (screen.getByLabelText("New value") as HTMLInputElement).value;
     fireEvent.click(screen.getByRole("button", { name: "Rotate secret" }));

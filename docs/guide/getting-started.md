@@ -11,7 +11,7 @@ The application never talks to the vault. The agent is the only bridge.
 
 ## Quickstart
 
-The current release is **1.1.0**. The images are published to Docker Hub under `blendsdk`:
+The current release is **1.2.0**. The images are published to Docker Hub under `blendsdk`:
 
 | Image | Purpose |
 |---|---|

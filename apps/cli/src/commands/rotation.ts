@@ -40,7 +40,7 @@ export function createRotationParser(
   const context = createCommandContext(globals, runtime);
   const parser = new CommandLineParser({
     name: "ov rotation",
-    version: "1.1.0",
+    version: "1.2.0",
     strict: true,
   });
 

@@ -8,7 +8,7 @@ export const BACKUP_FORMAT = "openvault-backup";
 /** Archive format version. */
 export const BACKUP_VERSION = 1;
 /** Server release recorded in the manifest. */
-export const SERVER_VERSION = "1.1.0";
+export const SERVER_VERSION = "1.2.0";
 
 /** The files every archive must contain. */
 export const ARCHIVE_FILES = [

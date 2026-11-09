@@ -416,7 +416,8 @@ Idempotency-Key: 6f1c2d3e
           "tags": { "env": "prod" }, "contentType": "text/plain", "status": "active",
           "currentVersion": { "id": "01J...", "createdAt": "...", "createdBy": "01J...",
                               "expiresAt": null },
-          "version": { "id": "01J...", ... }, "consumers": [],
+          "rotationIntervalDays": 30, "rotationDueAt": "2026-12-09T...",
+          "rotationStatus": "ok", "version": { "id": "01J...", ... }, "consumers": [],
           "capabilities": { "canRead": true, "canWrite": true, "canDelete": true,
                             "canRecover": true, "canPurge": true, "canManage": false,
                             "canReadPrivate": true } }
@@ -427,13 +428,21 @@ GET /v1/data/payments/secrets/db-password
 GET /v1/data/payments/secrets?q=db&tagKey=env&tagValue=prod&limit=50
 -> 200 { "secrets": [ { "name": "db-password", ... } ], "nextCursor": null }
 
+GET /v1/data/payments/secrets?rotation=due
+-> 200 { "secrets": [ { "name": "db-password", "rotationStatus": "due_soon", ... } ],
+          "nextCursor": null }
+
+GET /v1/data/payments/secrets?rotation=overdue
+-> 200 { "secrets": [ ... ], "nextCursor": null }
+
 PUT /v1/data/payments/secrets/db-password
 Idempotency-Key: 8a2b
 { "value": "new-value" }
 -> 200 { "currentVersion": { ... }, "version": { ... }, ... }
 
 PATCH /v1/data/payments/secrets/db-password
-{ "tags": { "env": "prod", "team": "payments" }, "purgeProtected": true }
+{ "tags": { "env": "prod", "team": "payments" }, "purgeProtected": true,
+  "rotationIntervalDays": 30 }
 -> 200 { ... }
 
 DELETE /v1/data/payments/secrets/db-password

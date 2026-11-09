@@ -3,7 +3,7 @@
 > **Document**: 99-execution-plan.md
 > **Parent**: [Index](00-index.md)
 > **Last Updated**: 2026-11-09
-> **Progress**: 69/85 tasks (81%)
+> **Progress**: 81/85 tasks (95%)
 > **CodeOps Artifact Schema**: 1
 
 ## Overview
@@ -297,24 +297,24 @@ migration/schema invariants.
 **Reference**: [03-05](03-05-docs-release.md) · ST-46..ST-51 · AR-26, PAR-13
 **Objective**: Make the docs guard expect the new content and 1.2.0.
 
-- [ ] 7.1.1 Update `tests/docs.spec.test.mjs` for 1.2.0 and rotation coverage — `tests/docs.spec.test.mjs`
-- [ ] 7.1.2 Run the docs tests and confirm red
+- [x] 7.1.1 Update `tests/docs.spec.test.mjs` for 1.2.0 and rotation coverage — `tests/docs.spec.test.mjs`
+- [x] 7.1.2 Run the docs tests and confirm red
 
 ### Step 7.2: Documentation and version metadata
 
 **Reference**: [03-05](03-05-docs-release.md) · AR-26, PAR-13, PAR-14
 **Objective**: Make the reader docs and labels true.
 
-- [ ] 7.2.1 Replace the short rotation section with the workflow — `docs/guide/rotation.md`
-- [ ] 7.2.2 Add the rotation metadata and link to the secrets guide — `docs/guide/secrets.md`
-- [ ] 7.2.3 Add the Rotation page/card, generated value, and restart note — `docs/guide/web-ui.md`
-- [ ] 7.2.4 Add the CLI commands — `docs/guide/cli.md`, `docs/reference/cli.md`
-- [ ] 7.2.5 Add the API fields/filter and the config env vars — `docs/reference/api.md`, `docs/reference/configuration.md`
-- [ ] 7.2.6 Add the 1.2.0 changelog entry and versioning text — `docs/changelog.md`, `docs/guide/versioning.md`
-- [ ] 7.2.7 Run the 1.2.0 release metadata checklist across packages, CLI, server, web, contract, Compose, examples, README, docs, GitHub templates, and tests; preserve historical release evidence — see [03-05 §Release metadata](03-05-docs-release.md)
-- [ ] 7.2.8 Add the changeset and remove “Rotation wizards” from the web-ui out-of-scope list — `.changeset/secret-rotation.md`, `docs/guide/web-ui.md`
-- [ ] 7.2.9 Run `pnpm api:generate` and `pnpm api:check`; review the generated diffs
-- [ ] 7.2.10 Run the docs tests and confirm green
+- [x] 7.2.1 Replace the short rotation section with the workflow — `docs/guide/rotation.md`
+- [x] 7.2.2 Add the rotation metadata and link to the secrets guide — `docs/guide/secrets.md`
+- [x] 7.2.3 Add the Rotation page/card, generated value, and restart note — `docs/guide/web-ui.md`
+- [x] 7.2.4 Add the CLI commands — `docs/guide/cli.md`, `docs/reference/cli.md`
+- [x] 7.2.5 Add the API fields/filter and the config env vars — `docs/reference/api.md`, `docs/reference/configuration.md`
+- [x] 7.2.6 Add the 1.2.0 changelog entry and versioning text — `docs/changelog.md`, `docs/guide/versioning.md`
+- [x] 7.2.7 Run the 1.2.0 release metadata checklist across packages, CLI, server, web, contract, Compose, examples, README, docs, GitHub templates, and tests; preserve historical release evidence — see [03-05 §Release metadata](03-05-docs-release.md)
+- [x] 7.2.8 Add the changeset and remove “Rotation wizards” from the web-ui out-of-scope list — `.changeset/secret-rotation.md`, `docs/guide/web-ui.md`
+- [x] 7.2.9 Run `pnpm api:generate` and `pnpm api:check`; review the generated diffs
+- [x] 7.2.10 Run the docs tests and confirm green
 
 ### Step 7.3: Final verification and handoff
 
