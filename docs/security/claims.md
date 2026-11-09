@@ -4,7 +4,7 @@
 > `docs/security/claims.json`. Every implemented claim links to executable
 > evidence; every planned claim names the reason and the limiting document.
 
-Updated: 2026-11-08
+Updated: 2026-11-09
 
 | ID | Claim | Status | Evidence or reason |
 |---|---|---|---|
@@ -20,7 +20,7 @@ Updated: 2026-11-08
 | C-10 | Certificate expiry warnings fire once at 30, 14, and 7 days. | implemented | test: `apps/server/tests/integration/certificates-expiry.spec.test.ts` — should fire 30, 14, and 7-day warnings once per threshold |
 | C-11 | The web UI is keyboard operable and passes automated accessibility checks for the login, secret, and audit screens. | implemented | test: `apps/web/tests/accessibility.test.tsx` — should pass axe on secret detail |
 | C-12 | A restore drill covers backup, restore into a fresh target, audit verification, and a pre-backup agent certificate. | implemented | test: `apps/server/tests/integration/ops.spec.test.ts` — should restore into an empty target and verify secrets, audit, CA, and agent certificate |
-| C-13 | Release images are amd64 and arm64, signed with Cosign keyless, have an SBOM and provenance, and are scanned for HIGH/CRITICAL findings. | implemented | test: `tests/ci.spec.test.mjs` — should publish release images to Docker Hub<br>manual: `docs/security/release-evidence.md` — The v1.0.0, v1.0.1, and v1.1.0 releases published signed amd64 and arm64 images to Docker Hub with SBOM and provenance attestations. |
+| C-13 | Release images are amd64 and arm64, signed with Cosign keyless, have an SBOM and provenance, and are scanned for HIGH/CRITICAL findings. | implemented | test: `tests/ci.spec.test.mjs` — should publish release images to Docker Hub<br>manual: `docs/security/release-evidence.md` — The v1.0.0, v1.0.1, v1.1.0, and v1.2.0 releases published signed amd64 and arm64 images to Docker Hub with SBOM and provenance attestations. |
 | C-14 | The OpenAI Codex Security scan is a manual, periodic check. It is not part of CI/CD and does not block a release. | implemented | manual: `docs/security/external-review.md` — Run codex-security manually when needed and record the result; no workflow reads the record and no release step depends on it. |
 | C-15 | The deployment supports high availability, replication, or multi-region operation. | planned | planned: Out of scope for v1.0. The reference stack is single-node and the limitation is documented. |
 | C-16 | Release images support multiple CPU architectures. | implemented | test: `tests/ci.spec.test.mjs` — should publish release images to Docker Hub |

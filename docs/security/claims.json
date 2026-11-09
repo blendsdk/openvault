@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "updated": "2026-11-08",
+  "updated": "2026-11-09",
   "claims": [
     {
       "id": "C-01",
@@ -206,7 +206,7 @@
         {
           "type": "manual",
           "file": "docs/security/release-evidence.md",
-          "check": "The v1.0.0, v1.0.1, and v1.1.0 releases published signed amd64 and arm64 images to Docker Hub with SBOM and provenance attestations."
+          "check": "The v1.0.0, v1.0.1, v1.1.0, and v1.2.0 releases published signed amd64 and arm64 images to Docker Hub with SBOM and provenance attestations."
         }
       ],
       "docs": ["docs/security/release-process.md"]
