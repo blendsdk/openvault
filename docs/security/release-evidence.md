@@ -1,7 +1,7 @@
 # Release evidence
 
-> **Snapshot**: 2026-11-09, `v1.1.0` release
-> **Production image**: `v1.1.0` published to Docker Hub
+> **Snapshot**: 2026-11-09, `v1.2.0` release
+> **Production image**: `v1.2.0` published to Docker Hub
 
 ## Branch protection
 
@@ -25,14 +25,14 @@ change was needed.
 | Gate | Where |
 |---|---|
 | Build, typecheck, API contract, lint, unit tests, artifacts, docs | `pnpm verify` / `Verify` |
-| PostgreSQL 16 and 17 integration | `Integration (16)` and `Integration (17)`; 92 files and 741 tests each locally |
+| PostgreSQL 16 and 17 integration | `Integration (16)` and `Integration (17)`; 102 files and 793 tests each locally |
 | Dependency audit | `Audit` and the weekly `Security scans` workflow |
 | CodeQL | `CodeQL` |
 | Secret scan | `Gitleaks` |
 | Dependency review | `Review dependency changes` |
 | Docs build | `Build documentation` |
 | Compose hardening | `pnpm check:compose` inside `Verify` |
-| Container images | Server, agent, and web images published to Docker Hub; the v1.1.0 digests are below |
+| Container images | Server, agent, and web images published to Docker Hub; the v1.2.0 digests are below |
 | Security evidence and claims | `pnpm security:evidence:check` and `pnpm security:claims:check` inside `Verify` |
 
 ## Security scanner remediation
@@ -49,6 +49,28 @@ scans, signs, and attests them. The first stable image is produced by the
 `v1.0.0` tag. Later releases use a deliberate `v*.*.*` tag or tagged dispatch.
 The workflow writes the digest list to the GitHub release and the job summary.
 SBOM and provenance attestations are attached to the images.
+
+### v1.2.0
+
+Published on 2026-11-09. Cosign signatures were verified against
+`refs/tags/v1.2.0`. This minor release adds the secret rotation workflow:
+per-secret rotation policies, derived due dates and live status, the project
+Rotation page and secret-detail rotate flow, `ov rotation` commands, generated
+values, and optional signed metadata-only reminders. It also exposes the
+existing consumer state through secret metadata.
+
+The release PR passed `Verify`, `Integration (16)`, `Integration (17)`, `CodeQL`,
+`Gitleaks`, `Audit`, `Build documentation`, and `Review dependency changes`.
+The plan completed 85/85 tasks; the preflight resolved 16 findings in the same
+session, which the report records as a same-agent review risk. The published
+digests were checked against the release notes with
+`docker buildx imagetools inspect`.
+
+| Image | Digest |
+|---|---|
+| `blendsdk/openvault` | `sha256:22fed305bd648e1e0c8ddaa27cd5b91150bc7e51dc008c4eaf360d4a978dc801` |
+| `blendsdk/openvault-agent` | `sha256:df47c92e5705872e06eb09c1e371a869b82129a173bf2407396ab5b7ea5eb1a3` |
+| `blendsdk/openvault-web` | `sha256:7b5db38f00cddca6dc03d1304f06a197b0c69122d50af279d78b490f2d5df692` |
 
 ### v1.1.0
 
