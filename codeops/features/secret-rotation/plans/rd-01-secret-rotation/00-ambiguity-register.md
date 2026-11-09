@@ -39,6 +39,7 @@ implementation decisions.
 | PAR-18 | Scope | Whether the plan tags or publishes a release | Tag in plan / hand off / no release | **User instruction and scope boundary** — the plan stops at release metadata; tagging and publication remain separate. | ✅ Resolved |
 | PAR-19 | Naming | Where the feature artifacts live | New feature set / extend v1.1 / standalone | **User decision inherited from AR-1** — `codeops/features/secret-rotation/` with `requirements/` and `plans/rd-01-secret-rotation/`. | ✅ Resolved |
 | PAR-20 | UX | Whether a goal prompt file is produced | Inline only / feature file / docs page | **Plan deliverable** — create `codeops/features/secret-rotation/GOAL-PROMPT.md` as a maintainer artifact, not a published docs page. | ✅ Resolved |
+| PAR-21 | Technical | How the consumer-view change is migrated | One generated migration / generated column plus reviewed manual view migration | **AI delegated (runtime)** — the generator blocks `view.replace`; generate the column/index migration automatically and add the reviewed manual `CREATE OR REPLACE VIEW` migration with matching snapshot hashes, following the existing manual view migration. | ✅ Resolved |
 
 ## Resolution Notes
 
@@ -183,6 +184,19 @@ index declares `secret-rotation/RD-01`.
 
 **PAR-20:** The goal prompt is a maintainer artifact so a later agent can run preflight and execute
 the plan with the same guardrails.
+
+**PAR-21:** Authority: AI — delegated by `--auto-design`. Eligibility: persistence and reversible
+migration mechanism inside the approved consumer-state extension. Objective: apply the view change
+without weakening the migration lineage. Evidence: the BlendSDK generator classifies
+`view.replace` as unsupported ("View dependency order requires reviewed manual SQL"); the
+repository already has a manual `secret_consumer_summaries` view migration with explicit snapshot
+hashes. Decision: generate the column/index migration with the generator, then add a manual
+`CREATE OR REPLACE VIEW` migration whose `from-snapshot`/`to-snapshot` match the canonical snapshot
+bytes. Rejected alternative: a single generated migration (the generator refuses). Strongest
+counterargument: two artifacts for one logical change; the split is reviewable and keeps the
+snapshot truthful. Confidence: High. Hardening: `migrate validate` and the migration integration
+test. Policy version: 1. Root invocation ID: `secret-rotation-2026-11-09T09:54Z`. Reopen triggers:
+BlendSDK supports automatic view replacement or the view is removed.
 
 ## Gate review
 

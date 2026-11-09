@@ -304,6 +304,10 @@ secrets
   .default("text/plain", true)
   .check(lengthBetween("content_type", 1, 128));
 secrets.boolean("purge_protected").default(false);
+secrets
+  .integer("rotation_interval_days")
+  .nullable()
+  .check("rotation_interval_days BETWEEN 1 AND 3650");
 secrets.timestamptz("created_at").default("now()");
 secrets.timestamptz("updated_at").default("now()");
 secrets.timestamptz("deleted_at").nullable();
@@ -320,6 +324,11 @@ secrets
   .column("project_id", "name")
   .where("deleted_at IS NULL");
 secrets.index().column("project_id").indexName("secrets_project_idx");
+secrets
+  .index()
+  .indexName("secrets_rotation_idx")
+  .column("rotation_interval_days")
+  .where("rotation_interval_days IS NOT NULL");
 
 const secretVersions = db.table("secret_versions");
 secretVersions.text("id").check(ulidExpression("id"));
@@ -718,7 +727,8 @@ db.view("secret_consumer_summaries").as(`
          s.project_id,
          c.compose_project,
          c.compose_service,
-         c.last_seen
+         c.last_seen,
+         c.state
     FROM secrets s
     JOIN consumers c ON c.project_id = s.project_id
     JOIN principals p ON p.id = c.principal_id AND p.status = 'active'

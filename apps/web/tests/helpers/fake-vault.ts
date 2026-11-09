@@ -147,6 +147,9 @@ export class FakeVault implements RequestAdapter {
       deletedAt: null,
       purgeAfter: null,
       purgeProtected: false,
+      rotationIntervalDays: null,
+      rotationDueAt: null,
+      rotationStatus: null,
       consumers: [],
       capabilities: {
         canRead: true,

@@ -16,6 +16,8 @@ export interface SecretRecord {
   readonly currentVersionId: string | null;
   /** Purge protection flag. */
   readonly purgeProtected: boolean;
+  /** Optional rotation interval in days. */
+  readonly rotationIntervalDays: number | null;
   /** Creation time. */
   readonly createdAt: Date;
   /** Last metadata update. */
@@ -80,6 +82,8 @@ export interface ConsumerSummary {
   readonly composeProject: string;
   /** Compose service name. */
   readonly composeService: string;
+  /** Aggregate consumer state. */
+  readonly state: "ok" | "degraded" | "failed";
   /** Last observation. */
   readonly lastSeen: Date;
 }
@@ -100,6 +104,7 @@ interface SecretRow {
   readonly content_type: string;
   readonly current_version_id: string | null;
   readonly purge_protected: boolean;
+  readonly rotation_interval_days: number | null;
   readonly created_at: Date;
   readonly updated_at: Date;
   readonly deleted_at: Date | null;
@@ -137,7 +142,7 @@ interface VersionMetadataRow {
 }
 
 const SECRET_COLUMNS = `id, project_id, name, tags, content_type, current_version_id,
-  purge_protected, created_at, updated_at, deleted_at, purge_after`;
+  purge_protected, rotation_interval_days, created_at, updated_at, deleted_at, purge_after`;
 const VERSION_COLUMNS = `id, secret_id, ciphertext, nonce, tag, wrapped_dek, wrap_nonce,
   wrap_tag, kek_id, created_by, created_at, expires_at`;
 const VERSION_METADATA_COLUMNS = `id, secret_id, created_by, created_at, expires_at`;
@@ -151,6 +156,7 @@ function toSecret(row: SecretRow): SecretRecord {
     contentType: row.content_type,
     currentVersionId: row.current_version_id,
     purgeProtected: row.purge_protected,
+    rotationIntervalDays: row.rotation_interval_days,
     createdAt: row.created_at,
     updatedAt: row.updated_at,
     deletedAt: row.deleted_at,
@@ -437,12 +443,13 @@ export class SecretRepository {
       readonly tags: Readonly<Record<string, string>>;
       readonly contentType: string;
       readonly purgeProtected: boolean;
+      readonly rotationIntervalDays: number | null;
     },
   ): Promise<SecretRecord | undefined> {
     const result = await executor.executeQuery<SecretRow>(
       `UPDATE secrets
           SET tags = :tags, content_type = :contentType, purge_protected = :purgeProtected,
-              updated_at = now()
+              rotation_interval_days = :rotationIntervalDays, updated_at = now()
         WHERE id = :id AND deleted_at IS NULL
         RETURNING ${SECRET_COLUMNS}`,
       { id, ...input },
@@ -641,6 +648,9 @@ export class SecretRepository {
       readonly q?: string | undefined;
       readonly tagKey?: string | undefined;
       readonly tagValue?: string | undefined;
+      readonly rotation?: "policy" | "due" | "overdue" | undefined;
+      readonly warningDays?: number | undefined;
+      readonly now?: Date | undefined;
       readonly cursor?: ListCursor | undefined;
       readonly limit: number;
     },
@@ -666,9 +676,23 @@ export class SecretRepository {
       params.afterName = filters.cursor.name;
       params.afterId = filters.cursor.id;
     }
+    if (filters.rotation !== undefined) {
+      conditions.push("s.rotation_interval_days IS NOT NULL");
+      if (filters.rotation !== "policy") {
+        const now = filters.now ?? new Date();
+        const warningDays = filters.warningDays ?? 7;
+        const cutoff =
+          filters.rotation === "due" ? new Date(now.getTime() + warningDays * 86_400_000) : now;
+        params.cutoff = cutoff;
+        conditions.push(
+          "cv.created_at + make_interval(days => s.rotation_interval_days) <= :cutoff",
+        );
+      }
+    }
     const result = await executor.executeQuery<ListRow>(
       `SELECT s.id, s.project_id, s.name, s.tags, s.content_type, s.current_version_id,
-              s.purge_protected, s.created_at, s.updated_at, s.deleted_at, s.purge_after,
+              s.purge_protected, s.rotation_interval_days, s.created_at, s.updated_at,
+              s.deleted_at, s.purge_after,
               cv.id AS cv_id, cv.created_by AS cv_created_by,
               cv.created_at AS cv_created_at, cv.expires_at AS cv_expires_at
          FROM secrets s
@@ -706,8 +730,9 @@ export class SecretRepository {
       readonly compose_project: string;
       readonly compose_service: string;
       readonly last_seen: Date;
+      readonly state: "ok" | "degraded" | "failed";
     }>(
-      `SELECT secret_id, compose_project, compose_service, last_seen
+      `SELECT secret_id, compose_project, compose_service, last_seen, state
          FROM secret_consumer_summaries
         WHERE project_id = :projectId AND secret_id = ANY(:secretIds)
         ORDER BY compose_project ASC, compose_service ASC`,
@@ -718,6 +743,7 @@ export class SecretRepository {
       list.push({
         composeProject: row.compose_project,
         composeService: row.compose_service,
+        state: row.state,
         lastSeen: row.last_seen,
       });
       result.set(row.secret_id, list);

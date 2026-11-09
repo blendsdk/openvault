@@ -195,6 +195,7 @@ export function createApplication(
     secretMaxBytes: config.secretMaxBytes,
     softDeleteDays: config.softDeleteDays,
     purger: vaultPurger,
+    rotationWarningDays: config.rotationWarningDays,
   });
 
   const agentConsumerService = new AgentConsumerService({

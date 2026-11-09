@@ -37,6 +37,7 @@ export function createSecretRuntime(options: {
   readonly secretMaxBytes: number;
   readonly softDeleteDays: number;
   readonly purger?: VaultPurger;
+  readonly rotationWarningDays?: number;
   readonly now?: () => number;
   readonly rateLimitOptions?: SecretRateLimitOptions;
 }): SecretRuntime {
@@ -51,6 +52,9 @@ export function createSecretRuntime(options: {
     secretMaxBytes: options.secretMaxBytes,
     softDeleteDays: options.softDeleteDays,
     ...(options.purger === undefined ? {} : { purger: options.purger }),
+    ...(options.rotationWarningDays === undefined
+      ? {}
+      : { rotationWarningDays: options.rotationWarningDays }),
     ...(options.now === undefined ? {} : { now: options.now }),
   });
   const rateLimits = createSecretRateLimitService(options.rateLimitOptions);

@@ -61,7 +61,7 @@ The due date is derived; no new date column. The partial index narrows the `poli
 scan's candidate set; it does not serve the computed `created_at + interval` range, which is evaluated
 from the joined current version. [AR-9, PAR-02, PF-016]
 
-Add `state` to the definer view `secret_consumer_summaries` after `compose_service`. The raw
+Add `state` to the definer view `secret_consumer_summaries` after `last_seen`. The raw
 `consumers.state` column already stores `ok | degraded | failed`; the view is the only missing piece.
 [PF-002]
 
@@ -85,10 +85,9 @@ supplied. [PAR-02]
 -- policy
 s.rotation_interval_days IS NOT NULL
 
--- due
+-- due; :cutoff is now + warningDays computed by the service
 s.rotation_interval_days IS NOT NULL
-AND v.created_at + make_interval(days => s.rotation_interval_days)
-    <= :now + make_interval(days => :warningDays)
+AND v.created_at + make_interval(days => s.rotation_interval_days) <= :cutoff
 
 -- overdue
 s.rotation_interval_days IS NOT NULL

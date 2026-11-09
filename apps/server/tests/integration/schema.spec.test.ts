@@ -102,6 +102,29 @@ describe("schema inventory", () => {
     ]);
   });
 
+  it("should create the rotation interval column and the consumer state view column", async () => {
+    const column = await testDb.db.executeQuery<{
+      readonly data_type: string;
+      readonly is_nullable: string;
+    }>(
+      `SELECT data_type, is_nullable
+         FROM information_schema.columns
+        WHERE table_schema = 'public'
+          AND table_name = 'secrets'
+          AND column_name = 'rotation_interval_days'`,
+    );
+    expect(column.records[0]).toEqual({ data_type: "integer", is_nullable: "YES" });
+
+    const view = await testDb.db.executeQuery<{ readonly column_name: string }>(
+      `SELECT column_name
+         FROM information_schema.columns
+        WHERE table_schema = 'public'
+          AND table_name = 'secret_consumer_summaries'
+        ORDER BY ordinal_position`,
+    );
+    expect(view.records.map((row) => row.column_name)).toContain("state");
+  });
+
   it("should create all declared foreign keys with their delete actions", async () => {
     const keys = await foreignKeys();
     expect([...keys.values()].flat()).toHaveLength(27);

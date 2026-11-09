@@ -3,7 +3,7 @@
 > **Document**: 99-execution-plan.md
 > **Parent**: [Index](00-index.md)
 > **Last Updated**: 2026-11-09
-> **Progress**: 0/85 tasks (0%)
+> **Progress**: 15/85 tasks (18%)
 > **CodeOps Artifact Schema**: 1
 
 ## Overview
@@ -53,33 +53,33 @@ task-size criteria in the quality checklist)
 **Objective**: Pin the interval, status boundaries, metadata fields, list filters, consumer state, and
 migration/schema invariants.
 
-- [ ] 1.1.1 [spec-author] Write policy/status/list/consumer-state spec tests — `apps/server/tests/integration/secrets/rotation-policy.spec.test.ts`
-- [ ] 1.1.2 [spec-author] Extend the migration/schema/role/view assertions for the new column and view state — `apps/server/tests/integration/migrations.spec.test.ts`, `apps/server/tests/integration/schema.spec.test.ts`, `apps/server/tests/integration/roles.spec.test.ts`, `apps/server/tests/integration/security/auth-boundary.spec.test.ts`
-- [ ] 1.1.3 Run the tests and confirm red
+- [x] 1.1.1 [spec-author] Write policy/status/list/consumer-state spec tests — `apps/server/tests/integration/secrets/rotation-policy.spec.test.ts`
+- [x] 1.1.2 [spec-author] Extend the migration/schema/role/view assertions for the new column and view state — `apps/server/tests/integration/migrations.spec.test.ts`, `apps/server/tests/integration/schema.spec.test.ts`, `apps/server/tests/integration/roles.spec.test.ts`, `apps/server/tests/integration/security/auth-boundary.spec.test.ts`
+- [x] 1.1.3 Run the tests and confirm red
 
 ### Step 1.2: Implementation
 
 **Reference**: [03-01](03-01-data-api.md) · AR-9, AR-10, AR-12, AR-24
 **Objective**: Add the column, mapping, metadata, status computation, and list filter.
 
-- [ ] 1.2.1 Add `rotation_interval_days`, the partial index, and the consumer view `state` — `apps/server/src/database/schema.ts`
-- [ ] 1.2.2 Add the field and consumer state to `SECRET_COLUMNS`, `SecretRow`, `SecretRecord`, `ConsumerSummary`, `toSecret`, the consumer query, and the metadata update SQL — `apps/server/src/secrets/repository.ts`
-- [ ] 1.2.3 Add the rotation filter with a passed `now`/`warningDays`, the status computation, and the consumer state mapping — `apps/server/src/secrets/repository.ts`, `apps/server/src/secrets/service.ts`
-- [ ] 1.2.4 Add the metadata fields, PATCH field, list filter, and consumer state to the contract — `packages/api-contract/src/secrets.ts`
-- [ ] 1.2.5 Compute `rotationDueAt` and `rotationStatus` with a null-current-version guard; pass the configured warning days through `createSecretRuntime` with default 7 — `apps/server/src/secrets/service.ts`, `apps/server/src/secrets/runtime.ts`, `apps/server/src/app.ts`
-- [ ] 1.2.6 Update every secret-metadata fixture with the new required fields and consumer state — `packages/api-contract/tests/`, `apps/web/tests/helpers/fake-vault.ts`, `apps/cli/tests/helpers/fake-vault.ts`
-- [ ] 1.2.7 Generate the Phase 1 migration (column + view state) and snapshot with the existing `blendsdk/codegen` `generateMigration` API; update migration/schema/role/view assertions — `apps/server/migrations/`, `apps/server/tests/integration/{migrations,schema,roles}.spec.test.ts`, `apps/server/tests/integration/security/auth-boundary.spec.test.ts`
-- [ ] 1.2.8 Run `pnpm api:generate` and `pnpm db:types`; review the generated contract and database types — `packages/api-contract/openapi.json`, `apps/cli/src/generated/`, `apps/web/src/generated/`, `apps/server/src/database/generated-types.ts`, `apps/server/src/database/ctypes.ts`
-- [ ] 1.2.9 Run the Phase 1 spec and integration tests and confirm green
+- [x] 1.2.1 Add `rotation_interval_days`, the partial index, and the consumer view `state` — `apps/server/src/database/schema.ts`
+- [x] 1.2.2 Add the field and consumer state to `SECRET_COLUMNS`, `SecretRow`, `SecretRecord`, `ConsumerSummary`, `toSecret`, the consumer query, and the metadata update SQL — `apps/server/src/secrets/repository.ts`
+- [x] 1.2.3 Add the rotation filter with a passed `now`/`warningDays`, the status computation, and the consumer state mapping — `apps/server/src/secrets/repository.ts`, `apps/server/src/secrets/service.ts`
+- [x] 1.2.4 Add the metadata fields, PATCH field, list filter, and consumer state to the contract — `packages/api-contract/src/secrets.ts`
+- [x] 1.2.5 Compute `rotationDueAt` and `rotationStatus` with a null-current-version guard; pass the configured warning days through `createSecretRuntime` with default 7 — `apps/server/src/secrets/service.ts`, `apps/server/src/secrets/runtime.ts`, `apps/server/src/app.ts`
+- [x] 1.2.6 Update every secret-metadata fixture with the new required fields and consumer state — `packages/api-contract/tests/`, `apps/web/tests/helpers/fake-vault.ts`, `apps/cli/tests/helpers/fake-vault.ts`
+- [x] 1.2.7 Generate the column/index migration and snapshot, add the reviewed manual view migration, and update migration/schema/role/view assertions — `apps/server/migrations/`, `apps/server/tests/integration/{migrations,schema,roles}.spec.test.ts`, `apps/server/tests/integration/security/auth-boundary.spec.test.ts`
+- [x] 1.2.8 Run `pnpm api:generate` and `pnpm db:types`; review the generated contract and database types — `packages/api-contract/openapi.json`, `apps/cli/src/generated/`, `apps/web/src/generated/`, `apps/server/src/database/generated-types.ts`, `apps/server/src/database/ctypes.ts`
+- [x] 1.2.9 Run the Phase 1 spec and integration tests and confirm green
 
 ### Step 1.3: Implementation tests and hardening
 
 **Reference**: ST-1..ST-10, ST-9a, ST-9b · PAR-03
 **Objective**: Cover boundaries, the policy filter, consumer state, migration, and generated drift.
 
-- [ ] 1.3.1 Add boundary tests at exactly the warning and due instants with a fixed clock — `apps/server/tests/integration/secrets/rotation-repository.impl.test.ts`
-- [ ] 1.3.2 Add a test for the `policy` filter, the no-policy default, and all three consumer states — `apps/server/tests/integration/secrets/rotation-policy.impl.test.ts`
-- [ ] 1.3.3 Run `pnpm --filter @openvault/server typecheck`, `pnpm api:check`, and `pnpm db:types:check`
+- [x] 1.3.1 Add boundary tests at exactly the warning and due instants with a fixed clock — `apps/server/tests/integration/secrets/rotation-repository.impl.test.ts`
+- [x] 1.3.2 Add a test for the `policy` filter, the no-policy default, and all three consumer states — `apps/server/tests/integration/secrets/rotation-policy.impl.test.ts`
+- [x] 1.3.3 Run `pnpm --filter @openvault/server typecheck`, `pnpm api:check`, and `pnpm db:types:check`
 
 **Deliverables**:
 - [ ] Policy, status, metadata, filters, consumer state, and migration pass; generated clients and database types are current

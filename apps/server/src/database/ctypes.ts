@@ -366,6 +366,7 @@ export const eSecretConsumerSummaries = {
   LAST_SEEN: "last_seen",
   PROJECT_ID: "project_id",
   SECRET_ID: "secret_id",
+  STATE: "state",
 };
 
 /**
@@ -405,6 +406,7 @@ export const eSecrets = {
   PROJECT_ID: "project_id",
   PURGE_AFTER: "purge_after",
   PURGE_PROTECTED: "purge_protected",
+  ROTATION_INTERVAL_DAYS: "rotation_interval_days",
   TAGS: "tags",
   UPDATED_AT: "updated_at",
 };

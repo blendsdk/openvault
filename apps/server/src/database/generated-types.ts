@@ -1353,6 +1353,12 @@ export interface SecretConsumerSummaries {
    * @memberOf {SecretConsumerSummaries}
    */
   secret_id?: string | null;
+  /**
+   * @optional
+   * @nullable
+   * @memberOf {SecretConsumerSummaries}
+   */
+  state?: string | null;
 }
 
 /**
@@ -1450,6 +1456,7 @@ export interface SecretVersions {
  * @unique project_id
  * @checkContraint purge_after CHECK (((purge_after IS NULL) OR ((deleted_at IS NOT NULL) AND (purge_after >= deleted_at))))
  * @default purge_protected to false
+ * @checkContraint rotation_interval_days CHECK (((rotation_interval_days >= 1) AND (rotation_interval_days <= 3650)))
  * @default tags to '{}'::jsonb
  * @checkContraint tags CHECK ((jsonb_typeof(tags) = 'object'::text))
  * @default updated_at to now()
@@ -1514,6 +1521,13 @@ export interface Secrets {
    * @memberOf {Secrets}
    */
   purge_protected?: boolean;
+  /**
+   * @checkContraint CHECK (((rotation_interval_days >= 1) AND (rotation_interval_days <= 3650)))
+   * @optional
+   * @nullable
+   * @memberOf {Secrets}
+   */
+  rotation_interval_days?: number | null;
   /**
    * @default '{}'::jsonb
    * @checkContraint CHECK ((jsonb_typeof(tags) = 'object'::text))

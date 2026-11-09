@@ -222,6 +222,7 @@ describe("control-plane database boundary", () => {
       "compose_project",
       "compose_service",
       "last_seen",
+      "state",
     ]);
     const defaults = await testDb.db.executeQuery<{ readonly count: number }>(
       `SELECT count(*)::int AS count

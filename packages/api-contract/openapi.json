@@ -4904,6 +4904,14 @@
             }
           },
           {
+            "name": "rotation",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "enum": ["policy", "due", "overdue"]
+            }
+          },
+          {
             "name": "limit",
             "in": "query",
             "schema": {
@@ -5011,6 +5019,27 @@
                           "purgeProtected": {
                             "type": "boolean"
                           },
+                          "rotationIntervalDays": {
+                            "type": ["integer", "null"],
+                            "minimum": 1,
+                            "maximum": 3650
+                          },
+                          "rotationDueAt": {
+                            "type": ["string", "null"],
+                            "format": "date-time",
+                            "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z))$"
+                          },
+                          "rotationStatus": {
+                            "anyOf": [
+                              {
+                                "type": "string",
+                                "enum": ["ok", "due_soon", "overdue"]
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ]
+                          },
                           "consumers": {
                             "type": "array",
                             "items": {
@@ -5026,13 +5055,17 @@
                                   "minLength": 1,
                                   "maxLength": 100
                                 },
+                                "state": {
+                                  "type": "string",
+                                  "enum": ["ok", "degraded", "failed"]
+                                },
                                 "lastSeen": {
                                   "type": "string",
                                   "format": "date-time",
                                   "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z))$"
                                 }
                               },
-                              "required": ["composeProject", "composeService", "lastSeen"],
+                              "required": ["composeProject", "composeService", "state", "lastSeen"],
                               "additionalProperties": false
                             }
                           },
@@ -5086,6 +5119,9 @@
                           "deletedAt",
                           "purgeAfter",
                           "purgeProtected",
+                          "rotationIntervalDays",
+                          "rotationDueAt",
+                          "rotationStatus",
                           "consumers",
                           "capabilities"
                         ],
@@ -5240,6 +5276,27 @@
                     "purgeProtected": {
                       "type": "boolean"
                     },
+                    "rotationIntervalDays": {
+                      "type": ["integer", "null"],
+                      "minimum": 1,
+                      "maximum": 3650
+                    },
+                    "rotationDueAt": {
+                      "type": ["string", "null"],
+                      "format": "date-time",
+                      "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z))$"
+                    },
+                    "rotationStatus": {
+                      "anyOf": [
+                        {
+                          "type": "string",
+                          "enum": ["ok", "due_soon", "overdue"]
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
                     "consumers": {
                       "type": "array",
                       "items": {
@@ -5255,13 +5312,17 @@
                             "minLength": 1,
                             "maxLength": 100
                           },
+                          "state": {
+                            "type": "string",
+                            "enum": ["ok", "degraded", "failed"]
+                          },
                           "lastSeen": {
                             "type": "string",
                             "format": "date-time",
                             "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z))$"
                           }
                         },
-                        "required": ["composeProject", "composeService", "lastSeen"],
+                        "required": ["composeProject", "composeService", "state", "lastSeen"],
                         "additionalProperties": false
                       }
                     },
@@ -5318,6 +5379,9 @@
                     "deletedAt",
                     "purgeAfter",
                     "purgeProtected",
+                    "rotationIntervalDays",
+                    "rotationDueAt",
+                    "rotationStatus",
                     "consumers",
                     "capabilities",
                     "version"
@@ -5566,6 +5630,9 @@
                   },
                   "purgeProtected": {
                     "$ref": "#/components/schemas/__schema4_2"
+                  },
+                  "rotationIntervalDays": {
+                    "$ref": "#/components/schemas/__schema5"
                   }
                 },
                 "additionalProperties": false
@@ -5655,6 +5722,27 @@
                     "purgeProtected": {
                       "type": "boolean"
                     },
+                    "rotationIntervalDays": {
+                      "type": ["integer", "null"],
+                      "minimum": 1,
+                      "maximum": 3650
+                    },
+                    "rotationDueAt": {
+                      "type": ["string", "null"],
+                      "format": "date-time",
+                      "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z))$"
+                    },
+                    "rotationStatus": {
+                      "anyOf": [
+                        {
+                          "type": "string",
+                          "enum": ["ok", "due_soon", "overdue"]
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
                     "consumers": {
                       "type": "array",
                       "items": {
@@ -5670,13 +5758,17 @@
                             "minLength": 1,
                             "maxLength": 100
                           },
+                          "state": {
+                            "type": "string",
+                            "enum": ["ok", "degraded", "failed"]
+                          },
                           "lastSeen": {
                             "type": "string",
                             "format": "date-time",
                             "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z))$"
                           }
                         },
-                        "required": ["composeProject", "composeService", "lastSeen"],
+                        "required": ["composeProject", "composeService", "state", "lastSeen"],
                         "additionalProperties": false
                       }
                     },
@@ -5730,6 +5822,9 @@
                     "deletedAt",
                     "purgeAfter",
                     "purgeProtected",
+                    "rotationIntervalDays",
+                    "rotationDueAt",
+                    "rotationStatus",
                     "consumers",
                     "capabilities"
                   ],
@@ -5864,6 +5959,27 @@
                     "purgeProtected": {
                       "type": "boolean"
                     },
+                    "rotationIntervalDays": {
+                      "type": ["integer", "null"],
+                      "minimum": 1,
+                      "maximum": 3650
+                    },
+                    "rotationDueAt": {
+                      "type": ["string", "null"],
+                      "format": "date-time",
+                      "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z))$"
+                    },
+                    "rotationStatus": {
+                      "anyOf": [
+                        {
+                          "type": "string",
+                          "enum": ["ok", "due_soon", "overdue"]
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
                     "consumers": {
                       "type": "array",
                       "items": {
@@ -5879,13 +5995,17 @@
                             "minLength": 1,
                             "maxLength": 100
                           },
+                          "state": {
+                            "type": "string",
+                            "enum": ["ok", "degraded", "failed"]
+                          },
                           "lastSeen": {
                             "type": "string",
                             "format": "date-time",
                             "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z))$"
                           }
                         },
-                        "required": ["composeProject", "composeService", "lastSeen"],
+                        "required": ["composeProject", "composeService", "state", "lastSeen"],
                         "additionalProperties": false
                       }
                     },
@@ -5942,6 +6062,9 @@
                     "deletedAt",
                     "purgeAfter",
                     "purgeProtected",
+                    "rotationIntervalDays",
+                    "rotationDueAt",
+                    "rotationStatus",
                     "consumers",
                     "capabilities",
                     "version"
@@ -6006,13 +6129,17 @@
                             "minLength": 1,
                             "maxLength": 100
                           },
+                          "state": {
+                            "type": "string",
+                            "enum": ["ok", "degraded", "failed"]
+                          },
                           "lastSeen": {
                             "type": "string",
                             "format": "date-time",
                             "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z))$"
                           }
                         },
-                        "required": ["composeProject", "composeService", "lastSeen"],
+                        "required": ["composeProject", "composeService", "state", "lastSeen"],
                         "additionalProperties": false
                       }
                     }
@@ -6178,6 +6305,27 @@
                     "purgeProtected": {
                       "type": "boolean"
                     },
+                    "rotationIntervalDays": {
+                      "type": ["integer", "null"],
+                      "minimum": 1,
+                      "maximum": 3650
+                    },
+                    "rotationDueAt": {
+                      "type": ["string", "null"],
+                      "format": "date-time",
+                      "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z))$"
+                    },
+                    "rotationStatus": {
+                      "anyOf": [
+                        {
+                          "type": "string",
+                          "enum": ["ok", "due_soon", "overdue"]
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
                     "consumers": {
                       "type": "array",
                       "items": {
@@ -6193,13 +6341,17 @@
                             "minLength": 1,
                             "maxLength": 100
                           },
+                          "state": {
+                            "type": "string",
+                            "enum": ["ok", "degraded", "failed"]
+                          },
                           "lastSeen": {
                             "type": "string",
                             "format": "date-time",
                             "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z))$"
                           }
                         },
-                        "required": ["composeProject", "composeService", "lastSeen"],
+                        "required": ["composeProject", "composeService", "state", "lastSeen"],
                         "additionalProperties": false
                       }
                     },
@@ -6253,6 +6405,9 @@
                     "deletedAt",
                     "purgeAfter",
                     "purgeProtected",
+                    "rotationIntervalDays",
+                    "rotationDueAt",
+                    "rotationStatus",
                     "consumers",
                     "capabilities"
                   ],
@@ -6979,6 +7134,11 @@
       },
       "__schema4_2": {
         "type": "boolean"
+      },
+      "__schema5": {
+        "type": ["integer", "null"],
+        "minimum": 1,
+        "maximum": 3650
       }
     }
   }

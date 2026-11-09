@@ -31,7 +31,7 @@ through `FakeVault`. CLI tests use the real parser and a test runtime.
 |---|---|---|---|
 | ST-1 | PATCH a secret with `rotationIntervalDays=30` | Metadata returns 30, a due date 30 days after the current version createdAt, and `ok` | RD-01 AC-1 |
 | ST-2 | PATCH `rotationIntervalDays=null` | Rotation fields are null | RD-01 AC-2 |
-| ST-3 | Current version 25 days old, interval 30, warning 7 | `due_soon`; at exactly 30 days, `overdue`; at 24 days, `ok` | RD-01 AC-3 |
+| ST-3 | Current version 25 days old, interval 30, warning 7 | `due_soon`; at exactly 30 days, `overdue`; at 22 days, `ok` | RD-01 AC-3 |
 | ST-4 | `GET ...?rotation=policy` | Only secrets with an interval | RD-01 AC-4 |
 | ST-5 | `GET ...?rotation=due` | Due-soon and overdue only | RD-01 AC-5 |
 | ST-6 | `GET ...?rotation=overdue` | Overdue only | RD-01 AC-6 |
