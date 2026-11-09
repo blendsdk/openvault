@@ -3,11 +3,14 @@ import type { AddressInfo } from "node:net";
 import { describe, expect, it } from "vitest";
 import { SecretRotationWebhook } from "../../../src/secrets/rotation/webhook.js";
 
+const ULID = "01ARZ3NDEKTSV4RRFFQ69G5FAV";
+const OTHER_ULID = "01ARZ3NDEKTSV4RRFFQ69G5FAW";
+
 const payload = {
   event: "secret.rotation_warning" as const,
   eventId: "secret:version:due_soon:due",
-  secretId: "01ARZ3NDEKTSV4RRFFQ69G5FAV",
-  projectId: "01ARZ3NDEKTSV4RRFFQ69G5FAW",
+  secretId: ULID,
+  projectId: OTHER_ULID,
   name: "db-password",
   versionId: "01ARZ3NDEKTSV4RRFFQ69G5FAX",
   dueAt: "2026-12-09T12:00:00.000Z",
