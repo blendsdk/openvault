@@ -56,13 +56,28 @@ secretRotationNotifications.primaryKey().column("id");
 secretRotationNotifications
   .uniqueConstraint()
   .column("secret_id", "version_id", "status", "due_at");
+secretRotationNotifications.uniqueConstraint().column("audit_event_id");
 secretRotationNotifications
   .index()
   .indexName("secret_rotation_notifications_status_idx")
-  .column("status", "claimed_at");
+  .column("sent_at", "claimed_at");
+secretRotationNotifications
+  .foreignKeyConstraint(secrets)
+  .from("secret_id")
+  .to("id")
+  .onUpdate("NO ACTION")
+  .onDelete("CASCADE");
+secretRotationNotifications
+  .foreignKeyConstraint(secretVersions)
+  .from("secret_id", "version_id")
+  .to("secret_id", "id")
+  .onUpdate("NO ACTION")
+  .onDelete("CASCADE");
 ```
 
-No value, ciphertext, or key material. [AR-13]
+No value, ciphertext, or key material. The two foreign keys mirror
+`certificate_expiry_notifications`; the contract requires the version to belong to the secret.
+[AR-13, PF-004]
 
 ### Scan eligibility
 
@@ -72,19 +87,37 @@ No value, ciphertext, or key material. [AR-13]
 - `status = "due_soon"` when `dueAt - warningDays <= now < dueAt`.
 - Nothing when `now < dueAt - warningDays`.
 
-The scan lists only rows inside the warning window or overdue, in batches of 500. [AR-10, AR-13]
+The scan lists only rows inside the warning window or overdue, in batches of 500, ordered by
+`(dueAt, secretId)`. The cursor carries the last due date and secret id, so a page boundary cannot
+skip or repeat a row. [AR-10, AR-13, PF-004]
+
+`daysUntilDue` uses the service clock:
+
+```text
+remainingMs = dueAt - now
+if remainingMs >= 0: Math.ceil(remainingMs / DAY_MS)
+else: Math.floor(remainingMs / DAY_MS)
+```
+
+This gives 0 exactly at the due instant, a positive value inside the window, and a negative value
+for any overdue time. [AR-10, PF-010]
 
 ### Claim and delivery
 
-1. Claim a `(secret, version, status, dueAt)` row with a one-hour lease in a short transaction.
-2. Re-check eligibility in the same transaction.
+1. Lock the secret and project rows with `FOR SHARE OF s, p` and re-check active state, current
+   version, policy interval, and the exact due date in the same short transaction. Without the
+   lock, a purge can delete the secret after a separate re-check. Copy the certificate-expiry
+   repository pattern.
+2. Claim a `(secret, version, status, dueAt)` row with a one-hour lease in that transaction.
 3. Send the webhook if configured; otherwise record `webhook: "skipped"`.
 4. Write the `secret.rotation_warning` audit event.
 5. Mark the claim sent.
 6. On failure, delete the claim so a later scan retries; audit the failure with
    `webhook: "failed"` and a stable reason.
 
-The audit chain lock is not held while sending the webhook. [AR-13, AR-23]
+The audit chain lock is not held while sending the webhook. The claim transaction takes the row
+locks; the purge transaction takes the audit chain lock and the per-name advisory lock. The claim
+does not take the audit chain lock, so the two cannot deadlock. [AR-13, AR-23, PF-004]
 
 ### Webhook
 
@@ -126,7 +159,12 @@ URL validation, loopback rules, timeout, and header redaction mirror
 | `OPENVAULT_ROTATION_WEBHOOK_URL` | none | absolute HTTPS URL; loopback HTTP outside production; no credentials/fragments; reject production link-local/metadata targets |
 | `OPENVAULT_ROTATION_WEBHOOK_SECRET` | none | 16–256 characters; never logged or exposed in redacted config |
 
-Add the settings to `Config` and the redacted configuration output. [AR-22, PAR-14]
+Add the settings to `OpenVaultConfig` and the redacted output as `rotationScanHour`,
+`rotationWarningDays`, and `rotationWebhookConfigured`. Keep `webhookConfigured` for the certificate
+expiry webhook so support output is unambiguous. Refactor `parseWebhookUrl` in
+`apps/server/src/config/loader.ts` to accept the environment variable name for its issue path;
+otherwise rotation URL errors are reported under `OPENVAULT_CERT_EXPIRY_WEBHOOK_URL`.
+[AR-22, PAR-14, PF-012]
 
 ### Audit
 
@@ -165,9 +203,11 @@ value or key material. [AR-15, PAR-06]
 ### Scheduler wiring
 
 - Add `SecretRotationScheduler` next to `CertificateExpiryScheduler` in `apps/server/src/app.ts`.
-- Start it only when the server has a migration/role configuration that permits it; mirror the
-  existing scheduler lifecycle.
-- The scheduler uses the same daily lease pattern as certificate expiry. [AR-13, PAR-04]
+- Register it as a singleton with a `stop()` disposer, exactly like the certificate scheduler.
+- Start it under the existing `dependencies.disableBackgroundJobs !== true` condition. There is no
+  migration or role gate in the current lifecycle; do not invent one.
+- The scheduler uses the same daily catch-up and next-run pattern as certificate expiry.
+  [AR-13, PAR-04, PF-005]
 
 ## Error Handling
 
@@ -177,15 +217,21 @@ value or key material. [AR-15, PAR-06]
 | Audit write fails | Keep the claim until the lease; retry later | AR-23 |
 | Claim lost to another process | Skip; the owner delivers | AR-23 |
 | No webhook configured | Audit `webhook: "skipped"`; log | AR-4 |
-| Secret deleted or policy cleared before send | Re-check eligibility; delete the claim; skip | AR-13 |
-| New version written before send | The old `(secret, version, status)` claim is ineligible; skip | AR-9 |
+| Secret deleted or policy cleared before send | The row lock and re-check make the claim ineligible; delete the claim; skip | AR-13 |
+| New version written before send | The old `(secret, version, status, dueAt)` claim is ineligible; skip | AR-9 |
+| Policy interval changed before send | The old due date is ineligible; delete the claim; skip; the next scan claims the new due date | AR-9, AR-23 |
+
+The table is created by the generated migration described in [03-01](03-01-data-api.md), not by a
+hand-written schema-only change. [PF-001]
 
 ## Testing Requirements
 
-- Repository tests for claim, lease, uniqueness, eligibility, and mark-sent.
-- Service tests for due-soon/overdue thresholds, no webhook, webhook failure, retry, audit, and no
-  value in the payload.
+- Repository tests for claim, lease, uniqueness, row locks, eligibility, keyset pagination, and
+  mark-sent.
+- Service tests for due-soon/overdue thresholds, the `daysUntilDue` boundary at `dueAt - 1ms`,
+  `dueAt`, and `dueAt + 1ms`, no webhook, webhook failure, retry, audit, and no value in the payload.
+- A concurrent purge/claim test proving the claim is skipped and no orphan row remains.
 - Webhook tests for URL validation, HMAC, timeout, and SSRF.
-- Scheduler test with an injected clock.
-- Purge/dump tests.
-- Integration test with the real database. [AR-25, PAR-11]
+- Scheduler test with an injected clock and the `disableBackgroundJobs` gate.
+- Purge/dump/grant tests, including `apps/server/tests/integration/helpers/purger.ts`.
+- Integration test with the real database. [AR-25, PAR-11, PF-004, PF-010]

@@ -103,8 +103,11 @@ isolated large-context migration or protocol invariant is present._
 
 - `packages/api-contract/src/secrets.ts`
 - `apps/server/src/database/schema.ts`
+- `apps/server/migrations/*` (generated migration and snapshot)
+- `apps/server/src/database/generated-types.ts`, `apps/server/src/database/ctypes.ts`
 - `apps/server/src/secrets/repository.ts`
 - `apps/server/src/secrets/service.ts`
+- `apps/server/src/secrets/runtime.ts`
 - `apps/server/src/secrets/rotation/*` (new)
 - `apps/server/src/config/loader.ts`
 - `apps/server/src/config/types.ts`
@@ -137,6 +140,11 @@ isolated large-context migration or protocol invariant is present._
 - `apps/web/src/App.tsx`
 - `apps/web/src/docs.ts`
 - `apps/web/tests/*`
+- `apps/server/tests/integration/secrets/*` (new)
+- `apps/server/tests/integration/{migrations,schema,roles}.spec.test.ts`
+- `apps/server/tests/integration/security/auth-boundary.spec.test.ts`
+- `apps/server/tests/integration/helpers/purger.ts`
+- `apps/cli/tests/*`
 
 **Docs and release**
 

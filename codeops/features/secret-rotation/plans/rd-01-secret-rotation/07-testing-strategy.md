@@ -38,14 +38,17 @@ through `FakeVault`. CLI tests use the real parser and a test runtime.
 | ST-7 | PATCH interval 0, 3651, or a fraction | 422 `validation_error` | RD-01 AC-1 |
 | ST-8 | `GET ...?rotation=attention` | 422 `validation_error` | RD-01 AC-4 |
 | ST-9 | Existing list with no rotation filter | Unchanged behavior; rotation fields present when a policy exists | AR-24 |
-| ST-10 | Run `pnpm api:check` | Exit 0, no generated drift | RD-01 AC-20 |
+| ST-9a | Secret metadata for an `ok`, `degraded`, and `failed` consumer | `consumers[].state` returns the stored value | AR-3, AR-20 |
+| ST-9b | Apply the full migration set to a fresh database | The migration ledger, table inventory, foreign keys, view columns, role grants, and purge grants match the updated assertions | PF-001 |
+| ST-10 | Run `pnpm api:check`, `pnpm db:types:check`, and the integration suite | Exit 0; no generated contract or database-type drift | RD-01 AC-20 |
 
 ### Notifications
 
 | # | Input / Scenario | Expected Output / Behavior | Source |
 |---|---|---|---|
-| ST-11 | Scan a due-soon secret | One `due_soon` claim and webhook payload with the correct due date and days | RD-01 AC-14 |
-| ST-12 | Scan an overdue secret | One `overdue` claim | RD-01 AC-14 |
+| ST-11 | Scan a due-soon secret | One `due_soon` claim and webhook payload with the correct due date and `daysUntilDue` | RD-01 AC-14 |
+| ST-11a | Scan at `dueAt - 1ms`, `dueAt`, and `dueAt + 1ms` | `due_soon` with `1`, `overdue` with `0`, and `overdue` with `-1` days respectively | RD-01 AC-14, PF-010 |
+| ST-12 | Scan an overdue secret | One `overdue` claim with a negative `daysUntilDue` | RD-01 AC-14 |
 | ST-13 | Run the scan twice for the same version/status/due date | The second run sends nothing | RD-01 AC-15 |
 | ST-13a | Change the policy so the due date moves on the same version | A new warning is allowed for the new due date | AR-23 |
 | ST-14 | Webhook returns 503 | Audit `webhook: "failed"`, release the claim, retry on the next scan | RD-01 AC-15 |
@@ -68,8 +71,10 @@ through `FakeVault`. CLI tests use the real parser and a test runtime.
 | ST-26 | `ov rotation status db-password` | Shows policy or “No policy”, due, current version, consumers | RD-01 AC-12 |
 | ST-27 | `ov rotation rotate db-password --stdin` | PUT sends the value, encoding, expiry, idempotency key | RD-01 AC-13 |
 | ST-28 | `ov rotation rotate --generate --out FILE` | 43-character base64url value written mode 0600; stdout has no value | RD-01 AC-13 |
-| ST-29 | `ov rotation rotate --generate` without `--out` | Value printed once; warning on stderr | RD-01 AC-13 |
-| ST-30 | `--generate` with `--stdin` or `--from-file` | Exit 2 with a clear message | AR-17 |
+| ST-28a | `--out` with an existing file, with and without `--force` | Fails without force; replaces with force | PF-007 |
+| ST-28b | Server write fails after `--out` succeeds | The file is removed and the command exits non-zero | PF-007 |
+| ST-29 | `ov rotation rotate --generate` without `--out` | Value printed once after success; warning on stderr | RD-01 AC-13 |
+| ST-30 | `--generate` with `--stdin` or `--from-file`; `--out` without `--generate`; `--due` with `--overdue` | Exit 2 with a clear message | AR-17, PF-007, PF-016 |
 | ST-31 | Generate a value | No value in the JSON metadata, logs, or error output | AR-17 |
 
 ### Web
@@ -77,6 +82,7 @@ through `FakeVault`. CLI tests use the real parser and a test runtime.
 | # | Input / Scenario | Expected Output / Behavior | Source |
 |---|---|---|---|
 | ST-32 | Open `/projects/payments/rotation` | Table shows policy secrets with status/due/interval/last rotated/consumers | RD-01 AC-7 |
+| ST-32a | Open `/projects/payments/rotation?status=due` | The due filter is selected and the request uses `rotation=due` | PF-014 |
 | ST-33 | Apply search/status filters and Load more | Correct query parameters; rows append; cursor resets on filter change | RD-01 AC-7 |
 | ST-34 | Open with no policies / no matches / no overdue | Three distinct empty states | AR-19 |
 | ST-35 | Reader without `canWrite` | Rotate and Set policy are absent | AR-11 |
@@ -108,21 +114,25 @@ through `FakeVault`. CLI tests use the real parser and a test runtime.
 
 | Test file | ST cases | Component |
 |---|---|---|
-| `apps/server/tests/integration/secrets/rotation-policy.spec.test.ts` | ST-1..ST-10 | Data/API |
-| `apps/server/tests/integration/secrets/rotation-notifications.spec.test.ts` | ST-11..ST-22 | Notifications |
-| `apps/cli/tests/rotation.spec.test.ts` | ST-23..ST-31 | CLI |
-| `apps/web/tests/rotation-page.test.tsx` | ST-32..ST-45 | Web |
+| `apps/server/tests/integration/secrets/rotation-policy.spec.test.ts` | ST-1..ST-10 (including ST-9a) | Data/API |
+| `apps/server/tests/integration/secrets/rotation-notifications.spec.test.ts` | ST-11..ST-22 (including ST-11a/ST-13a) | Notifications |
+| `apps/server/tests/integration/migrations.spec.test.ts` | ST-9b | Database lifecycle |
+| `apps/server/tests/integration/schema.spec.test.ts` | ST-9b | Database lifecycle |
+| `apps/cli/tests/rotation.spec.test.ts` | ST-23..ST-31 (including ST-28a/ST-28b) | CLI |
+| `apps/web/tests/rotation-page.test.tsx` | ST-32..ST-44 (including ST-32a) | Web |
+| `apps/web/tests/accessibility.test.tsx` | ST-45 | Web accessibility |
 | `tests/docs.spec.test.mjs` | ST-46..ST-51 | Docs |
 
 ### Implementation tests
 
 | Test file | Description | Priority |
 |---|---|---|
-| `apps/server/tests/integration/secrets/rotation-repository.impl.test.ts` | Boundary math, cursor, policy filter | High |
+| `apps/server/tests/integration/secrets/rotation-repository.impl.test.ts` | Boundary math with a fixed clock, keyset cursor, policy filter, consumer state | High |
 | `apps/server/tests/integration/secrets/rotation-webhook.impl.test.ts` | URL validation, HMAC, timeout, SSRF | High |
-| `apps/server/tests/integration/secrets/rotation-scheduler.impl.test.ts` | Claim lease, retry, duplicate scan | High |
-| `apps/web/tests/rotation-validation.impl.test.ts` | Interval bounds, generator length, date formatting | High |
-| `apps/cli/tests/rotation-generator.impl.test.ts` | 43-char value, `--out` mode, no value in metadata | High |
+| `apps/server/tests/integration/secrets/rotation-scheduler.impl.test.ts` | Claim lease, row-lock race, retry, duplicate scan, background-job gate | High |
+| `apps/server/tests/integration/secrets/rotation-purge.impl.test.ts` | Purge removes notification rows; no orphans under a concurrent claim | High |
+| `apps/web/tests/rotation-validation.impl.test.ts` | Interval bounds, generator length, date formatting, URL status fallback | High |
+| `apps/cli/tests/rotation-generator.impl.test.ts` | 43-char value, `--out` mode/force/cleanup, no value in metadata | High |
 
 ### Integration tests
 
@@ -163,7 +173,10 @@ The project has no browser automation dependency and the plan does not add one. 
 - [ ] Spec tests precede implementation in every phase.
 - [ ] Red phase observed for every phase.
 - [ ] Integration tests pass on PostgreSQL 16 and 17 in CI.
-- [ ] `pnpm api:check` passes.
+- [ ] The phase and final gates run `OPENVAULT_TEST_DB=1 TEST_DATABASE_URL=... pnpm test:integration`;
+      `pnpm --filter @openvault/server test` alone is not sufficient.
+- [ ] `pnpm api:check` and `pnpm db:types:check` pass.
 - [ ] `pnpm verify` passes.
+- [ ] The generated migration, snapshot, and schema/role/view assertions are updated together.
 - [ ] Axe covers the Rotation page and rotate dialog.
 - [ ] No value appears in webhook, audit, logs, storage, URL, console, or CLI metadata tests.

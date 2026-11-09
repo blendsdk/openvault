@@ -37,7 +37,8 @@ Keep the KEK, certificate, and browser-session sections.
 - Add the status values and the generated-value handling.
 - Add the restart note.
 - Add the Rotation page and dialog to the accessibility coverage.
-- Remove “rotation workflow” from any out-of-scope list if present.
+- Remove “Rotation wizards” from the out-of-scope list; secret rotation now ships. The exact
+  current line is `Rotation wizards, settings, user self-registration, ...`. [PF-011]
 
 ### `docs/guide/cli.md` and `docs/reference/cli.md`
 
@@ -80,7 +81,16 @@ badge, and remove “rotation workflow” from the README roadmap because it now
 
 ## Release metadata
 
-Move every 1.1.0 label to 1.2.0 using the 1.1.0 release checklist:
+Move the current-release labels to 1.2.0 using the 1.1.0 release checklist. Do not rewrite
+historical release records: `docs/security/release-evidence.md`, `docs/security/claims.json`,
+`docs/security/claims.md`, and the historical changelog entries keep their 1.0/1.1 facts. The
+"current release" label means the package versions, the current-release lines in README and docs,
+the image examples, and the CLI/API version output. [PF-011]
+
+Add a changeset for the user-visible minor release. The repository's CONTRIBUTING guide requires a
+changeset; use the existing `.changeset` workflow, for example `.changeset/secret-rotation.md` with
+a `minor` bump for the affected packages. A changeset is release metadata, not a tag or publication.
+[PF-011]
 
 | Area | Files |
 |---|---|
@@ -92,7 +102,8 @@ Move every 1.1.0 label to 1.2.0 using the 1.1.0 release checklist:
 | Compose | `deploy/compose/compose.yaml`, `agent.example.yaml`, `examples/compose-env/compose.yaml` |
 | Docs | README, docs index, getting started, versioning, docker-compose, changelog |
 | GitHub | issue template placeholder; release workflow description example |
-| Tests | compose example and docs guard expectations |
+| Release record | `.changeset/secret-rotation.md` (minor bump) |
+| Tests | compose example and docs guard expectations; scaffold renderer and dispatcher version expectations |
 
 Do not change the release workflow logic, image names, or signing configuration. Do not tag or
 publish. [AR-26, PAR-13, PAR-18]

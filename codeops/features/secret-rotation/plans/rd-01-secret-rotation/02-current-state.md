@@ -19,17 +19,22 @@
   (`apps/cli/src/commands/secret.ts`).
 - The certificate-expiry feature has a durable notification table, a daily scheduler, and a signed
   metadata-only webhook (`apps/server/src/certificates/expiry/`). This is the pattern to mirror.
-- Agent consumers expose Compose project/service, state, and `lastSeen` through
-  `secretConsumerSummarySchema`; there is no per-secret version acknowledgement.
+- The `consumers` table stores Compose project/service, `state`, and `last_seen`. The
+  `secret_consumer_summaries` view currently exposes Compose project/service and `last_seen`, but not
+  `state`; `secretConsumerSummarySchema` mirrors the view. The plan extends both with the existing
+  state value. There is no per-secret version acknowledgement.
 
 ### Relevant files
 
 | File | Purpose | Change |
 |---|---|---|
 | `packages/api-contract/src/secrets.ts` | Secret schemas | Add rotation metadata and list filter |
-| `apps/server/src/database/schema.ts` | Desired schema | Add interval column and notification table |
-| `apps/server/src/secrets/repository.ts` | Secret reads/writes | Map interval; list filters |
-| `apps/server/src/secrets/service.ts` | Metadata and writes | Compute due/status; pass filter |
+| `apps/server/src/database/schema.ts` | Desired schema | Add interval column, notification table, and consumer view state |
+| `apps/server/migrations/*` | Applied DDL and snapshot | Generate and commit the migration |
+| `apps/server/src/database/generated-types.ts`, `ctypes.ts` | Generated database types | Regenerate after migration |
+| `apps/server/src/secrets/repository.ts` | Secret reads/writes | Map interval and state; list filters; pass clock |
+| `apps/server/src/secrets/service.ts` | Metadata and writes | Compute due/status; consumer state; warning-days option |
+| `apps/server/src/secrets/runtime.ts` | Secret composition root | Pass warning days into the service |
 | `apps/server/src/secrets/rotation/*` | New notification service | Create |
 | `apps/server/src/config/loader.ts` | Configuration | Add four env vars |
 | `apps/server/src/config/types.ts` | Config type | Add rotation settings |
@@ -91,7 +96,7 @@ optional expiry.
 ### Gap 2: No due/overdue view or filters
 
 **Current behavior:** every secret is listed the same; the operator must inspect dates manually.
-**Required behavior:** a project Rotation page and `rotation=due|overdue` filters.
+**Required behavior:** a project Rotation page and `rotation=policy|due|overdue` filters.
 **Fix required:** list predicate, page, badges, overview counts.
 
 ### Gap 3: No guided rotate with a generated value
@@ -130,7 +135,9 @@ None. The feature adds no package.
 
 | Risk | Likelihood | Impact | Mitigation |
 |---|---|---|---|
+| The schema change is not applied by the migration runner | High | High | Generate the migration and snapshot; update the ledger, inventory, grant, and view assertions |
 | The interval column changes the strict secret row mapping | Medium | Medium | Update all row columns and `toSecret` in one phase; integration tests |
+| Consumer state is missing from the summary/view | High | Medium | Extend the definer view, contract, repository, service, and migration together |
 | Due-date math crosses time zones or the clock | Medium | Medium | Use the server UTC clock and ISO timestamps; boundary tests |
 | A webhook leaks a value | Low | High | Payload schema only has metadata; security tests assert no value |
 | A duplicate scan sends repeated warnings | Medium | Medium | Unique `(secret, version, status)` plus a claim lease |

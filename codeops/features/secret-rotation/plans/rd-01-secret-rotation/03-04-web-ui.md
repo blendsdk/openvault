@@ -31,8 +31,8 @@ and capability patterns.
 /projects/:project                   due/overdue counts
 ```
 
-Add the **Rotation** section between Secrets and Identities. Add the launcher entry and docs mapping
-to `/guide/rotation`. [AR-18, PAR-09]
+Add the **Rotation** section immediately after Secrets (before Certificates), and add the launcher
+entry and docs mapping to `/guide/rotation`. [AR-18, PAR-09]
 
 ## Implementation Details
 
@@ -49,7 +49,9 @@ interface Filters {
 
 The page calls `listSecrets({ project, limit: 25, rotation: filters.status, ...(q ? { q } : {}) })`.
 `policy` lists every secret with a policy; `due` lists due-soon or overdue; `overdue` lists overdue.
-[AR-19, PAR-03]
+The initial status comes from the `?status=` search parameter when it is `policy`, `due`, or
+`overdue`; an unknown value falls back to `policy`. This makes the secrets-list "Needs rotation" link
+land on the due view. [AR-19, PAR-03, PF-014]
 
 **Table**
 
@@ -74,7 +76,7 @@ is All policies. Load more uses the existing cursor pattern. [AR-19]
 
 | Condition | Title | Action |
 |---|---|---|
-| No policies | No rotation policies yet | Set a policy from a secret |
+| No policies | No rotation policies yet | Link to the secrets list: “Set a policy from a secret” |
 | No matches | No secrets match | Clear filters |
 | No overdue | Nothing is overdue | Back to all policies |
 
@@ -83,9 +85,9 @@ is All policies. Load more uses the existing cursor pattern. [AR-19]
 Place the card above or beside the existing version history. It shows:
 
 - Interval (`every N days` or `No policy`)
-- Due date and status
-- Last rotated (`currentVersion.createdAt`)
-- Consumers: Compose project/service, state, last seen (reuse the existing summary)
+- Due date and status; both are `—` / `No policy` when there is no policy or no current version
+- Last rotated (`currentVersion.createdAt`, or `—` when there is no current version)
+- Consumers: Compose project/service, state, last seen (the extended summary from [03-01](03-01-data-api.md))
 - **Set policy** (when `canWrite`)
 - **Rotate now** (when `canWrite`)
 - A note: “The agent fetches the new version on its next refresh. Restart or reload the application
@@ -113,7 +115,7 @@ Fields:
 |---|---|
 | New value | Required unless generated; existing secret value limits |
 | Generate value | Button that fills the value with 32 random bytes base64url |
-| Copy value | Copies the current value; only for public/manual use |
+| Copy value | Copies the current value, whether manual or generated |
 | Regenerate | Replaces a generated value |
 | Expires at | Optional future ISO timestamp |
 
@@ -123,9 +125,10 @@ Behavior:
   needs it outside OpenVault. It will not be shown again.”
 - The value exists only in component state. It is cleared on close, route change, and unmount.
 - Submit calls `writeSecretValue` with the value, encoding, optional expiry, and no old-version
-  deletion.
-- Success shows the new version id and next due date; the dialog closes.
-- Do not auto-close while a request is in flight. [AR-5, AR-17, AR-6, PAR-10]
+  deletion. The generated value is printed only in the dialog; the success state shows the new
+  version id and next due date.
+- On success, clear the value from state before closing the dialog.
+- Do not auto-close while a request is in flight. [AR-5, AR-17, AR-6, PAR-10, PF-014]
 
 ### Secrets list badge
 
@@ -164,6 +167,7 @@ storage, session storage, IndexedDB, cookies, the URL, or the console. [AR-17, P
 | Write denied | “You do not have permission for this action.” | AR-11 |
 | Version conflict or validation | Server message in `ErrorAlert`; keep the dialog open | AR-12 |
 | No policy | Rotate card shows “No policy” and Set policy | AR-9 |
+| Policy but no current version | Due date and status show `—`; rotation remains available and creates the first current version | AR-9, PF-014 |
 | No consumers | Consumers table shows an empty state | AR-20 |
 | Generated value lost by closing | Regenerate before submitting; no persistence | AR-17 |
 
@@ -176,10 +180,14 @@ storage, session storage, IndexedDB, cookies, the URL, or the console. [AR-17, P
 
 ## Testing Requirements
 
-- `rotation-page.test.tsx`: rendering, filters, pagination, empty states, capability gating.
+- `rotation-page.test.tsx`: rendering, filters, pagination, empty states, capability gating, and
+  `?status=due` initialization.
 - `rotation-policy.test.tsx`: set/clear, validation, reload.
-- `rotation-dialog.test.tsx`: manual value, generate, regenerate, copy, expiry, success, no storage.
-- `secret-detail` rotation card and `secrets-list` badge tests.
+- `rotation-dialog.test.tsx`: manual value, generate, regenerate, copy, expiry, success, no storage,
+  and clearing the value on success.
+- `secret-detail` rotation card (including consumer state) and `secrets-list` badge tests.
 - `project-overview` counts.
 - Navigation/docs mapping.
-- Axe coverage. [AR-25, PAR-11, PAR-15]
+- Extend the web `FakeVault` with the secret PATCH/PUT routes and rotation query handling before the
+  page tests; do not mock page modules. [AR-25, PAR-11, PAR-15, PF-015]
+- Axe coverage in `apps/web/tests/accessibility.test.tsx`, not in the page suite. [PF-015]

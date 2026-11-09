@@ -10,7 +10,7 @@
 
 - RD-01 §Data model — nullable interval column and derived due date.
 - RD-01 §Metadata API — `rotationIntervalDays`, `rotationDueAt`, `rotationStatus`, and PATCH.
-- RD-01 §List API — `rotation=due|overdue`.
+- RD-01 §List API — `rotation=policy|due|overdue`.
 - RD-01 §Webhook scan and §Notification persistence — table, schedule, HMAC, retries.
 - RD-01 §Audit, purge, and dump.
 - RD-01 §Configuration — four env vars.

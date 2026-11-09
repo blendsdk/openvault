@@ -80,7 +80,13 @@ technical findings under the active auto-design policy. Stop and report any rese
 - **No new dependency, service, framework, state store, queue, workflow engine, or generic
   notification framework.** Reuse the existing stack and the certificate-expiry pattern.
 - **One nullable interval column**, one notification table, and additive metadata/list-filter
-  fields. No breaking API change.
+  fields. No breaking API change. Generate and commit the BlendSDK migration and snapshot; editing
+  `schema.ts` alone does not apply the schema.
+- **Consumer state** is part of the approved visibility. Extend the definer view, contract,
+  repository, service, UI, CLI, and fixtures together.
+- **The integration suite is part of the gate.** `pnpm --filter @openvault/server test` excludes
+  `tests/integration/**`; run `pnpm test:integration` with the guarded test database and run
+  `pnpm db:types:check`.
 - **Status is server-computed** from the current version's `createdAt`, the interval, and the
   warning window. The UI and CLI display the returned status.
 - **Authorization** uses the existing `secret.write` for policy and rotation; viewing uses
@@ -99,16 +105,17 @@ technical findings under the active auto-design policy. Stop and report any rese
 
 1. Every task in `99-execution-plan.md` is `[x]`.
 2. Every RD-01 acceptance criterion is covered by a passing test or a recorded manual check.
-3. `pnpm verify` exits 0.
-4. `pnpm api:check` exits 0.
-5. The Rotation page and rotate dialog pass the axe suite.
-6. The manual review-stack E2E sequence in `07-testing-strategy.md` is completed, or its
+3. `pnpm verify` exits 0 and the guarded `pnpm test:integration` suite exits 0.
+4. `pnpm api:check` and `pnpm db:types:check` exit 0.
+5. The generated migration and snapshot are committed and the schema/role/view/purge assertions pass.
+6. The Rotation page and rotate dialog pass the axe suite.
+7. The manual review-stack E2E sequence in `07-testing-strategy.md` is completed, or its
    environment limitation is recorded.
-7. No generated value appears in storage, the URL, the console, logs, the webhook, or the audit
+8. No generated value appears in storage, the URL, the console, logs, the webhook, or the audit
    event in tests.
-8. Purge and dump cover the notification table.
-9. The reader docs describe the restart requirement and state 1.2.0.
-10. No tag, published image, or GitHub release was created.
+9. Purge and dump cover the notification table.
+10. The reader docs describe the restart requirement and state 1.2.0.
+11. No tag, published image, or GitHub release was created.
 
 ## Report format
 
@@ -116,7 +123,7 @@ technical findings under the active auto-design policy. Stop and report any rese
 Secret rotation — execution summary
 
 Phases completed: X/7
-Tasks completed: X/79
+Tasks completed: X/85
 Verification: pnpm verify <pass/fail>; api:check <pass/fail>; axe <pass/fail>
 Evidence: <test counts and key commands>
 Docs: <files updated; live check if applicable>

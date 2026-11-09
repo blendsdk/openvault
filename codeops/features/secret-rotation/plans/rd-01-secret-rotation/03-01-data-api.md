@@ -25,12 +25,21 @@ computation. It does not own the notification scheduler or the web/CLI surfaces.
 ### Proposed changes
 
 ```text
-database/schema.ts          + rotation_interval_days
-secrets/repository.ts       + column mapping; rotation filter
-secrets/service.ts          + due/status computation
-api-contract/secrets.ts     + metadata fields; PATCH field; list filter
+database/schema.ts          + rotation_interval_days; consumer view state
+migrations/*.up.sql         generated migration; schema.snapshot.json updated
+secrets/repository.ts       + column mapping; rotation filter; consumer state
+secrets/service.ts          + due/status computation; consumer state
+secrets/runtime.ts          + warning-days option
+api-contract/secrets.ts     + metadata fields; PATCH field; list filter; consumer state
 api-contract/openapi.json   regenerated
+database/generated-types.ts and ctypes.ts regenerated
 ```
+
+The schema change is not complete when `schema.ts` changes. The applied DDL is generated into
+`apps/server/migrations/` and recorded in `apps/server/migrations/schema.snapshot.json`; integration
+databases are created from those migrations. The migration must be generated with the existing
+`blendsdk/codegen` `generateMigration` API and the existing `apps/server/blendsdk.migrations.ts`
+configuration. [PF-001, PF-013]
 
 ## Implementation Details
 
@@ -48,7 +57,13 @@ secrets
   .where("rotation_interval_days IS NOT NULL");
 ```
 
-The due date is derived; no new date column. [AR-9, PAR-02]
+The due date is derived; no new date column. The partial index narrows the `policy` filter and the
+scan's candidate set; it does not serve the computed `created_at + interval` range, which is evaluated
+from the joined current version. [AR-9, PAR-02, PF-016]
+
+Add `state` to the definer view `secret_consumer_summaries` after `compose_service`. The raw
+`consumers.state` column already stores `ok | degraded | failed`; the view is the only missing piece.
+[PF-002]
 
 ### Repository
 
@@ -63,22 +78,30 @@ readonly rotationIntervalDays: number | null;
 the existing value when the field is omitted and the provided value, including `null`, when it is
 supplied. [PAR-02]
 
-`listActiveSecrets` filters gains `rotation?: "due" | "overdue"` and `warningDays: number`. The SQL
-adds:
+`listActiveSecrets` filters gains `rotation?: "policy" | "due" | "overdue"`, `warningDays: number`, and
+`now: Date`. The SQL adds:
 
 ```sql
+-- policy
+s.rotation_interval_days IS NOT NULL
+
 -- due
 s.rotation_interval_days IS NOT NULL
 AND v.created_at + make_interval(days => s.rotation_interval_days)
-    <= now() + make_interval(days => :warningDays)
+    <= :now + make_interval(days => :warningDays)
 
 -- overdue
 s.rotation_interval_days IS NOT NULL
-AND v.created_at + make_interval(days => s.rotation_interval_days) <= now()
+AND v.created_at + make_interval(days => s.rotation_interval_days) <= :now
 ```
 
-Use the database clock for the filter; the service uses the same injected clock for the response.
-The cursor/name ordering and tag/name filters are unchanged. [AR-12, AR-19, PAR-03]
+The service passes one `now` value into the repository and uses the same value for the response
+status. Do not use the database `now()` here; the injected service clock is the product clock and
+the filter/status boundaries must agree. The cursor/name ordering and tag/name filters are
+unchanged. [AR-12, AR-19, PAR-03, PF-006]
+
+`SecretRepository.listConsumers` and the `ConsumerSummary` row type gain `state`, selected from the
+view and mapped to the public summary. [PF-002]
 
 ### Metadata schema
 
@@ -99,6 +122,15 @@ rotationIntervalDays: z.number().int().min(1).max(3650).nullable().optional(),
 The existing `refine` includes the new field. `secretCreateRequestSchema` is unchanged; a policy is
 set through PATCH after creation. [AR-12, PAR-02]
 
+`secretConsumerSummarySchema` gains:
+
+```ts
+state: z.enum(["ok", "degraded", "failed"]),
+```
+
+This is the existing `consumers.state` value exposed through the definer view. It is additive and
+display-only. [AR-3, AR-20, PF-002]
+
 ### Status computation
 
 Add a small pure helper, for example `rotationState(dueAt, now, warningDays)`:
@@ -114,29 +146,26 @@ return "ok";
 
 ```ts
 const dueAt =
-  secret.rotationIntervalDays === null
+  secret.rotationIntervalDays === null || currentVersion === null
     ? null
     : new Date(currentVersion.createdAt.getTime() + secret.rotationIntervalDays * DAY_MS);
 const rotationStatus = rotationState(dueAt, this.#now(), this.#warningDays);
 ```
 
-The service receives `rotationWarningDays` from configuration; `app.ts` passes the validated value
-into the service options. The same value is used by the notification scan. The response fields are
-included in list, create, write, recover, and detail metadata responses because they all use
-`secretMetadataSchema`. [AR-9, AR-10, PAR-03]
+The null guard is required because `currentVersion` is typed as nullable even though normal writes
+keep a current version. A policy secret without a current version has `rotationDueAt: null` and
+`rotationStatus: null`.
+
+The service receives `rotationWarningDays` from configuration. The value flows through
+`createSecretRuntime` in `apps/server/src/secrets/runtime.ts`; `app.ts` passes it into the runtime.
+The option is `rotationWarningDays?: number` with a default of 7 so existing direct `new SecretService`
+test constructors keep working. The same value is used by the notification scan. The response fields
+are included in list, create, write, recover, and detail metadata responses because they all use
+`secretMetadataSchema`. [AR-9, AR-10, PAR-03, PF-009]
 
 ### List query
 
-`secretListQuerySchema` gains:
-
-```ts
-rotation: z.enum(["due", "overdue"]).optional(),
-```
-
-No `rotation=all`; the Rotation page simply lists all policy secrets by requesting the normal list
-and filtering client-side? **No:** the Rotation page should request `rotation=due` for the due view
-and the normal list for all policy secrets. To list "all policy secrets" without a filter, the server
-needs a way to exclude non-policy secrets. Add a third value:
+`secretListQuerySchema` gains one optional filter:
 
 ```ts
 rotation: z.enum(["policy", "due", "overdue"]).optional(),
@@ -147,7 +176,7 @@ rotation: z.enum(["policy", "due", "overdue"]).optional(),
 - `overdue`: overdue only.
 
 The Rotation page defaults to `policy`; the "Needs attention" filter uses `due`; "Overdue" uses
-`overdue`. The normal secrets list omits the filter. [AR-19, PAR-03]
+`overdue`. The normal secrets list omits the filter. There is no `rotation=all`. [AR-19, PAR-03]
 
 ### Errors
 
@@ -168,7 +197,16 @@ and browser generated clients. No new route is added. `pnpm api:check` must repo
 
 - Schema tests for the interval bounds and the rotation filter enum.
 - Repository integration tests for `policy`, `due`, and `overdue`, including the boundary at
-  `now == dueAt` and `now == dueAt - warningDays`.
-- Metadata tests for null policy and each status.
-- `pnpm api:check` for generated types.
-- No test requires a new service. [AR-25, PAR-11, PAR-03]
+  `now == dueAt` and `now == dueAt - warningDays` with a fixed injected clock.
+- Metadata tests for a null policy, no current version, and each status.
+- Consumer-summary tests for all three states through the view and through secret metadata.
+- Migration and schema tests: the generated migration applies, the ledger count and table inventory
+  are current, the foreign keys exist, and the role/view/purge grants are present. Update
+  `apps/server/tests/integration/migrations.spec.test.ts`,
+  `apps/server/tests/integration/schema.spec.test.ts`,
+  `apps/server/tests/integration/roles.spec.test.ts`,
+  `apps/server/tests/integration/security/auth-boundary.spec.test.ts`, and
+  `apps/server/tests/integration/helpers/purger.ts`.
+- `pnpm api:check` for generated types, `pnpm db:types:check` for generated database types, and the
+  integration suite for the database behavior.
+- No test requires a new service. [AR-25, PAR-11, PAR-03, PF-001, PF-002, PF-013]
