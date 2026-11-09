@@ -212,6 +212,10 @@ export class VaultPurger {
             "DELETE FROM certificate_expiry_notifications WHERE certificate_id = :id",
             { id },
           );
+        } else {
+          await tx.executeQuery("DELETE FROM secret_rotation_notifications WHERE secret_id = :id", {
+            id,
+          });
         }
         const versions = await tx.executeQuery<{ count: number }>(
           `SELECT count(*)::int AS count FROM ${target.versionTable}

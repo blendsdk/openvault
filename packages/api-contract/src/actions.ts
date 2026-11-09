@@ -65,6 +65,7 @@ export const BUSINESS_AUDIT_ACTIONS = [
   "backup.create",
   "backup.restore",
   "certificate.expiry_warning",
+  "secret.rotation_warning",
 ] as const;
 
 /**

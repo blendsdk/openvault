@@ -25,6 +25,7 @@ REVOKE SELECT (id) ON audit_keys FROM openvault_pruner;
 GRANT SELECT, INSERT, UPDATE ON projects TO openvault_app;
 GRANT SELECT, INSERT, UPDATE ON secrets TO openvault_app;
 GRANT SELECT, INSERT ON secret_versions TO openvault_app;
+GRANT SELECT, INSERT, UPDATE, DELETE ON secret_rotation_notifications TO openvault_app;
 GRANT SELECT, INSERT, UPDATE ON certificates TO openvault_app;
 GRANT SELECT, INSERT ON certificate_versions TO openvault_app;
 GRANT SELECT, INSERT, UPDATE, DELETE ON certificate_expiry_notifications TO openvault_app;
@@ -70,6 +71,7 @@ GRANT SELECT, DELETE ON secret_versions TO openvault_purger;
 GRANT SELECT, DELETE ON certificates TO openvault_purger;
 GRANT SELECT, DELETE ON certificate_versions TO openvault_purger;
 GRANT SELECT, DELETE ON certificate_expiry_notifications TO openvault_purger;
+GRANT SELECT, DELETE ON secret_rotation_notifications TO openvault_purger;
 
 -- The application records a single-use authorization after verification,
 -- export, and checkpoint creation. The pruner can only execute the definer

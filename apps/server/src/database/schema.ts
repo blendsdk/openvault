@@ -348,6 +348,45 @@ secretVersions.uniqueConstraint().column("secret_id", "id");
 secretVersions.index().indexName("secret_versions_secret_idx").column("secret_id", "created_at");
 
 // ---------------------------------------------------------------------------
+// Secret rotation notifications
+// ---------------------------------------------------------------------------
+
+const secretRotationNotifications = db.table("secret_rotation_notifications");
+secretRotationNotifications.text("id").check(ulidExpression("id"));
+secretRotationNotifications.text("secret_id");
+secretRotationNotifications.text("project_id");
+secretRotationNotifications.text("version_id");
+secretRotationNotifications.text("status").check("status IN ('due_soon', 'overdue')");
+secretRotationNotifications.timestamptz("due_at");
+secretRotationNotifications.integer("days_until_due");
+secretRotationNotifications.text("claim_id").nullable();
+secretRotationNotifications.timestamptz("claimed_at").nullable();
+secretRotationNotifications.timestamptz("sent_at").nullable();
+secretRotationNotifications.text("audit_event_id").nullable();
+secretRotationNotifications.timestamptz("created_at").default("now()");
+secretRotationNotifications.primaryKey().column("id");
+secretRotationNotifications
+  .uniqueConstraint()
+  .column("secret_id", "version_id", "status", "due_at");
+secretRotationNotifications.uniqueConstraint().column("audit_event_id");
+secretRotationNotifications
+  .index()
+  .indexName("secret_rotation_notifications_status_idx")
+  .column("sent_at", "claimed_at");
+secretRotationNotifications
+  .foreignKeyConstraint(secrets)
+  .from("secret_id")
+  .to("id")
+  .onUpdate("NO ACTION")
+  .onDelete("CASCADE");
+secretRotationNotifications
+  .foreignKeyConstraint(secretVersions)
+  .from("secret_id", "version_id")
+  .to("secret_id", "id")
+  .onUpdate("NO ACTION")
+  .onDelete("CASCADE");
+
+// ---------------------------------------------------------------------------
 // Certificates
 // ---------------------------------------------------------------------------
 

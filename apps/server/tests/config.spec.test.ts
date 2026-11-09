@@ -427,6 +427,37 @@ describe("configuration defaults", () => {
     ).toBe("OPENVAULT_CERT_MAX_BYTES");
   });
 
+  it("validates and redacts the rotation settings", () => {
+    const { env } = validFixture();
+    const config = loadConfig({
+      ...env,
+      OPENVAULT_ROTATION_SCAN_HOUR: "5",
+      OPENVAULT_ROTATION_WARNING_DAYS: "14",
+      OPENVAULT_ROTATION_WEBHOOK_URL: "https://hooks.example.test/rotation",
+      OPENVAULT_ROTATION_WEBHOOK_SECRET: "b".repeat(32),
+    });
+    expect(config.rotationScanHour).toBe(5);
+    expect(config.rotationWarningDays).toBe(14);
+    expect(config.rotationWebhookUrl).toBe("https://hooks.example.test/rotation");
+    expect(config.rotationWebhookSecret).toBe("b".repeat(32));
+    const redacted = toRedactedConfig(config);
+    expect(redacted.rotationScanHour).toBe(5);
+    expect(redacted.rotationWarningDays).toBe(14);
+    expect(redacted.rotationWebhookConfigured).toBe(true);
+    const serialized = JSON.stringify(redacted);
+    expect(serialized).not.toContain("hooks.example.test");
+    expect(serialized).not.toContain("b".repeat(32));
+    for (const [key, value] of [
+      ["OPENVAULT_ROTATION_SCAN_HOUR", "24"],
+      ["OPENVAULT_ROTATION_WARNING_DAYS", "0"],
+      ["OPENVAULT_ROTATION_WARNING_DAYS", "31"],
+      ["OPENVAULT_ROTATION_WEBHOOK_URL", "http://hooks.example.test/rotation"],
+      ["OPENVAULT_ROTATION_WEBHOOK_SECRET", "short"],
+    ] as const) {
+      expect(requireConfigError(() => loadConfig({ ...env, [key]: value })).key).toBe(key);
+    }
+  });
+
   it("treats blank optional values as absent", () => {
     const { env } = validFixture();
     const config = loadConfig({

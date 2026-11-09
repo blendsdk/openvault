@@ -545,7 +545,8 @@ export type AuditListAuditEventsParams = {
     | 'audit.prune'
     | 'backup.create'
     | 'backup.restore'
-    | 'certificate.expiry_warning';
+    | 'certificate.expiry_warning'
+    | 'secret.rotation_warning';
   objectType?: string;
   objectId?: string;
   result?: 'allow' | 'deny' | 'error';
@@ -596,7 +597,8 @@ export type AuditListAuditEventsResult = {
       | 'audit.prune'
       | 'backup.create'
       | 'backup.restore'
-      | 'certificate.expiry_warning';
+      | 'certificate.expiry_warning'
+      | 'secret.rotation_warning';
     actorId: __schema0_10 | unknown | null;
     actorKind: 'user' | 'service' | 'system';
     auditKeyId: __schema0_10;
@@ -662,7 +664,8 @@ export type AuditExportAuditParams = {
     | 'audit.prune'
     | 'backup.create'
     | 'backup.restore'
-    | 'certificate.expiry_warning';
+    | 'certificate.expiry_warning'
+    | 'secret.rotation_warning';
   objectType?: string;
   objectId?: string;
   result?: 'allow' | 'deny' | 'error';

@@ -54,6 +54,7 @@ export async function ensurePurgerRole(
     await grant.query(`GRANT SELECT, DELETE ON certificates TO ${PURGER_USER}`);
     await grant.query(`GRANT SELECT, DELETE ON certificate_versions TO ${PURGER_USER}`);
     await grant.query(`GRANT SELECT, DELETE ON certificate_expiry_notifications TO ${PURGER_USER}`);
+    await grant.query(`GRANT SELECT, DELETE ON secret_rotation_notifications TO ${PURGER_USER}`);
     const check = await grant.query<{
       project: boolean;
       secrets: boolean;
@@ -61,13 +62,15 @@ export async function ensurePurgerRole(
       certificates: boolean;
       certificateVersions: boolean;
       notifications: boolean;
+      rotationNotifications: boolean;
     }>(
       `SELECT has_table_privilege('${PURGER_USER}', 'projects', 'SELECT') AS project,
               has_table_privilege('${PURGER_USER}', 'secrets', 'SELECT, DELETE') AS secrets,
               has_table_privilege('${PURGER_USER}', 'secret_versions', 'SELECT, DELETE') AS versions,
               has_table_privilege('${PURGER_USER}', 'certificates', 'SELECT, DELETE') AS certificates,
               has_table_privilege('${PURGER_USER}', 'certificate_versions', 'SELECT, DELETE') AS "certificateVersions",
-              has_table_privilege('${PURGER_USER}', 'certificate_expiry_notifications', 'SELECT, DELETE') AS notifications`,
+              has_table_privilege('${PURGER_USER}', 'certificate_expiry_notifications', 'SELECT, DELETE') AS notifications,
+              has_table_privilege('${PURGER_USER}', 'secret_rotation_notifications', 'SELECT, DELETE') AS "rotationNotifications"`,
     );
     const grants = check.rows[0];
     if (
@@ -76,7 +79,8 @@ export async function ensurePurgerRole(
       !grants.versions ||
       !grants.certificates ||
       !grants.certificateVersions ||
-      !grants.notifications
+      !grants.notifications ||
+      !grants.rotationNotifications
     ) {
       throw new Error(`Purger grants are incomplete: ${JSON.stringify(grants)}`);
     }

@@ -2469,6 +2469,154 @@
     },
     {
       "schema": "public",
+      "name": "secret_rotation_notifications",
+      "columns": [
+        {
+          "name": "audit_event_id",
+          "type": "text",
+          "nullable": true
+        },
+        {
+          "name": "claim_id",
+          "type": "text",
+          "nullable": true
+        },
+        {
+          "name": "claimed_at",
+          "type": "timestamptz",
+          "nullable": true
+        },
+        {
+          "name": "created_at",
+          "type": "timestamptz",
+          "nullable": false,
+          "default": "now()"
+        },
+        {
+          "name": "days_until_due",
+          "type": "integer",
+          "nullable": false
+        },
+        {
+          "name": "due_at",
+          "type": "timestamptz",
+          "nullable": false
+        },
+        {
+          "name": "id",
+          "type": "text",
+          "nullable": false
+        },
+        {
+          "name": "project_id",
+          "type": "text",
+          "nullable": false
+        },
+        {
+          "name": "secret_id",
+          "type": "text",
+          "nullable": false
+        },
+        {
+          "name": "sent_at",
+          "type": "timestamptz",
+          "nullable": true
+        },
+        {
+          "name": "status",
+          "type": "text",
+          "nullable": false
+        },
+        {
+          "name": "version_id",
+          "type": "text",
+          "nullable": false
+        }
+      ],
+      "primaryKey": {
+        "kind": "primaryKey",
+        "name": "secret_rotation_notifications_id_pkey",
+        "columns": [
+          "id"
+        ]
+      },
+      "uniqueConstraints": [
+        {
+          "kind": "unique",
+          "name": "secret_rotation_notifications_audit_event_id_key",
+          "columns": [
+            "audit_event_id"
+          ]
+        },
+        {
+          "kind": "unique",
+          "name": "secret_rotation_notifications_secret_id_version_id_s_55f86645f5",
+          "columns": [
+            "secret_id",
+            "version_id",
+            "status",
+            "due_at"
+          ]
+        }
+      ],
+      "checkConstraints": [
+        {
+          "kind": "check",
+          "name": "secret_rotation_notifications_349d6258df_check",
+          "expression": "id ~ '^[0-9A-HJKMNP-TV-Z]{26}$'"
+        },
+        {
+          "kind": "check",
+          "name": "secret_rotation_notifications_4ca1c67c7d_check",
+          "expression": "status IN ('due_soon', 'overdue')"
+        }
+      ],
+      "foreignKeys": [
+        {
+          "name": "secret_rotation_notifications_secret_id_fkey",
+          "kind": "foreignKey",
+          "columns": [
+            "secret_id"
+          ],
+          "referencedSchema": "public",
+          "referencedTable": "secrets",
+          "referencedColumns": [
+            "id"
+          ],
+          "onUpdate": "NO ACTION",
+          "onDelete": "CASCADE"
+        },
+        {
+          "name": "secret_rotation_notifications_secret_id_version_id_fkey",
+          "kind": "foreignKey",
+          "columns": [
+            "secret_id",
+            "version_id"
+          ],
+          "referencedSchema": "public",
+          "referencedTable": "secret_versions",
+          "referencedColumns": [
+            "secret_id",
+            "id"
+          ],
+          "onUpdate": "NO ACTION",
+          "onDelete": "CASCADE"
+        }
+      ],
+      "indexes": [
+        {
+          "name": "secret_rotation_notifications_status_idx",
+          "columns": [
+            "sent_at",
+            "claimed_at"
+          ],
+          "unique": false,
+          "concurrent": false
+        }
+      ]
+    },
+    {
+      "schema": "public",
       "name": "secret_versions",
       "columns": [
         {

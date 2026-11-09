@@ -1546,7 +1546,8 @@
                 "audit.prune",
                 "backup.create",
                 "backup.restore",
-                "certificate.expiry_warning"
+                "certificate.expiry_warning",
+                "secret.rotation_warning"
               ]
             }
           },
@@ -1704,7 +1705,8 @@
                               "audit.prune",
                               "backup.create",
                               "backup.restore",
-                              "certificate.expiry_warning"
+                              "certificate.expiry_warning",
+                              "secret.rotation_warning"
                             ]
                           },
                           "scopeType": {
@@ -1878,7 +1880,8 @@
                 "audit.prune",
                 "backup.create",
                 "backup.restore",
-                "certificate.expiry_warning"
+                "certificate.expiry_warning",
+                "secret.rotation_warning"
               ]
             }
           },

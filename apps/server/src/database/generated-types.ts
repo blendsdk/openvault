@@ -1362,6 +1362,89 @@ export interface SecretConsumerSummaries {
 }
 
 /**
+ * @unique audit_event_id
+ * @default created_at to now()
+ * @unique due_at
+ * @primaryKey id
+ * @unique id
+ * @checkContraint id CHECK ((id ~ '^[0-9A-HJKMNP-TV-Z]{26}$'::text))
+ * @unique secret_id
+ * @unique status
+ * @checkContraint status CHECK ((status = ANY (ARRAY['due_soon'::text, 'overdue'::text])))
+ * @unique version_id
+ * @interface
+ */
+export interface SecretRotationNotifications {
+  /**
+   * @unique
+   * @optional
+   * @nullable
+   * @memberOf {SecretRotationNotifications}
+   */
+  audit_event_id?: string | null;
+  /**
+   * @optional
+   * @nullable
+   * @memberOf {SecretRotationNotifications}
+   */
+  claim_id?: string | null;
+  /**
+   * @optional
+   * @nullable
+   * @memberOf {SecretRotationNotifications}
+   */
+  claimed_at?: Date | null;
+  /**
+   * @default now()
+   * @optional
+   * @memberOf {SecretRotationNotifications}
+   */
+  created_at?: Date;
+  /**
+   * @memberOf {SecretRotationNotifications}
+   */
+  days_until_due: number;
+  /**
+   * @unique
+   * @memberOf {SecretRotationNotifications}
+   */
+  due_at: Date;
+  /**
+   * @primaryKey
+   * @unique
+   * @checkContraint CHECK ((id ~ '^[0-9A-HJKMNP-TV-Z]{26}$'::text))
+   * @memberOf {SecretRotationNotifications}
+   */
+  id: string;
+  /**
+   * @memberOf {SecretRotationNotifications}
+   */
+  project_id: string;
+  /**
+   * @unique
+   * @memberOf {SecretRotationNotifications}
+   */
+  secret_id: string;
+  /**
+   * @optional
+   * @nullable
+   * @memberOf {SecretRotationNotifications}
+   */
+  sent_at?: Date | null;
+  /**
+   * @unique
+   * @checkContraint CHECK ((status = ANY (ARRAY['due_soon'::text, 'overdue'::text])))
+   * @memberOf {SecretRotationNotifications}
+   */
+  status: string;
+  /**
+   * @unique
+   * @memberOf {SecretRotationNotifications}
+   */
+  version_id: string;
+}
+
+/**
  * @checkContraint ciphertext CHECK ((octet_length(ciphertext) <= 65536))
  * @default created_at to now()
  * @primaryKey id

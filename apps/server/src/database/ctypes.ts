@@ -370,6 +370,27 @@ export const eSecretConsumerSummaries = {
 };
 
 /**
+ * Constant type for relation secret_rotation_notifications
+ * @export
+ * @constant
+ */
+export const eSecretRotationNotifications = {
+  $TABLE: "secret_rotation_notifications",
+  AUDIT_EVENT_ID: "audit_event_id",
+  CLAIM_ID: "claim_id",
+  CLAIMED_AT: "claimed_at",
+  CREATED_AT: "created_at",
+  DAYS_UNTIL_DUE: "days_until_due",
+  DUE_AT: "due_at",
+  ID: "id",
+  PROJECT_ID: "project_id",
+  SECRET_ID: "secret_id",
+  SENT_AT: "sent_at",
+  STATUS: "status",
+  VERSION_ID: "version_id",
+};
+
+/**
  * Constant type for relation secret_versions
  * @export
  * @constant

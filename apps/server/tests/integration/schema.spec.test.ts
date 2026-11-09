@@ -95,6 +95,7 @@ describe("schema inventory", () => {
       "projects",
       "role_assignments",
       "secret_consumer_summaries",
+      "secret_rotation_notifications",
       "secret_versions",
       "secrets",
       "signing_keys",
@@ -127,7 +128,7 @@ describe("schema inventory", () => {
 
   it("should create all declared foreign keys with their delete actions", async () => {
     const keys = await foreignKeys();
-    expect([...keys.values()].flat()).toHaveLength(27);
+    expect([...keys.values()].flat()).toHaveLength(29);
 
     expect(keys.get("principals")).toContain(
       "FOREIGN KEY (owner_project_id) REFERENCES projects(id) ON DELETE RESTRICT",

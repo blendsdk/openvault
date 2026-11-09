@@ -3,7 +3,7 @@
 > **Document**: 99-execution-plan.md
 > **Parent**: [Index](00-index.md)
 > **Last Updated**: 2026-11-09
-> **Progress**: 15/85 tasks (18%)
+> **Progress**: 34/85 tasks (40%)
 > **CodeOps Artifact Schema**: 1
 
 ## Overview
@@ -99,37 +99,37 @@ migration/schema invariants.
 **Reference**: [03-02](03-02-notifications.md) · ST-11..ST-22 · AR-13, AR-14, AR-15, AR-21, AR-23
 **Objective**: Pin due-soon/overdue delivery, dedupe, retry, audit, purge, and config.
 
-- [ ] 2.1.1 [spec-author] Write notification scan, webhook, days-boundary, and concurrency spec tests — `apps/server/tests/integration/secrets/rotation-notifications.spec.test.ts`
-- [ ] 2.1.2 [spec-author] Write purge/dump/grant/config and migration-inventory spec tests — `apps/server/tests/integration/secrets/rotation-lifecycle.spec.test.ts`
-- [ ] 2.1.3 Run the tests and confirm red
+- [x] 2.1.1 [spec-author] Write notification scan, webhook, days-boundary, and concurrency spec tests — `apps/server/tests/integration/secrets/rotation-notifications.spec.test.ts`
+- [x] 2.1.2 [spec-author] Write purge/dump/grant/config and migration-inventory spec tests — `apps/server/tests/integration/secrets/rotation-lifecycle.spec.test.ts`
+- [x] 2.1.3 Run the tests and confirm red
 
 ### Step 2.2: Implementation
 
 **Reference**: [03-02](03-02-notifications.md) · AR-13, AR-14, AR-15, AR-21, AR-22, PAR-04, PAR-05, PAR-06, PAR-07, PAR-14
 **Objective**: Add the table, scan, webhook, audit, config, scheduler, and lifecycle integration.
 
-- [ ] 2.2.1 Add `secret_rotation_notifications` to the schema with the unique constraints (including `audit_event_id`), index, and two `ON DELETE CASCADE` foreign keys — `apps/server/src/database/schema.ts`
-- [ ] 2.2.2 Implement the notification repository with row locks (`FOR SHARE OF s, p`), claim, lease, mark-sent, release, and a `(dueAt, secretId)` keyset — `apps/server/src/secrets/rotation/repository.ts`
-- [ ] 2.2.3 Implement the scan service with due-soon/overdue thresholds, the `daysUntilDue` ceil/floor rule, retry, and audit — `apps/server/src/secrets/rotation/service.ts`
-- [ ] 2.2.4 Implement the signed webhook with URL validation and HMAC — `apps/server/src/secrets/rotation/webhook.ts`
-- [ ] 2.2.5 Implement the daily scheduler with the existing catch-up/next-run pattern — `apps/server/src/secrets/rotation/scheduler.ts`
-- [ ] 2.2.6 Add the four config settings, validation, parameterized URL error path, and `rotationScanHour`/`rotationWarningDays`/`rotationWebhookConfigured` redaction — `apps/server/src/config/loader.ts`, `apps/server/src/config/types.ts`
-- [ ] 2.2.7 Wire the scheduler into the app lifecycle under `disableBackgroundJobs !== true`; register the disposer — `apps/server/src/app.ts`
-- [ ] 2.2.8 Add `secret.rotation_warning` to the audit action catalog and detail allowlist — `packages/api-contract/src/actions.ts`, `apps/server/src/audit/actions.ts`
-- [ ] 2.2.9 Add the table to purge, dump, grants, and the purge test helper — `apps/server/src/purge/vault-purger.ts`, `apps/server/src/ops/database-dump.ts`, `deploy/postgres/grants.sql`, `apps/server/tests/integration/helpers/purger.ts`
-- [ ] 2.2.10 Generate the Phase 2 migration (table, constraints, FKs) and snapshot; update the migration/schema/role/purger assertions and run `pnpm db:types` — `apps/server/migrations/`, `apps/server/tests/integration/{migrations,schema,roles}.spec.test.ts`, `apps/server/tests/integration/security/auth-boundary.spec.test.ts`
-- [ ] 2.2.11 Run the Phase 2 spec and integration tests and confirm green
+- [x] 2.2.1 Add `secret_rotation_notifications` to the schema with the unique constraints (including `audit_event_id`), index, and two `ON DELETE CASCADE` foreign keys — `apps/server/src/database/schema.ts`
+- [x] 2.2.2 Implement the notification repository with row locks (`FOR SHARE OF s, p`), claim, lease, mark-sent, release, and a `(dueAt, secretId)` keyset — `apps/server/src/secrets/rotation/repository.ts`
+- [x] 2.2.3 Implement the scan service with due-soon/overdue thresholds, the `daysUntilDue` ceil/floor rule, retry, and audit — `apps/server/src/secrets/rotation/service.ts`
+- [x] 2.2.4 Implement the signed webhook with URL validation and HMAC — `apps/server/src/secrets/rotation/webhook.ts`
+- [x] 2.2.5 Implement the daily scheduler with the existing catch-up/next-run pattern — `apps/server/src/secrets/rotation/scheduler.ts`
+- [x] 2.2.6 Add the four config settings, validation, parameterized URL error path, and `rotationScanHour`/`rotationWarningDays`/`rotationWebhookConfigured` redaction — `apps/server/src/config/loader.ts`, `apps/server/src/config/types.ts`
+- [x] 2.2.7 Wire the scheduler into the app lifecycle under `disableBackgroundJobs !== true`; register the disposer — `apps/server/src/app.ts`
+- [x] 2.2.8 Add `secret.rotation_warning` to the audit action catalog and detail allowlist — `packages/api-contract/src/actions.ts`, `apps/server/src/audit/actions.ts`
+- [x] 2.2.9 Add the table to purge, dump, grants, and the purge test helper — `apps/server/src/purge/vault-purger.ts`, `apps/server/src/ops/database-dump.ts`, `deploy/postgres/grants.sql`, `apps/server/tests/integration/helpers/purger.ts`
+- [x] 2.2.10 Generate the Phase 2 migration (table, constraints, FKs) and snapshot; update the migration/schema/role/purger assertions and run `pnpm db:types` — `apps/server/migrations/`, `apps/server/tests/integration/{migrations,schema,roles}.spec.test.ts`, `apps/server/tests/integration/security/auth-boundary.spec.test.ts`
+- [x] 2.2.11 Run the Phase 2 spec and integration tests and confirm green
 
 ### Step 2.3: Implementation tests and hardening
 
 **Reference**: ST-11..ST-22 · PAR-05, PAR-07
 **Objective**: Prove the security and lifecycle edges.
 
-- [ ] 2.3.1 Add webhook URL/HMAC/timeout/SSRF tests — `apps/server/tests/integration/secrets/rotation-webhook.impl.test.ts`
-- [ ] 2.3.2 Add scheduler lease/retry/duplicate/background-job-gate tests — `apps/server/tests/integration/secrets/rotation-scheduler.impl.test.ts`
-- [ ] 2.3.3 Add a purge test that asserts no orphan notification rows — `apps/server/tests/integration/secrets/rotation-purge.impl.test.ts`
-- [ ] 2.3.4 Add a concurrent purge/claim and keyset-pagination test — `apps/server/tests/integration/secrets/rotation-scheduler.impl.test.ts`
-- [ ] 2.3.5 Confirm the payload and audit event contain no value — notification tests
+- [x] 2.3.1 Add webhook URL/HMAC/timeout/SSRF tests — `apps/server/tests/integration/secrets/rotation-webhook.impl.test.ts`
+- [x] 2.3.2 Add scheduler lease/retry/duplicate/background-job-gate tests — `apps/server/tests/integration/secrets/rotation-scheduler.impl.test.ts`
+- [x] 2.3.3 Add a purge test that asserts no orphan notification rows — `apps/server/tests/integration/secrets/rotation-purge.impl.test.ts`
+- [x] 2.3.4 Add a concurrent purge/claim and keyset-pagination test — `apps/server/tests/integration/secrets/rotation-scheduler.impl.test.ts`
+- [x] 2.3.5 Confirm the payload and audit event contain no value — notification tests
 
 **Deliverables**:
 - [ ] The scan, webhook, audit, purge, dump, and config pass their tests
