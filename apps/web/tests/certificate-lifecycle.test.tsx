@@ -42,7 +42,7 @@ describe("certificate metadata and lifecycle", () => {
     fireEvent.change(await screen.findByLabelText("Tags"), {
       target: { value: "env=stage" },
     });
-    fireEvent.click(screen.getByRole("switch", { name: "Purge protection" }));
+    fireEvent.click(await screen.findByRole("switch", { name: "Purge protection" }));
     fireEvent.click(screen.getByRole("button", { name: "Save metadata" }));
 
     await waitFor(() => {

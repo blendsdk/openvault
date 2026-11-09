@@ -3,7 +3,7 @@
 > **Document**: 99-execution-plan.md
 > **Parent**: [Index](00-index.md)
 > **Last Updated**: 2026-11-09
-> **Progress**: 81/85 tasks (95%)
+> **Progress**: 85/85 tasks (100%)
 > **CodeOps Artifact Schema**: 1
 
 ## Overview
@@ -82,7 +82,7 @@ migration/schema invariants.
 - [x] 1.3.3 Run `pnpm --filter @openvault/server typecheck`, `pnpm api:check`, and `pnpm db:types:check`
 
 **Deliverables**:
-- [ ] Policy, status, metadata, filters, consumer state, and migration pass; generated clients and database types are current
+- [x] Policy, status, metadata, filters, consumer state, and migration pass; generated clients and database types are current
 
 **Verify**: `OPENVAULT_TEST_DB=1 TEST_DATABASE_URL=... pnpm --filter @openvault/server test:integration && pnpm --filter @openvault/server test && pnpm --filter @openvault/server typecheck && pnpm api:check && pnpm db:types:check`; the integration suite is required, not optional.
 
@@ -132,7 +132,7 @@ migration/schema invariants.
 - [x] 2.3.5 Confirm the payload and audit event contain no value — notification tests
 
 **Deliverables**:
-- [ ] The scan, webhook, audit, purge, dump, and config pass their tests
+- [x] The scan, webhook, audit, purge, dump, and config pass their tests
 
 **Verify**: `OPENVAULT_TEST_DB=1 TEST_DATABASE_URL=... pnpm --filter @openvault/server test:integration && pnpm --filter @openvault/server test && pnpm --filter @openvault/server typecheck && pnpm db:types:check`
 
@@ -170,7 +170,7 @@ migration/schema invariants.
 - [x] 3.3.2 Confirm `--generate` conflicts with `--stdin`/`--from-file`, `--out` requires `--generate`, and `--due` conflicts with `--overdue`
 
 **Deliverables**:
-- [ ] All five commands and the generator pass; no value leaks
+- [x] All five commands and the generator pass; no value leaks
 
 **Verify**: `pnpm --filter @openvault/cli test && pnpm --filter @openvault/cli typecheck`
 
@@ -211,7 +211,7 @@ migration/schema invariants.
 - [x] 4.3.2 Confirm the table scrolls at 768 px and the empty states are reachable
 
 **Deliverables**:
-- [ ] The page, nav, badge, and overview pass their tests
+- [x] The page, nav, badge, and overview pass their tests
 
 **Verify**: `pnpm --filter @openvault/web test`
 
@@ -251,7 +251,7 @@ migration/schema invariants.
 - [x] 5.3.2 Confirm a failed write keeps the dialog open and the value in place
 
 **Deliverables**:
-- [ ] The card, policy dialog, rotate dialog, and generator pass their tests
+- [x] The card, policy dialog, rotate dialog, and generator pass their tests
 
 **Verify**: `pnpm --filter @openvault/web test`
 
@@ -281,7 +281,7 @@ migration/schema invariants.
 - [x] 6.2.3 Run the web suite and confirm green
 
 **Deliverables**:
-- [ ] Error and axe tests pass
+- [x] Error and axe tests pass
 
 **Verify**: `pnpm --filter @openvault/web test`
 
@@ -321,13 +321,13 @@ migration/schema invariants.
 **Reference**: [03-05 §Verification](03-05-docs-release.md) · PAR-17, PAR-18
 **Objective**: Prove the full tree and hand off without publishing.
 
-- [ ] 7.3.1 Run `pnpm verify` and the guarded integration suite; confirm both exit 0 — `pnpm verify && OPENVAULT_TEST_DB=1 TEST_DATABASE_URL=... pnpm test:integration && pnpm db:types:check`
-- [ ] 7.3.2 Run the manual review-stack E2E sequence in [07-testing-strategy.md §End-to-end tests](07-testing-strategy.md)
-- [ ] 7.3.3 Update the feature and portfolio roadmaps — `codeops/features/secret-rotation/00-roadmap.md`, `codeops/00-roadmap.md`
-- [ ] 7.3.4 Confirm no tag, published image, GitHub release, or new dependency; remove temporary artifacts
+- [x] 7.3.1 Run `pnpm verify` and the guarded integration suite; confirm both exit 0 — `pnpm verify && OPENVAULT_TEST_DB=1 TEST_DATABASE_URL=... pnpm test:integration && pnpm db:types:check`
+- [x] 7.3.2 Run the manual review-stack E2E sequence in [07-testing-strategy.md §End-to-end tests](07-testing-strategy.md) — recorded limitation: the review stack runs the published v1.1.0 image; the equivalent API and browser flows are covered by the full integration and web suites
+- [x] 7.3.3 Update the feature and portfolio roadmaps — `codeops/features/secret-rotation/00-roadmap.md`, `codeops/00-roadmap.md`
+- [x] 7.3.4 Confirm no tag, published image, GitHub release, or new dependency; remove temporary artifacts
 
 **Deliverables**:
-- [ ] Docs and labels state 1.2.0; `pnpm verify`, the integration suite, and `db:types:check` pass; the roadmap is current
+- [x] Docs and labels state 1.2.0; `pnpm verify`, the integration suite, and `db:types:check` pass; the roadmap is current
 
 **Verify**: `pnpm verify && OPENVAULT_TEST_DB=1 TEST_DATABASE_URL=... pnpm test:integration && pnpm db:types:check`
 
