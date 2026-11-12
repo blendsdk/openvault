@@ -157,6 +157,9 @@ services:
 
   openvaultd:
     <<: *hardening
+    # Reap orphaned healthcheck children (wget's TLS helper) so repeated
+    # checks do not accumulate zombies in the long-running server.
+    init: true
     image: ${OPENVAULT_IMAGE:-blendsdk/openvault:1.2.0}
     user: "10001:10001"
     read_only: true
