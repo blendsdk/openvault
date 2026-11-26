@@ -10,15 +10,15 @@
     "test": "vitest run"
   },
   "dependencies": {
-    "@blendsdk/fluentui-react-components": "0.6.1",
-    "@fluentui/react-components": "9.75.1",
-    "@fluentui/react-datepicker-compat": "0.6.40",
-    "@fluentui/react-icons": "2.0.345",
+    "@blendsdk/fluentui-react-components": "0.7.0",
+    "@fluentui/react-components": "9.75.2",
+    "@fluentui/react-datepicker-compat": "0.6.41",
+    "@fluentui/react-icons": "2.0.347",
     "@openvault/api-contract": "workspace:*",
     "blendsdk": "5.68.1",
     "react": "19.3.1",
     "react-dom": "19.3.1",
-    "react-hook-form": "7.91.0",
+    "react-hook-form": "7.92.0",
     "react-router": "7.18.5"
   },
   "devDependencies": {
